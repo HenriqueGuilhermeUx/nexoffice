@@ -20,6 +20,7 @@ import {registerPlatformLegalRoutes} from './routes-platform-legal.js';
 import {registerPlatformCondoRoutes} from './routes-platform-condo.js';
 import {registerPlatformCommerceRoutes} from './routes-platform-commerce.js';
 import {registerSignalRoutes} from './routes-signals.js';
+import {registerAutomationRoutes} from './routes-automation.js';
 
 const app=Fastify({logger:true});
 const port=Number(process.env.PORT||4000);
@@ -36,7 +37,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.15.0',database:Boolean(db)}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.16.0',database:Boolean(db)}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -55,6 +56,7 @@ await registerPlatformLegalRoutes(app);
 await registerPlatformCondoRoutes(app);
 await registerPlatformCommerceRoutes(app);
 await registerSignalRoutes(app);
+await registerAutomationRoutes(app);
 await registerCollectionsRoutes(app);
 await registerReconciliationRoutes(app);
 
