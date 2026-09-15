@@ -12,6 +12,7 @@ import {registerCollectionsRoutes} from './routes-collections.js';
 import {registerReconciliationRoutes} from './routes-reconciliation.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
+import {registerFiscalRoutes} from './routes-fiscal.js';
 
 const app=Fastify({logger:true});
 const port=Number(process.env.PORT||4000);
@@ -28,7 +29,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.7.0',database:Boolean(db)}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.8.0',database:Boolean(db)}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -39,6 +40,7 @@ await registerRuntimeRoutes(app);
 await registerAssistantRoutes(app);
 await registerStaffRoutes(app);
 await registerSmartBotsRoutes(app);
+await registerFiscalRoutes(app);
 await registerCollectionsRoutes(app);
 await registerReconciliationRoutes(app);
 
