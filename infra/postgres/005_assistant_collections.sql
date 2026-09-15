@@ -71,7 +71,7 @@ insert into collection_rules(workspace_id,name)
 select id,'Régua padrão' from workspaces
 on conflict(workspace_id,name) do nothing;
 
--- New workspaces get collection behavior and autonomy defaults automatically.
+-- New workspaces receive the same collection rule.
 create or replace function seed_workspace_collection_rule() returns trigger language plpgsql as $$
 begin
   insert into collection_rules(workspace_id,name) values(new.id,'Régua padrão') on conflict do nothing;
@@ -81,6 +81,7 @@ end $$;
 drop trigger if exists workspaces_seed_collection_rule on workspaces;
 create trigger workspaces_seed_collection_rule after insert on workspaces for each row execute function seed_workspace_collection_rule();
 
+-- Apply new autonomy policies to existing workspaces.
 insert into autonomy_policies(workspace_id,action_type,mode)
 select id,'collection.reminder.send','approval_required'::autonomy_mode from workspaces
 on conflict(workspace_id,action_type) do nothing;
@@ -90,3 +91,29 @@ on conflict(workspace_id,action_type) do nothing;
 insert into autonomy_policies(workspace_id,action_type,mode)
 select id,'document.signature_request','approval_required'::autonomy_mode from workspaces
 on conflict(workspace_id,action_type) do nothing;
+
+-- 004 owns the workspace policy trigger. Extend its function so workspaces created after
+-- this migration receive every operational default as well.
+create or replace function seed_workspace_policies() returns trigger language plpgsql as $$
+begin
+  insert into autonomy_policies(workspace_id,action_type,mode) values
+    (new.id,'appointment.confirm*','notify'),
+    (new.id,'appointment.cancelled','notify'),
+    (new.id,'reminder.*','notify'),
+    (new.id,'message.send*','notify'),
+    (new.id,'lead.created','notify'),
+    (new.id,'deal.stage_changed','notify'),
+    (new.id,'deal.won','notify'),
+    (new.id,'task.completed','notify'),
+    (new.id,'payment.received','notify'),
+    (new.id,'document.signed','notify'),
+    (new.id,'document.analyze','notify'),
+    (new.id,'collection.reminder.send','approval_required'),
+    (new.id,'document.signature_request','approval_required'),
+    (new.id,'payment.discount*','approval_required'),
+    (new.id,'payment.refund*','approval_required'),
+    (new.id,'campaign.budget.*','approval_required'),
+    (new.id,'document.sign_on_behalf*','approval_required')
+  on conflict(workspace_id,action_type) do nothing;
+  return new;
+end $$;
