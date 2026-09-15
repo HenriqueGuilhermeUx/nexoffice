@@ -87,13 +87,16 @@ async function dispatchStaff(payload:any,workspaceId?:string){
 
 async function dispatchSmartBots(payload:any,workspaceId?:string){
   if(!workspaceId)return {ok:false,error:'smartbots_workspace_required'};
-  if(payload?.humanApproved!==true)return {ok:false,error:'smartbots_human_approval_required'};
+  const actionId=String(payload?.commandActionId||'').trim();
+  if(!actionId)return {ok:false,error:'smartbots_command_action_required'};
+  const proof=(await query<any>(`select a.id,p.id approval_id,p.status approval_status,p.decided_by,exists(select 1 from audit_log l where l.workspace_id=a.workspace_id and l.subject_type='command_action' and l.subject_id=a.id::text and l.action='command.decision' and l.metadata->>'decision'='approved') audit_approved from command_actions a left join approval_requests p on p.id=a.approval_id where a.id=$1 and a.workspace_id=$2 limit 1`,[actionId,workspaceId]))[0];
+  const humanApproved=Boolean((proof?.approval_status==='approved'&&proof?.decided_by)||proof?.audit_approved);
+  if(!humanApproved)return {ok:false,error:'smartbots_human_approval_required'};
   const mapping=(await query<any>(`select external_account_ref,config from integrations where workspace_id=$1 and provider='smartbots' limit 1`,[workspaceId]))[0];
   const botId=String(mapping?.external_account_ref||mapping?.config?.botId||process.env.SMARTBOTS_BOT_ID||'').trim();
   if(!botId)return {ok:false,error:'smartbots_bot_not_connected'};
   const path=String(process.env.SMARTBOTS_SEND_PATH||'/api/internal/nexoffice/message');
-  const correlationId=String(payload?.correlationId||payload?.commandActionId||'').trim();
-  if(!correlationId)return {ok:false,error:'smartbots_correlation_required'};
+  const correlationId=String(payload?.correlationId||actionId).trim();
   return providerRequest('smartbots',path,'POST',{
     botId,
     channel:payload?.channel||'whatsapp',
@@ -101,8 +104,8 @@ async function dispatchSmartBots(payload:any,workspaceId?:string){
     message:payload?.message,
     contactName:payload?.contactName,
     correlationId,
-    commandActionId:payload?.commandActionId||null,
-    approvalId:payload?.approvalId||null,
+    commandActionId:actionId,
+    approvalId:proof?.approval_id||null,
     humanApproved:true,
     metadata:{ledgerEntryId:payload?.ledgerEntryId||null}
   },{'X-NexOffice-Workspace-ID':workspaceId,'Idempotency-Key':correlationId});
