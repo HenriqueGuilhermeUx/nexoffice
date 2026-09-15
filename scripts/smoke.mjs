@@ -60,7 +60,16 @@ const outboxBefore=await call('/v1/outbox');assert(outboxBefore.length>=4,'docum
 const processed=await call('/v1/outbox/process',{method:'POST',body:{limit:20}});assert(processed.processed>=4,'outbox dry-run processes queued external actions');assert(processed.results.every(x=>x.ok===true&&x.dryRun===true),'CI external effects remain dry-run');
 const runs=await call('/v1/agent-runs');assert(runs.length>=4,'agent runs persisted');assert(runs.some(x=>x.status==='succeeded'),'agent runs complete after dry-run dispatch');
 
+// ERP Lite reconciliation: imported bank transaction can be matched automatically to a unique ledger entry.
+const accounts=await call('/v1/finance/accounts');assert(accounts.length>=1,'default finance account exists');
+const reconcileLedger=await call('/v1/ledger',{method:'POST',body:{contactId:contact.id,accountId:accounts[0].id,direction:'income',category:'serviços',description:'Recebível para conciliação',amountMinor:123400,status:'open',dueAt:new Date().toISOString()}});assert(reconcileLedger.id,'reconciliation ledger created');
+const bankTime=new Date().toISOString();
+const imported=await call('/v1/reconciliation/import',{method:'POST',body:{accountId:accounts[0].id,provider:'smoke-bank',items:[{externalRef:'smoke-bank-001',occurredAt:bankTime,direction:'income',amountMinor:123400,currency:'BRL',description:'PIX recebido Cliente Smoke',counterparty:'Cliente Smoke'}]}});assert(imported.inserted===1,'bank transaction imported');
+const autoMatch=await call('/v1/reconciliation/auto-match',{method:'POST',body:{max:20,minConfidence:.9}});assert(autoMatch.matched===1,'auto reconciliation matches unique transaction');
+const reconciliation=await call('/v1/reconciliation/summary');assert(reconciliation.matched===1&&reconciliation.unmatched===0,'reconciliation summary updated');
+const ledgerAfter=await call('/v1/ledger');const matchedLedger=ledgerAfter.find(x=>x.id===reconcileLedger.id);assert(matchedLedger?.status==='paid','reconciliation settles ledger entry');
+
 const invite=await call('/v1/members/invite',{method:'POST',body:{email:'member@nexoffice.test',role:'member'}});assert(invite.inviteToken,'invite token returned');
 const memberRegister=await call('/v1/auth/register',{method:'POST',auth:false,body:{name:'Smoke Member',email:'member@nexoffice.test',password:'SmokePass123!',inviteToken:invite.inviteToken}});assert(memberRegister.workspace.id===workspace,'invite joins same workspace');
 
-console.log(JSON.stringify({ok:true,workspace,contact:contact.id,deal:deal.id,assistantConversation:chat.conversationId,document:doc.id,collectionAttempts:collectionScan.created,agentRuns:runs.length,outboxProcessed:processed.processed,actions:actions.length,policies:policies.length},null,2));
+console.log(JSON.stringify({ok:true,workspace,contact:contact.id,deal:deal.id,assistantConversation:chat.conversationId,document:doc.id,collectionAttempts:collectionScan.created,agentRuns:runs.length,outboxProcessed:processed.processed,reconciliationMatches:autoMatch.matched,actions:actions.length,policies:policies.length},null,2));
