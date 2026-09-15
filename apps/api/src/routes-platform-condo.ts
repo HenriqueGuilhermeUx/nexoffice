@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {ApiError} from './auth.js';
 import {query} from './db.js';
 import {CondoOperationalSignal,CONDO_SIGNAL_TYPES} from './condo-data-firewall.js';
+import {syncOperationalActions} from './operational-action-engine.js';
 
 function safeEqual(received:string,expected:string){if(!received||!expected)return false;const a=Buffer.from(received),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b)}
 function authorize(req:FastifyRequest){const expected=String(process.env.NEXOFFICE_INTERNAL_KEY||'').trim();if(!expected)throw new ApiError(503,'platform_bridge_not_configured','NEXOFFICE_INTERNAL_KEY não configurada.');const received=String(req.headers['x-nexoffice-key']||'');if(!safeEqual(received,expected))throw new ApiError(401,'unauthorized','Credencial interna inválida.')}
@@ -28,7 +29,8 @@ export async function registerPlatformCondoRoutes(app:FastifyInstance){
       returning id,workspace_id,source_product,signal_type,period_start,period_end,metrics,dimensions,correlation_id,created_at
     `,[workspace.id,input.signalType,input.periodStart,input.periodEnd,JSON.stringify(input.metrics),JSON.stringify(input.dimensions),input.correlationId||null]);
     await query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,metadata) values($1,'service','sindcopilot','platform.condo_signal.accepted','workspace',$1::uuid::text,$2)`,[workspace.id,JSON.stringify({signalType:input.signalType,correlationId:input.correlationId||null,privacy:'aggregate_only'})]).catch(()=>null);
-    return {ok:true,privacy:'aggregate_only',signal:rows[0]};
+    const actionSync=await syncOperationalActions(workspace.id).catch(error=>({created:0,updated:0,priorities:0,error:error instanceof Error?error.message:String(error)}));
+    return {ok:true,privacy:'aggregate_only',signal:rows[0],actionSync};
   });
 
   app.get('/v1/platform/condo-signals',async req=>{
