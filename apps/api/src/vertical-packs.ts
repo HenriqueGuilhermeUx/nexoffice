@@ -16,10 +16,13 @@ export const VERTICAL_PACKS:Record<VerticalPackId,any>={
     domainOwner:'nexjud',excludedObjects:['processo judicial','prazo processual','petição','jurimetria'],privacy:{sensitiveDomainData:false},plannedCapabilities:['matter-link']
   },
   health:{
-    id:'health',label:'NexOffice Health',description:'Operação do negócio de saúde conectável ao MyDataMed/Health Wallet sem armazenar prontuário no NexOffice.',modules:[...CORE_MODULES,'health-pack'],
-    terminology:{contact:'Paciente / cliente',deal:'Jornada / oportunidade',appointment:'Atendimento',receivable:'Atendimento a receber'},
+    id:'health',label:'NexOffice Health',description:'Camada administrativa e empresarial para organizações de saúde, conectável ao MyDataMed/Health Wallet sem armazenar identidade de paciente ou dado clínico.',modules:[...CORE_MODULES,'health-pack'],
+    terminology:{contact:'Contato empresarial / parceiro',deal:'Oportunidade / contrato',appointment:'Agenda operacional',receivable:'Recebível'},
     recommendedIntegrations:['docwallet','staff','smartbots','nextgen','modo','taxagent','mydatamed'],
-    domainOwner:'mydatamed',excludedObjects:['prontuário','diagnóstico','prescrição','exame clínico bruto','dados Health Connect'],privacy:{sensitiveDomainData:true,forbidRawHealthData:true},plannedCapabilities:['patient-link']
+    domainOwner:'mydatamed',
+    excludedObjects:['identidade de paciente','CPF/CNS de paciente','prontuário','diagnóstico','prescrição','medicação','exame clínico bruto','nota clínica','genética','dado de wearable','dados Health Connect'],
+    privacy:{sensitiveDomainData:true,forbidRawHealthData:true,forbidPatientIdentity:true,aggregateOperationalSignalsOnly:true},
+    plannedCapabilities:['organization-link','aggregate-ops-signals']
   },
   condo:{
     id:'condo',label:'NexOffice Condo',description:'Camada administrativa, financeira e de relacionamento conectável ao SindCopilot.',modules:[...CORE_MODULES,'condo-pack'],
