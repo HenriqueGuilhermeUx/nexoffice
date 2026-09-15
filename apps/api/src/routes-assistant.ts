@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext,ApiError} from './auth.js';
 import {query} from './db.js';
 import {financeSummary} from './events.js';
+import {buildOperationalPriorities,operationalSignalNarrative,safeOperationalSignal,type OperationalSignal} from './operational-signals.js';
 
 const uuid=z.string().uuid();
 const roles=['secretary','service','crm','erp','collections','controller','documents','growth'] as const;
@@ -10,21 +11,28 @@ const roles=['secretary','service','crm','erp','collections','controller','docum
 export async function registerAssistantRoutes(app:FastifyInstance){
   app.get('/v1/assistant/brief',async req=>{
     const ctx=await workspaceContext(req,'command.read');
-    const [finance,crm,agenda,tasks,docs,actions]=await Promise.all([
+    const [finance,crm,agenda,tasks,docs,actions,workspace,signalRows]=await Promise.all([
       financeSummary(ctx.workspaceId),
       query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint open_pipeline_minor,count(*) filter(where stage='lead')::int leads,count(*) filter(where stage='proposal')::int proposals from crm_deals where workspace_id=$1`,[ctx.workspaceId]),
       query<any>(`select count(*)::int today from appointments where workspace_id=$1 and starts_at>=date_trunc('day',now()) and starts_at<date_trunc('day',now())+interval '1 day' and status not in ('cancelled')`,[ctx.workspaceId]),
       query<any>(`select count(*)::int due from tasks where workspace_id=$1 and status in ('todo','doing') and (due_at is null or due_at<=now()+interval '24 hours')`,[ctx.workspaceId]),
       query<any>(`select count(*)::int total,count(*) filter(where signature_status not in ('not_requested','signed','completed'))::int signatures_pending,count(*) filter(where intelligence_status in ('queued','processing','error'))::int analysis_attention from document_refs where workspace_id=$1`,[ctx.workspaceId]),
-      query<any>(`select count(*)::int open_actions from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[ctx.workspaceId])
+      query<any>(`select count(*)::int open_actions from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[ctx.workspaceId]),
+      query<any>(`select vertical from workspaces where id=$1`,[ctx.workspaceId]),
+      query<any>(`select id,source_product,signal_type,period_start,period_end,metrics,dimensions,created_at from workspace_operational_signals where workspace_id=$1 order by period_end desc,created_at desc limit 30`,[ctx.workspaceId])
     ]);
-    const pulse={finance,crm:crm[0],agenda:agenda[0],tasks:tasks[0],documents:docs[0],command:actions[0]};
+    const vertical=String(workspace[0]?.vertical||'general');
+    const operationalSignals=signalRows.map(safeOperationalSignal);
+    const pulse={finance,crm:crm[0],agenda:agenda[0],tasks:tasks[0],documents:docs[0],command:actions[0],operational:{privacy:'aggregate_only',signals:operationalSignals.slice(0,12)}};
     const priorities=[] as Array<{level:string;title:string;detail:string;target:string}>;
     if(Number(finance.overdue_count)>0)priorities.push({level:'high',title:`${finance.overdue_count} cobrança(s) vencida(s)`,detail:`Há ${money(finance.receivable_minor)} a receber no total.`,target:'finance'});
     if(Number(tasks[0]?.due||0)>0)priorities.push({level:'normal',title:`${tasks[0].due} tarefa(s) pedem atenção`,detail:'Revise prazos e próximos passos.',target:'agenda'});
     if(Number(crm[0]?.leads||0)>0)priorities.push({level:'normal',title:`${crm[0].leads} lead(s) no início do funil`,detail:`Pipeline aberto de ${money(crm[0].open_pipeline_minor)}.`,target:'crm'});
     if(Number(docs[0]?.signatures_pending||0)>0)priorities.push({level:'normal',title:`${docs[0].signatures_pending} assinatura(s) pendente(s)`,detail:'Acompanhe os documentos que aguardam ação.',target:'documents'});
-    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName},pulse,priorities,suggestedPrompts:['Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?']};
+    priorities.push(...buildOperationalPriorities(vertical,operationalSignals));
+    priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
+    const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':null;
+    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?'].filter(Boolean)};
   });
 
   app.get('/v1/assistant/conversations',async req=>{
@@ -61,6 +69,20 @@ export async function registerAssistantRoutes(app:FastifyInstance){
 
 async function answer(workspaceId:string,message:string,forcedRole:string|null){
   const text=normalize(message);const actions:Array<{label:string;target:string}> = [];
+  const vertical=await getWorkspaceVertical(workspaceId);
+
+  if(vertical==='legal'&&match(text,['nexjud','operacao juridica','operacao legal','juridic','movimentacao juridica','movimentacoes juridicas','carteira juridica'])){
+    const signals=await getOperationalSignals(workspaceId,'nexjud');
+    const narrative=operationalSignalNarrative('legal',signals);
+    actions.push({label:'Central de Comando',target:'command'});
+    return {agentRole:forcedRole||'controller',text:narrative.text,facts:narrative.facts,actions};
+  }
+  if(vertical==='health'&&match(text,['operacao de saude','operacao administrativa de saude','sla','solicitacoes operacionais','carga operacional de saude'])){
+    const signals=await getOperationalSignals(workspaceId);
+    const narrative=operationalSignalNarrative('health',signals);
+    actions.push({label:'Central de Comando',target:'command'});
+    return {agentRole:forcedRole||'controller',text:narrative.text,facts:narrative.facts,actions};
+  }
   if(match(text,['receber','recebiveis','cobranca','cobrancas','vencid','inadimpl'])){
     const finance=await financeSummary(workspaceId);const overdue=await query<any>(`select l.id,l.description,l.amount_minor,l.due_at,c.name contact_name from ledger_entries l left join crm_contacts c on c.id=l.contact_id where l.workspace_id=$1 and l.direction='income' and l.status in ('open','overdue') order by case when l.due_at<now() then 0 else 1 end,l.due_at nulls last limit 8`,[workspaceId]);
     actions.push({label:'Abrir financeiro',target:'finance'});return {agentRole:forcedRole||'collections',text:`Você tem ${money(finance.receivable_minor)} a receber e ${finance.overdue_count||0} lançamento(s) vencido(s).${overdue.length?` Prioridades: ${overdue.map(x=>`${x.contact_name||x.description} (${money(x.amount_minor)})`).join('; ')}.`:''}`,facts:{finance,overdue},actions};
@@ -86,13 +108,21 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const docs=await query<any>(`select title,status,intelligence_status,signature_status,document_type from document_refs where workspace_id=$1 order by updated_at desc limit 12`,[workspaceId]);
     actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:docs.length?`Há ${docs.length} documento(s) recentes no NexOffice. ${docs.filter(x=>x.signature_status&&!['not_requested','signed','completed'].includes(x.signature_status)).length} têm assinatura em andamento e ${docs.filter(x=>['queued','processing','error'].includes(x.intelligence_status)).length} precisam de atenção na análise.`:'Ainda não há referências documentais neste workspace.',facts:{documents:docs},actions};
   }
-  if(match(text,['marketing','campanha','campanhas','conteudo','conteudo','growth','publicidade'])){
+  if(match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade'])){
     actions.push({label:'Ver integrações',target:'integrations'});return {agentRole:forcedRole||'growth',text:'O Growth Agent está preparado para receber sinais do CRM, agenda e serviços vendidos e repassá-los ao MODO. Antes de publicar ou alterar orçamento, o NexOffice respeita sua política de aprovação.',facts:{},actions};
   }
-  const [finance,crm,tasks,agenda,actionsOpen]=await Promise.all([financeSummary(workspaceId),query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline from crm_deals where workspace_id=$1`,[workspaceId]),query<any>(`select count(*)::int due from tasks where workspace_id=$1 and status in ('todo','doing') and (due_at is null or due_at<=now()+interval '24 hours')`,[workspaceId]),query<any>(`select count(*)::int today from appointments where workspace_id=$1 and starts_at>=date_trunc('day',now()) and starts_at<date_trunc('day',now())+interval '1 day' and status<>'cancelled'`,[workspaceId]),query<any>(`select count(*)::int n from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[workspaceId])]);
-  actions.push({label:'Central de Comando',target:'command'});return {agentRole:forcedRole||'controller',text:`Resumo agora: pipeline de ${money(crm[0].pipeline)} em ${crm[0].open_deals} oportunidade(s); ${money(finance.receivable_minor)} a receber, com ${finance.overdue_count||0} vencido(s); ${agenda[0].today||0} compromisso(s) hoje; ${tasks[0].due||0} tarefa(s) pedindo atenção; e ${actionsOpen[0].n||0} ação(ões) na Central de Comando.`,facts:{finance,crm:crm[0],tasks:tasks[0],agenda:agenda[0],command:actionsOpen[0]},actions};
+  const [finance,crm,tasks,agenda,actionsOpen,signals]=await Promise.all([financeSummary(workspaceId),query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline from crm_deals where workspace_id=$1`,[workspaceId]),query<any>(`select count(*)::int due from tasks where workspace_id=$1 and status in ('todo','doing') and (due_at is null or due_at<=now()+interval '24 hours')`,[workspaceId]),query<any>(`select count(*)::int today from appointments where workspace_id=$1 and starts_at>=date_trunc('day',now()) and starts_at<date_trunc('day',now())+interval '1 day' and status<>'cancelled'`,[workspaceId]),query<any>(`select count(*)::int n from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[workspaceId]),getOperationalSignals(workspaceId)]);
+  const operational=operationalSignalNarrative(vertical,signals);
+  const verticalSuffix=(vertical==='legal'||vertical==='health')&&signals.length?` ${operational.text}`:'';
+  actions.push({label:'Central de Comando',target:'command'});return {agentRole:forcedRole||'controller',text:`Resumo agora: pipeline de ${money(crm[0].pipeline)} em ${crm[0].open_deals} oportunidade(s); ${money(finance.receivable_minor)} a receber, com ${finance.overdue_count||0} vencido(s); ${agenda[0].today||0} compromisso(s) hoje; ${tasks[0].due||0} tarefa(s) pedindo atenção; e ${actionsOpen[0].n||0} ação(ões) na Central de Comando.${verticalSuffix}`,facts:{finance,crm:crm[0],tasks:tasks[0],agenda:agenda[0],command:actionsOpen[0],operational:operational.facts},actions};
 }
 
+async function getWorkspaceVertical(workspaceId:string){const rows=await query<any>(`select vertical from workspaces where id=$1`,[workspaceId]);return String(rows[0]?.vertical||'general')}
+async function getOperationalSignals(workspaceId:string,sourceProduct?:string):Promise<OperationalSignal[]>{
+  const rows=await query<any>(`select id,source_product,signal_type,period_start,period_end,metrics,dimensions,created_at from workspace_operational_signals where workspace_id=$1 and ($2::text is null or source_product=$2) order by period_end desc,created_at desc limit 30`,[workspaceId,sourceProduct||null]);
+  return rows.map(safeOperationalSignal);
+}
+function priorityRank(level:string){return level==='high'?0:1}
 function normalize(value:string){return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
 function match(text:string,words:string[]){return words.some(w=>text.includes(w))}
 function money(value:any){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0)/100)}
