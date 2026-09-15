@@ -12,6 +12,7 @@ export type OperationalSignal={
 export type OperationalPriority={level:'high'|'normal';title:string;detail:string;target:'command'};
 
 function n(value:unknown){const parsed=Number(value);return Number.isFinite(parsed)&&parsed>=0?parsed:0}
+function moneyMinor(value:unknown){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n(value)/100)}
 
 export function effectiveOperationalSignal(signals:OperationalSignal[],type:string):OperationalSignal|undefined{
   const matching=signals.filter(signal=>signal.signal_type===type).sort((a,b)=>new Date(b.period_end).getTime()-new Date(a.period_end).getTime());
@@ -77,6 +78,23 @@ export function buildOperationalPriorities(vertical:string,signals:OperationalSi
     if(drafts>0)priorities.push({level:'normal',title:`${drafts} comunicado(s)/minuta(s) em rascunho`,detail:'O conteúdo permanece exclusivamente no SindCopilot até revisão humana.',target:'command'});
   }
 
+  if(vertical==='commerce'){
+    const fulfillment=effectiveOperationalSignal(signals,'fulfillment.summary');
+    const delayed=n(fulfillment?.metrics?.delayed),pending=n(fulfillment?.metrics?.pending),returnsRequested=n(fulfillment?.metrics?.returnsRequested);
+    if(delayed>0)priorities.push({level:'high',title:`${delayed} pedido(s) com atraso operacional`,detail:'Sinal agregado do canal de vendas. Abra a plataforma de origem para identificar os pedidos correspondentes.',target:'command'});
+    if(pending>0)priorities.push({level:'normal',title:`${pending} pedido(s) aguardam fulfillment`,detail:returnsRequested>0?`${returnsRequested} devolução(ões) também foram solicitadas.`:'Contagem agregada, sem pedido ou cliente individual no NexOffice.',target:'command'});
+    const inventory=effectiveOperationalSignal(signals,'inventory.summary');
+    const out=n(inventory?.metrics?.outOfStockSkus),low=n(inventory?.metrics?.lowStockSkus);
+    if(out>0)priorities.push({level:'high',title:`${out} SKU(s) sem estoque`,detail:'Inventário agregado do canal conectado; nenhum catálogo bruto foi copiado para o NexOffice.',target:'command'});
+    else if(low>0)priorities.push({level:'normal',title:`${low} SKU(s) com estoque baixo`,detail:'Sinal agregado para reposição e planejamento.',target:'command'});
+    const support=effectiveOperationalSignal(signals,'support.summary');
+    const supportOverdue=n(support?.metrics?.overdue),supportOpen=n(support?.metrics?.open);
+    if(supportOverdue>0)priorities.push({level:'high',title:`${supportOverdue} atendimento(s) de commerce vencido(s)`,detail:`Há ${supportOpen} atendimento(s) aberto(s) no total.`,target:'command'});
+    const customers=effectiveOperationalSignal(signals,'customers.summary');
+    const abandoned=n(customers?.metrics?.abandonedCarts),recovered=n(customers?.metrics?.recoveredCarts);
+    if(abandoned>recovered&&abandoned>0)priorities.push({level:'normal',title:`${abandoned} carrinho(s) abandonado(s) no período`,detail:`${recovered} foram recuperado(s). O Growth Agent pode preparar uma ação de recuperação sem receber identidade de cliente.`,target:'command'});
+  }
+
   return priorities;
 }
 
@@ -129,6 +147,24 @@ export function operationalSignalNarrative(vertical:string,signals:OperationalSi
     if(suppliers)parts.push(`fornecedores: ${n(suppliers.metrics.total)} cadastrado(s), ${n(suppliers.metrics.rated)} avaliado(s)`);
     const suffix=' Estes são somente agregados operacionais do SindCopilot; o NexOffice não recebe nome de condomínio, unidade, morador, proprietário, CPF/CNPJ, contato, documento, convenção, ata ou texto de comunicado.';
     return {text:parts.length?`No SindCopilot, ${parts.join('; ')}.${suffix}`:`Recebi sinais agregados do SindCopilot, mas nenhum dos tipos que resumo aqui.${suffix}`,facts:{privacy:'aggregate_only',source:'sindcopilot',signals}};
+  }
+
+  if(vertical==='commerce'){
+    const parts:string[]=[];
+    const orders=effectiveOperationalSignal(signals,'orders.summary');
+    if(orders)parts.push(`pedidos: ${n(orders.metrics.orders)} no período, faturamento bruto ${moneyMinor(orders.metrics.grossRevenueMinor)}, líquido ${moneyMinor(orders.metrics.netRevenueMinor)}, ticket médio ${moneyMinor(orders.metrics.averageOrderValueMinor)}, ${n(orders.metrics.cancelled)} cancelado(s) e ${n(orders.metrics.refundedOrders)} reembolsado(s)`);
+    const fulfillment=effectiveOperationalSignal(signals,'fulfillment.summary');
+    if(fulfillment)parts.push(`fulfillment: ${n(fulfillment.metrics.pending)} pendente(s), ${n(fulfillment.metrics.shipped)} enviado(s), ${n(fulfillment.metrics.delivered)} entregue(s), ${n(fulfillment.metrics.delayed)} atrasado(s) e ${n(fulfillment.metrics.returnsRequested)} devolução(ões) solicitada(s)`);
+    const inventory=effectiveOperationalSignal(signals,'inventory.summary');
+    if(inventory)parts.push(`estoque agregado: ${n(inventory.metrics.activeSkus)} SKU(s) ativo(s), ${n(inventory.metrics.lowStockSkus)} com estoque baixo e ${n(inventory.metrics.outOfStockSkus)} sem estoque`);
+    const customers=effectiveOperationalSignal(signals,'customers.summary');
+    if(customers)parts.push(`clientes agregados: ${n(customers.metrics.newCustomers)} novo(s), ${n(customers.metrics.returningCustomers)} recorrente(s), ${n(customers.metrics.abandonedCarts)} carrinho(s) abandonado(s) e ${n(customers.metrics.recoveredCarts)} recuperado(s)`);
+    const support=effectiveOperationalSignal(signals,'support.summary');
+    if(support)parts.push(`atendimento: ${n(support.metrics.open)} aberto(s), ${n(support.metrics.overdue)} vencido(s), ${n(support.metrics.resolved)} resolvido(s), resposta inicial média ${n(support.metrics.avgFirstResponseMinutes)} minuto(s)`);
+    const conversion=effectiveOperationalSignal(signals,'conversion.summary');
+    if(conversion)parts.push(`conversão: ${n(conversion.metrics.sessions)} sessão(ões), ${n(conversion.metrics.carts)} carrinho(s), ${n(conversion.metrics.checkouts)} checkout(s), ${n(conversion.metrics.purchases)} compra(s) e ${(n(conversion.metrics.conversionRateBps)/100).toFixed(2)}% de conversão`);
+    const suffix=' Estes são agregados operacionais dos canais de commerce; o NexOffice não recebe pedido individual, nome, e-mail, telefone, endereço, CPF, item comprado ou conteúdo de atendimento por este bridge.';
+    return {text:parts.length?`Na operação de commerce, ${parts.join('; ')}.${suffix}`:`Recebi sinais agregados de commerce, mas nenhum dos tipos que resumo aqui.${suffix}`,facts:{privacy:'aggregate_only',source:'commerce',signals}};
   }
 
   return {text:'Há sinais operacionais agregados disponíveis para este workspace.',facts:{privacy:'aggregate_only',signals}};
