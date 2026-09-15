@@ -1,6 +1,6 @@
 {
   "name": "nexoffice",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "NexOffice — o sistema operacional do seu negócio.",
   "workspaces": ["apps/*", "packages/*"],
@@ -9,7 +9,9 @@
     "dev:web": "npm run dev -w @nexoffice/web",
     "build": "npm run build -w @nexoffice/domain && npm run build -w @nexoffice/integrations && npm run build -w @nexoffice/api && npm run build -w @nexoffice/web",
     "typecheck": "npm run typecheck -ws --if-present",
-    "test": "npm run test -ws --if-present"
+    "test": "npm run test -ws --if-present",
+    "db:migrate": "node scripts/migrate.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "engines": {"node": ">=20"}
 }
