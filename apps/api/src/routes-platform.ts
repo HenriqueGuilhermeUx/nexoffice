@@ -7,6 +7,7 @@ import {verticalPack} from './vertical-packs.js';
 
 const Source=z.enum(['nexjud','sindcopilot','mydatamed','health-wallet','smartbots','modo','docwallet','nextgen','taxagent','connexio','mindcompliance','mindsteps','f-insight','ecotracker','nexa','staff']);
 const Vertical=z.enum(['general','legal','health','condo','commerce']);
+const MemberRole=z.enum(['owner','admin','member','viewer']);
 const AccessInput=z.object({sourceProduct:Source,externalWorkspaceRef:z.string().trim().min(1).max(220),externalUserSubject:z.string().trim().min(1).max(220),email:z.string().email()});
 type AccessInputType=z.infer<typeof AccessInput>;
 
@@ -31,12 +32,12 @@ async function resolvePlatformAccess(input:AccessInputType){
 }
 
 export async function registerPlatformRoutes(app:FastifyInstance){
-  app.get('/v1/platform/health',async req=>{authorize(req);return {status:'ok',service:'nexoffice-platform',capabilities:['provision','session-exchange','federated-user','browser-handoff'],externalEffects:false}});
+  app.get('/v1/platform/health',async req=>{authorize(req);return {status:'ok',service:'nexoffice-platform',capabilities:['provision','session-exchange','federated-user','browser-handoff','federated-rbac'],externalEffects:false}});
 
   app.post('/v1/platform/provision',async req=>{
     authorize(req);
-    const input=z.object({sourceProduct:Source,externalWorkspaceRef:z.string().trim().min(1).max(220),businessName:z.string().trim().min(2).max(180),vertical:Vertical.default('general'),ownerEmail:z.string().email(),ownerName:z.string().trim().min(2).max(160).optional(),externalUserSubject:z.string().trim().min(1).max(220).optional(),entitlements:z.array(z.string().trim().min(1).max(120)).max(50).default([])}).parse(req.body);
-    const email=input.ownerEmail.trim().toLowerCase(),pack=verticalPack(input.vertical);let created=false,inviteToken:string|null=null,federatedUserCreated=false;
+    const input=z.object({sourceProduct:Source,externalWorkspaceRef:z.string().trim().min(1).max(220),businessName:z.string().trim().min(2).max(180),vertical:Vertical.default('general'),ownerEmail:z.string().email(),ownerName:z.string().trim().min(2).max(160).optional(),memberRole:MemberRole.default('owner'),externalUserSubject:z.string().trim().min(1).max(220).optional(),entitlements:z.array(z.string().trim().min(1).max(120)).max(50).default([])}).parse(req.body);
+    const email=input.ownerEmail.trim().toLowerCase(),pack=verticalPack(input.vertical),permissions=input.memberRole==='owner'||input.memberRole==='admin'?['*']:[];let created=false,inviteToken:string|null=null,federatedUserCreated=false;
     const result=await transaction(async client=>{
       let origin=(await client.query(`select o.*,w.name,w.slug,w.vertical,w.status,w.modules from workspace_origins o join workspaces w on w.id=o.workspace_id where o.source_product=$1 and o.external_workspace_ref=$2 limit 1`,[input.sourceProduct,input.externalWorkspaceRef])).rows[0];
       let workspaceId:string;
@@ -58,20 +59,20 @@ export async function registerPlatformRoutes(app:FastifyInstance){
       }
 
       if(user){
-        await client.query(`insert into workspace_members(workspace_id,user_id,role,permissions) values($1,$2,'owner',$3) on conflict(workspace_id,user_id) do update set active=true,role='owner',permissions=excluded.permissions`,[workspaceId,user.id,['*']]);
+        await client.query(`insert into workspace_members(workspace_id,user_id,role,permissions) values($1,$2,$3,$4) on conflict(workspace_id,user_id) do update set active=true,role=excluded.role,permissions=excluded.permissions`,[workspaceId,user.id,input.memberRole,permissions]);
         await client.query(`update workspace_invites set status='revoked' where workspace_id=$1 and lower(email)=lower($2) and status='pending'`,[workspaceId,email]);
       }else{
         await client.query(`update workspace_invites set status='revoked' where workspace_id=$1 and lower(email)=lower($2) and status='pending'`,[workspaceId,email]);
         const invite=newInviteToken();inviteToken=invite.token;
-        await client.query(`insert into workspace_invites(workspace_id,email,role,permissions,token_hash) values($1,$2,'owner',$3,$4)`,[workspaceId,email,['*'],invite.hash]);
+        await client.query(`insert into workspace_invites(workspace_id,email,role,permissions,token_hash) values($1,$2,$3,$4,$5)`,[workspaceId,email,input.memberRole,permissions,invite.hash]);
       }
 
       if(input.externalUserSubject){
-        await client.query(`insert into external_identities(workspace_id,user_id,provider,external_subject,external_tenant_ref,metadata) values($1,$2,$3,$4,$5,$6) on conflict(provider,external_subject,workspace_id) do update set user_id=coalesce(excluded.user_id,external_identities.user_id),external_tenant_ref=excluded.external_tenant_ref,metadata=external_identities.metadata||excluded.metadata,updated_at=now()`,[workspaceId,user?.id||null,input.sourceProduct,input.externalUserSubject,input.externalWorkspaceRef,JSON.stringify({email})]);
+        await client.query(`insert into external_identities(workspace_id,user_id,provider,external_subject,external_tenant_ref,metadata) values($1,$2,$3,$4,$5,$6) on conflict(provider,external_subject,workspace_id) do update set user_id=coalesce(excluded.user_id,external_identities.user_id),external_tenant_ref=excluded.external_tenant_ref,metadata=external_identities.metadata||excluded.metadata,updated_at=now()`,[workspaceId,user?.id||null,input.sourceProduct,input.externalUserSubject,input.externalWorkspaceRef,JSON.stringify({email,memberRole:input.memberRole})]);
       }
-      await client.query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,after_state,metadata) values($1::uuid,'service',$2,'platform.workspace.provisioned','workspace',$1::uuid::text,$3,$4)`,[workspaceId,input.sourceProduct,JSON.stringify({created,sourceProduct:input.sourceProduct,externalWorkspaceRef:input.externalWorkspaceRef}),JSON.stringify({ownerEmail:email,vertical:input.vertical,federatedUserCreated})]);
+      await client.query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,after_state,metadata) values($1::uuid,'service',$2,'platform.workspace.provisioned','workspace',$1::uuid::text,$3,$4)`,[workspaceId,input.sourceProduct,JSON.stringify({created,sourceProduct:input.sourceProduct,externalWorkspaceRef:input.externalWorkspaceRef}),JSON.stringify({userEmail:email,vertical:input.vertical,memberRole:input.memberRole,federatedUserCreated})]);
       const workspace=(await client.query(`select id,name,slug,vertical,status,modules,settings from workspaces where id=$1`,[workspaceId])).rows[0];
-      return {workspace,origin,userExists:userExisted||federatedUserCreated,userExisted,federatedUserCreated};
+      return {workspace,origin,userExists:userExisted||federatedUserCreated,userExisted,federatedUserCreated,memberRole:input.memberRole};
     });
     const web=String(process.env.WEB_APP_URL||'').replace(/\/$/,'');
     return {...result,created,inviteToken,inviteUrl:inviteToken&&web?`${web}/?invite=${encodeURIComponent(inviteToken)}`:null};
