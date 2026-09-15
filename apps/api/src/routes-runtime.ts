@@ -1,4 +1,5 @@
 import type {FastifyInstance} from 'fastify';
+import {createHmac,randomBytes} from 'node:crypto';
 import {z} from 'zod';
 import {query,transaction} from './db.js';
 import {ApiError,workspaceContext} from './auth.js';
@@ -41,6 +42,11 @@ export async function registerRuntimeRoutes(app:FastifyInstance){
   app.get('/v1/integrations/catalog',async req=>{const ctx=await workspaceContext(req,'integrations.read');const states=await query<any>(`select provider,status,capabilities,last_health_at,last_health_status,last_error from integrations where workspace_id=$1`,[ctx.workspaceId]);return providerCatalog().map(c=>({...c,state:states.find(x=>x.provider===c.provider)||null}))});
   app.get('/v1/integrations/metering',async req=>{await workspaceContext(req,'usage.read');return meteringCatalog()});
   app.post('/v1/integrations/:provider/probe',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),provider=String((req.params as any).provider) as Provider;if(!(provider in CAPABILITIES))throw new ApiError(400,'invalid_provider','Provider desconhecido.');return probeProvider(ctx.workspaceId,provider)});
+  app.post('/v1/integrations/docwallet/connect-token',async req=>{
+    const ctx=await workspaceContext(req,'integrations.manage');const secret=String(process.env.DOCWALLET_SERVICE_KEY||process.env.DOCWALLET_API_KEY||'');if(!secret)throw new ApiError(409,'docwallet_not_configured','Configure a credencial de serviço do DocWallet antes de conectar.');
+    const now=Math.floor(Date.now()/1000),exp=now+600;const payload={workspaceId:ctx.workspaceId,userId:ctx.user.id,iat:now,exp,nonce:randomBytes(16).toString('hex')};const encoded=Buffer.from(JSON.stringify(payload)).toString('base64url');const signature=createHmac('sha256',secret).update(encoded).digest('base64url');const token=`${encoded}.${signature}`;const publicUrl=String(process.env.DOCWALLET_PUBLIC_URL||'https://docwallet.netlify.app').replace(/\/$/,'');const connectUrl=`${publicUrl}/?nexoffice_connect=${encodeURIComponent(token)}&nexoffice_workspace=${encodeURIComponent(ctx.workspaceId)}`;
+    await log(ctx.workspaceId,ctx.user.id,'integration.docwallet.connect_token_created','workspace',ctx.workspaceId,null,{expiresAt:new Date(exp*1000).toISOString()});return {provider:'docwallet',token,expiresAt:new Date(exp*1000).toISOString(),connectUrl};
+  });
 
   // Approved action execution is idempotent. External effects enter the outbox; they never run twice.
   app.post('/v1/command/actions/:id/execute',async req=>{
@@ -65,7 +71,7 @@ export async function registerRuntimeRoutes(app:FastifyInstance){
   app.post('/v1/outbox/process',async req=>{
     const ctx=await workspaceContext(req,'integrations.manage'),limit=Math.min(50,Math.max(1,Number((req.body as any)?.limit||10)));const messages=await query<any>(`select * from outbox_messages where workspace_id=$1 and status in ('pending','failed') and next_attempt_at<=now() order by created_at for update skip locked limit $2`,[ctx.workspaceId,limit]);const results=[];
     for(const msg of messages){
-      await query(`update outbox_messages set status='processing',locked_at=now(),attempts=attempts+1 where id=$1`,[msg.id]);let result:any;try{result=await dispatchOutbox(msg.topic,msg.payload)}catch(error){result={ok:false,error:error instanceof Error?error.message:String(error)}}
+      await query(`update outbox_messages set status='processing',locked_at=now(),attempts=attempts+1 where id=$1`,[msg.id]);let result:any;try{result=await dispatchOutbox(msg.topic,msg.payload,ctx.workspaceId)}catch(error){result={ok:false,error:error instanceof Error?error.message:String(error)}}
       if(result.ok){
         await query(`update outbox_messages set status='sent',sent_at=now(),last_error=null where id=$1`,[msg.id]);const actionId=msg.payload?.commandActionId;
         if(actionId){await query(`update command_actions set status='done',updated_at=now() where id=$1 and workspace_id=$2`,[actionId,ctx.workspaceId]);await query(`update agent_runs set status='succeeded',output=$3,finished_at=now() where action_id=$1 and workspace_id=$2 and status='queued_external'`,[actionId,ctx.workspaceId,JSON.stringify(result)])}
