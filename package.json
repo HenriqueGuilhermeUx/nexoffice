@@ -1,0 +1,15 @@
+{
+  "name": "nexoffice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NexOffice — o sistema operacional do seu negócio.",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:api": "npm run dev -w @nexoffice/api",
+    "dev:web": "npm run dev -w @nexoffice/web",
+    "build": "npm run build -w @nexoffice/domain && npm run build -w @nexoffice/integrations && npm run build -w @nexoffice/api && npm run build -w @nexoffice/web",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "test": "npm run test -ws --if-present"
+  },
+  "engines": {"node": ">=20"}
+}
