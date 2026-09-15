@@ -36,9 +36,16 @@ assert(summary.providers.some(x=>x.provider==='smartbots'),'provider breakdown e
 assert(summary.capabilities.some(x=>x.capability==='documents'),'capability breakdown exists');
 assert(summary.daily.length===3,'daily series exists');
 assert(Array.isArray(summary.meteringCatalog)&&summary.meteringCatalog.length>=6,'metering catalog exposed');
+assert(summary.measurement.observedActiveDays===3,'measurement exposes observed active days');
+assert(summary.measurement.requestedWindowDays===30,'measurement preserves requested evidence window');
+assert(summary.measurement.knownCostEvents===2&&summary.measurement.unknownCostEvents===1,'measurement separates costed and uncosted events');
+assert(Math.abs(summary.measurement.costedEventRatio-(2/3))<0.001,'measurement exposes objective costed-event ratio');
+assert(summary.measurement.configuredCostTopics>=0&&summary.measurement.totalMeteredTopics>=6,'measurement exposes configured topic coverage without inventing prices');
+assert(summary.measurement.observedProviders===3,'measurement exposes observed provider breadth');
+assert(summary.measurement.observedCapabilityOperations===3,'measurement exposes observed capability-operation breadth');
 
 const events=await call('/v1/usage/events?days=30&limit=10');
 assert(events.length===3,'usage event drill-down works');
 assert(events[0].provider==='modo','events ordered newest first');
 
-console.log(JSON.stringify({ok:true,events:summary.totals.events,units:summary.totals.units,knownCostMinor:summary.totals.knownCostMinor,unknownCostEvents:summary.totals.unknownCostEvents,projection30:summary.economics.projected30DayKnownCostMinor},null,2));
+console.log(JSON.stringify({ok:true,events:summary.totals.events,units:summary.totals.units,knownCostMinor:summary.totals.knownCostMinor,unknownCostEvents:summary.totals.unknownCostEvents,projection30:summary.economics.projected30DayKnownCostMinor,measurement:summary.measurement},null,2));
