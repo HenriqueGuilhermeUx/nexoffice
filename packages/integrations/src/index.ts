@@ -90,6 +90,7 @@ export type NexOfficeVertical='general'|'legal'|'health'|'condo'|'commerce';
 export type NexOfficeMemberRole='owner'|'admin'|'member'|'viewer';
 export type OperationalWindow='hour'|'day'|'week'|'month';
 export type OperationalScope='workspace'|'team'|'member';
+export type SharedOperationalScope='workspace'|'team';
 
 export interface ProvisionWorkspaceInput {
   sourceProduct:AVSourceProduct;
@@ -134,12 +135,17 @@ export interface BrowserHandoffResult {
   url:string|null;
 }
 
-interface OperationalSignalBase {
+export type NexJudProvisionInput=Omit<ProvisionWorkspaceInput,'sourceProduct'|'vertical'>;
+export type MyDataMedProvisionInput=Omit<ProvisionWorkspaceInput,'sourceProduct'|'vertical'>;
+export type SindCopilotProvisionInput=Omit<ProvisionWorkspaceInput,'sourceProduct'|'vertical'>;
+export type EmbeddedAccessInput=Omit<SessionExchangeInput,'sourceProduct'>;
+
+interface OperationalSignalBase<S extends OperationalScope=OperationalScope> {
   externalWorkspaceRef:string;
   correlationId?:string;
   periodStart:string;
   periodEnd:string;
-  dimensions:{window:OperationalWindow;scope:OperationalScope};
+  dimensions:{window:OperationalWindow;scope:S};
 }
 
 export type LegalOperationalSignalInput=OperationalSignalBase&(
@@ -150,7 +156,7 @@ export type LegalOperationalSignalInput=OperationalSignalBase&(
   |{signalType:'workload.summary';metrics:{activeMatters:number;dueToday:number;waitingReview:number;backlog:number}}
 );
 
-export type HealthOperationalSignalInput=OperationalSignalBase&{
+export type HealthOperationalSignalInput=OperationalSignalBase<SharedOperationalScope>&{
   sourceProduct:'mydatamed'|'health-wallet';
 }&(
   |{signalType:'appointments.summary';metrics:{scheduled:number;completed:number;cancelled:number;noShow:number;pending:number}}
@@ -158,6 +164,14 @@ export type HealthOperationalSignalInput=OperationalSignalBase&{
   |{signalType:'sla.summary';metrics:{total:number;withinSla:number;breached:number;avgFirstResponseMinutes:number;complianceRatio:number}}
   |{signalType:'workload.summary';metrics:{activeCases:number;waitingReview:number;waitingPatientReply:number;dueToday:number}}
   |{signalType:'programs.summary';metrics:{enrolled:number;active:number;completed:number;paused:number}}
+);
+
+export type CondoOperationalSignalInput=OperationalSignalBase<SharedOperationalScope>&(
+  |{signalType:'portfolio.summary';metrics:{totalCondominiums:number;activeCondominiums:number;activeAssistants:number}}
+  |{signalType:'compliance.summary';metrics:{pending:number;upcoming:number;overdue:number;completed:number;alertsFailed:number}}
+  |{signalType:'documents.summary';metrics:{pendingReview:number;ocrPending:number;ocrFailed:number;indexingPending:number;indexingFailed:number}}
+  |{signalType:'notices.summary';metrics:{drafts:number;sent:number;cancelled:number}}
+  |{signalType:'suppliers.summary';metrics:{total:number;rated:number}}
 );
 
 export interface OperationalSignalResult {
@@ -176,10 +190,17 @@ export class NexOfficePlatformBridgeClient {
 
   async health(){return this.request<{status:string;service:string;capabilities:string[];externalEffects:boolean}>('/v1/platform/health','GET')}
   async provision(input:ProvisionWorkspaceInput){return this.request<ProvisionWorkspaceResult>('/v1/platform/provision','POST',input)}
+  async provisionNexJud(input:NexJudProvisionInput){return this.provision({...input,sourceProduct:'nexjud',vertical:'legal'})}
+  async provisionMyDataMed(input:MyDataMedProvisionInput){return this.provision({...input,sourceProduct:'mydatamed',vertical:'health'})}
+  async provisionSindCopilot(input:SindCopilotProvisionInput){return this.provision({...input,sourceProduct:'sindcopilot',vertical:'condo'})}
   async exchangeSession(input:SessionExchangeInput){return this.request<SessionExchangeResult>('/v1/platform/session-exchange','POST',input)}
+  async exchangeNexJudSession(input:EmbeddedAccessInput){return this.exchangeSession({...input,sourceProduct:'nexjud'})}
+  async exchangeMyDataMedSession(input:EmbeddedAccessInput){return this.exchangeSession({...input,sourceProduct:'mydatamed'})}
+  async exchangeSindCopilotSession(input:EmbeddedAccessInput){return this.exchangeSession({...input,sourceProduct:'sindcopilot'})}
   async createBrowserHandoff(input:SessionExchangeInput){return this.request<BrowserHandoffResult>('/v1/platform/handoff','POST',input)}
   async pushLegalSignal(input:LegalOperationalSignalInput){return this.request<OperationalSignalResult>('/v1/platform/legal-signals','POST',{...input,sourceProduct:'nexjud'})}
   async pushHealthSignal(input:HealthOperationalSignalInput){return this.request<OperationalSignalResult>('/v1/platform/health-signals','POST',input)}
+  async pushCondoSignal(input:CondoOperationalSignalInput){return this.request<OperationalSignalResult>('/v1/platform/condo-signals','POST',{...input,sourceProduct:'sindcopilot'})}
 
   private async request<T>(path:string,method:'GET'|'POST',body?:unknown):Promise<T>{
     const response=await fetch(`${this.baseUrl}${path}`,{
