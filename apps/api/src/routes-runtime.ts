@@ -77,8 +77,20 @@ export async function registerRuntimeRoutes(app:FastifyInstance){
         if(actionId){await query(`update command_actions set status='done',updated_at=now() where id=$1 and workspace_id=$2`,[actionId,ctx.workspaceId]);await query(`update agent_runs set status='succeeded',output=$3,finished_at=now() where action_id=$1 and workspace_id=$2 and status='queued_external'`,[actionId,ctx.workspaceId,JSON.stringify(result)])}
         if(!result.dryRun){await applyExternalSuccess(ctx.workspaceId,msg.topic,msg.payload,result);await recordExternalUsage(ctx.workspaceId,msg.topic,msg.payload,result)}
       }else{
-        const nextMinutes=Math.min(360,Math.pow(2,Math.min(Number(msg.attempts||0)+1,8)));await query(`update outbox_messages set status=case when attempts>=8 then 'dead' else 'failed' end,last_error=$2,next_attempt_at=now()+($3::text||' minutes')::interval where id=$1`,[msg.id,String(result.error||'dispatch_failed'),String(nextMinutes)]);
-        if(msg.topic==='docwallet.document.action'&&msg.payload?.commandActionId){const action=(await query<any>(`select subject_id from command_actions where id=$1`,[msg.payload.commandActionId]))[0];if(action?.subject_id)await query(`update document_refs set sync_error=$2,updated_at=now() where id=$1`,[action.subject_id,String(result.error||'dispatch_failed')])}
+        const manualFinancialReconciliation=msg.topic==='nextgen.charge.create'&&Number(result?.httpStatus)===409&&result?.payload?.uncertain===true;
+        const actionId=msg.payload?.commandActionId;
+        if(manualFinancialReconciliation){
+          const reason=String(result?.payload?.error||result?.error||'manual_reconciliation_required');
+          await query(`update outbox_messages set status='dead',last_error=$2,next_attempt_at=now() where id=$1`,[msg.id,reason]);
+          if(actionId){
+            await query(`update command_actions set status='failed',updated_at=now(),metadata=metadata||$3::jsonb where id=$1 and workspace_id=$2`,[actionId,ctx.workspaceId,JSON.stringify({manualReconciliationRequired:true,lastExternalError:reason})]);
+            await query(`update agent_runs set status='failed',output=$3,finished_at=now() where action_id=$1 and workspace_id=$2 and status='queued_external'`,[actionId,ctx.workspaceId,JSON.stringify(result)]);
+          }
+          if(msg.payload?.ledgerEntryId)await query(`update ledger_entries set metadata=metadata||$3::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[msg.payload.ledgerEntryId,ctx.workspaceId,JSON.stringify({chargeStatus:'reconciliation_required',lastChargeError:reason,lastChargeAttemptAt:new Date().toISOString()})]);
+        }else{
+          const nextMinutes=Math.min(360,Math.pow(2,Math.min(Number(msg.attempts||0)+1,8)));await query(`update outbox_messages set status=case when attempts>=8 then 'dead' else 'failed' end,last_error=$2,next_attempt_at=now()+($3::text||' minutes')::interval where id=$1`,[msg.id,String(result.error||'dispatch_failed'),String(nextMinutes)]);
+        }
+        if(msg.topic==='docwallet.document.action'&&actionId){const action=(await query<any>(`select subject_id from command_actions where id=$1`,[actionId]))[0];if(action?.subject_id)await query(`update document_refs set sync_error=$2,updated_at=now() where id=$1`,[action.subject_id,String(result.error||'dispatch_failed')])}
       }
       results.push({id:msg.id,topic:msg.topic,...result});
     }
