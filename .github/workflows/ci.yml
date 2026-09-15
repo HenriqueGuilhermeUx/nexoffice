@@ -38,6 +38,7 @@ jobs:
       PORT: "4000"
       ALLOWED_ORIGINS: "*"
       WEB_APP_URL: http://localhost:5173
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +51,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/002_platform_foundation.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/003_core_operational.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/004_integration_runtime.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
