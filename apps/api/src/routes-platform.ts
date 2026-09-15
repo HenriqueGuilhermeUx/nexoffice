@@ -42,7 +42,7 @@ export async function registerPlatformRoutes(app:FastifyInstance){
       if(input.externalUserSubject){
         await client.query(`insert into external_identities(workspace_id,user_id,provider,external_subject,external_tenant_ref,metadata) values($1,$2,$3,$4,$5,$6) on conflict(provider,external_subject,workspace_id) do update set user_id=coalesce(excluded.user_id,external_identities.user_id),external_tenant_ref=excluded.external_tenant_ref,metadata=external_identities.metadata||excluded.metadata,updated_at=now()`,[workspaceId,user?.id||null,input.sourceProduct,input.externalUserSubject,input.externalWorkspaceRef,JSON.stringify({email})]);
       }
-      await client.query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,after_state,metadata) values($1,'service',$2,'platform.workspace.provisioned','workspace',$1,$3,$4)`,[workspaceId,input.sourceProduct,JSON.stringify({created,sourceProduct:input.sourceProduct,externalWorkspaceRef:input.externalWorkspaceRef}),JSON.stringify({ownerEmail:email,vertical:input.vertical})]);
+      await client.query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,after_state,metadata) values($1::uuid,'service',$2,'platform.workspace.provisioned','workspace',$1::uuid::text,$3,$4)`,[workspaceId,input.sourceProduct,JSON.stringify({created,sourceProduct:input.sourceProduct,externalWorkspaceRef:input.externalWorkspaceRef}),JSON.stringify({ownerEmail:email,vertical:input.vertical})]);
       const workspace=(await client.query(`select id,name,slug,vertical,status,modules,settings from workspaces where id=$1`,[workspaceId])).rows[0];
       return {workspace,origin,userExists:Boolean(user)};
     });
