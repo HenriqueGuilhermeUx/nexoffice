@@ -3,7 +3,7 @@ import {query} from './db.js';
 export const CAPABILITIES = {
   docwallet: {label:'DocWallet', baseEnv:'DOCWALLET_BASE_URL', keyEnv:'DOCWALLET_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['documents','ocr','signature','approval']},
   staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/.netlify/functions/nexoffice-assistant', capabilities:['business_conversation','voice_orchestration','workspace_context']},
-  smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/health', capabilities:['whatsapp','service','qualification','follow-up']},
+  smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['whatsapp','service','qualification','follow-up','human_approval']},
   nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/health', capabilities:['pix','charges','reconciliation']},
   modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/health', capabilities:['growth','content','campaigns','intelligence']},
   taxagent: {label:'TaxAgent', baseEnv:'TAXAGENT_BASE_URL', keyEnv:'TAXAGENT_API_KEY', health:'/health', capabilities:['nfse','tax']}
@@ -23,7 +23,7 @@ export function providerCatalog(){
 export async function probeProvider(workspaceId:string,provider:Provider){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');
   if(!base)return {provider,ok:false,status:'not_configured',error:`${c.baseEnv} não configurada`};
-  const workspaceScoped=provider==='docwallet'||provider==='staff';
+  const workspaceScoped=provider==='docwallet'||provider==='staff'||provider==='smartbots';
   const headers={...providerHeaders(provider),...(workspaceScoped?{'X-NexOffice-Workspace-ID':workspaceId}:{})};
   try{
     const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();
@@ -52,7 +52,7 @@ export async function dispatchOutbox(topic:string,payload:any,workspaceId?:strin
   if(String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false')!=='true')return {ok:true,dryRun:true,topic,payload:{correlationId:payload?.correlationId}};
   if(topic==='nextgen.charge.create')return createNextGenCharge(payload);
   if(topic==='docwallet.document.action')return dispatchDocWallet(payload,workspaceId);
-  if(topic==='smartbots.message.send')return dispatchSmartBots(payload);
+  if(topic==='smartbots.message.send')return dispatchSmartBots(payload,workspaceId);
   if(topic==='staff.assistant.action')return dispatchStaff(payload,workspaceId);
   if(topic==='modo.growth.action')return dispatchConfigurable('modo',process.env.MODO_ACTION_PATH,payload);
   if(topic==='taxagent.invoice.issue')return dispatchConfigurable('taxagent',process.env.TAXAGENT_INVOICE_PATH,payload);
@@ -85,10 +85,27 @@ async function dispatchStaff(payload:any,workspaceId?:string){
   return providerRequest('staff',path,'POST',{...payload,message,context:{...(payload?.context||{}),workspace:{...(payload?.context?.workspace||{}),id:workspaceId}}},{'X-NexOffice-Workspace-ID':workspaceId});
 }
 
-async function dispatchSmartBots(payload:any){
-  const path=String(process.env.SMARTBOTS_SEND_PATH||'');
-  if(!path)return {ok:false,error:'SMARTBOTS_SEND_PATH_not_configured'};
-  return providerRequest('smartbots',path,'POST',{channel:payload?.channel,recipient:payload?.recipient,message:payload?.message,contactName:payload?.contactName,correlationId:payload?.correlationId,metadata:{ledgerEntryId:payload?.ledgerEntryId,commandActionId:payload?.commandActionId}});
+async function dispatchSmartBots(payload:any,workspaceId?:string){
+  if(!workspaceId)return {ok:false,error:'smartbots_workspace_required'};
+  if(payload?.humanApproved!==true)return {ok:false,error:'smartbots_human_approval_required'};
+  const mapping=(await query<any>(`select external_account_ref,config from integrations where workspace_id=$1 and provider='smartbots' limit 1`,[workspaceId]))[0];
+  const botId=String(mapping?.external_account_ref||mapping?.config?.botId||process.env.SMARTBOTS_BOT_ID||'').trim();
+  if(!botId)return {ok:false,error:'smartbots_bot_not_connected'};
+  const path=String(process.env.SMARTBOTS_SEND_PATH||'/api/internal/nexoffice/message');
+  const correlationId=String(payload?.correlationId||payload?.commandActionId||'').trim();
+  if(!correlationId)return {ok:false,error:'smartbots_correlation_required'};
+  return providerRequest('smartbots',path,'POST',{
+    botId,
+    channel:payload?.channel||'whatsapp',
+    recipient:payload?.recipient,
+    message:payload?.message,
+    contactName:payload?.contactName,
+    correlationId,
+    commandActionId:payload?.commandActionId||null,
+    approvalId:payload?.approvalId||null,
+    humanApproved:true,
+    metadata:{ledgerEntryId:payload?.ledgerEntryId||null}
+  },{'X-NexOffice-Workspace-ID':workspaceId,'Idempotency-Key':correlationId});
 }
 
 async function dispatchConfigurable(provider:Provider,path:string|undefined,payload:any){
@@ -105,7 +122,7 @@ async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'
 function providerHeaders(provider:Provider):Record<string,string>{
   const key=providerKey(provider);if(!key)return {};
   if(provider==='nextgen')return {'X-API-Key':key};
-  if(provider==='docwallet')return {'X-NexOffice-Key':key};
+  if(provider==='docwallet'||provider==='smartbots')return {'X-NexOffice-Key':key};
   const customName=String(process.env[`${provider.toUpperCase()}_AUTH_HEADER`]||'').trim();if(customName)return {[customName]:key};
   return {Authorization:`Bearer ${key}`};
 }
