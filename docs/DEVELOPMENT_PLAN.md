@@ -1,80 +1,170 @@
-# Plano de Desenvolvimento
+# Plano de Desenvolvimento — NexOffice
 
-## Fase 0 — Fundação
+> **NexOffice — o sistema operacional do seu negócio.**
 
-- [x] posicionamento e arquitetura horizontal;
+Este documento descreve o estado real do `main`. NexOffice é um core horizontal, multi-tenant e embutível. Produtos verticais continuam donos de seus domínios especializados; NexOffice opera CRM, agenda, financeiro, cobrança, documentos, comunicação, fiscal, growth, agentes e Central de Comando.
+
+## Fase 0 — Fundação ✅
+
+- [x] posicionamento horizontal e modos standalone / add-on / platform;
 - [x] monorepo TypeScript;
-- [x] domínio multi-tenant;
-- [x] schema Postgres inicial;
+- [x] domínio multi-tenant e workspaces;
+- [x] Postgres e migrations;
+- [x] Event Bus, Approval Engine, Agent Runs, Outbox e audit trail;
 - [x] contratos de integração AV;
-- [x] API base CRM/ERP/Event/Approval/Usage;
-- [x] Central de Comando web inicial;
-- [x] CI com build e integração em PostgreSQL real.
+- [x] CI com PostgreSQL real e smoke tests de ponta a ponta.
 
-## Fase 1 — Core operacional
+## Fase 1 — Core operacional ✅
 
-- [x] autenticação e onboarding de workspace;
-- [x] membros, convites, papéis e permissões;
-- [x] CRM: contatos, deals, timeline, atividades, tarefas e filtros;
-- [ ] ERP Lite: pagar/receber, recorrências, categorias e fluxo de caixa estão prontos; falta fechar conciliação manual e visão gerencial final;
+- [x] autenticação, sessões e onboarding;
+- [x] membros, convites, roles e permissões;
+- [x] CRM: contatos, oportunidades, atividades, pipeline, timeline e tarefas;
+- [x] ERP Lite: pagar/receber, contas, recorrências, caixa e baixa;
+- [x] conciliação manual e auto-match assistido por confiança;
 - [x] agenda e tarefas;
-- [x] Action Inbox real com decisões persistidas;
-- [x] políticas de autonomia configuráveis;
+- [x] Action Inbox / Central de Comando;
+- [x] políticas de autonomia;
 - [x] audit trail;
-- [ ] metering: estrutura, API e custo estimado estão prontos; falta instrumentar automaticamente todos os adapters externos.
+- [x] usage/metering por capability e provider;
+- [x] execução idempotente de comandos;
+- [x] outbox com retry/backoff e caminho de reconciliação manual para efeitos financeiros ambíguos.
 
-**Estado atual:** o critério funcional principal já é exercitado no CI: cadastro → workspace → CRM → agenda → financeiro → eventos → Central de Comando → convite de membro. A Fase 1 entra em fechamento, com conciliação e instrumentação automática como pendências principais.
+**Critério atual exercitado no CI:** cadastro → workspace → CRM → agenda → financeiro → eventos → Command Center → aprovação → Agent Run → Outbox → conciliação → convite de membro.
 
-## Fase 2 — Equipe Digital
+## Fase 2 — Equipe Digital 🟢 em execução
 
-- [~] Secretária: agenda e leitura operacional prontas; confirmações/remarcações/lista de espera avançadas ainda serão conectadas;
-- [~] Atendimento: chat operacional e contexto do workspace prontos; canais externos entram via SmartBots;
-- [~] CRM Agent: leitura/priorização do pipeline pronta; follow-up automatizado ainda será conectado;
-- [~] ERP Agent: leitura financeira/contextual pronta; lançamento por voz depende do Staff service mode;
-- [x] Cobrança V1: régua configurável, identificação de vencidos, tentativas idempotentes e aprovação humana;
-- [~] Controller: pulso operacional de CRM/caixa/agenda/tarefas pronto; anomalias e comparativos avançados virão depois;
-- [~] Document Agent: referências, estados, análise e solicitação de assinatura orquestrados; depende do bridge service-to-service do DocWallet para produção;
-- [~] Growth Agent: contrato/eventos prontos; execução depende do adapter MODO;
-- [x] chat operacional persistente por workspace e agente, usando fatos reais do NexOffice Core.
+### Secretária
+- [x] leitura de agenda e contexto operacional;
+- [x] detecção proativa de compromissos a confirmar;
+- [x] texto de confirmação pronto;
+- [x] card com aprovação humana antes de WhatsApp;
+- [ ] remarcação e lista de espera assistidas;
+- [ ] execução recorrente por scheduler após ambiente de produção dedicado.
 
-**Critério de saída:** ações frequentes podem ser propostas/executadas por agentes com níveis explícitos de autonomia. A infraestrutura de Agent Run + Approval + Outbox idempotente já existe; a próxima etapa é conectar os engines externos em modo de serviço.
+### Atendimento
+- [x] chat operacional persistente;
+- [x] contexto empresarial por workspace;
+- [x] bridge Staff Business isolado da memória pessoal;
+- [x] SmartBots service bridge;
+- [ ] triagem/reclassificação multicanal avançada.
 
-## Fase 3 — AV Integration Hub
+### CRM Agent
+- [x] leitura e priorização de pipeline;
+- [x] detecção proativa de oportunidades sem atividade;
+- [x] follow-up WhatsApp pré-escrito por etapa;
+- [x] aprovação humana obrigatória para primeiro outbound;
+- [ ] aprendizado por taxa de resposta/conversão após amostra real.
 
-Ordem por dependência operacional:
+### ERP / Cobrança / Controller
+- [x] leitura financeira contextual;
+- [x] régua de cobrança V1;
+- [x] cobrança Pix governada via NextGen;
+- [x] idempotência forte e estado de reconciliação manual em resultado ambíguo;
+- [x] pulso CRM + financeiro + agenda + tarefas + sinais verticais;
+- [ ] detecção estatística de anomalias e comparativos avançados.
 
-1. **DocWallet** — contrato real auditado; endpoints de análise e assinatura mapeados; falta autenticação service-to-service estável.
-2. **Staff** — chat atual auditado; hoje depende de sessão Supabase do usuário; falta expor service mode para conversa/voz/comandos do NexOffice.
-3. **SmartBots** — contrato NexOffice e dispatcher configurável prontos; falta consolidar endpoint service-to-service de envio/atendimento.
-4. **NextGen** — criação de cobrança já mapeada para a API/SDK existente com `X-API-Key`; execução externa permanece desligada por padrão.
-5. **MODO** — contrato e dispatcher configurável prontos; falta consolidar endpoint service-to-service de growth.
-6. **TaxAgent** — contrato preparado para NFS-e/fiscal; conectar quando o motor fiscal estiver pronto.
+### Document Agent
+- [x] referências documentais sem armazenar arquivo bruto;
+- [x] análise e assinatura orquestradas;
+- [x] bridge DocWallet service-to-service;
+- [x] vínculo explícito e revogável Workspace ↔ DocWallet;
+- [x] idempotência e audit trail.
 
-Todo adapter deve ter contrato, idempotência, health check, outbox/retry, webhook e metering. `NEXOFFICE_EXTERNAL_ACTIONS=false` continua sendo o padrão seguro até configuração de produção.
+### Growth Agent
+- [x] bridge NexOffice → MODO;
+- [x] planejamento, canais, conteúdo e experimentos;
+- [x] publicação e orçamento bloqueados fora do fluxo nativo de aprovação do MODO;
+- [ ] feedback loop CRM → campanha → reunião → receita com amostra real.
 
-## Fase 4 — Vertical Packs
+## Fase 3 — AV Integration Hub ✅ base funcional
+
+| Capability | Estado |
+|---|---|
+| DocWallet | Bridge service-to-service + análise/assinatura + isolamento de workspace validados |
+| Staff | Business bridge validado; memória pessoal fica fora do NexOffice |
+| SmartBots | Bridge seguro, bot por workspace, idempotência e aprovação humana validados |
+| NextGen | Rota interna de cobrança NexOffice, aprovação, reserva idempotente e reconciliação manual |
+| MODO | Growth planning bridge validado; sem publish/budget pelo bridge |
+| TaxAgent | Company/environment por workspace, `secret_ref`, preparação fiscal aprovável e `/v1/invoices` |
+
+`NEXOFFICE_EXTERNAL_ACTIONS=false` continua sendo a postura segura por padrão. Efeitos externos reais só devem ser ligados capability por capability depois de configuração do ambiente.
+
+## Fase 4 — Plataforma embutível e Vertical Packs 🟢
+
+### Provisionamento AV
+- [x] `/v1/platform/provision` idempotente;
+- [x] `workspace_origins`, `external_identities` e entitlements;
+- [x] session exchange / handoff;
+- [x] roles owner/admin/member/viewer;
+- [x] mesmo workspace pode nascer standalone ou via produto AV.
 
 ### Legal / NexJud
-Mapear cliente, caso/processo, honorário, audiência e documentos; não copiar conteúdo jurídico desnecessário para o core horizontal.
+- [x] pack Legal;
+- [x] domínio jurídico continua no NexJud;
+- [x] firewall aggregate-only;
+- [x] sinais agregados de atividade, prazos, monitoramento, workload e carteira;
+- [x] prioridades entram no Copiloto e Central de Comando.
 
-### Health / MyDataMed
-Mapear paciente, agenda, atendimento e financeiro administrativo. Dados clínicos permanecem no produto de saúde e são consultados apenas quando estritamente necessário e autorizado.
+### Health / MyDataMed + Health Wallet
+- [x] pack Health;
+- [x] firewall explícito contra identidade de paciente e dado clínico bruto;
+- [x] sinais somente administrativos/agregados;
+- [x] agenda operacional, requests, SLA, workload e programas agregados;
+- [x] prioridades entram no Copiloto e Central de Comando.
 
 ### Condo / SindCopilot
-Mapear condomínio, unidades, fornecedores, agenda, documentos, cobranças e comunicação.
+- [x] pack Condo;
+- [x] firewall aggregate-only;
+- [x] compliance, documentos, comunicados, fornecedores e portfólio agregados;
+- [x] nenhum morador/unidade/conteúdo privado cru entra pelo bridge;
+- [x] prioridades entram no Copiloto e Central de Comando.
 
 ### Commerce
-Primeiro por adapters para Shopify/WooCommerce/Nuvemshop/marketplaces. NexOffice opera clientes, pedidos, atendimento, financeiro, cobrança e growth; não replica storefront/checkout/logística na V1.
+- [x] pack Commerce;
+- [x] conectores lógicos Shopify / WooCommerce / Nuvemshop / Mercado Livre / manual;
+- [x] firewall aggregate-only;
+- [x] pedidos, fulfillment, estoque, clientes agregados, suporte e conversão;
+- [x] nenhum pedido individual, nome, e-mail, telefone, endereço, CPF ou item comprado entra pelo bridge;
+- [x] Copiloto e Central de Comando entendem o contexto de commerce;
+- [ ] adapters nativos de coleta para cada plataforma, começando pelo canal com cliente piloto.
 
-## Fase 5 — Comercialização
+## Fase 5 — Operação proativa 🟢
 
-- [ ] planos standalone;
-- [ ] add-on pricing dentro das ventures AV;
-- [ ] limites e overage por capability;
+- [x] Operational Signal Engine;
+- [x] prioridades por vertical;
+- [x] materialização idempotente de sinais em cards do Command Center;
+- [x] Rotina Operacional V1 de Secretária + CRM Agent;
+- [x] pulse de rotina no shell web;
+- [ ] scheduler recorrente de rotina após staging dedicado;
+- [ ] playbooks adicionais: pós-reunião, proposta parada, reativação e lista de espera;
+- [ ] transformação de sinais seguros em propostas MODO/SmartBots/Staff com governança por risco.
+
+## Fase 6 — Staging e produção controlada
+
+- [x] NextGen bridge endurecido e live no Render;
+- [ ] Postgres dedicado do NexOffice;
+- [ ] API NexOffice em staging;
+- [ ] web staging;
+- [ ] pareamento de secrets service-to-service;
+- [ ] probes sem efeitos externos;
+- [ ] ativação gradual de capabilities reais;
+- [ ] E2E humano por vertical antes de produção comercial.
+
+**Bloqueio de infraestrutura atual:** a conta Render não oferece outra vaga de Postgres gratuito; não reutilizar banco de outra venture e não criar recurso pago sem autorização explícita.
+
+**Pendência NextGen separada:** o scheduler Bull depende de Redis e o workspace Render ainda não possui Key Value/Redis. Não remover silenciosamente essa dependência.
+
+## Fase 7 — Comercialização e pricing
+
+- [ ] observar custo real por workspace e capability;
+- [ ] perfis de uso leve / médio / intenso;
+- [ ] preço standalone;
+- [ ] preço add-on dentro das ventures AV;
+- [ ] franquias e overage compreensíveis;
 - [ ] onboarding por segmento;
 - [ ] templates de automação;
-- [ ] marketplace de Vertical Packs/adapters no futuro.
+- [ ] expansão futura de packs/adapters.
 
-## Regra de priorização
+## Regra de arquitetura
 
-Construir primeiro o que cria uso diário e dados estruturados: CRM, agenda, financeiro e Action Inbox. Integrações entram por trás desses fluxos, não como telas isoladas. O NexOffice é sempre a experiência principal; engines especializados permanecem capabilities internas.
+NexOffice não replica sistemas especialistas. Ele mantém a experiência principal, a memória operacional e a governança. DocWallet, Staff, SmartBots, NextGen, MODO, TaxAgent e os produtos verticais permanecem engines/capabilities com contratos estreitos, isolamento de dados, idempotência, audit trail e níveis explícitos de autonomia.
