@@ -60,6 +60,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/009_federated_auth.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/010_platform_handoff.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/011_platform_member_roles.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/012_health_operational_signals.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -78,6 +79,8 @@ jobs:
         run: node scripts/smoke-vertical.mjs
       - name: Smoke test AV platform provisioning
         run: node scripts/smoke-platform.mjs
+      - name: Smoke test health data firewall
+        run: node scripts/smoke-health-firewall.mjs
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
