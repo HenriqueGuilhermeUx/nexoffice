@@ -62,6 +62,21 @@ export function buildOperationalPriorities(vertical:string,signals:OperationalSi
     if(dueToday>0||waitingReview>0)priorities.push({level:'normal',title:'Carga operacional de saúde pede atenção',detail:`Itens com vencimento hoje: ${dueToday}; aguardando revisão: ${waitingReview}.`,target:'command'});
   }
 
+  if(vertical==='condo'){
+    const compliance=effectiveOperationalSignal(signals,'compliance.summary');
+    const overdue=n(compliance?.metrics?.overdue),upcoming=n(compliance?.metrics?.upcoming),alertsFailed=n(compliance?.metrics?.alertsFailed);
+    if(overdue>0)priorities.push({level:'high',title:`${overdue} obrigação(ões) condominial(is) vencida(s) no SindCopilot`,detail:'Contagem operacional agregada. Abra o SindCopilot para revisar os condomínios e obrigações correspondentes.',target:'command'});
+    if(upcoming>0)priorities.push({level:'normal',title:`${upcoming} obrigação(ões) de compliance próxima(s)`,detail:'Sinal agregado do SindCopilot; nenhum condomínio, unidade ou morador foi copiado para o NexOffice.',target:'command'});
+    if(alertsFailed>0)priorities.push({level:'normal',title:`${alertsFailed} alerta(s) de compliance falharam`,detail:'Métrica operacional agregada do SindCopilot.',target:'command'});
+    const documents=effectiveOperationalSignal(signals,'documents.summary');
+    const ocrFailed=n(documents?.metrics?.ocrFailed),indexingFailed=n(documents?.metrics?.indexingFailed),pendingReview=n(documents?.metrics?.pendingReview);
+    if(ocrFailed+indexingFailed>0)priorities.push({level:'normal',title:'Documentos condominiais precisam de atenção técnica',detail:`Falhas de OCR: ${ocrFailed}; falhas de indexação: ${indexingFailed}.`,target:'command'});
+    else if(pendingReview>0)priorities.push({level:'normal',title:`${pendingReview} documento(s) aguardam revisão no SindCopilot`,detail:'Somente a contagem operacional foi compartilhada.',target:'command'});
+    const notices=effectiveOperationalSignal(signals,'notices.summary');
+    const drafts=n(notices?.metrics?.drafts);
+    if(drafts>0)priorities.push({level:'normal',title:`${drafts} comunicado(s)/minuta(s) em rascunho`,detail:'O conteúdo permanece exclusivamente no SindCopilot até revisão humana.',target:'command'});
+  }
+
   return priorities;
 }
 
@@ -98,6 +113,22 @@ export function operationalSignalNarrative(vertical:string,signals:OperationalSi
     if(programs)parts.push(`programas: ${n(programs.metrics.enrolled)} inscrito(s), ${n(programs.metrics.active)} ativo(s), ${n(programs.metrics.completed)} concluído(s) e ${n(programs.metrics.paused)} pausado(s)`);
     const suffix=' Estes são somente agregados administrativos; o NexOffice não recebe identidade de paciente, prontuário, diagnóstico, exame, prescrição ou dado de wearable.';
     return {text:parts.length?`Na operação de saúde, ${parts.join('; ')}.${suffix}`:`Recebi sinais agregados da operação de saúde, mas nenhum dos tipos que resumo aqui.${suffix}`,facts:{privacy:'aggregate_only',source:'health',signals}};
+  }
+
+  if(vertical==='condo'){
+    const parts:string[]=[];
+    const portfolio=effectiveOperationalSignal(signals,'portfolio.summary');
+    if(portfolio)parts.push(`portfólio: ${n(portfolio.metrics.totalCondominiums)} condomínio(s), ${n(portfolio.metrics.activeCondominiums)} ativo(s) e ${n(portfolio.metrics.activeAssistants)} assistente(s) ativo(s)`);
+    const compliance=effectiveOperationalSignal(signals,'compliance.summary');
+    if(compliance)parts.push(`compliance: ${n(compliance.metrics.pending)} pendente(s), ${n(compliance.metrics.upcoming)} próximo(s), ${n(compliance.metrics.overdue)} vencido(s) e ${n(compliance.metrics.completed)} concluído(s)`);
+    const documents=effectiveOperationalSignal(signals,'documents.summary');
+    if(documents)parts.push(`documentos: ${n(documents.metrics.pendingReview)} aguardando revisão, ${n(documents.metrics.ocrPending)} em OCR, ${n(documents.metrics.ocrFailed)} falha(s) de OCR, ${n(documents.metrics.indexingPending)} em indexação e ${n(documents.metrics.indexingFailed)} falha(s) de indexação`);
+    const notices=effectiveOperationalSignal(signals,'notices.summary');
+    if(notices)parts.push(`comunicações: ${n(notices.metrics.drafts)} rascunho(s), ${n(notices.metrics.sent)} enviado(s) e ${n(notices.metrics.cancelled)} cancelado(s)`);
+    const suppliers=effectiveOperationalSignal(signals,'suppliers.summary');
+    if(suppliers)parts.push(`fornecedores: ${n(suppliers.metrics.total)} cadastrado(s), ${n(suppliers.metrics.rated)} avaliado(s)`);
+    const suffix=' Estes são somente agregados operacionais do SindCopilot; o NexOffice não recebe nome de condomínio, unidade, morador, proprietário, CPF/CNPJ, contato, documento, convenção, ata ou texto de comunicado.';
+    return {text:parts.length?`No SindCopilot, ${parts.join('; ')}.${suffix}`:`Recebi sinais agregados do SindCopilot, mas nenhum dos tipos que resumo aqui.${suffix}`,facts:{privacy:'aggregate_only',source:'sindcopilot',signals}};
   }
 
   return {text:'Há sinais operacionais agregados disponíveis para este workspace.',facts:{privacy:'aggregate_only',signals}};
