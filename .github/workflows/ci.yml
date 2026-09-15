@@ -52,6 +52,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/002_platform_foundation.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/003_core_operational.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/004_integration_runtime.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/005_assistant_collections.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
