@@ -89,6 +89,8 @@ jobs:
         run: node scripts/smoke-condo-firewall.mjs
       - name: Smoke test Commerce Operations firewall
         run: node scripts/smoke-commerce-firewall.mjs
+      - name: Smoke test Commerce connector SDK
+        run: node scripts/smoke-commerce-sdk.mjs
       - name: Smoke test proactive Secretary and CRM automations
         run: node scripts/smoke-proactive-automation.mjs
       - name: Smoke test Command Center domain overview
