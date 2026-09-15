@@ -88,6 +88,8 @@ export class HttpCapabilityClient {
 export type AVSourceProduct='nexjud'|'sindcopilot'|'mydatamed'|'health-wallet'|'smartbots'|'modo'|'docwallet'|'nextgen'|'taxagent'|'connexio'|'mindcompliance'|'mindsteps'|'f-insight'|'ecotracker'|'nexa'|'staff';
 export type NexOfficeVertical='general'|'legal'|'health'|'condo'|'commerce';
 export type NexOfficeMemberRole='owner'|'admin'|'member'|'viewer';
+export type OperationalWindow='hour'|'day'|'week'|'month';
+export type OperationalScope='workspace'|'team'|'member';
 
 export interface ProvisionWorkspaceInput {
   sourceProduct:AVSourceProduct;
@@ -132,6 +134,38 @@ export interface BrowserHandoffResult {
   url:string|null;
 }
 
+interface OperationalSignalBase {
+  externalWorkspaceRef:string;
+  correlationId?:string;
+  periodStart:string;
+  periodEnd:string;
+  dimensions:{window:OperationalWindow;scope:OperationalScope};
+}
+
+export type LegalOperationalSignalInput=OperationalSignalBase&(
+  |{signalType:'matters.summary';metrics:{active:number;opened:number;closed:number;attentionRequired:number}}
+  |{signalType:'deadlines.summary';metrics:{dueToday:number;due7Days:number;overdue:number;completed:number}}
+  |{signalType:'activity.summary';metrics:{strategicAnalyses:number;drafts:number;judgeSessions:number;agentRuns:number}}
+  |{signalType:'monitoring.summary';metrics:{monitoredCases:number;newMovements:number;unreviewedMovements:number;alerts:number}}
+  |{signalType:'workload.summary';metrics:{activeMatters:number;dueToday:number;waitingReview:number;backlog:number}}
+);
+
+export type HealthOperationalSignalInput=OperationalSignalBase&{
+  sourceProduct:'mydatamed'|'health-wallet';
+}&(
+  |{signalType:'appointments.summary';metrics:{scheduled:number;completed:number;cancelled:number;noShow:number;pending:number}}
+  |{signalType:'requests.summary';metrics:{open:number;overdue:number;escalated:number;resolved:number}}
+  |{signalType:'sla.summary';metrics:{total:number;withinSla:number;breached:number;avgFirstResponseMinutes:number;complianceRatio:number}}
+  |{signalType:'workload.summary';metrics:{activeCases:number;waitingReview:number;waitingPatientReply:number;dueToday:number}}
+  |{signalType:'programs.summary';metrics:{enrolled:number;active:number;completed:number;paused:number}}
+);
+
+export interface OperationalSignalResult {
+  ok:true;
+  privacy:'aggregate_only';
+  signal:{id:string;workspace_id:string;source_product:string;signal_type:string;period_start:string;period_end:string;metrics:Record<string,number>;dimensions:Record<string,string>;created_at:string};
+}
+
 export class NexOfficePlatformBridgeClient {
   private readonly baseUrl:string;
   constructor(baseUrl:string,private readonly internalKey:string,private readonly timeoutMs=10000){
@@ -144,6 +178,8 @@ export class NexOfficePlatformBridgeClient {
   async provision(input:ProvisionWorkspaceInput){return this.request<ProvisionWorkspaceResult>('/v1/platform/provision','POST',input)}
   async exchangeSession(input:SessionExchangeInput){return this.request<SessionExchangeResult>('/v1/platform/session-exchange','POST',input)}
   async createBrowserHandoff(input:SessionExchangeInput){return this.request<BrowserHandoffResult>('/v1/platform/handoff','POST',input)}
+  async pushLegalSignal(input:LegalOperationalSignalInput){return this.request<OperationalSignalResult>('/v1/platform/legal-signals','POST',{...input,sourceProduct:'nexjud'})}
+  async pushHealthSignal(input:HealthOperationalSignalInput){return this.request<OperationalSignalResult>('/v1/platform/health-signals','POST',input)}
 
   private async request<T>(path:string,method:'GET'|'POST',body?:unknown):Promise<T>{
     const response=await fetch(`${this.baseUrl}${path}`,{
