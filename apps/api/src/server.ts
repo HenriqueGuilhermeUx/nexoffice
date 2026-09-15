@@ -88,7 +88,7 @@ app.get('/v1/crm/contacts', async req => {
 
 app.post('/v1/crm/contacts', async req => {
   const wid = workspaceId(req); const input = contactSchema.parse(req.body);
-  const rows = await query(
+  const rows = await query<{id:string; [key:string]:unknown}>(
     `insert into crm_contacts (workspace_id, kind, name, email, phone, company_name, document_number, source, tags, custom_fields)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,
     [wid,input.kind,input.name,input.email||null,input.phone||null,input.companyName||null,input.documentNumber||null,input.source||null,input.tags,JSON.stringify(input.customFields)]
@@ -131,7 +131,7 @@ app.get('/v1/ledger', async req => {
 
 app.post('/v1/ledger', async req => {
   const wid=workspaceId(req); const input=ledgerSchema.parse(req.body);
-  const rows=await query(
+  const rows=await query<{id:string; [key:string]:unknown}>(
     `insert into ledger_entries (workspace_id,contact_id,direction,category,description,amount_minor,currency,status,due_at,paid_at,recurrence_key,external_ref,metadata)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,
     [wid,input.contactId||null,input.direction,input.category,input.description,input.amountMinor,input.currency,input.status,input.dueAt||null,input.paidAt||null,input.recurrenceKey||null,input.externalRef||null,JSON.stringify(input.metadata)]
@@ -187,7 +187,7 @@ app.get('/v1/dashboard', async req => {
 app.setErrorHandler((error,_req,reply)=>{
   app.log.error(error);
   const status=(error as any)?.statusCode||((error as any)?.issues?400:500);
-  reply.code(status).send({error:error.message,issues:(error as any)?.issues});
+  reply.code(status).send({error:error instanceof Error?error.message:String(error),issues:(error as any)?.issues});
 });
 
 async function emit(workspaceId:string,type:string,source:string,subjectType:string|null,subjectId:string|null,payload:Record<string,unknown>,correlationId:string|null=null){
