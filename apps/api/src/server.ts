@@ -9,6 +9,7 @@ import {registerCommandRoutes} from './routes-command.js';
 import {registerRuntimeRoutes} from './routes-runtime.js';
 import {registerAssistantRoutes} from './routes-assistant.js';
 import {registerCollectionsRoutes} from './routes-collections.js';
+import {registerReconciliationRoutes} from './routes-reconciliation.js';
 
 const app=Fastify({logger:true});
 const port=Number(process.env.PORT||4000);
@@ -25,7 +26,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.4.0',database:Boolean(db)}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.5.0',database:Boolean(db)}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -35,6 +36,7 @@ await registerCommandRoutes(app);
 await registerRuntimeRoutes(app);
 await registerAssistantRoutes(app);
 await registerCollectionsRoutes(app);
+await registerReconciliationRoutes(app);
 
 app.setErrorHandler((error,_req,reply)=>{
   app.log.error(error);
