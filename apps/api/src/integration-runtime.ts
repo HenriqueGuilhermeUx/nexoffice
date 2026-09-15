@@ -2,7 +2,7 @@ import {query} from './db.js';
 
 export const CAPABILITIES = {
   docwallet: {label:'DocWallet', baseEnv:'DOCWALLET_BASE_URL', keyEnv:'DOCWALLET_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['documents','ocr','signature','approval']},
-  staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/health', capabilities:['voice','conversation','memory','agenda']},
+  staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/.netlify/functions/nexoffice-assistant', capabilities:['business_conversation','voice_orchestration','workspace_context']},
   smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/health', capabilities:['whatsapp','service','qualification','follow-up']},
   nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/health', capabilities:['pix','charges','reconciliation']},
   modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/health', capabilities:['growth','content','campaigns','intelligence']},
@@ -23,7 +23,8 @@ export function providerCatalog(){
 export async function probeProvider(workspaceId:string,provider:Provider){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');
   if(!base)return {provider,ok:false,status:'not_configured',error:`${c.baseEnv} não configurada`};
-  const headers={...providerHeaders(provider),...(provider==='docwallet'?{'X-NexOffice-Workspace-ID':workspaceId}:{})};
+  const workspaceScoped=provider==='docwallet'||provider==='staff';
+  const headers={...providerHeaders(provider),...(workspaceScoped?{'X-NexOffice-Workspace-ID':workspaceId}:{})};
   try{
     const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();
     const workspaceDisconnected=provider==='docwallet'&&response.ok&&(payload as any)?.workspaceConnected===false;
@@ -52,10 +53,14 @@ export async function dispatchOutbox(topic:string,payload:any,workspaceId?:strin
   if(topic==='nextgen.charge.create')return createNextGenCharge(payload);
   if(topic==='docwallet.document.action')return dispatchDocWallet(payload,workspaceId);
   if(topic==='smartbots.message.send')return dispatchSmartBots(payload);
-  if(topic==='staff.assistant.action')return dispatchConfigurable('staff',process.env.STAFF_ACTION_PATH,payload);
+  if(topic==='staff.assistant.action')return dispatchStaff(payload,workspaceId);
   if(topic==='modo.growth.action')return dispatchConfigurable('modo',process.env.MODO_ACTION_PATH,payload);
   if(topic==='taxagent.invoice.issue')return dispatchConfigurable('taxagent',process.env.TAXAGENT_INVOICE_PATH,payload);
   return {ok:false,error:`adapter_not_ready:${topic}`};
+}
+
+export async function callStaffBusiness(workspaceId:string,payload:any){
+  return dispatchStaff(payload,workspaceId);
 }
 
 async function dispatchDocWallet(payload:any,workspaceId?:string){
@@ -72,6 +77,14 @@ async function dispatchDocWallet(payload:any,workspaceId?:string){
   return {ok:false,error:`docwallet_action_not_supported:${actionType}`};
 }
 
+async function dispatchStaff(payload:any,workspaceId?:string){
+  if(!workspaceId)return {ok:false,error:'staff_workspace_required'};
+  const path=String(process.env.STAFF_ACTION_PATH||'/.netlify/functions/nexoffice-assistant');
+  const message=String(payload?.message||payload?.prompt||payload?.instruction||'').trim();
+  if(!message)return {ok:false,error:'staff_message_required'};
+  return providerRequest('staff',path,'POST',{...payload,message,context:{...(payload?.context||{}),workspace:{...(payload?.context?.workspace||{}),id:workspaceId}}},{'X-NexOffice-Workspace-ID':workspaceId});
+}
+
 async function dispatchSmartBots(payload:any){
   const path=String(process.env.SMARTBOTS_SEND_PATH||'');
   if(!path)return {ok:false,error:'SMARTBOTS_SEND_PATH_not_configured'};
@@ -86,7 +99,7 @@ async function dispatchConfigurable(provider:Provider,path:string|undefined,payl
 async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'|'PATCH'='POST',body?:unknown,extraHeaders:Record<string,string>={}){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');if(!base)return {ok:false,error:`${c.baseEnv}_not_configured`};
   const headers:Record<string,string>={accept:'application/json',...providerHeaders(provider),...extraHeaders};if(body!==undefined)headers['content-type']='application/json';
-  try{const response=await fetch(`${base}/${String(path).replace(/^\//,'')}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});const text=await response.text();const result=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,2000)}}})();if(!response.ok)return {ok:false,error:(result as any)?.error||(result as any)?.message||`HTTP ${response.status}`,httpStatus:response.status,payload:result};return {ok:true,httpStatus:response.status,payload:result}}catch(error){return {ok:false,error:error instanceof Error?error.message:String(error)}}
+  try{const response=await fetch(`${base}/${String(path).replace(/^\//,'')}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(25000)});const text=await response.text();const result=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,2000)}}})();if(!response.ok)return {ok:false,error:(result as any)?.error||(result as any)?.message||`HTTP ${response.status}`,httpStatus:response.status,payload:result};return {ok:true,httpStatus:response.status,payload:result}}catch(error){return {ok:false,error:error instanceof Error?error.message:String(error)}}
 }
 
 function providerHeaders(provider:Provider):Record<string,string>{
