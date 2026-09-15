@@ -7,6 +7,8 @@ import {registerOpsRoutes} from './routes-ops.js';
 import {registerFinanceRoutes} from './routes-finance.js';
 import {registerCommandRoutes} from './routes-command.js';
 import {registerRuntimeRoutes} from './routes-runtime.js';
+import {registerAssistantRoutes} from './routes-assistant.js';
+import {registerCollectionsRoutes} from './routes-collections.js';
 
 const app=Fastify({logger:true});
 const port=Number(process.env.PORT||4000);
@@ -23,7 +25,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.3.0',database:Boolean(db)}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.4.0',database:Boolean(db)}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -31,6 +33,8 @@ await registerOpsRoutes(app);
 await registerFinanceRoutes(app);
 await registerCommandRoutes(app);
 await registerRuntimeRoutes(app);
+await registerAssistantRoutes(app);
+await registerCollectionsRoutes(app);
 
 app.setErrorHandler((error,_req,reply)=>{
   app.log.error(error);
