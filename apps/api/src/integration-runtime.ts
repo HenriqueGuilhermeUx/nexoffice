@@ -5,7 +5,7 @@ export const CAPABILITIES = {
   staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/.netlify/functions/nexoffice-assistant', capabilities:['business_conversation','voice_orchestration','workspace_context']},
   smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['whatsapp','service','qualification','follow-up','human_approval']},
   nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/health', capabilities:['pix','charges','reconciliation']},
-  modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/health', capabilities:['growth','content','campaigns','intelligence']},
+  modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/api/v1/internal/nexoffice/health', capabilities:['growth','content','campaigns','intelligence','planning_only']},
   taxagent: {label:'TaxAgent', baseEnv:'TAXAGENT_BASE_URL', keyEnv:'TAXAGENT_API_KEY', health:'/health', capabilities:['nfse','tax']}
 } as const;
 
@@ -23,7 +23,7 @@ export function providerCatalog(){
 export async function probeProvider(workspaceId:string,provider:Provider){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');
   if(!base)return {provider,ok:false,status:'not_configured',error:`${c.baseEnv} não configurada`};
-  const workspaceScoped=provider==='docwallet'||provider==='staff'||provider==='smartbots';
+  const workspaceScoped=provider==='docwallet'||provider==='staff'||provider==='smartbots'||provider==='modo';
   const headers={...providerHeaders(provider),...(workspaceScoped?{'X-NexOffice-Workspace-ID':workspaceId}:{})};
   try{
     const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();
@@ -54,7 +54,7 @@ export async function dispatchOutbox(topic:string,payload:any,workspaceId?:strin
   if(topic==='docwallet.document.action')return dispatchDocWallet(payload,workspaceId);
   if(topic==='smartbots.message.send')return dispatchSmartBots(payload,workspaceId);
   if(topic==='staff.assistant.action')return dispatchStaff(payload,workspaceId);
-  if(topic==='modo.growth.action')return dispatchConfigurable('modo',process.env.MODO_ACTION_PATH,payload);
+  if(topic==='modo.growth.action')return dispatchModo(payload,workspaceId);
   if(topic==='taxagent.invoice.issue')return dispatchConfigurable('taxagent',process.env.TAXAGENT_INVOICE_PATH,payload);
   return {ok:false,error:`adapter_not_ready:${topic}`};
 }
@@ -111,6 +111,23 @@ async function dispatchSmartBots(payload:any,workspaceId?:string){
   },{'X-NexOffice-Workspace-ID':workspaceId,'Idempotency-Key':correlationId});
 }
 
+async function dispatchModo(payload:any,workspaceId?:string){
+  if(!workspaceId)return {ok:false,error:'modo_workspace_required'};
+  const path=String(process.env.MODO_ACTION_PATH||'/api/v1/internal/nexoffice/growth');
+  const actionType=String(payload?.actionType||'growth.opportunity');
+  const correlationId=String(payload?.correlationId||payload?.commandActionId||`modo-${Date.now()}`);
+  return providerRequest('modo',path,'POST',{
+    actionType,
+    correlationId,
+    commandActionId:payload?.commandActionId||null,
+    goal:payload?.goal||payload?.objective||null,
+    audience:payload?.audience||null,
+    offer:payload?.offer||null,
+    signals:payload?.signals||payload?.context?.signals||{},
+    context:payload?.context||payload?.businessContext||{}
+  },{'X-NexOffice-Workspace-ID':workspaceId,'Idempotency-Key':correlationId});
+}
+
 async function dispatchConfigurable(provider:Provider,path:string|undefined,payload:any){
   if(!path)return {ok:false,error:`${provider.toUpperCase()}_ACTION_PATH_not_configured`};
   return providerRequest(provider,path,'POST',payload);
@@ -125,7 +142,7 @@ async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'
 function providerHeaders(provider:Provider):Record<string,string>{
   const key=providerKey(provider);if(!key)return {};
   if(provider==='nextgen')return {'X-API-Key':key};
-  if(provider==='docwallet'||provider==='smartbots')return {'X-NexOffice-Key':key};
+  if(provider==='docwallet'||provider==='smartbots'||provider==='modo')return {'X-NexOffice-Key':key};
   const customName=String(process.env[`${provider.toUpperCase()}_AUTH_HEADER`]||'').trim();if(customName)return {[customName]:key};
   return {Authorization:`Bearer ${key}`};
 }
