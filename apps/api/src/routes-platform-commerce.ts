@@ -5,6 +5,7 @@ import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {auditLog} from './events.js';
 import {CommerceOperationalSignal,COMMERCE_SIGNAL_TYPES,COMMERCE_SOURCES} from './commerce-data-firewall.js';
+import {syncOperationalActions} from './operational-action-engine.js';
 
 const Provider=z.enum(COMMERCE_SOURCES);
 
@@ -48,7 +49,8 @@ export async function registerPlatformCommerceRoutes(app:FastifyInstance){
       returning id,workspace_id,source_product,signal_type,period_start,period_end,metrics,dimensions,correlation_id,created_at
     `,[workspace.id,input.sourceProduct,input.signalType,input.periodStart,input.periodEnd,JSON.stringify(input.metrics),JSON.stringify(input.dimensions),input.correlationId||null]);
     await query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,metadata) values($1,'service',$2,'platform.commerce_signal.accepted','workspace',$1::uuid::text,$3)`,[workspace.id,input.sourceProduct,JSON.stringify({signalType:input.signalType,correlationId:input.correlationId||null,privacy:'aggregate_only'})]).catch(()=>null);
-    return {ok:true,privacy:'aggregate_only',signal:rows[0]};
+    const actionSync=await syncOperationalActions(workspace.id).catch(error=>({created:0,updated:0,priorities:0,error:error instanceof Error?error.message:String(error)}));
+    return {ok:true,privacy:'aggregate_only',signal:rows[0],actionSync};
   });
 
   app.get('/v1/platform/commerce-signals',async req=>{
