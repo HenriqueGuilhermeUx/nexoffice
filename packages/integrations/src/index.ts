@@ -87,6 +87,7 @@ export class HttpCapabilityClient {
 // the shared AV platform credential used to provision and exchange NexOffice sessions.
 export type AVSourceProduct='nexjud'|'sindcopilot'|'mydatamed'|'health-wallet'|'smartbots'|'modo'|'docwallet'|'nextgen'|'taxagent'|'connexio'|'mindcompliance'|'mindsteps'|'f-insight'|'ecotracker'|'nexa'|'staff';
 export type NexOfficeVertical='general'|'legal'|'health'|'condo'|'commerce';
+export type NexOfficeMemberRole='owner'|'admin'|'member'|'viewer';
 
 export interface ProvisionWorkspaceInput {
   sourceProduct:AVSourceProduct;
@@ -95,6 +96,7 @@ export interface ProvisionWorkspaceInput {
   vertical?:NexOfficeVertical;
   ownerEmail:string;
   ownerName?:string;
+  memberRole?:NexOfficeMemberRole;
   externalUserSubject?:string;
   entitlements?:string[];
 }
@@ -104,6 +106,7 @@ export interface ProvisionWorkspaceResult {
   userExists:boolean;
   userExisted?:boolean;
   federatedUserCreated?:boolean;
+  memberRole?:NexOfficeMemberRole;
   inviteToken?:string|null;
   inviteUrl?:string|null;
   workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;modules:string[];settings?:Record<string,unknown>};
@@ -120,7 +123,7 @@ export interface SessionExchangeInput {
 export interface SessionExchangeResult {
   token:string;
   expiresAt:string;
-  workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;role:string;permissions:string[]};
+  workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;role:NexOfficeMemberRole;permissions:string[]};
 }
 
 export interface BrowserHandoffResult {
