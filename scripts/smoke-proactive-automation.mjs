@@ -23,7 +23,9 @@ const deal=await call('/v1/crm/deals',{method:'POST',body:{contactId:contact.id,
 const emailOnly=await call('/v1/crm/contacts',{method:'POST',body:{kind:'person',name:'Carlos Sem WhatsApp',email:'carlos@example.test',source:'smoke'}});
 await call('/v1/appointments',{method:'POST',body:{contactId:emailOnly.id,title:'Reunião sem telefone',startsAt:new Date(Date.now()+5*3600000).toISOString(),endsAt:new Date(Date.now()+6*3600000).toISOString(),status:'scheduled'}});
 
-execFileSync('psql',[process.env.DATABASE_URL,'-v','ON_ERROR_STOP=1','-c',`update crm_deals set updated_at=now()-interval '4 days' where id='${deal.id}' and workspace_id='${workspace}'`],{stdio:'pipe'});
+// A oportunidade precisa parecer realmente antiga: em produção created_at nunca fica à frente de updated_at.
+// O fixture envelhece ambos para testar a regra de inatividade sem contradizer a cronologia real.
+execFileSync('psql',[process.env.DATABASE_URL,'-v','ON_ERROR_STOP=1','-c',`update crm_deals set created_at=now()-interval '4 days',updated_at=now()-interval '4 days' where id='${deal.id}' and workspace_id='${workspace}'`],{stdio:'pipe'});
 
 const overview=await call('/v1/automations/overview');
 assert(Number(overview.appointmentConfirmationsDue)===2,'two appointment confirmations detected');
@@ -55,5 +57,4 @@ assert(execute.run?.status==='queued_external','approved confirmation enters rel
 const processed=await call('/v1/outbox/process',{method:'POST',body:{limit:20}});
 assert(processed.results.some(x=>x.topic==='smartbots.message.send'&&x.ok===true&&x.dryRun===true),'CI keeps external message dry-run');
 
-actions=await call('/v1/command/actions',{method:'GET'});
 console.log(JSON.stringify({ok:true,appointmentCandidates:first.appointmentCandidates,crmCandidates:first.crmCandidates,outboundApprovals:first.outboundApprovals,internalReviews:first.internalReviews,idempotent:true,humanApproval:true,dryRun:true},null,2));
