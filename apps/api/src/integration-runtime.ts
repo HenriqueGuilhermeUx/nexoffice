@@ -6,7 +6,7 @@ export const CAPABILITIES = {
   smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['whatsapp','service','qualification','follow-up','human_approval']},
   nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/v1/internal/nexoffice/health', capabilities:['pix','charges','reconciliation','human_approval','idempotency']},
   modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/api/v1/internal/nexoffice/health', capabilities:['growth','content','campaigns','intelligence','planning_only']},
-  taxagent: {label:'TaxAgent', baseEnv:'TAXAGENT_BASE_URL', keyEnv:'TAXAGENT_API_KEY', health:'/health', capabilities:['nfse','tax']}
+  taxagent: {label:'TaxAgent', baseEnv:'TAXAGENT_BASE_URL', keyEnv:'TAXAGENT_API_KEY', health:'/v1/health', capabilities:['nfse','tax_engine','readiness','fiscal_ledger','idempotency','safety_gates']}
 } as const;
 
 export type Provider = keyof typeof CAPABILITIES;
@@ -55,7 +55,7 @@ export async function dispatchOutbox(topic:string,payload:any,workspaceId?:strin
   if(topic==='smartbots.message.send')return dispatchSmartBots(payload,workspaceId);
   if(topic==='staff.assistant.action')return dispatchStaff(payload,workspaceId);
   if(topic==='modo.growth.action')return dispatchModo(payload,workspaceId);
-  if(topic==='taxagent.invoice.issue')return dispatchConfigurable('taxagent',process.env.TAXAGENT_INVOICE_PATH,payload);
+  if(topic==='taxagent.invoice.issue')return dispatchTaxAgent(payload,workspaceId);
   return {ok:false,error:`adapter_not_ready:${topic}`};
 }
 
@@ -133,19 +133,54 @@ async function dispatchModo(payload:any,workspaceId?:string){
   },{'X-NexOffice-Workspace-ID':workspaceId,'Idempotency-Key':correlationId});
 }
 
-async function dispatchConfigurable(provider:Provider,path:string|undefined,payload:any){
-  if(!path)return {ok:false,error:`${provider.toUpperCase()}_ACTION_PATH_not_configured`};
-  return providerRequest(provider,path,'POST',payload);
+async function dispatchTaxAgent(payload:any,workspaceId?:string){
+  if(!workspaceId)return {ok:false,error:'taxagent_workspace_required'};
+  const actionId=String(payload?.commandActionId||'').trim();
+  if(!actionId)return {ok:false,error:'taxagent_command_action_required'};
+  const {humanApproved}=await approvalProof(workspaceId,actionId);
+  if(!humanApproved)return {ok:false,error:'taxagent_human_approval_required'};
+  const mapping=(await query<any>(`select external_account_ref,config,secret_ref from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[workspaceId]))[0];
+  const companyId=String(mapping?.external_account_ref||'').trim();
+  if(!companyId)return {ok:false,error:'taxagent_company_not_connected'};
+  const secretRef=String(mapping?.secret_ref||'').trim();
+  const workspaceKey=secretRef?String(process.env[secretRef]||''):'';
+  const credential=workspaceKey||String(process.env.TAXAGENT_API_KEY||'');
+  if(!credential)return {ok:false,error:'taxagent_workspace_credential_not_configured'};
+  const environment=String(mapping?.config?.environment||payload?.environment||'test');
+  const customer=payload?.customer||{};const service=payload?.service||{};
+  const correlationId=String(payload?.correlationId||actionId).trim();
+  const body={
+    company_id:companyId,
+    environment,
+    ...(payload?.competence?{competence:payload.competence}:{}),
+    ...(payload?.taxDecisionId?{tax_decision_id:payload.taxDecisionId}:{}),
+    ...(payload?.preparedDpsId?{prepared_dps_id:payload.preparedDpsId}:{}),
+    customer:{tax_id:customer.taxId,name:customer.name,city_code:customer.cityCode},
+    service:{
+      description:service.description,
+      amount:Number(service.amount),
+      ...(service.nationalServiceCode?{national_service_code:service.nationalServiceCode}:{}),
+      ...(service.serviceLocationCityCode?{service_location_city_code:service.serviceLocationCityCode}:{}),
+      ...(service.issTaxation?{iss_taxation:service.issTaxation}:{}),
+      ...(service.issWithholding?{iss_withholding:service.issWithholding}:{}),
+      ...(service.issRate!==undefined?{iss_rate:Number(service.issRate)}:{}),
+      ...(service.finalConsumption?{final_consumption:service.finalConsumption}:{}),
+      ...(service.operationIndicator?{operation_indicator:service.operationIndicator}:{}),
+      ...(service.taxSituation?{tax_situation:service.taxSituation}:{}),
+      ...(service.taxClassification?{tax_classification:service.taxClassification}:{})
+    }
+  };
+  return providerRequest('taxagent',String(process.env.TAXAGENT_INVOICE_PATH||'/v1/invoices'),'POST',body,{'Idempotency-Key':correlationId},credential);
 }
 
-async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'|'PATCH'='POST',body?:unknown,extraHeaders:Record<string,string>={}){
+async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'|'PATCH'='POST',body?:unknown,extraHeaders:Record<string,string>={},credentialOverride?:string){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');if(!base)return {ok:false,error:`${c.baseEnv}_not_configured`};
-  const headers:Record<string,string>={accept:'application/json',...providerHeaders(provider),...extraHeaders};if(body!==undefined)headers['content-type']='application/json';
+  const headers:Record<string,string>={accept:'application/json',...providerHeaders(provider,credentialOverride),...extraHeaders};if(body!==undefined)headers['content-type']='application/json';
   try{const response=await fetch(`${base}/${String(path).replace(/^\//,'')}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(25000)});const text=await response.text();const result=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,2000)}}})();if(!response.ok)return {ok:false,error:(result as any)?.error||(result as any)?.message||`HTTP ${response.status}`,httpStatus:response.status,payload:result};return {ok:true,httpStatus:response.status,payload:result}}catch(error){return {ok:false,error:error instanceof Error?error.message:String(error)}}
 }
 
-function providerHeaders(provider:Provider):Record<string,string>{
-  const key=providerKey(provider);if(!key)return {};
+function providerHeaders(provider:Provider,credentialOverride?:string):Record<string,string>{
+  const key=String(credentialOverride||providerKey(provider));if(!key)return {};
   if(provider==='docwallet'||provider==='smartbots'||provider==='modo'||provider==='nextgen')return {'X-NexOffice-Key':key};
   const customName=String(process.env[`${provider.toUpperCase()}_AUTH_HEADER`]||'').trim();if(customName)return {[customName]:key};
   return {Authorization:`Bearer ${key}`};
