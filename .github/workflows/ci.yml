@@ -91,6 +91,8 @@ jobs:
         run: node scripts/smoke-proactive-automation.mjs
       - name: Smoke test Command Center domain overview
         run: node scripts/smoke-command-overview.mjs
+      - name: Smoke test Digital Team role routing
+        run: node scripts/smoke-digital-team.mjs
       - name: Smoke test usage and cost analytics
         run: node scripts/smoke-usage-costs.mjs
       - name: Smoke test shared-workspace operational insights
