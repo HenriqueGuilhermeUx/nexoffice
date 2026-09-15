@@ -1,7 +1,7 @@
 import {query} from './db.js';
 
 export const CAPABILITIES = {
-  docwallet: {label:'DocWallet', baseEnv:'DOCWALLET_BASE_URL', keyEnv:'DOCWALLET_API_KEY', health:'/api/health', capabilities:['documents','ocr','signature','approval']},
+  docwallet: {label:'DocWallet', baseEnv:'DOCWALLET_BASE_URL', keyEnv:'DOCWALLET_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['documents','ocr','signature','approval']},
   staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/health', capabilities:['voice','conversation','memory','agenda']},
   smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/health', capabilities:['whatsapp','service','qualification','follow-up']},
   nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/health', capabilities:['pix','charges','reconciliation']},
@@ -11,17 +11,24 @@ export const CAPABILITIES = {
 
 export type Provider = keyof typeof CAPABILITIES;
 
+function providerKey(provider:Provider){
+  if(provider==='docwallet')return String(process.env.DOCWALLET_SERVICE_KEY||process.env.DOCWALLET_API_KEY||'');
+  const c=CAPABILITIES[provider];return String(process.env[c.keyEnv]||'');
+}
+
 export function providerCatalog(){
-  return Object.entries(CAPABILITIES).map(([provider,c])=>({provider,label:c.label,capabilities:[...c.capabilities],baseUrlConfigured:Boolean(process.env[c.baseEnv]),credentialConfigured:Boolean(process.env[c.keyEnv])}));
+  return Object.entries(CAPABILITIES).map(([provider,c])=>({provider,label:c.label,capabilities:[...c.capabilities],baseUrlConfigured:Boolean(process.env[c.baseEnv]),credentialConfigured:Boolean(providerKey(provider as Provider))}));
 }
 
 export async function probeProvider(workspaceId:string,provider:Provider){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');
   if(!base)return {provider,ok:false,status:'not_configured',error:`${c.baseEnv} não configurada`};
-  const headers=providerHeaders(provider);
+  const headers={...providerHeaders(provider),...(provider==='docwallet'?{'X-NexOffice-Workspace-ID':workspaceId}:{})};
   try{
-    const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();const ok=response.ok;
-    await upsertIntegrationHealth(workspaceId,provider,ok?'connected':'error',ok?null:`HTTP ${response.status}`);return {provider,ok,status:ok?'connected':'error',httpStatus:response.status,payload};
+    const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();
+    const workspaceDisconnected=provider==='docwallet'&&response.ok&&(payload as any)?.workspaceConnected===false;
+    const status=workspaceDisconnected?'disconnected':response.ok?'connected':'error';const ok=response.ok&&!workspaceDisconnected;
+    await upsertIntegrationHealth(workspaceId,provider,status,response.ok?null:`HTTP ${response.status}`);return {provider,ok,status,httpStatus:response.status,payload};
   }catch(error){const message=error instanceof Error?error.message:String(error);await upsertIntegrationHealth(workspaceId,provider,'error',message);return {provider,ok:false,status:'error',error:message}}
 }
 
@@ -40,10 +47,10 @@ export function routeForAction(actionType:string):string|null{
   return null;
 }
 
-export async function dispatchOutbox(topic:string,payload:any){
+export async function dispatchOutbox(topic:string,payload:any,workspaceId?:string){
   if(String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false')!=='true')return {ok:true,dryRun:true,topic,payload:{correlationId:payload?.correlationId}};
   if(topic==='nextgen.charge.create')return createNextGenCharge(payload);
-  if(topic==='docwallet.document.action')return dispatchDocWallet(payload);
+  if(topic==='docwallet.document.action')return dispatchDocWallet(payload,workspaceId);
   if(topic==='smartbots.message.send')return dispatchSmartBots(payload);
   if(topic==='staff.assistant.action')return dispatchConfigurable('staff',process.env.STAFF_ACTION_PATH,payload);
   if(topic==='modo.growth.action')return dispatchConfigurable('modo',process.env.MODO_ACTION_PATH,payload);
@@ -51,12 +58,17 @@ export async function dispatchOutbox(topic:string,payload:any){
   return {ok:false,error:`adapter_not_ready:${topic}`};
 }
 
-async function dispatchDocWallet(payload:any){
+async function dispatchDocWallet(payload:any,workspaceId?:string){
   const externalRef=String(payload?.externalRef||payload?.documentRef||'');if(!externalRef)return {ok:false,error:'docwallet_external_ref_required'};
-  const actionType=String(payload?.actionType||'');
-  if(actionType==='document.analyze')return providerRequest('docwallet',`/api/documents/${encodeURIComponent(externalRef)}/analyze`,'POST',{});
-  if(actionType==='document.signature_request')return providerRequest('docwallet',`/api/documents/${encodeURIComponent(externalRef)}/signature-request`,'POST',payload?.signature||{});
-  const override=String(process.env.DOCWALLET_ACTION_PATH||'');if(override)return providerRequest('docwallet',override,'POST',payload);
+  if(!workspaceId)return {ok:false,error:'docwallet_workspace_required'};
+  const actionType=String(payload?.actionType||'');const idempotencyKey=String(payload?.correlationId||payload?.commandActionId||'');
+  const headers={'X-NexOffice-Workspace-ID':workspaceId,'X-Idempotency-Key':idempotencyKey||`nexoffice-${actionType}-${externalRef}`};
+  if(actionType==='document.analyze')return providerRequest('docwallet',`/api/internal/nexoffice/documents/${encodeURIComponent(externalRef)}/analyze`,'POST',{},headers);
+  if(actionType==='document.signature_request'){
+    const signature=payload?.signature||{};const parties=signature.parties||signature.signers||[];
+    return providerRequest('docwallet',`/api/internal/nexoffice/documents/${encodeURIComponent(externalRef)}/signature-request`,'POST',{...signature,parties},headers);
+  }
+  const override=String(process.env.DOCWALLET_ACTION_PATH||'');if(override)return providerRequest('docwallet',override,'POST',payload,headers);
   return {ok:false,error:`docwallet_action_not_supported:${actionType}`};
 }
 
@@ -71,16 +83,16 @@ async function dispatchConfigurable(provider:Provider,path:string|undefined,payl
   return providerRequest(provider,path,'POST',payload);
 }
 
-async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'|'PATCH'='POST',body?:unknown){
+async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'|'PATCH'='POST',body?:unknown,extraHeaders:Record<string,string>={}){
   const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');if(!base)return {ok:false,error:`${c.baseEnv}_not_configured`};
-  const headers:Record<string,string>={accept:'application/json',...providerHeaders(provider)};if(body!==undefined)headers['content-type']='application/json';
+  const headers:Record<string,string>={accept:'application/json',...providerHeaders(provider),...extraHeaders};if(body!==undefined)headers['content-type']='application/json';
   try{const response=await fetch(`${base}/${String(path).replace(/^\//,'')}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});const text=await response.text();const result=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,2000)}}})();if(!response.ok)return {ok:false,error:(result as any)?.error||(result as any)?.message||`HTTP ${response.status}`,httpStatus:response.status,payload:result};return {ok:true,httpStatus:response.status,payload:result}}catch(error){return {ok:false,error:error instanceof Error?error.message:String(error)}}
 }
 
 function providerHeaders(provider:Provider):Record<string,string>{
-  const c=CAPABILITIES[provider];const key=String(process.env[c.keyEnv]||'');if(!key)return {};
+  const key=providerKey(provider);if(!key)return {};
   if(provider==='nextgen')return {'X-API-Key':key};
-  if(provider==='docwallet')return {Authorization:`Bearer ${key}`};
+  if(provider==='docwallet')return {'X-NexOffice-Key':key};
   const customName=String(process.env[`${provider.toUpperCase()}_AUTH_HEADER`]||'').trim();if(customName)return {[customName]:key};
   return {Authorization:`Bearer ${key}`};
 }
