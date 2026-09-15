@@ -7,6 +7,7 @@ import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import './styles.css';
 import './operations-dock.css';
 import './docwallet-connect.css';
+import './platform-handoff.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><PlatformHandoffBootstrap/><App/><OperationsDock/><DocWalletConnectBridge/></React.StrictMode>
