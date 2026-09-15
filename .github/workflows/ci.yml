@@ -85,6 +85,8 @@ jobs:
         run: node scripts/smoke-legal-firewall.mjs
       - name: Smoke test Condo Operations firewall
         run: node scripts/smoke-condo-firewall.mjs
+      - name: Smoke test Commerce Operations firewall
+        run: node scripts/smoke-commerce-firewall.mjs
       - name: Smoke test shared-workspace operational insights
         run: node scripts/smoke-operational-insights.mjs
       - name: API logs on failure
