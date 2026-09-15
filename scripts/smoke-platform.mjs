@@ -19,6 +19,7 @@ const health=await request('/v1/platform/health',{internal:true});
 assert(health.status==='ok'&&health.capabilities.includes('provision'),'platform bridge health');
 assert(health.capabilities.includes('federated-user'),'federated user capability');
 assert(health.capabilities.includes('browser-handoff'),'browser handoff capability');
+assert(health.capabilities.includes('federated-rbac'),'federated RBAC capability');
 
 const provisionInput={
   sourceProduct:'nexjud',
@@ -36,6 +37,7 @@ assert(first.created===true,'first provision creates workspace');
 assert(first.workspace?.id,'provision returns workspace');
 assert(first.workspace.vertical==='legal','provision applies legal vertical');
 assert(first.workspace.modules.includes('legal-pack'),'provision applies legal pack');
+assert(first.memberRole==='owner','default platform role remains owner');
 assert(first.federatedUserCreated===true,'trusted source creates federated NexOffice user');
 assert(!first.inviteToken,'federated user does not need second onboarding');
 const provisionedWorkspace=first.workspace.id;
@@ -73,4 +75,28 @@ assert(consumedAgain.error==='invalid_handoff','handoff is strictly single-use')
 const exchangeAgain=await request('/v1/platform/session-exchange',{method:'POST',internal:true,body:{sourceProduct:'nexjud',externalWorkspaceRef:provisionInput.externalWorkspaceRef,externalUserSubject:provisionInput.externalUserSubject,email:provisionInput.ownerEmail}});
 assert(exchangeAgain.token&&exchangeAgain.workspace.id===provisionedWorkspace,'repeat exchange reuses bound external identity');
 
-console.log(JSON.stringify({ok:true,workspace:provisionedWorkspace,source:'nexjud',vertical:'legal',idempotent:true,federatedUser:true,sessionExchange:true,browserHandoff:true,singleUse:true},null,2));
+// Multi-user embedded product: one SindCopilot manager account maps to one NexOffice workspace.
+const condoTenant='sind-owner-smoke-001';
+const condoOwner=await request('/v1/platform/provision',{method:'POST',internal:true,body:{
+  sourceProduct:'sindcopilot',externalWorkspaceRef:condoTenant,businessName:'Gestora Condominial Smoke',vertical:'condo',
+  ownerEmail:'sind-owner@nexoffice.test',ownerName:'Síndico Owner',memberRole:'owner',externalUserSubject:'sind-owner-user-001',entitlements:['addon.sindcopilot']
+}});
+assert(condoOwner.created===true&&condoOwner.workspace.vertical==='condo','SindCopilot owner creates condo workspace');
+assert(condoOwner.memberRole==='owner','SindCopilot owner keeps owner role');
+
+const condoMember=await request('/v1/platform/provision',{method:'POST',internal:true,body:{
+  sourceProduct:'sindcopilot',externalWorkspaceRef:condoTenant,businessName:'Gestora Condominial Smoke',vertical:'condo',
+  ownerEmail:'sind-assistant@nexoffice.test',ownerName:'Assistente Smoke',memberRole:'member',externalUserSubject:'sind-assistant-user-001',entitlements:['addon.sindcopilot']
+}});
+assert(condoMember.created===false,'assistant joins existing manager workspace');
+assert(condoMember.workspace.id===condoOwner.workspace.id,'assistant shares manager NexOffice workspace');
+assert(condoMember.memberRole==='member','assistant is not escalated to owner');
+
+const memberExchange=await request('/v1/platform/session-exchange',{method:'POST',internal:true,body:{sourceProduct:'sindcopilot',externalWorkspaceRef:condoTenant,externalUserSubject:'sind-assistant-user-001',email:'sind-assistant@nexoffice.test'}});
+assert(memberExchange.workspace.id===condoOwner.workspace.id,'assistant exchange resolves manager workspace');
+assert(memberExchange.workspace.role==='member','assistant exchange preserves reduced role');
+token=memberExchange.token;workspace=memberExchange.workspace.id;
+const memberMe=await request('/v1/auth/me',{auth:true});
+assert(memberMe.workspaces.find(x=>x.id===workspace)?.role==='member','assistant membership is reduced in NexOffice');
+
+console.log(JSON.stringify({ok:true,workspace:provisionedWorkspace,source:'nexjud',vertical:'legal',idempotent:true,federatedUser:true,sessionExchange:true,browserHandoff:true,singleUse:true,federatedRbac:true,condoWorkspace:condoOwner.workspace.id},null,2));
