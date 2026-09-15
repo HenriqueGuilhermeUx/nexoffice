@@ -14,6 +14,7 @@ services:
       - ./infra/postgres/003_core_operational.sql:/docker-entrypoint-initdb.d/003-operational.sql:ro
       - ./infra/postgres/004_integration_runtime.sql:/docker-entrypoint-initdb.d/004-runtime.sql:ro
       - ./infra/postgres/005_assistant_collections.sql:/docker-entrypoint-initdb.d/005-assistant-collections.sql:ro
+      - ./infra/postgres/006_reconciliation.sql:/docker-entrypoint-initdb.d/006-reconciliation.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nexoffice -d nexoffice"]
       interval: 5s
