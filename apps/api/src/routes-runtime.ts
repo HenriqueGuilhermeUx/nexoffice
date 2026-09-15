@@ -4,6 +4,7 @@ import {query,transaction} from './db.js';
 import {ApiError,workspaceContext} from './auth.js';
 import {emitBusinessEvent} from './events.js';
 import {CAPABILITIES,dispatchOutbox,probeProvider,providerCatalog,routeForAction,type Provider} from './integration-runtime.js';
+import {meteringCatalog,recordExternalUsage} from './usage-meter.js';
 
 const uuid=z.string().uuid();
 
@@ -38,6 +39,7 @@ export async function registerRuntimeRoutes(app:FastifyInstance){
   });
 
   app.get('/v1/integrations/catalog',async req=>{const ctx=await workspaceContext(req,'integrations.read');const states=await query<any>(`select provider,status,capabilities,last_health_at,last_health_status,last_error from integrations where workspace_id=$1`,[ctx.workspaceId]);return providerCatalog().map(c=>({...c,state:states.find(x=>x.provider===c.provider)||null}))});
+  app.get('/v1/integrations/metering',async req=>{await workspaceContext(req,'usage.read');return meteringCatalog()});
   app.post('/v1/integrations/:provider/probe',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),provider=String((req.params as any).provider) as Provider;if(!(provider in CAPABILITIES))throw new ApiError(400,'invalid_provider','Provider desconhecido.');return probeProvider(ctx.workspaceId,provider)});
 
   // Approved action execution is idempotent. External effects enter the outbox; they never run twice.
@@ -67,7 +69,7 @@ export async function registerRuntimeRoutes(app:FastifyInstance){
       if(result.ok){
         await query(`update outbox_messages set status='sent',sent_at=now(),last_error=null where id=$1`,[msg.id]);const actionId=msg.payload?.commandActionId;
         if(actionId){await query(`update command_actions set status='done',updated_at=now() where id=$1 and workspace_id=$2`,[actionId,ctx.workspaceId]);await query(`update agent_runs set status='succeeded',output=$3,finished_at=now() where action_id=$1 and workspace_id=$2 and status='queued_external'`,[actionId,ctx.workspaceId,JSON.stringify(result)])}
-        if(!result.dryRun)await applyExternalSuccess(ctx.workspaceId,msg.topic,msg.payload,result);
+        if(!result.dryRun){await applyExternalSuccess(ctx.workspaceId,msg.topic,msg.payload,result);await recordExternalUsage(ctx.workspaceId,msg.topic,msg.payload,result)}
       }else{
         const nextMinutes=Math.min(360,Math.pow(2,Math.min(Number(msg.attempts||0)+1,8)));await query(`update outbox_messages set status=case when attempts>=8 then 'dead' else 'failed' end,last_error=$2,next_attempt_at=now()+($3::text||' minutes')::interval where id=$1`,[msg.id,String(result.error||'dispatch_failed'),String(nextMinutes)]);
         if(msg.topic==='docwallet.document.action'&&msg.payload?.commandActionId){const action=(await query<any>(`select subject_id from command_actions where id=$1`,[msg.payload.commandActionId]))[0];if(action?.subject_id)await query(`update document_refs set sync_error=$2,updated_at=now() where id=$1`,[action.subject_id,String(result.error||'dispatch_failed')])}
