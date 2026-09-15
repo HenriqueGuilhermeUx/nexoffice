@@ -83,6 +83,8 @@ jobs:
         run: node scripts/smoke-health-firewall.mjs
       - name: Smoke test legal data firewall
         run: node scripts/smoke-legal-firewall.mjs
+      - name: Smoke test shared-workspace operational insights
+        run: node scripts/smoke-operational-insights.mjs
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
