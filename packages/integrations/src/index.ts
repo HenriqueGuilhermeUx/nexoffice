@@ -102,6 +102,8 @@ export interface ProvisionWorkspaceInput {
 export interface ProvisionWorkspaceResult {
   created:boolean;
   userExists:boolean;
+  userExisted?:boolean;
+  federatedUserCreated?:boolean;
   inviteToken?:string|null;
   inviteUrl?:string|null;
   workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;modules:string[];settings?:Record<string,unknown>};
@@ -121,6 +123,12 @@ export interface SessionExchangeResult {
   workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;role:string;permissions:string[]};
 }
 
+export interface BrowserHandoffResult {
+  handoffCode:string;
+  expiresAt:string;
+  url:string|null;
+}
+
 export class NexOfficePlatformBridgeClient {
   private readonly baseUrl:string;
   constructor(baseUrl:string,private readonly internalKey:string,private readonly timeoutMs=10000){
@@ -132,6 +140,7 @@ export class NexOfficePlatformBridgeClient {
   async health(){return this.request<{status:string;service:string;capabilities:string[];externalEffects:boolean}>('/v1/platform/health','GET')}
   async provision(input:ProvisionWorkspaceInput){return this.request<ProvisionWorkspaceResult>('/v1/platform/provision','POST',input)}
   async exchangeSession(input:SessionExchangeInput){return this.request<SessionExchangeResult>('/v1/platform/session-exchange','POST',input)}
+  async createBrowserHandoff(input:SessionExchangeInput){return this.request<BrowserHandoffResult>('/v1/platform/handoff','POST',input)}
 
   private async request<T>(path:string,method:'GET'|'POST',body?:unknown):Promise<T>{
     const response=await fetch(`${this.baseUrl}${path}`,{
