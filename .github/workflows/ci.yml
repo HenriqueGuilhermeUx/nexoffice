@@ -79,6 +79,8 @@ jobs:
         run: node scripts/smoke-vertical.mjs
       - name: Smoke test AV platform provisioning
         run: node scripts/smoke-platform.mjs
+      - name: Smoke test AV vertical bridge SDK
+        run: node scripts/smoke-platform-sdk.mjs
       - name: Smoke test health data firewall
         run: node scripts/smoke-health-firewall.mjs
       - name: Smoke test legal data firewall
