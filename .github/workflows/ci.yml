@@ -15,6 +15,26 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
+      - name: Validate staging safety contract
+        env:
+          NEXOFFICE_ENV: staging
+          NODE_ENV: production
+          NEXOFFICE_DATABASE_SCOPE: nexoffice-staging
+          NEXOFFICE_EXTERNAL_ACTIONS: "false"
+          DATABASE_URL: postgresql://nexoffice:ci@dedicated-nexoffice-staging.internal:5432/nexoffice_staging
+          NEXOFFICE_INTERNAL_KEY: ci-staging-internal-key-0123456789abcdef
+          WEB_APP_URL: https://staging.nexoffice.example.test
+          ALLOWED_ORIGINS: https://staging.nexoffice.example.test
+        run: |
+          node scripts/check-staging-readiness.mjs
+          if NEXOFFICE_EXTERNAL_ACTIONS=true node scripts/check-staging-readiness.mjs; then
+            echo "staging gate incorrectly allowed external actions"
+            exit 1
+          fi
+          if DATABASE_URL=postgresql://user:pass@nexa-wallet-v15-staging-db.internal:5432/nexa node scripts/check-staging-readiness.mjs; then
+            echo "staging gate incorrectly allowed Nexa database reuse"
+            exit 1
+          fi
 
   integration:
     runs-on: ubuntu-latest
