@@ -16,6 +16,7 @@ import {registerFiscalRoutes} from './routes-fiscal.js';
 import {registerVerticalRoutes} from './routes-vertical.js';
 import {registerPlatformRoutes} from './routes-platform.js';
 import {registerPlatformHealthRoutes} from './routes-platform-health.js';
+import {registerPlatformLegalRoutes} from './routes-platform-legal.js';
 
 const app=Fastify({logger:true});
 const port=Number(process.env.PORT||4000);
@@ -32,7 +33,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.11.0',database:Boolean(db)}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.12.0',database:Boolean(db)}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -47,6 +48,7 @@ await registerFiscalRoutes(app);
 await registerVerticalRoutes(app);
 await registerPlatformRoutes(app);
 await registerPlatformHealthRoutes(app);
+await registerPlatformLegalRoutes(app);
 await registerCollectionsRoutes(app);
 await registerReconciliationRoutes(app);
 
