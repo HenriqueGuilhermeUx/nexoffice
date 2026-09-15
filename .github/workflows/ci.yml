@@ -39,6 +39,7 @@ jobs:
       ALLOWED_ORIGINS: "*"
       WEB_APP_URL: http://localhost:5173
       NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTERNAL_KEY: "platform-smoke-key"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,6 +56,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/005_assistant_collections.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/006_reconciliation.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/007_vertical_packs.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/008_platform_provisioning.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -71,6 +73,8 @@ jobs:
         run: node scripts/smoke-fiscal.mjs
       - name: Smoke test vertical packs
         run: node scripts/smoke-vertical.mjs
+      - name: Smoke test AV platform provisioning
+        run: node scripts/smoke-platform.mjs
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
