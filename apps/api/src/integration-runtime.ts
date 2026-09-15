@@ -12,47 +12,28 @@ export const CAPABILITIES = {
 export type Provider = keyof typeof CAPABILITIES;
 
 export function providerCatalog(){
-  return Object.entries(CAPABILITIES).map(([provider,c])=>({
-    provider,label:c.label,capabilities:[...c.capabilities],baseUrlConfigured:Boolean(process.env[c.baseEnv]),credentialConfigured:Boolean(process.env[c.keyEnv])
-  }));
+  return Object.entries(CAPABILITIES).map(([provider,c])=>({provider,label:c.label,capabilities:[...c.capabilities],baseUrlConfigured:Boolean(process.env[c.baseEnv]),credentialConfigured:Boolean(process.env[c.keyEnv])}));
 }
 
 export async function probeProvider(workspaceId:string,provider:Provider){
-  const c=CAPABILITIES[provider];
-  const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');
+  const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');
   if(!base)return {provider,ok:false,status:'not_configured',error:`${c.baseEnv} não configurada`};
-  const key=String(process.env[c.keyEnv]||'');
-  const headers:Record<string,string>={accept:'application/json'};
-  if(key){
-    if(provider==='nextgen')headers['X-API-Key']=key;
-    else headers.authorization=`Bearer ${key}`;
-  }
+  const headers=providerHeaders(provider);
   try{
-    const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});
-    const text=await response.text();
-    const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();
-    const ok=response.ok;
-    await upsertIntegrationHealth(workspaceId,provider,ok?'connected':'error',ok?null:`HTTP ${response.status}`);
-    return {provider,ok,status:ok?'connected':'error',httpStatus:response.status,payload};
-  }catch(error){
-    const message=error instanceof Error?error.message:String(error);
-    await upsertIntegrationHealth(workspaceId,provider,'error',message);
-    return {provider,ok:false,status:'error',error:message};
-  }
+    const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();const ok=response.ok;
+    await upsertIntegrationHealth(workspaceId,provider,ok?'connected':'error',ok?null:`HTTP ${response.status}`);return {provider,ok,status:ok?'connected':'error',httpStatus:response.status,payload};
+  }catch(error){const message=error instanceof Error?error.message:String(error);await upsertIntegrationHealth(workspaceId,provider,'error',message);return {provider,ok:false,status:'error',error:message}}
 }
 
 async function upsertIntegrationHealth(workspaceId:string,provider:string,status:string,error:string|null){
   const capabilities=(CAPABILITIES as any)[provider]?.capabilities||[];
-  await query(`insert into integrations(workspace_id,provider,status,capabilities,last_health_at,last_health_status,last_error)
-    values($1,$2,$3,$4,now(),$3,$5)
-    on conflict(workspace_id,provider) do update set status=excluded.status,capabilities=excluded.capabilities,last_health_at=now(),last_health_status=excluded.last_health_status,last_error=excluded.last_error,updated_at=now()`,
-    [workspaceId,provider,status,capabilities,error]);
+  await query(`insert into integrations(workspace_id,provider,status,capabilities,last_health_at,last_health_status,last_error) values($1,$2,$3,$4,now(),$3,$5) on conflict(workspace_id,provider) do update set status=excluded.status,capabilities=excluded.capabilities,last_health_at=now(),last_health_status=excluded.last_health_status,last_error=excluded.last_error,updated_at=now()`,[workspaceId,provider,status,capabilities,error]);
 }
 
 export function routeForAction(actionType:string):string|null{
-  if(actionType.startsWith('message.send'))return 'smartbots.message.send';
+  if(actionType.startsWith('message.send')||actionType==='collection.reminder.send')return 'smartbots.message.send';
   if(actionType.startsWith('payment.charge')||actionType.startsWith('collection.charge'))return 'nextgen.charge.create';
-  if(actionType.startsWith('document.'))return 'docwallet.document.action';
+  if(actionType==='document.analyze'||actionType==='document.signature_request'||actionType.startsWith('document.'))return 'docwallet.document.action';
   if(actionType.startsWith('campaign.')||actionType.startsWith('growth.'))return 'modo.growth.action';
   if(actionType.startsWith('voice.')||actionType.startsWith('assistant.'))return 'staff.assistant.action';
   if(actionType.startsWith('invoice.issue'))return 'taxagent.invoice.issue';
@@ -60,24 +41,54 @@ export function routeForAction(actionType:string):string|null{
 }
 
 export async function dispatchOutbox(topic:string,payload:any){
-  if(String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false')!=='true')return {ok:true,dryRun:true,topic};
+  if(String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false')!=='true')return {ok:true,dryRun:true,topic,payload:{correlationId:payload?.correlationId}};
   if(topic==='nextgen.charge.create')return createNextGenCharge(payload);
+  if(topic==='docwallet.document.action')return dispatchDocWallet(payload);
+  if(topic==='smartbots.message.send')return dispatchSmartBots(payload);
+  if(topic==='staff.assistant.action')return dispatchConfigurable('staff',process.env.STAFF_ACTION_PATH,payload);
+  if(topic==='modo.growth.action')return dispatchConfigurable('modo',process.env.MODO_ACTION_PATH,payload);
+  if(topic==='taxagent.invoice.issue')return dispatchConfigurable('taxagent',process.env.TAXAGENT_INVOICE_PATH,payload);
   return {ok:false,error:`adapter_not_ready:${topic}`};
 }
 
+async function dispatchDocWallet(payload:any){
+  const externalRef=String(payload?.externalRef||payload?.documentRef||'');if(!externalRef)return {ok:false,error:'docwallet_external_ref_required'};
+  const actionType=String(payload?.actionType||'');
+  if(actionType==='document.analyze')return providerRequest('docwallet',`/api/documents/${encodeURIComponent(externalRef)}/analyze`,'POST',{});
+  if(actionType==='document.signature_request')return providerRequest('docwallet',`/api/documents/${encodeURIComponent(externalRef)}/signature-request`,'POST',payload?.signature||{});
+  const override=String(process.env.DOCWALLET_ACTION_PATH||'');if(override)return providerRequest('docwallet',override,'POST',payload);
+  return {ok:false,error:`docwallet_action_not_supported:${actionType}`};
+}
+
+async function dispatchSmartBots(payload:any){
+  const path=String(process.env.SMARTBOTS_SEND_PATH||'');
+  if(!path)return {ok:false,error:'SMARTBOTS_SEND_PATH_not_configured'};
+  return providerRequest('smartbots',path,'POST',{channel:payload?.channel,recipient:payload?.recipient,message:payload?.message,contactName:payload?.contactName,correlationId:payload?.correlationId,metadata:{ledgerEntryId:payload?.ledgerEntryId,commandActionId:payload?.commandActionId}});
+}
+
+async function dispatchConfigurable(provider:Provider,path:string|undefined,payload:any){
+  if(!path)return {ok:false,error:`${provider.toUpperCase()}_ACTION_PATH_not_configured`};
+  return providerRequest(provider,path,'POST',payload);
+}
+
+async function providerRequest(provider:Provider,path:string,method:'GET'|'POST'|'PATCH'='POST',body?:unknown){
+  const c=CAPABILITIES[provider];const base=String(process.env[c.baseEnv]||'').replace(/\/$/,'');if(!base)return {ok:false,error:`${c.baseEnv}_not_configured`};
+  const headers:Record<string,string>={accept:'application/json',...providerHeaders(provider)};if(body!==undefined)headers['content-type']='application/json';
+  try{const response=await fetch(`${base}/${String(path).replace(/^\//,'')}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});const text=await response.text();const result=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,2000)}}})();if(!response.ok)return {ok:false,error:(result as any)?.error||(result as any)?.message||`HTTP ${response.status}`,httpStatus:response.status,payload:result};return {ok:true,httpStatus:response.status,payload:result}}catch(error){return {ok:false,error:error instanceof Error?error.message:String(error)}}
+}
+
+function providerHeaders(provider:Provider):Record<string,string>{
+  const c=CAPABILITIES[provider];const key=String(process.env[c.keyEnv]||'');if(!key)return {};
+  if(provider==='nextgen')return {'X-API-Key':key};
+  if(provider==='docwallet')return {Authorization:`Bearer ${key}`};
+  const customName=String(process.env[`${provider.toUpperCase()}_AUTH_HEADER`]||'').trim();if(customName)return {[customName]:key};
+  return {Authorization:`Bearer ${key}`};
+}
+
 async function createNextGenCharge(payload:any){
-  const base=String(process.env.NEXTGEN_BASE_URL||'https://api.nextgenassets.com.br').replace(/\/$/,'');
-  const apiKey=String(process.env.NEXTGEN_API_KEY||'');
-  if(!apiKey)return {ok:false,error:'NEXTGEN_API_KEY_not_configured'};
-  const amountMinor=Number(payload?.amountMinor||payload?.valueMinor||0);
-  if(!Number.isFinite(amountMinor)||amountMinor<=0)return {ok:false,error:'invalid_amount'};
+  const base=String(process.env.NEXTGEN_BASE_URL||'https://api.nextgenassets.com.br').replace(/\/$/,'');const apiKey=String(process.env.NEXTGEN_API_KEY||'');if(!apiKey)return {ok:false,error:'NEXTGEN_API_KEY_not_configured'};
+  const amountMinor=Number(payload?.amountMinor||payload?.valueMinor||0);if(!Number.isFinite(amountMinor)||amountMinor<=0)return {ok:false,error:'invalid_amount'};
   const correlationID=String(payload?.correlationId||payload?.externalRef||`nexoffice-${Date.now()}`);
-  const response=await fetch(`${base}/v1/admin/webhooks/woovi-test`,{
-    method:'POST',headers:{'content-type':'application/json','X-API-Key':apiKey},
-    body:JSON.stringify({totalCents:amountMinor,nextgenCents:0,partnerCents:0,correlationID,comment:payload?.description||'Cobrança NexOffice',customer:payload?.customer||undefined}),
-    signal:AbortSignal.timeout(15000)
-  });
-  const result=await response.json().catch(()=>({}));
-  if(!response.ok)return {ok:false,error:(result as any)?.error||`HTTP ${response.status}`,payload:result};
-  return {ok:true,payload:result};
+  const response=await fetch(`${base}/v1/admin/webhooks/woovi-test`,{method:'POST',headers:{'content-type':'application/json','X-API-Key':apiKey},body:JSON.stringify({totalCents:amountMinor,nextgenCents:0,partnerCents:0,correlationID,comment:payload?.description||'Cobrança NexOffice',customer:payload?.customer||undefined}),signal:AbortSignal.timeout(15000)});
+  const result=await response.json().catch(()=>({}));if(!response.ok)return {ok:false,error:(result as any)?.error||`HTTP ${response.status}`,payload:result};return {ok:true,payload:result};
 }
