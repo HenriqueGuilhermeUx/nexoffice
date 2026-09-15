@@ -31,7 +31,7 @@ export async function registerAssistantRoutes(app:FastifyInstance){
     if(Number(docs[0]?.signatures_pending||0)>0)priorities.push({level:'normal',title:`${docs[0].signatures_pending} assinatura(s) pendente(s)`,detail:'Acompanhe os documentos que aguardam ação.',target:'documents'});
     priorities.push(...buildOperationalPriorities(vertical,operationalSignals));
     priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
-    const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':null;
+    const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':vertical==='condo'?'Como está a operação dos condomínios no SindCopilot?':vertical==='commerce'?'Como está minha operação de commerce?':null;
     return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?'].filter(Boolean)};
   });
 
@@ -83,6 +83,18 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     actions.push({label:'Central de Comando',target:'command'});
     return {agentRole:forcedRole||'controller',text:narrative.text,facts:narrative.facts,actions};
   }
+  if(vertical==='condo'&&match(text,['sindcopilot','condominio','condominios','operacao condominial','compliance condominial','operacao dos condominios'])){
+    const signals=await getOperationalSignals(workspaceId,'sindcopilot');
+    const narrative=operationalSignalNarrative('condo',signals);
+    actions.push({label:'Central de Comando',target:'command'});
+    return {agentRole:forcedRole||'controller',text:narrative.text,facts:narrative.facts,actions};
+  }
+  if(vertical==='commerce'&&match(text,['commerce','ecommerce','e-commerce','pedidos','fulfillment','estoque','carrinhos','conversao da loja','operacao da loja'])){
+    const signals=await getOperationalSignals(workspaceId);
+    const narrative=operationalSignalNarrative('commerce',signals);
+    actions.push({label:'Central de Comando',target:'command'});
+    return {agentRole:forcedRole||'controller',text:narrative.text,facts:narrative.facts,actions};
+  }
   if(match(text,['receber','recebiveis','cobranca','cobrancas','vencid','inadimpl'])){
     const finance=await financeSummary(workspaceId);const overdue=await query<any>(`select l.id,l.description,l.amount_minor,l.due_at,c.name contact_name from ledger_entries l left join crm_contacts c on c.id=l.contact_id where l.workspace_id=$1 and l.direction='income' and l.status in ('open','overdue') order by case when l.due_at<now() then 0 else 1 end,l.due_at nulls last limit 8`,[workspaceId]);
     actions.push({label:'Abrir financeiro',target:'finance'});return {agentRole:forcedRole||'collections',text:`Você tem ${money(finance.receivable_minor)} a receber e ${finance.overdue_count||0} lançamento(s) vencido(s).${overdue.length?` Prioridades: ${overdue.map(x=>`${x.contact_name||x.description} (${money(x.amount_minor)})`).join('; ')}.`:''}`,facts:{finance,overdue},actions};
@@ -113,7 +125,7 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
   }
   const [finance,crm,tasks,agenda,actionsOpen,signals]=await Promise.all([financeSummary(workspaceId),query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline from crm_deals where workspace_id=$1`,[workspaceId]),query<any>(`select count(*)::int due from tasks where workspace_id=$1 and status in ('todo','doing') and (due_at is null or due_at<=now()+interval '24 hours')`,[workspaceId]),query<any>(`select count(*)::int today from appointments where workspace_id=$1 and starts_at>=date_trunc('day',now()) and starts_at<date_trunc('day',now())+interval '1 day' and status<>'cancelled'`,[workspaceId]),query<any>(`select count(*)::int n from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[workspaceId]),getOperationalSignals(workspaceId)]);
   const operational=operationalSignalNarrative(vertical,signals);
-  const verticalSuffix=(vertical==='legal'||vertical==='health')&&signals.length?` ${operational.text}`:'';
+  const verticalSuffix=(vertical==='legal'||vertical==='health'||vertical==='condo'||vertical==='commerce')&&signals.length?` ${operational.text}`:'';
   actions.push({label:'Central de Comando',target:'command'});return {agentRole:forcedRole||'controller',text:`Resumo agora: pipeline de ${money(crm[0].pipeline)} em ${crm[0].open_deals} oportunidade(s); ${money(finance.receivable_minor)} a receber, com ${finance.overdue_count||0} vencido(s); ${agenda[0].today||0} compromisso(s) hoje; ${tasks[0].due||0} tarefa(s) pedindo atenção; e ${actionsOpen[0].n||0} ação(ões) na Central de Comando.${verticalSuffix}`,facts:{finance,crm:crm[0],tasks:tasks[0],agenda:agenda[0],command:actionsOpen[0],operational:operational.facts},actions};
 }
 
