@@ -66,6 +66,8 @@ jobs:
           exit 1
       - name: Smoke test operational flow
         run: node scripts/smoke.mjs
+      - name: Smoke test fiscal bridge
+        run: node scripts/smoke-fiscal.mjs
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
