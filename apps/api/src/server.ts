@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import {db} from './db.js';
+import {runMigrations} from './migrations.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
@@ -23,6 +24,8 @@ import {registerSignalRoutes} from './routes-signals.js';
 import {registerAutomationRoutes} from './routes-automation.js';
 import {registerUsageRoutes} from './routes-usage.js';
 
+if(String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true')await runMigrations();
+
 const app=Fastify({logger:true});
 const port=Number(process.env.PORT||4000);
 const allowedOrigins=String(process.env.ALLOWED_ORIGINS||'*').split(',').map(x=>x.trim()).filter(Boolean);
@@ -38,7 +41,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.17.0',database:Boolean(db)}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.17.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
