@@ -54,6 +54,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/004_integration_runtime.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/005_assistant_collections.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/006_reconciliation.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/007_vertical_packs.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -68,6 +69,8 @@ jobs:
         run: node scripts/smoke.mjs
       - name: Smoke test fiscal bridge
         run: node scripts/smoke-fiscal.mjs
+      - name: Smoke test vertical packs
+        run: node scripts/smoke-vertical.mjs
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
