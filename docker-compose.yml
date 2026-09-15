@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nexoffice
+      POSTGRES_USER: nexoffice
+      POSTGRES_PASSWORD: nexoffice
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexoffice_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexoffice -d nexoffice"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nexoffice_pg:
