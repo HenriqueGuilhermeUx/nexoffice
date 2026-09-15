@@ -82,3 +82,70 @@ export class HttpCapabilityClient {
     }
   }
 }
+
+// Server-side only. Never instantiate this client in browser bundles because it carries
+// the shared AV platform credential used to provision and exchange NexOffice sessions.
+export type AVSourceProduct='nexjud'|'sindcopilot'|'mydatamed'|'health-wallet'|'smartbots'|'modo'|'docwallet'|'nextgen'|'taxagent'|'connexio'|'mindcompliance'|'mindsteps'|'f-insight'|'ecotracker'|'nexa'|'staff';
+export type NexOfficeVertical='general'|'legal'|'health'|'condo'|'commerce';
+
+export interface ProvisionWorkspaceInput {
+  sourceProduct:AVSourceProduct;
+  externalWorkspaceRef:string;
+  businessName:string;
+  vertical?:NexOfficeVertical;
+  ownerEmail:string;
+  ownerName?:string;
+  externalUserSubject?:string;
+  entitlements?:string[];
+}
+
+export interface ProvisionWorkspaceResult {
+  created:boolean;
+  userExists:boolean;
+  inviteToken?:string|null;
+  inviteUrl?:string|null;
+  workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;modules:string[];settings?:Record<string,unknown>};
+  origin:{workspace_id:string;source_product:string;external_workspace_ref:string;mode:string};
+}
+
+export interface SessionExchangeInput {
+  sourceProduct:AVSourceProduct;
+  externalWorkspaceRef:string;
+  externalUserSubject:string;
+  email:string;
+}
+
+export interface SessionExchangeResult {
+  token:string;
+  expiresAt:string;
+  workspace:{id:string;name:string;slug:string;vertical:NexOfficeVertical;status:string;role:string;permissions:string[]};
+}
+
+export class NexOfficePlatformBridgeClient {
+  private readonly baseUrl:string;
+  constructor(baseUrl:string,private readonly internalKey:string,private readonly timeoutMs=10000){
+    this.baseUrl=baseUrl.replace(/\/$/,'');
+    if(!this.baseUrl)throw new Error('NexOffice base URL is required');
+    if(!this.internalKey)throw new Error('NexOffice internal key is required');
+  }
+
+  async health(){return this.request<{status:string;service:string;capabilities:string[];externalEffects:boolean}>('/v1/platform/health','GET')}
+  async provision(input:ProvisionWorkspaceInput){return this.request<ProvisionWorkspaceResult>('/v1/platform/provision','POST',input)}
+  async exchangeSession(input:SessionExchangeInput){return this.request<SessionExchangeResult>('/v1/platform/session-exchange','POST',input)}
+
+  private async request<T>(path:string,method:'GET'|'POST',body?:unknown):Promise<T>{
+    const response=await fetch(`${this.baseUrl}${path}`,{
+      method,
+      headers:{accept:'application/json','x-nexoffice-key':this.internalKey,...(body===undefined?{}:{'content-type':'application/json'})},
+      body:body===undefined?undefined:JSON.stringify(body),
+      signal:AbortSignal.timeout(this.timeoutMs)
+    });
+    const text=await response.text();
+    const payload=(()=>{try{return JSON.parse(text)}catch{return {message:text.slice(0,2000)}}})();
+    if(!response.ok){
+      const error=new Error(String((payload as any)?.message||(payload as any)?.error||`NexOffice platform HTTP ${response.status}`));
+      (error as any).status=response.status;(error as any).code=(payload as any)?.error;(error as any).payload=payload;throw error;
+    }
+    return payload as T;
+  }
+}
