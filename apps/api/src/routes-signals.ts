@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {buildOperationalPriorities,safeOperationalSignal} from './operational-signals.js';
+import {syncOperationalActions} from './operational-action-engine.js';
 
 export async function registerSignalRoutes(app:FastifyInstance){
   app.get('/v1/workspace/operational-signals',async req=>{
@@ -29,5 +30,10 @@ export async function registerSignalRoutes(app:FastifyInstance){
       signals,
       priorities:buildOperationalPriorities(workspace?.vertical||'general',signals)
     };
+  });
+
+  app.post('/v1/workspace/operational-actions/sync',async req=>{
+    const ctx=await workspaceContext(req,'command.manage');
+    return {ok:true,privacy:'aggregate_only',...(await syncOperationalActions(ctx.workspaceId))};
   });
 }
