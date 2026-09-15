@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {ApiError} from './auth.js';
 import {query} from './db.js';
 import {LegalOperationalSignal,LEGAL_SIGNAL_TYPES} from './legal-data-firewall.js';
+import {syncOperationalActions} from './operational-action-engine.js';
 
 function safeEqual(received:string,expected:string){
   if(!received||!expected)return false;
@@ -46,7 +47,8 @@ export async function registerPlatformLegalRoutes(app:FastifyInstance){
       returning id,workspace_id,source_product,signal_type,period_start,period_end,metrics,dimensions,correlation_id,created_at
     `,[workspace.id,input.signalType,input.periodStart,input.periodEnd,JSON.stringify(input.metrics),JSON.stringify(input.dimensions),input.correlationId||null]);
     await query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,metadata) values($1,'service','nexjud','platform.legal_signal.accepted','workspace',$1::uuid::text,$2)`,[workspace.id,JSON.stringify({signalType:input.signalType,correlationId:input.correlationId||null,privacy:'aggregate_only'})]).catch(()=>null);
-    return {ok:true,privacy:'aggregate_only',signal:rows[0]};
+    const actionSync=await syncOperationalActions(workspace.id).catch(error=>({created:0,updated:0,priorities:0,error:error instanceof Error?error.message:String(error)}));
+    return {ok:true,privacy:'aggregate_only',signal:rows[0],actionSync};
   });
 
   app.get('/v1/platform/legal-signals',async req=>{
