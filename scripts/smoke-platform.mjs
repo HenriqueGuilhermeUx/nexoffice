@@ -1,3 +1,5 @@
+import {execFileSync} from 'node:child_process';
+
 const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
 const internalKey=process.env.NEXOFFICE_INTERNAL_KEY||'platform-smoke-key';
 let token='';let workspace='';
@@ -14,6 +16,7 @@ const request=async(path,{method='GET',body,auth=false,internal=false,expectStat
   return payload;
 };
 const assert=(value,message)=>{if(!value)throw new Error(`ASSERT: ${message}`)};
+const dbScalar=sql=>execFileSync('psql',[process.env.DATABASE_URL,'-At','-v','ON_ERROR_STOP=1','-c',sql],{encoding:'utf8'}).trim();
 
 const health=await request('/v1/platform/health',{internal:true});
 assert(health.status==='ok'&&health.capabilities.includes('provision'),'platform bridge health');
@@ -41,6 +44,12 @@ assert(first.memberRole==='owner','default platform role remains owner');
 assert(first.federatedUserCreated===true,'trusted source creates federated NexOffice user');
 assert(!first.inviteToken,'federated user does not need second onboarding');
 const provisionedWorkspace=first.workspace.id;
+assert(/^[0-9a-f-]{36}$/i.test(provisionedWorkspace),'provision returns UUID workspace');
+
+const originCount=Number(dbScalar(`select count(*) from workspace_origins where workspace_id='${provisionedWorkspace}'::uuid and source_product='nexjud' and external_workspace_ref='${provisionInput.externalWorkspaceRef}'`));
+assert(originCount===1,'source product origin persisted exactly once');
+const entitlementCount=Number(dbScalar(`select count(*) from entitlements where workspace_id='${provisionedWorkspace}'::uuid and source='nexjud' and status='active' and capability in ('core.crm','core.command-center','pack.legal','addon.nexjud')`));
+assert(entitlementCount===4,'core, vertical and addon entitlements persisted for source');
 
 const exchange=await request('/v1/platform/session-exchange',{method:'POST',internal:true,body:{sourceProduct:'nexjud',externalWorkspaceRef:provisionInput.externalWorkspaceRef,externalUserSubject:provisionInput.externalUserSubject,email:provisionInput.ownerEmail}});
 assert(exchange.token,'session exchange returns NexOffice session');
@@ -60,6 +69,7 @@ assert(second.created===false,'repeat provision is idempotent');
 assert(second.workspace.id===provisionedWorkspace,'repeat provision returns same workspace');
 assert(second.userExists===true&&second.userExisted===true,'repeat provision recognizes existing federated owner');
 assert(second.federatedUserCreated===false,'repeat provision does not duplicate user');
+assert(Number(dbScalar(`select count(*) from workspace_origins where source_product='nexjud' and external_workspace_ref='${provisionInput.externalWorkspaceRef}'`))===1,'idempotent provision does not duplicate origin');
 
 const handoff=await request('/v1/platform/handoff',{method:'POST',internal:true,body:{sourceProduct:'nexjud',externalWorkspaceRef:provisionInput.externalWorkspaceRef,externalUserSubject:provisionInput.externalUserSubject,email:provisionInput.ownerEmail}});
 assert(handoff.handoffCode&&handoff.expiresAt,'handoff returns short-lived code');
@@ -74,6 +84,23 @@ assert(consumedAgain.error==='invalid_handoff','handoff is strictly single-use')
 
 const exchangeAgain=await request('/v1/platform/session-exchange',{method:'POST',internal:true,body:{sourceProduct:'nexjud',externalWorkspaceRef:provisionInput.externalWorkspaceRef,externalUserSubject:provisionInput.externalUserSubject,email:provisionInput.ownerEmail}});
 assert(exchangeAgain.token&&exchangeAgain.workspace.id===provisionedWorkspace,'repeat exchange reuses bound external identity');
+
+const otherLegalInput={
+  sourceProduct:'nexjud',
+  externalWorkspaceRef:'nexjud-office-smoke-002',
+  businessName:'Escritório Jurídico Isolado Smoke',
+  vertical:'legal',
+  ownerEmail:'platform-other@nexoffice.test',
+  ownerName:'Platform Other',
+  externalUserSubject:'nexjud-user-smoke-002',
+  entitlements:['addon.nexjud']
+};
+const otherLegal=await request('/v1/platform/provision',{method:'POST',internal:true,body:otherLegalInput});
+assert(otherLegal.created===true&&otherLegal.workspace.id!==provisionedWorkspace,'second external tenant gets distinct NexOffice workspace');
+const crossTenant=await request('/v1/platform/session-exchange',{method:'POST',internal:true,expectStatus:409,body:{sourceProduct:'nexjud',externalWorkspaceRef:otherLegalInput.externalWorkspaceRef,externalUserSubject:provisionInput.externalUserSubject,email:provisionInput.ownerEmail}});
+assert(crossTenant.error==='onboarding_required','external identity cannot cross tenant boundary');
+const wrongSource=await request('/v1/platform/session-exchange',{method:'POST',internal:true,expectStatus:404,body:{sourceProduct:'sindcopilot',externalWorkspaceRef:provisionInput.externalWorkspaceRef,externalUserSubject:provisionInput.externalUserSubject,email:provisionInput.ownerEmail}});
+assert(wrongSource.error==='workspace_not_provisioned','workspace origin is isolated by source product');
 
 // Multi-user embedded product: one SindCopilot manager account maps to one NexOffice workspace.
 const condoTenant='sind-owner-smoke-001';
@@ -99,4 +126,4 @@ token=memberExchange.token;workspace=memberExchange.workspace.id;
 const memberMe=await request('/v1/auth/me',{auth:true});
 assert(memberMe.workspaces.find(x=>x.id===workspace)?.role==='member','assistant membership is reduced in NexOffice');
 
-console.log(JSON.stringify({ok:true,workspace:provisionedWorkspace,source:'nexjud',vertical:'legal',idempotent:true,federatedUser:true,sessionExchange:true,browserHandoff:true,singleUse:true,federatedRbac:true,condoWorkspace:condoOwner.workspace.id},null,2));
+console.log(JSON.stringify({ok:true,workspace:provisionedWorkspace,source:'nexjud',vertical:'legal',idempotent:true,sourceOrigin:true,entitlements:true,tenantIsolation:true,sourceIsolation:true,federatedUser:true,sessionExchange:true,browserHandoff:true,singleUse:true,federatedRbac:true,condoWorkspace:condoOwner.workspace.id},null,2));
