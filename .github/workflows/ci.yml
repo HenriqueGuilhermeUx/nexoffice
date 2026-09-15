@@ -81,6 +81,8 @@ jobs:
         run: node scripts/smoke-platform.mjs
       - name: Smoke test health data firewall
         run: node scripts/smoke-health-firewall.mjs
+      - name: Smoke test legal data firewall
+        run: node scripts/smoke-legal-firewall.mjs
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
