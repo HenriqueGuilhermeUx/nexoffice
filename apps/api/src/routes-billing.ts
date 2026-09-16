@@ -30,9 +30,11 @@ async function getBilling(workspaceId:string){
 function summary(row:any){
   const now=Date.now();
   const trialEnd=new Date(row.trial_ends_at).getTime();
+  const periodEnd=row.current_period_ends_at?new Date(row.current_period_ends_at).getTime():0;
   const trialRemainingMs=Math.max(0,trialEnd-now);
   const trialDaysRemaining=row.status==='trialing'?Math.max(0,Math.ceil(trialRemainingMs/DAY)):0;
-  const access=row.status==='active'||row.status==='exempt'||(row.status==='trialing'&&trialRemainingMs>0);
+  const cancelledPaidThrough=row.status==='cancelled'&&periodEnd>now;
+  const access=row.status==='active'||row.status==='exempt'||cancelledPaidThrough||(row.status==='trialing'&&trialRemainingMs>0);
   return {
     provider:row.provider,
     planCode:row.plan_code,
@@ -46,6 +48,8 @@ function summary(row:any){
     trialDaysRemaining,
     providerSubscriptionId:row.provider_subscription_id||null,
     currentPeriodEndsAt:row.current_period_ends_at||null,
+    cancelledAt:row.cancelled_at||null,
+    cancelAtPeriodEnd:cancelledPaidThrough,
     billingConfigured:String(process.env.NEXOFFICE_BILLING_ENABLED||'false').toLowerCase()==='true'&&Boolean(process.env.WOOVI_APP_ID)
   };
 }
@@ -131,5 +135,16 @@ export async function registerBillingRoutes(app:FastifyInstance){
     }
     const updated=await getBilling(ctx.workspaceId);
     return {...summary(updated),providerStatus,pixRecurringStatus:pixStatus};
+  });
+
+  app.post('/v1/billing/cancel',async req=>{
+    const ctx=await billingContext(req,true);
+    const billing=await getBilling(ctx.workspaceId);
+    if(billing.status==='cancelled')return {...summary(billing),alreadyCancelled:true};
+    if(!billing.provider_subscription_id)throw new ApiError(400,'subscription_missing','Nenhuma assinatura ativa foi encontrada para cancelar.');
+    await woovi(`/api/v1/subscriptions/${encodeURIComponent(billing.provider_subscription_id)}/cancel`,{method:'PUT'});
+    await query(`update workspace_billing set status='cancelled',cancelled_at=now(),updated_at=now() where workspace_id=$1`,[ctx.workspaceId]);
+    const updated=await getBilling(ctx.workspaceId);
+    return {...summary(updated),cancelled:true};
   });
 }
