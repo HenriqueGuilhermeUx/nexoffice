@@ -68,6 +68,13 @@ export async function registerBillingRoutes(app:FastifyInstance){
     return {...summary(await getBilling(ctx.workspaceId)),workspace:{id:ctx.workspaceId,name:ctx.workspaceName},user:{name:ctx.user.name,email:ctx.user.email}};
   });
 
+  app.get('/v1/billing/provider-health',async req=>{
+    await billingContext(req,true);
+    const data=await woovi('/api/v1/subscriptions');
+    const subscriptions=Array.isArray(data?.subscriptions)?data.subscriptions:[];
+    return {provider:'woovi',configured:true,reachable:true,subscriptionCount:Number(data?.pageInfo?.totalCount??subscriptions.length)};
+  });
+
   app.post('/v1/billing/subscribe',async req=>{
     const ctx=await billingContext(req,true);
     const input=z.object({
