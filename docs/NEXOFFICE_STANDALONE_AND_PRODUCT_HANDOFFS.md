@@ -16,36 +16,36 @@ A ordem oficial passa a ser:
 6. Cada produto mantém seu próprio domínio, dados canônicos, regras de negócio e UX principal.
 7. NexOffice recebe apenas contexto operacional permitido, provisioning, handoff e sinais agregados definidos pelos contratos existentes.
 
-## Endereços atuais de staging
+## Endereços canônicos atuais
 
-- Frontend: `https://nexoffice-staging.onrender.com`
-- API: `https://nexoffice-staging-api.onrender.com`
+- Frontend NexOffice: `https://nexoffices.com.br`
+- API NexOffice: `https://api.nexoffices.com.br`
 - Banco: `nexoffice-staging-db` no Render
+
+Os serviços Render continuam existindo por baixo dos domínios próprios:
+
+- Fallback frontend: `https://nexoffice-staging.onrender.com`
+- Fallback API: `https://nexoffice-staging-api.onrender.com`
+
+Os produtos integrados devem usar os endereços canônicos `nexoffices.com.br` / `api.nexoffices.com.br` em configuração normal. Os endereços `onrender.com` são apenas fallback técnico e não devem ser hardcoded nos adapters dos produtos.
 
 O banco do NexOffice é dedicado. É proibido reutilizar banco de qualquer outro produto da Alternative Ventures.
 
-## Domínio recomendado
+## Domínio próprio
 
-Quando o domínio for adquirido, usar preferencialmente:
+Estrutura ativa:
 
-- `app.<dominio>` → frontend NexOffice
-- `api.<dominio>` → API NexOffice
+- `https://nexoffices.com.br` → frontend NexOffice
+- `https://api.nexoffices.com.br` → API NexOffice
 
-Exemplo conceitual:
-
-- `app.nexoffice.com.br`
-- `api.nexoffice.com.br`
-
-O domínio é comprado em um registrador externo. Depois, os registros DNS são apontados para os serviços Render e os custom domains são verificados no Render. O Render cuida do TLS/HTTPS.
-
-Após a migração para domínio próprio, atualizar obrigatoriamente:
+Após a migração para domínio próprio foram atualizados obrigatoriamente:
 
 - `WEB_APP_URL`
 - `ALLOWED_ORIGINS`
 - `VITE_API_URL`
 - URLs de callback/handoff que utilizarem origem absoluta
 
-Não desligar os subdomínios `onrender.com` até a validação completa do domínio customizado.
+Os subdomínios `onrender.com` devem permanecer disponíveis como fallback até decisão explícita de retirada.
 
 ## Checklist do NexOffice standalone
 
@@ -114,9 +114,15 @@ IMPORTANTE:
 - Não altere produção sem validação controlada.
 - Faça primeiro em ambiente controlado/staging.
 
-NEXOFFICE STAGING:
+NEXOFFICE — ENDPOINTS CANÔNICOS:
+Frontend: https://nexoffices.com.br
+API: https://api.nexoffices.com.br
+
+FALLBACK TÉCNICO RENDER (não hardcodar no adapter):
 Frontend: https://nexoffice-staging.onrender.com
 API: https://nexoffice-staging-api.onrender.com
+
+Use variáveis de ambiente para a base URL do NexOffice. Em configuração normal, apontar para https://api.nexoffices.com.br. Não colocar URL absoluta fixa dentro da lógica de domínio.
 
 CONTRATO JÁ EXISTENTE NO NEXOFFICE:
 - sourceProduct: nexjud
@@ -170,9 +176,15 @@ IMPORTANTE:
 - Não envie exames, medicamentos, prontuário, Medical Passport, MedScore, dados de dispositivos ou outros dados clínicos brutos ao NexOffice.
 - Não publicar em produção antes da validação controlada.
 
-NEXOFFICE STAGING:
+NEXOFFICE — ENDPOINTS CANÔNICOS:
+Frontend: https://nexoffices.com.br
+API: https://api.nexoffices.com.br
+
+FALLBACK TÉCNICO RENDER (não hardcodar no adapter):
 Frontend: https://nexoffice-staging.onrender.com
 API: https://nexoffice-staging-api.onrender.com
+
+Use variáveis de ambiente para a base URL do NexOffice. Em configuração normal, apontar para https://api.nexoffices.com.br. Não colocar URL absoluta fixa dentro da lógica de domínio.
 
 CONTRATO JÁ EXISTENTE NO NEXOFFICE:
 - sourceProduct: mydatamed
@@ -227,9 +239,15 @@ IMPORTANTE:
 - NexOffice funciona como camada operacional horizontal e de coordenação.
 - Não publicar alterações perigosas diretamente em produção sem validação controlada.
 
-NEXOFFICE STAGING:
+NEXOFFICE — ENDPOINTS CANÔNICOS:
+Frontend: https://nexoffices.com.br
+API: https://api.nexoffices.com.br
+
+FALLBACK TÉCNICO RENDER (não hardcodar no adapter):
 Frontend: https://nexoffice-staging.onrender.com
 API: https://nexoffice-staging-api.onrender.com
+
+Use variáveis de ambiente para a base URL do NexOffice. Em configuração normal, apontar para https://api.nexoffices.com.br. Não colocar URL absoluta fixa dentro da lógica de domínio.
 
 CONTRATO JÁ EXISTENTE NO NEXOFFICE:
 - sourceProduct: sindcopilot
