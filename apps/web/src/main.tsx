@@ -9,12 +9,14 @@ import IntegrationSetupCenter from './IntegrationSetupCenter';
 import DocWalletConnectBridge from './DocWalletConnectBridge';
 import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import StandaloneSetup from './StandaloneSetup';
+import BillingCenter from './BillingCenter';
 import './styles.css';
 import './operations-dock.css';
 import './docwallet-connect.css';
 import './platform-handoff.css';
 import './standalone-setup.css';
+import './billing-center.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><PlatformHandoffBootstrap/><App/><StandaloneSetup/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/></React.StrictMode>
+  <React.StrictMode><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/></React.StrictMode>
 );
