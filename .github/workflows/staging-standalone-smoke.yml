@@ -1,0 +1,42 @@
+name: Staging Standalone Smoke
+
+on:
+  push:
+    branches: [staging-standalone-smoke-20260916]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify staging health and version
+        env:
+          STAGING_URL: https://nexoffice-staging-api.onrender.com
+        run: |
+          node <<'NODE'
+          const base=process.env.STAGING_URL;
+          let last='';
+          for(let i=0;i<24;i++){
+            try{
+              const r=await fetch(base+'/health');
+              last=await r.text();
+              if(r.ok){
+                const health=JSON.parse(last);
+                if(health.status==='ok'&&health.database===true&&health.autoMigrate===true&&health.version==='0.18.0'){
+                  console.log(JSON.stringify(health));process.exit(0)
+                }
+              }
+            }catch(e){last=String(e)}
+            await new Promise(r=>setTimeout(r,5000));
+          }
+          console.error('staging health/version unavailable:',last);process.exit(1);
+          NODE
+      - name: Verify frontend responds
+        run: curl -fsS https://nexoffice-staging.onrender.com/ >/tmp/nexoffice.html && test -s /tmp/nexoffice.html
+      - name: Run standalone activation against real staging
+        env:
+          SMOKE_API_URL: https://nexoffice-staging-api.onrender.com
+        run: node scripts/smoke-standalone-readiness.mjs
