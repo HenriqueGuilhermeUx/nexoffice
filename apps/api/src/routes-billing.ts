@@ -50,16 +50,28 @@ function summary(row:any){
   };
 }
 
-async function woovi(path:string,init:RequestInit={}){
+function wooviConfig(){
   const appId=String(process.env.WOOVI_APP_ID||'');
   const enabled=String(process.env.NEXOFFICE_BILLING_ENABLED||'false').toLowerCase()==='true';
   if(!enabled||!appId)throw new ApiError(503,'billing_not_configured','Cobrança ainda não foi habilitada neste ambiente.');
-  const base=String(process.env.WOOVI_API_BASE||'https://api.woovi.com').replace(/\/$/,'');
+  return {appId,base:String(process.env.WOOVI_API_BASE||'https://api.woovi.com').replace(/\/$/,'')};
+}
+
+async function woovi(path:string,init:RequestInit={}){
+  const {appId,base}=wooviConfig();
   const headers=new Headers(init.headers||{});headers.set('authorization',appId);headers.set('content-type','application/json');
   const response=await fetch(`${base}${path}`,{...init,headers});
   const body=await response.json().catch(()=>({}));
   if(!response.ok)throw new ApiError(502,'billing_provider_error',body?.message||body?.error||`Woovi respondeu ${response.status}`);
   return body;
+}
+
+async function probeWooviSubscriptionRead(){
+  const {appId,base}=wooviConfig();
+  const response=await fetch(`${base}/api/v1/subscriptions/nexoffice-provider-health-probe-not-found`,{headers:{authorization:appId}});
+  const body=await response.json().catch(()=>({}));
+  if(response.ok||response.status===404)return {provider:'woovi',configured:true,reachable:true,subscriptionReadAuthorized:true};
+  throw new ApiError(502,'billing_provider_error',body?.message||body?.error||`Woovi respondeu ${response.status}`);
 }
 
 export async function registerBillingRoutes(app:FastifyInstance){
@@ -70,9 +82,7 @@ export async function registerBillingRoutes(app:FastifyInstance){
 
   app.get('/v1/billing/provider-health',async req=>{
     await billingContext(req,true);
-    const data=await woovi('/api/v1/subscriptions');
-    const subscriptions=Array.isArray(data?.subscriptions)?data.subscriptions:[];
-    return {provider:'woovi',configured:true,reachable:true,subscriptionCount:Number(data?.pageInfo?.totalCount??subscriptions.length)};
+    return probeWooviSubscriptionRead();
   });
 
   app.post('/v1/billing/subscribe',async req=>{
