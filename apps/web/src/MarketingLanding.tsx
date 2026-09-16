@@ -16,6 +16,33 @@ const outcomes=[
   ['Decisões espalhadas','A Central de Comando reúne o que precisa de você e separa informação de decisão.']
 ];
 
+const caseStudies=[
+  {
+    label:'EMPRESA DE SERVIÇOS',
+    title:'O dono vende, entrega, cobra e ainda precisa lembrar a equipe do que fazer.',
+    before:['Leads chegam por vários canais','Propostas ficam sem retorno','Tarefas dependem de cobrança manual','Contas a receber são acompanhadas em planilha'],
+    after:'O NexOffice conecta oportunidade, próximo passo, tarefa, agenda e cobrança. A Central de Comando mostra onde a operação precisa de atenção antes que o dono tenha que procurar.'
+  },
+  {
+    label:'ESCRITÓRIO PROFISSIONAL',
+    title:'Clientes, prazos, documentos e financeiro convivem em lugares diferentes.',
+    before:['Pendências ficam em conversas','Documentos somem em pastas e e-mails','Agenda não conversa com a operação','O gestor precisa conferir tudo manualmente'],
+    after:'Sofia organiza agenda e tarefas, Dora mantém pendências documentais visíveis e o financeiro permanece conectado ao cliente e ao trabalho em andamento.'
+  },
+  {
+    label:'OPERAÇÃO COMERCIAL',
+    title:'Há oportunidades no funil, mas ninguém sabe com clareza quem precisa de ação hoje.',
+    before:['Follow-ups se perdem','Pipeline vira registro, não rotina','Cobrança e vendas não compartilham contexto','A prioridade muda conforme quem pergunta'],
+    after:'Clara traz oportunidades sem próximo passo, Theo sinaliza recebíveis e o gestor recebe uma fila priorizada do que precisa ser decidido ou executado.'
+  },
+  {
+    label:'EMPRESA EM CRESCIMENTO',
+    title:'Mais pessoas e mais sistemas aumentaram a operação — mas também aumentaram o ruído.',
+    before:['Cada área trabalha em sua ferramenta','Informação importante não chega na hora certa','Decisões ficam concentradas no dono','A empresa reage mais do que antecipa'],
+    after:'O NexOffice vira a camada entre as áreas e a gestão: reúne contexto, identifica pendências, distribui trabalho e preserva aprovação humana nas ações sensíveis.'
+  }
+];
+
 const operatingLoop=[
   ['01','O NexOffice reúne o contexto','Clientes, oportunidades, tarefas, agenda, financeiro, cobranças, documentos e integrações passam a alimentar a mesma operação.'],
   ['02','Entende o que merece atenção','Pendências, riscos, atrasos, próximos passos e necessidades de aprovação aparecem de forma priorizada.'],
@@ -40,7 +67,7 @@ export default function MarketingLanding(){
   return <div className="marketingPage">
     <header className="marketingNav">
       <a className="marketingLogo" href="/">NexOffice</a>
-      <nav><a href="#dor">O problema</a><a href="#como-funciona">Como funciona</a><a href="#equipe">Equipe Digital</a><a href="#preco">Preço</a></nav>
+      <nav><a href="#dor">O problema</a><a href="#para-quem">Para quem</a><a href="#como-funciona">Como funciona</a><a href="#equipe">Equipe Digital</a><a href="#preco">Preço</a></nav>
       <div><button className="mkGhost" onClick={enter}>Entrar</button><button className="mkPrimary" onClick={enter}>Começar grátis</button></div>
     </header>
 
@@ -77,6 +104,12 @@ export default function MarketingLanding(){
       <section className="mkUseCases">
         <div className="mkUseHeader"><p className="mkEyebrow">SE SUA EMPRESA VIVE ASSIM, O NEXOFFICE FOI FEITO PARA ELA</p><h2>Problemas pequenos que, juntos, viram caos operacional.</h2></div>
         <div className="mkOutcomeGrid">{outcomes.map(([title,text])=><article key={title}><span>→</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
+      </section>
+
+      <section id="para-quem" className="mkStories">
+        <div className="mkStoriesHead"><p className="mkEyebrow">NA PRÁTICA</p><h2>Quatro tipos de empresa. O mesmo problema: a operação depende demais de pessoas conectando tudo manualmente.</h2><p>O NexOffice não exige que sua empresa tenha uma estrutura perfeita. Ele foi pensado justamente para operações que já funcionam, mas estão começando a sentir o peso da desorganização, do crescimento ou da dependência do dono.</p></div>
+        <div className="mkStoriesGrid">{caseStudies.map((story,i)=><article className="mkStory" key={story.label}><div className="mkStoryTop"><span>{String(i+1).padStart(2,'0')}</span><b>{story.label}</b></div><h3>{story.title}</h3><div className="mkStoryBefore"><small>ANTES</small>{story.before.map(item=><p key={item}>{item}</p>)}</div><div className="mkStoryAfter"><small>COM NEXOFFICE</small><p>{story.after}</p></div></article>)}</div>
+        <div className="mkStoriesCta"><div><b>Não importa onde o caos começa.</b><span>Se ele termina sempre nas costas do dono, existe espaço para o NexOffice.</span></div><button className="mkPrimary mkBig" onClick={enter}>Testar na minha empresa</button></div>
       </section>
 
       <section id="como-funciona" className="mkHow">
