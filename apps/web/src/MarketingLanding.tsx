@@ -1,25 +1,112 @@
 import {session} from './api';
 
-const features=[
-  ['Central de Comando','Tudo que exige sua atenção aparece priorizado em um só lugar.'],
-  ['Equipe Digital','Secretária, CRM, financeiro, cobrança, documentos e growth trabalhando com o contexto do seu negócio.'],
-  ['CRM que vira ação','Leads, oportunidades e próximos passos conectados à operação — não isolados numa planilha.'],
-  ['Financeiro operacional','Receitas, despesas, cobranças, vencimentos e conciliação integrados ao dia a dia.'],
-  ['Agenda & execução','Compromissos e tarefas conectados a clientes, negócios e decisões.'],
-  ['Humano no controle','A equipe digital prepara e executa fluxos respeitando aprovações e políticas de autonomia.']
+const painPoints=[
+  ['Tudo passa por você','Sua equipe pergunta, você lembra, cobra, confere e decide. A empresa cresce, mas o dono continua sendo o sistema que conecta tudo.'],
+  ['A operação está espalhada','Cliente no CRM, tarefa no WhatsApp, vencimento na planilha, compromisso na agenda, documento no e-mail e informação importante na cabeça de alguém.'],
+  ['Dinheiro e oportunidades escapam','Follow-up esquecido, cobrança atrasada, tarefa sem dono e pendência descoberta tarde demais viram venda perdida, atraso e retrabalho.'],
+  ['Você descobre o problema tarde','Os sistemas registram muita coisa, mas ainda depende de alguém perceber o que mudou, entender a prioridade e transformar isso em ação.']
+];
+
+const outcomes=[
+  ['Vendas sem próximo passo','Clara identifica oportunidades paradas e traz quem precisa de follow-up para a sua atenção.'],
+  ['Cobranças esquecidas','Theo acompanha recebíveis e pendências para que atraso não dependa da sua memória.'],
+  ['Agenda e tarefas soltas','Sofia organiza compromissos, tarefas e prioridades dentro do mesmo contexto da operação.'],
+  ['Financeiro sem contexto','Nico conecta receitas, despesas e acontecimentos operacionais para você entender o que exige atenção.'],
+  ['Documentos e pendências','Dora ajuda a manter documentos e necessidades operacionais visíveis, em vez de enterrados em e-mails e pastas.'],
+  ['Decisões espalhadas','A Central de Comando reúne o que precisa de você e separa informação de decisão.']
+];
+
+const operatingLoop=[
+  ['01','O NexOffice reúne o contexto','Clientes, oportunidades, tarefas, agenda, financeiro, cobranças, documentos e integrações passam a alimentar a mesma operação.'],
+  ['02','Entende o que merece atenção','Pendências, riscos, atrasos, próximos passos e necessidades de aprovação aparecem de forma priorizada.'],
+  ['03','A equipe digital prepara a ação','Cada especialista trabalha com o contexto do negócio e prepara o próximo passo dentro da sua função.'],
+  ['04','Você continua no controle','Ações sensíveis respeitam permissões, aprovações e políticas de autonomia definidas pela empresa.']
+];
+
+const agents=[
+  ['Sofia','Secretária','Agenda, tarefas, prioridades e organização do dia.'],
+  ['Alex','Atendimento','Contexto de atendimento e continuidade das demandas.'],
+  ['Clara','CRM','Leads, oportunidades, follow-ups e próximos passos.'],
+  ['Nico','Operação financeira','Movimentações, contexto financeiro e rotina operacional.'],
+  ['Theo','Cobrança','Recebíveis, atrasos e ações de cobrança.'],
+  ['Theo','Controladoria','Visão de controle, pendências e acompanhamento.'],
+  ['Dora','Documentos','Documentos, referências e pendências documentais.'],
+  ['Maya','Growth','Oportunidades de crescimento e execução comercial.']
 ];
 
 export default function MarketingLanding(){
   if(session.token()||new URLSearchParams(location.search).has('app'))return null;
   const enter=()=>{location.href='/?app=1'};
   return <div className="marketingPage">
-    <header className="marketingNav"><a className="marketingLogo" href="/">NexOffice</a><nav><a href="#produto">Produto</a><a href="#equipe">Equipe Digital</a><a href="#preco">Preço</a></nav><div><button className="mkGhost" onClick={enter}>Entrar</button><button className="mkPrimary" onClick={enter}>Começar grátis</button></div></header>
+    <header className="marketingNav">
+      <a className="marketingLogo" href="/">NexOffice</a>
+      <nav><a href="#dor">O problema</a><a href="#como-funciona">Como funciona</a><a href="#equipe">Equipe Digital</a><a href="#preco">Preço</a></nav>
+      <div><button className="mkGhost" onClick={enter}>Entrar</button><button className="mkPrimary" onClick={enter}>Começar grátis</button></div>
+    </header>
+
     <main>
-      <section className="mkHero"><div className="mkHeroCopy"><p className="mkEyebrow">O SISTEMA OPERACIONAL DO SEU NEGÓCIO</p><h1>Sua empresa não precisa de mais um sistema. Precisa de uma operação que funcione.</h1><p className="mkLead">NexOffice conecta CRM, financeiro, agenda, documentos e tarefas a uma equipe digital que organiza o que está acontecendo, prioriza o que importa e ajuda sua empresa a executar.</p><div className="mkCtas"><button className="mkPrimary mkBig" onClick={enter}>Testar grátis por 7 dias</button><span>Sem cartão · cancele quando quiser</span></div><div className="mkTrust"><span>Central de Comando</span><span>Equipe Digital</span><span>CRM</span><span>Financeiro</span><span>Automações</span></div></div><div className="mkCommand"><div className="mkCommandTop"><span>Central de Comando</span><b>Agora</b></div><h3>Seu negócio, transformado em decisões e ações.</h3><div className="mkAction"><i>01</i><div><b>Clara · CRM</b><span>3 oportunidades precisam de próximo passo</span></div><em>Prioridade</em></div><div className="mkAction"><i>02</i><div><b>Theo · Cobrança</b><span>2 recebíveis vencidos aguardam sua aprovação</span></div><em>Revisar</em></div><div className="mkAction"><i>03</i><div><b>Sofia · Secretária</b><span>Agenda de amanhã organizada</span></div><em>Pronto</em></div></div></section>
-      <section id="produto" className="mkSection"><p className="mkEyebrow">UM NEGÓCIO. UMA OPERAÇÃO.</p><h2>Do que aconteceu ao que precisa ser feito.</h2><p className="mkSectionLead">Em vez de ferramentas desconectadas, o NexOffice cria uma camada operacional única. Os dados deixam de ser apenas registros e passam a alimentar decisões, tarefas, aprovações e ações.</p><div className="mkGrid">{features.map(([title,text])=><article key={title}><span>✦</span><h3>{title}</h3><p>{text}</p></article>)}</div></section>
-      <section id="equipe" className="mkDark"><div><p className="mkEyebrow">EQUIPE DIGITAL</p><h2>O software deixa de ser só ferramenta e passa a trabalhar com você.</h2><p>Sofia organiza. Clara cuida do CRM. Nico acompanha a operação financeira. Theo monitora cobranças e controladoria. Dora cuida dos documentos. Maya pensa crescimento. Você define as regras e mantém o controle.</p></div><div className="mkAgents">{['Sofia · Secretária','Alex · Atendimento','Clara · CRM','Nico · ERP','Theo · Cobrança','Theo · Controller','Dora · Documentos','Maya · Growth'].map((x,i)=><span key={x}><b>{String(i+1).padStart(2,'0')}</b>{x}</span>)}</div></section>
-      <section id="preco" className="mkPricing"><div><p className="mkEyebrow">PREÇO FUNDADOR</p><h2>Comece usando. Decida depois.</h2><p>Sete dias para colocar sua operação dentro do NexOffice e sentir o produto no trabalho real.</p></div><article><small>NEXOFFICE PRO</small><div className="mkPrice"><b>R$ 197</b><span>/mês</span></div><ul><li>Central de Comando</li><li>Equipe Digital</li><li>CRM e pipeline</li><li>Financeiro e cobranças</li><li>Agenda e tarefas</li><li>Documentos e integrações</li><li>Políticas de aprovação</li></ul><button className="mkPrimary mkBig" onClick={enter}>Começar 7 dias grátis</button><p>Sem cartão no trial. Depois, assinatura mensal via Pix Automático.</p></article></section>
-      <section className="mkFinal"><p className="mkEyebrow">NEXOFFICE</p><h2>Menos sistemas para alimentar.<br/>Mais negócio acontecendo.</h2><button className="mkPrimary mkBig" onClick={enter}>Criar meu NexOffice</button></section>
-    </main><footer className="mkFooter"><b>NexOffice</b><span>O sistema operacional do seu negócio.</span><span>© 2026 NexOffice</span></footer>
+      <section className="mkHero">
+        <div className="mkHeroCopy">
+          <p className="mkEyebrow">O SISTEMA OPERACIONAL DO SEU NEGÓCIO</p>
+          <h1>Pare de tocar sua empresa no WhatsApp, nas planilhas e na sua cabeça.</h1>
+          <p className="mkLead">O NexOffice reúne o que está acontecendo no seu negócio, mostra o que precisa da sua atenção e coloca uma equipe digital para ajudar sua empresa a executar — sem tirar você do controle.</p>
+          <div className="mkCtas"><button className="mkPrimary mkBig" onClick={enter}>Testar grátis por 7 dias</button><span>Sem cartão no trial · depois R$ 197/mês</span></div>
+          <div className="mkHeroPromise"><b>Abra o NexOffice e saiba:</b><span>o que aconteceu</span><span>o que está atrasado</span><span>onde existe risco</span><span>qual é a próxima ação</span></div>
+        </div>
+        <div className="mkCommand">
+          <div className="mkCommandTop"><span>Central de Comando</span><b>Agora</b></div>
+          <h3>Você não precisa saber onde procurar. O NexOffice precisa saber o que trazer até você.</h3>
+          <div className="mkAction"><i>01</i><div><b>Clara · CRM</b><span>3 oportunidades estão sem próximo passo</span></div><em>Prioridade</em></div>
+          <div className="mkAction"><i>02</i><div><b>Theo · Cobrança</b><span>2 recebíveis vencidos precisam de decisão</span></div><em>Revisar</em></div>
+          <div className="mkAction"><i>03</i><div><b>Sofia · Secretária</b><span>2 tarefas de amanhã ainda estão sem responsável</span></div><em>Organizar</em></div>
+          <div className="mkAction"><i>04</i><div><b>Dora · Documentos</b><span>1 pendência documental exige atenção</span></div><em>Pendente</em></div>
+        </div>
+      </section>
+
+      <section id="dor" className="mkPainSection">
+        <div className="mkPainIntro"><p className="mkEyebrow">O PROBLEMA NÃO É FALTA DE SOFTWARE</p><h2>O problema é que sua operação ainda depende de alguém lembrar, procurar, cobrar e conectar tudo.</h2><p>É assim que o empresário vira o integrador humano da própria empresa. Quanto mais o negócio cresce, mais informação aparece — e mais difícil fica enxergar o que realmente precisa acontecer agora.</p></div>
+        <div className="mkPainGrid">{painPoints.map(([title,text],i)=><article key={title}><b>{String(i+1).padStart(2,'0')}</b><h3>{title}</h3><p>{text}</p></article>)}</div>
+      </section>
+
+      <section className="mkBridge">
+        <p className="mkEyebrow">A VIRADA</p>
+        <h2>O NexOffice não foi feito só para guardar informação.<br/>Foi feito para transformar informação em operação.</h2>
+        <p>Em vez de abrir vários lugares para descobrir o que está acontecendo, você passa a ter uma camada única que conecta contexto, prioridade, decisão e execução.</p>
+      </section>
+
+      <section className="mkUseCases">
+        <div className="mkUseHeader"><p className="mkEyebrow">SE SUA EMPRESA VIVE ASSIM, O NEXOFFICE FOI FEITO PARA ELA</p><h2>Problemas pequenos que, juntos, viram caos operacional.</h2></div>
+        <div className="mkOutcomeGrid">{outcomes.map(([title,text])=><article key={title}><span>→</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
+      </section>
+
+      <section id="como-funciona" className="mkHow">
+        <div className="mkHowIntro"><p className="mkEyebrow">COMO FUNCIONA</p><h2>Do que aconteceu ao que precisa ser feito.</h2><p>O NexOffice cria um ciclo operacional contínuo. O dado entra, vira contexto, o contexto vira prioridade e a prioridade vira ação — com você definindo os limites.</p></div>
+        <div className="mkLoop">{operatingLoop.map(([n,title,text])=><article key={n}><b>{n}</b><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
+      </section>
+
+      <section id="equipe" className="mkDark">
+        <div className="mkTeamIntro"><p className="mkEyebrow">EQUIPE DIGITAL</p><h2>Uma equipe que não perde o contexto do seu negócio.</h2><p>Você não compra “agentes de IA”. Você ganha ajuda operacional em áreas que normalmente acabam nas costas do dono. Cada especialista atua no seu papel, mas todos trabalham sobre o mesmo contexto da empresa.</p><blockquote>O software deixa de ser só ferramenta e passa a ajudar o trabalho a acontecer.</blockquote></div>
+        <div className="mkAgents">{agents.map(([name,role,text],i)=><article key={`${name}-${role}`}><b>{String(i+1).padStart(2,'0')}</b><div><h3>{name}<span>{role}</span></h3><p>{text}</p></div></article>)}</div>
+      </section>
+
+      <section className="mkControl">
+        <div><p className="mkEyebrow">AUTOMAÇÃO SEM PERDER O CONTROLE</p><h2>O NexOffice ajuda a executar. Você continua decidindo os limites.</h2></div>
+        <div className="mkControlCards"><article><b>Prioriza</b><p>Mostra o que exige atenção antes que vire urgência.</p></article><article><b>Prepara</b><p>Organiza contexto e próximo passo para reduzir trabalho manual.</p></article><article><b>Executa com regras</b><p>Fluxos respeitam permissões, aprovações e políticas definidas pela empresa.</p></article><article><b>Registra</b><p>Decisões e ações permanecem conectadas à operação.</p></article></div>
+      </section>
+
+      <section id="preco" className="mkPricing">
+        <div><p className="mkEyebrow">PREÇO FUNDADOR</p><h2>Coloque sua operação dentro do NexOffice antes de decidir.</h2><p>Use por sete dias no trabalho real. Organize clientes, tarefas, agenda, financeiro e prioridades. Depois escolha se quer continuar.</p><div className="mkPriceQuote">“Se o NexOffice evitar uma cobrança esquecida, um follow-up perdido ou algumas horas de retrabalho, ele já começa a justificar estar na operação.”</div></div>
+        <article><small>NEXOFFICE PRO · PREÇO FUNDADOR</small><div className="mkPrice"><b>R$ 197</b><span>/mês</span></div><ul><li>Central de Comando</li><li>Equipe Digital</li><li>CRM e pipeline</li><li>Financeiro e cobranças</li><li>Agenda e tarefas</li><li>Documentos e integrações</li><li>Políticas de aprovação</li></ul><button className="mkPrimary mkBig" onClick={enter}>Começar 7 dias grátis</button><p>Sem cartão no trial · Pix Automático depois · cancele quando quiser</p></article>
+      </section>
+
+      <section className="mkFinal">
+        <p className="mkEyebrow">NEXOFFICE</p>
+        <h2>Sua empresa funcionando sem tudo depender de você.</h2>
+        <p>Organize a operação, enxergue as prioridades e tenha ajuda para fazer acontecer.</p>
+        <button className="mkPrimary mkBig" onClick={enter}>Criar meu NexOffice</button>
+        <span>7 dias grátis · sem cartão</span>
+      </section>
+    </main>
+    <footer className="mkFooter"><b>NexOffice</b><span>Controle operacional para empresas que querem crescer sem aumentar o caos.</span><span>© 2026 NexOffice</span></footer>
   </div>;
 }
