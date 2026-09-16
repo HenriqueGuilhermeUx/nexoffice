@@ -23,6 +23,7 @@ import {registerPlatformCommerceRoutes} from './routes-platform-commerce.js';
 import {registerSignalRoutes} from './routes-signals.js';
 import {registerAutomationRoutes} from './routes-automation.js';
 import {registerUsageRoutes} from './routes-usage.js';
+import {registerStandaloneRoutes} from './routes-standalone.js';
 
 if(String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true')await runMigrations();
 
@@ -41,7 +42,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.17.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.18.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -64,6 +65,7 @@ await registerAutomationRoutes(app);
 await registerUsageRoutes(app);
 await registerCollectionsRoutes(app);
 await registerReconciliationRoutes(app);
+await registerStandaloneRoutes(app);
 
 app.setErrorHandler((error,_req,reply)=>{
   app.log.error(error);
