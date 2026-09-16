@@ -70,14 +70,31 @@ async function woovi(path:string,init:RequestInit={}){
   return body;
 }
 
-async function probeWooviSubscriptionRead(){
-  const {appId,base}=wooviConfig();
-  const response=await fetch(`${base}/api/v1/subscriptions/nexoffice-provider-health-probe-not-found`,{headers:{authorization:appId}});
-  const body=await response.json().catch(()=>({}));
+function isAuthorizedNotFound(status:number,body:any){
   const providerMessage=String(body?.message||body?.error||'').toLowerCase();
-  const notFoundProbe=(response.status===400||response.status===404)&&(providerMessage.includes('não encontr')||providerMessage.includes('not found'));
-  if(response.ok||notFoundProbe)return {provider:'woovi',configured:true,reachable:true,subscriptionReadAuthorized:true};
+  return (status===400||status===404)&&(providerMessage.includes('não encontr')||providerMessage.includes('not found'));
+}
+
+async function safeWooviPermissionProbe(path:string,init:RequestInit={}){
+  const {appId,base}=wooviConfig();
+  const headers=new Headers(init.headers||{});headers.set('authorization',appId);headers.set('content-type','application/json');
+  const response=await fetch(`${base}${path}`,{...init,headers});
+  const body=await response.json().catch(()=>({}));
+  if(response.ok||isAuthorizedNotFound(response.status,body))return true;
   throw new ApiError(502,'billing_provider_error',body?.message||body?.error||`Woovi respondeu ${response.status}`);
+}
+
+async function probeWooviPermissions(){
+  const probeId='nexoffice-provider-health-probe-not-found';
+  await safeWooviPermissionProbe(`/api/v1/subscriptions/${probeId}`);
+  await safeWooviPermissionProbe(`/api/v1/subscriptions/${probeId}/cancel`,{method:'PUT'});
+  return {
+    provider:'woovi',
+    configured:true,
+    reachable:true,
+    subscriptionReadAuthorized:true,
+    subscriptionCancelAuthorized:true
+  };
 }
 
 export async function registerBillingRoutes(app:FastifyInstance){
@@ -88,7 +105,7 @@ export async function registerBillingRoutes(app:FastifyInstance){
 
   app.get('/v1/billing/provider-health',async req=>{
     await billingContext(req,true);
-    return probeWooviSubscriptionRead();
+    return probeWooviPermissions();
   });
 
   app.post('/v1/billing/subscribe',async req=>{
