@@ -96,6 +96,8 @@ jobs:
         run: node scripts/smoke.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
+      - name: Smoke test billing trial
+        run: node scripts/smoke-billing.mjs
       - name: Smoke test fiscal bridge
         run: node scripts/smoke-fiscal.mjs
       - name: Smoke test vertical packs
