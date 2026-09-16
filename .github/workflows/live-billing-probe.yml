@@ -16,7 +16,7 @@ jobs:
           node-version: 22
       - name: Validate NexOffice billing on live staging
         env:
-          API_URL: https://nexoffice-staging-api.onrender.com
+          API_URL: https://api.nexoffices.com.br
         run: |
           node <<'NODE'
           const base=process.env.API_URL;
@@ -38,5 +38,7 @@ jobs:
           const provider=await h.json();
           if(!h.ok) throw new Error(`provider ${h.status}: ${JSON.stringify(provider)}`);
           if(provider.provider!=='woovi'||provider.reachable!==true) throw new Error(`Woovi not reachable: ${JSON.stringify(provider)}`);
-          console.log(JSON.stringify({ok:true,plan:summary.planName,priceMinor:summary.priceMinor,trialDaysRemaining:summary.trialDaysRemaining,billingConfigured:summary.billingConfigured,provider:provider.provider,providerReachable:provider.reachable,subscriptionCount:provider.subscriptionCount},null,2));
+          if(provider.subscriptionReadAuthorized!==true) throw new Error(`Woovi SUBSCRIPTION_GET missing: ${JSON.stringify(provider)}`);
+          if(provider.subscriptionCancelAuthorized!==true) throw new Error(`Woovi SUBSCRIPTION_CANCEL_PUT missing: ${JSON.stringify(provider)}`);
+          console.log(JSON.stringify({ok:true,domain:base,plan:summary.planName,priceMinor:summary.priceMinor,trialDaysRemaining:summary.trialDaysRemaining,billingConfigured:summary.billingConfigured,provider:provider.provider,providerReachable:provider.reachable,subscriptionReadAuthorized:provider.subscriptionReadAuthorized,subscriptionCancelAuthorized:provider.subscriptionCancelAuthorized},null,2));
           NODE
