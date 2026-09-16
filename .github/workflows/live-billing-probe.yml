@@ -1,0 +1,42 @@
+name: Live Billing Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-billing-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate NexOffice billing on live staging
+        env:
+          API_URL: https://nexoffice-staging-api.onrender.com
+        run: |
+          node <<'NODE'
+          const base=process.env.API_URL;
+          const suffix=Date.now().toString(36);
+          const email=`billing-probe-${suffix}@nexoffices.test`;
+          const password='ProbePass!2026';
+          const reg=await fetch(base+'/v1/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:'Billing Probe',email,password,businessName:`Billing Probe ${suffix}`,vertical:'general'})});
+          const body=await reg.json();
+          if(!reg.ok) throw new Error(`register ${reg.status}: ${JSON.stringify(body)}`);
+          const headers={authorization:`Bearer ${body.token}`,'x-workspace-id':body.workspace.id};
+          const s=await fetch(base+'/v1/billing/summary',{headers});
+          const summary=await s.json();
+          if(!s.ok) throw new Error(`summary ${s.status}: ${JSON.stringify(summary)}`);
+          if(summary.planName!=='NexOffice Pro') throw new Error(`unexpected plan ${summary.planName}`);
+          if(Number(summary.priceMinor)!==19700) throw new Error(`unexpected price ${summary.priceMinor}`);
+          if(summary.status!=='trialing'||summary.access!==true||Number(summary.trialDaysRemaining)!==7) throw new Error(`unexpected trial ${JSON.stringify(summary)}`);
+          if(summary.billingConfigured!==true) throw new Error('billing is not configured in Render');
+          const h=await fetch(base+'/v1/billing/provider-health',{headers});
+          const provider=await h.json();
+          if(!h.ok) throw new Error(`provider ${h.status}: ${JSON.stringify(provider)}`);
+          if(provider.provider!=='woovi'||provider.reachable!==true) throw new Error(`Woovi not reachable: ${JSON.stringify(provider)}`);
+          console.log(JSON.stringify({ok:true,plan:summary.planName,priceMinor:summary.priceMinor,trialDaysRemaining:summary.trialDaysRemaining,billingConfigured:summary.billingConfigured,provider:provider.provider,providerReachable:provider.reachable,subscriptionCount:provider.subscriptionCount},null,2));
+          NODE
