@@ -61,13 +61,22 @@ const agents=[
   ['Maya','Growth','Oportunidades de crescimento e execução comercial.']
 ];
 
+const hiddenCosts=[
+  ['Uma venda que esfria','O custo não aparece como “erro operacional”. Ele aparece quando uma proposta fica sem retorno e a oportunidade simplesmente desaparece.'],
+  ['Uma cobrança que ninguém acompanhou','O valor continua no contas a receber enquanto alguém precisa lembrar de cobrar, conferir e voltar ao assunto.'],
+  ['Uma hora do dono procurando informação','É tempo de gestão gasto descobrindo o que aconteceu em vez de decidir o que fazer a seguir.'],
+  ['Uma tarefa sem responsável','O trabalho não some. Ele reaparece depois como atraso, urgência, cobrança interna ou retrabalho.'],
+  ['Uma decisão tomada com contexto incompleto','Quando dados, conversas e pendências estão espalhados, a gestão decide mais tarde ou decide sem enxergar o quadro inteiro.'],
+  ['A empresa crescer sem o processo crescer junto','Mais clientes, pessoas e ferramentas podem aumentar o volume de coordenação que continua concentrado em poucas pessoas.']
+];
+
 export default function MarketingLanding(){
   if(session.token()||new URLSearchParams(location.search).has('app'))return null;
   const enter=()=>{location.href='/?app=1'};
   return <div className="marketingPage">
     <header className="marketingNav">
       <a className="marketingLogo" href="/">NexOffice</a>
-      <nav><a href="#dor">O problema</a><a href="#para-quem">Para quem</a><a href="#como-funciona">Como funciona</a><a href="#equipe">Equipe Digital</a><a href="#preco">Preço</a></nav>
+      <nav><a href="#dor">O problema</a><a href="#para-quem">Para quem</a><a href="#como-funciona">Como funciona</a><a href="#custo">O custo do caos</a><a href="#preco">Preço</a></nav>
       <div><button className="mkGhost" onClick={enter}>Entrar</button><button className="mkPrimary" onClick={enter}>Começar grátis</button></div>
     </header>
 
@@ -125,6 +134,23 @@ export default function MarketingLanding(){
       <section className="mkControl">
         <div><p className="mkEyebrow">AUTOMAÇÃO SEM PERDER O CONTROLE</p><h2>O NexOffice ajuda a executar. Você continua decidindo os limites.</h2></div>
         <div className="mkControlCards"><article><b>Prioriza</b><p>Mostra o que exige atenção antes que vire urgência.</p></article><article><b>Prepara</b><p>Organiza contexto e próximo passo para reduzir trabalho manual.</p></article><article><b>Executa com regras</b><p>Fluxos respeitam permissões, aprovações e políticas definidas pela empresa.</p></article><article><b>Registra</b><p>Decisões e ações permanecem conectadas à operação.</p></article></div>
+      </section>
+
+      <section id="custo" className="mkCost">
+        <div className="mkCostIntro">
+          <p className="mkEyebrow">QUANTO CUSTA CONTINUAR ASSIM?</p>
+          <h2>O custo da desorganização não chega em uma única fatura.</h2>
+          <p>Ele aparece espalhado em oportunidades perdidas, atrasos, horas de gestão consumidas, cobrança manual, retrabalho e decisões tomadas tarde. Cada empresa sente isso de um jeito — por isso o NexOffice não promete um ROI inventado.</p>
+          <div className="mkCostCallout"><b>R$ 197/mês é um preço visível.</b><span>O custo de continuar dependendo da memória, do improviso e da cobrança manual quase nunca é.</span></div>
+        </div>
+        <div className="mkCostGrid">{hiddenCosts.map(([title,text],i)=><article key={title}><span>{String(i+1).padStart(2,'0')}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
+      </section>
+
+      <section className="mkDecision">
+        <p className="mkEyebrow">UMA PERGUNTA SIMPLES</p>
+        <h2>Quanto da sua semana ainda é gasto lembrando, procurando, cobrando e conferindo?</h2>
+        <p>O NexOffice existe para transformar esse esforço invisível em uma operação que consegue mostrar prioridade, distribuir contexto e acompanhar execução.</p>
+        <button className="mkPrimary mkBig" onClick={enter}>Descobrir em 7 dias</button>
       </section>
 
       <section id="preco" className="mkPricing">
