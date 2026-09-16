@@ -70,7 +70,9 @@ async function probeWooviSubscriptionRead(){
   const {appId,base}=wooviConfig();
   const response=await fetch(`${base}/api/v1/subscriptions/nexoffice-provider-health-probe-not-found`,{headers:{authorization:appId}});
   const body=await response.json().catch(()=>({}));
-  if(response.ok||response.status===404)return {provider:'woovi',configured:true,reachable:true,subscriptionReadAuthorized:true};
+  const providerMessage=String(body?.message||body?.error||'').toLowerCase();
+  const notFoundProbe=(response.status===400||response.status===404)&&(providerMessage.includes('não encontr')||providerMessage.includes('not found'));
+  if(response.ok||notFoundProbe)return {provider:'woovi',configured:true,reachable:true,subscriptionReadAuthorized:true};
   throw new ApiError(502,'billing_provider_error',body?.message||body?.error||`Woovi respondeu ${response.status}`);
 }
 
