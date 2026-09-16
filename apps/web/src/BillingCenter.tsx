@@ -3,11 +3,12 @@ import {api,post,session} from './api';
 
 type BillingSummary={
   planName:string;priceMinor:number;currency:string;status:string;access:boolean;trialEndsAt:string;trialDaysRemaining:number;billingConfigured:boolean;
-  workspace:{id:string;name:string};user:{name:string;email:string};providerSubscriptionId?:string|null;
+  workspace:{id:string;name:string};user:{name:string;email:string};providerSubscriptionId?:string|null;currentPeriodEndsAt?:string|null;cancelledAt?:string|null;cancelAtPeriodEnd?:boolean;
 };
 type Checkout={provider:string;globalID:string;journey:string;emv?:string|null;pixRecurringStatus?:string|null};
 
 const money=(minor:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(minor/100);
+const date=(value?:string|null)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'long'}).format(new Date(value)):'—';
 
 export default function BillingCenter(){
   const [billing,setBilling]=useState<BillingSummary|null>(null);
@@ -21,11 +22,13 @@ export default function BillingCenter(){
     try{setBilling(await api<BillingSummary>('/v1/billing/summary'))}catch{}
   }
   useEffect(()=>{load();const id=setInterval(load,30000);return()=>clearInterval(id)},[]);
-  if(!session.token()||!billing)return null;
-  if(billing.status==='active'||billing.status==='exempt')return null;
+  if(!session.token()||!billing||billing.status==='exempt')return null;
 
+  const active=billing.status==='active';
+  const cancelledPaidThrough=billing.status==='cancelled'&&billing.access;
   const expired=!billing.access;
-  const label=billing.status==='pending_activation'?'Assinatura aguardando autorização':expired?'Seu teste grátis terminou':`${billing.trialDaysRemaining} dia${billing.trialDaysRemaining===1?'':'s'} grátis restante${billing.trialDaysRemaining===1?'':'s'}`;
+  const label=active?'NexOffice Pro ativo':cancelledPaidThrough?'Assinatura cancelada':billing.status==='pending_activation'?'Assinatura aguardando autorização':expired?'Seu teste grátis terminou':`${billing.trialDaysRemaining} dia${billing.trialDaysRemaining===1?'':'s'} grátis restante${billing.trialDaysRemaining===1?'':'s'}`;
+  const detail=active?`${money(billing.priceMinor)}/mês · Pix Automático`:cancelledPaidThrough?`Acesso disponível até ${date(billing.currentPeriodEndsAt)}`:`${billing.planName} · ${money(billing.priceMinor)}/mês · cancele quando quiser`;
 
   async function subscribe(e:FormEvent<HTMLFormElement>){
     e.preventDefault();setBusy(true);setError('');
@@ -36,16 +39,29 @@ export default function BillingCenter(){
     }catch(err:any){setError(err?.message||'Não foi possível iniciar a assinatura.')}finally{setBusy(false)}
   }
   async function refresh(){setBusy(true);setError('');try{await post('/v1/billing/refresh',{});await load();if((await api<BillingSummary>('/v1/billing/summary')).status==='active'){setOpen(false);setCheckout(null);location.reload()}}catch(err:any){setError(err?.message||'Ainda não identificamos a autorização.')}finally{setBusy(false)}}
+  async function cancel(){
+    if(!confirm('Cancelar a renovação do NexOffice Pro? O acesso pago já adquirido permanece disponível até o fim do período atual.'))return;
+    setBusy(true);setError('');
+    try{await post('/v1/billing/cancel',{});await load()}catch(err:any){setError(err?.message||'Não foi possível cancelar a assinatura.')}finally{setBusy(false)}
+  }
   async function copy(){if(checkout?.emv)await navigator.clipboard.writeText(checkout.emv)}
 
   return <>
-    <div className={`billingBanner ${expired?'billingExpired':''}`}>
-      <div><b>{label}</b><span>{billing.planName} · {money(billing.priceMinor)}/mês · cancele quando quiser</span></div>
-      <button onClick={()=>setOpen(true)}>{billing.status==='pending_activation'?'Finalizar assinatura':'Assinar NexOffice Pro'}</button>
+    <div className={`billingBanner ${expired?'billingExpired':''} ${(active||cancelledPaidThrough)?'billingActive':''}`}>
+      <div><b>{label}</b><span>{detail}</span></div>
+      <button onClick={()=>setOpen(true)}>{active||cancelledPaidThrough?'Gerenciar plano':billing.status==='pending_activation'?'Finalizar assinatura':'Assinar NexOffice Pro'}</button>
     </div>
     {open&&<div className="billingBackdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}><div className="billingModal">
       <button className="billingClose" onClick={()=>setOpen(false)}>×</button>
-      <p className="billingEyebrow">NEXOFFICE PRO</p><h2>Continue operando seu negócio por {money(billing.priceMinor)}/mês</h2>
+      <p className="billingEyebrow">NEXOFFICE PRO</p>
+      {(active||cancelledPaidThrough)?<div className="billingManage">
+        <h2>{active?'Sua assinatura está ativa':'Sua assinatura foi cancelada'}</h2>
+        <p className="billingLead">{active?`Plano NexOffice Pro por ${money(billing.priceMinor)}/mês, cobrado via Pix Automático.`:`Não haverá novas renovações. Seu acesso permanece disponível até ${date(billing.currentPeriodEndsAt)}.`}</p>
+        {error&&<div className="billingError">{error}</div>}
+        <div className="billingSummary"><span>Plano</span><b>{billing.planName}</b><span>Status</span><b>{active?'Ativo':'Cancelado'}</b><span>Valor</span><b>{money(billing.priceMinor)}/mês</b>{billing.currentPeriodEndsAt&&<><span>Período atual até</span><b>{date(billing.currentPeriodEndsAt)}</b></>}</div>
+        {active&&<button className="billingDanger" disabled={busy} onClick={cancel}>{busy?'Cancelando…':'Cancelar renovação'}</button>}
+      </div>:<>
+      <h2>Continue operando seu negócio por {money(billing.priceMinor)}/mês</h2>
       <p className="billingLead">CRM, financeiro, agenda, Central de Comando, Equipe Digital, documentos, automações e integrações em um único sistema operacional.</p>
       {!billing.billingConfigured&&<div className="billingNotice">A cobrança Woovi ainda está em configuração neste ambiente. Seu trial continua normalmente.</div>}
       {error&&<div className="billingError">{error}</div>}
@@ -55,7 +71,7 @@ export default function BillingCenter(){
         <div className="billingSummary"><span>Plano</span><b>{billing.planName}</b><span>Mensalidade</span><b>{money(billing.priceMinor)}</b><span>Trial</span><b>7 dias grátis</b></div>
         <button className="billingPrimary billingSubmit" disabled={busy||!billing.billingConfigured}>{busy?'Criando assinatura…':'Autorizar Pix Automático'}</button>
         <small>Sem cartão. Cobrança mensal via Pix Automático. Você pode cancelar quando quiser.</small>
-      </form>}
+      </form>}</>}
     </div></div>}
   </>;
 }
