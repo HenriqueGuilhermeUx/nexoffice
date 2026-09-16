@@ -108,11 +108,11 @@ export async function workspaceContext(req: FastifyRequest, permission?: string)
   const requested = raw ? String(raw) : null;
   const rows = await query<any>(
     requested
-      ? `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at
+      ? `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at,b.current_period_ends_at
            from workspace_members m join workspaces w on w.id=m.workspace_id
            left join workspace_billing b on b.workspace_id=w.id
           where m.user_id=$1 and m.workspace_id=$2 and m.active=true limit 1`
-      : `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at
+      : `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at,b.current_period_ends_at
            from workspace_members m join workspaces w on w.id=m.workspace_id
            left join workspace_billing b on b.workspace_id=w.id
           where m.user_id=$1 and m.active=true
@@ -121,8 +121,10 @@ export async function workspaceContext(req: FastifyRequest, permission?: string)
   );
   if (!rows.length) throw new ApiError(403,'workspace_access_denied','Você não tem acesso a esse workspace.');
   const billingStatus=String(rows[0].billing_status||'active');
+  const paidThrough=rows[0].current_period_ends_at?new Date(rows[0].current_period_ends_at).getTime():0;
+  const cancelledButPaidThrough=billingStatus==='cancelled'&&paidThrough>Date.now();
   if(billingStatus==='trialing'&&rows[0].trial_ends_at&&new Date(rows[0].trial_ends_at).getTime()<=Date.now())throw new ApiError(402,'trial_expired','Seu período gratuito de 7 dias terminou. Assine o NexOffice Pro para continuar.');
-  if(['expired','past_due','cancelled'].includes(billingStatus))throw new ApiError(402,'subscription_required','Sua assinatura do NexOffice precisa ser regularizada para continuar.');
+  if(['expired','past_due'].includes(billingStatus)||(billingStatus==='cancelled'&&!cancelledButPaidThrough))throw new ApiError(402,'subscription_required','Sua assinatura do NexOffice precisa ser regularizada para continuar.');
   if(String(rows[0].workspace_status)==='suspended')throw new ApiError(402,'workspace_suspended','Este workspace está suspenso. Regularize a assinatura para continuar.');
   const ctx: WorkspaceContext = {
     user,
