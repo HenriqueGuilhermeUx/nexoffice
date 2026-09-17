@@ -49,8 +49,16 @@ for(const role of roles){
   assert(messages[0].agent_role===role||messages[1].agent_role===role,`${role} is persisted in conversation messages`);
 }
 
+const radar=await call('/v1/assistant/chat',{method:'POST',body:{message:'Como está meu radar de mercado?',agentRole:'growth'}});
+assert(radar.agentRole==='growth','Maya owns Market Radar intent');
+assert(radar.facts?.modo?.marketRadar,'Maya returns an explicit Market Radar capability state');
+assert(radar.facts.modo.marketRadar.configured===false,'CI keeps external Market Radar provider unconfigured');
+assert(radar.facts.modo.marketRadar.collectionRequiresExplicitApproval===true,'Market Radar collection stays approval-first');
+assert(radar.facts.modo.marketRadar.externalCommunication===false,'Market Radar never implies external communication');
+assert(radar.actions?.some(item=>item.label==='Ver Radar de Mercado'),'Maya exposes a Market Radar navigation action');
+
 const conversations=await call('/v1/assistant/conversations');
-assert(conversations.length===roles.length,'all eight specialist conversations are persisted for the same user/workspace');
+assert(conversations.length===roles.length+1,'all eight specialists plus Market Radar conversation are persisted');
 for(const role of roles)assert(conversations.some(item=>item.agent_role===role),`${role} conversation is discoverable`);
 
-console.log(JSON.stringify({ok:true,workspace,roles,conversations:conversations.length,sharedWorkspace:true,docWalletFallbackSafe:true,modoFallbackSafe:true,prospectingApprovalFirst:true,externalProspectingOutreach:false},null,2));
+console.log(JSON.stringify({ok:true,workspace,roles,conversations:conversations.length,sharedWorkspace:true,docWalletFallbackSafe:true,modoFallbackSafe:true,prospectingApprovalFirst:true,externalProspectingOutreach:false,marketRadarApprovalFirst:true,marketRadarExternalCommunication:false},null,2));

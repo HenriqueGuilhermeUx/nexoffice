@@ -34,7 +34,7 @@ export async function registerAssistantRoutes(app:FastifyInstance){
     priorities.push(...buildOperationalPriorities(vertical,operationalSignals));
     priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
     const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':vertical==='condo'?'Como está a operação dos condomínios no SindCopilot?':vertical==='commerce'?'Como está minha operação de commerce?':null;
-    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Como está minha prospecção B2B?'].filter(Boolean)};
+    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Como está minha prospecção B2B?','Como está meu radar de mercado?'].filter(Boolean)};
   });
 
   app.get('/v1/assistant/conversations',async req=>{
@@ -129,6 +129,27 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const local=docs.length?`Há ${docs.length} documento(s) recentes no NexOffice. ${signatureCount} têm assinatura em andamento e ${analysisCount} precisam de atenção na análise.`:'Ainda não há referências documentais neste workspace.';
     const upcoming=alerts.length?` No DocWallet encontrei ${alerts.length} alerta(s) com vencimento nos próximos 60 dias. Prioridades: ${alerts.slice(0,4).map((item:any)=>`${item.title||'Documento'}${item.dueDate?` em ${dateOnlyPt(item.dueDate)}`:''}`).join('; ')}.`:'';
     actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:`${local}${upcoming}`,facts:{documents:docs,docWallet:{connected:Boolean(docWallet.ok),upcomingAlerts:alerts.slice(0,8)}},actions};
+  }
+  if(match(text,['radar de mercado','concorrencia','concorrente','concorrentes','sinais de demanda','monitorar mercado','inteligencia de mercado'])){
+    actions.push({label:'Ver Radar de Mercado',target:'marketing'});
+    if(!modoMarketingConfigured())return {agentRole:forcedRole||'growth',text:'A Maya já tem o contrato de Radar de Mercado preparado, mas o runtime MODO não está configurado neste ambiente. Nenhuma coleta foi disparada. Atualizar o radar exige aprovação explícita.',facts:{modo:{connected:false,marketRadar:{configured:false,missions:[],collectionRequiresExplicitApproval:true,externalCommunication:false}}},actions};
+    try{
+      const [health,list]=await Promise.all([
+        modoMarketingRequest<any>(workspaceId,'health'),
+        modoMarketingRequest<any>(workspaceId,'intelligence/market-radar/missions')
+      ]);
+      const radar=health?.marketRadar||{},missions=Array.isArray(list?.missions)?list.missions:[];
+      let latest:any=null;
+      const completed=missions.find((item:any)=>item.status==='succeeded');
+      if(completed)try{latest=await modoMarketingRequest<any>(workspaceId,`intelligence/market-radar/missions/${completed.id}/results?limit=20`)}catch{}
+      const items=Array.isArray(latest?.items)?latest.items:[];
+      const statusLine=missions.length?`Há ${missions.length} missão(ões) de Radar de Mercado neste workspace. A mais recente está ${String(missions[0]?.status||'sem status')}.`:`Ainda não há missão de Radar de Mercado criada para este workspace.`;
+      const signalLine=items.length?` Sinais recentes: ${items.slice(0,4).map((item:any)=>`${item.name||item.title||'Sinal'}${item.summary?`: ${String(item.summary).slice(0,180)}`:''}`).join('; ')}.`:'';
+      const readiness=radar?.configured?' O provider externo está pronto para uma nova coleta, que continua exigindo aprovação explícita.':' O contrato de leitura está disponível, mas a coleta externa ainda não está pronta neste runtime.';
+      return {agentRole:forcedRole||'growth',text:`${statusLine}${signalLine}${readiness} A conversa nunca dispara coleta automaticamente.`,facts:{modo:{connected:true,marketRadar:{configured:Boolean(radar?.configured),provider:radar?.provider||null,taskConfigured:Boolean(radar?.taskConfigured),missions,latest:latest||null,collectionRequiresExplicitApproval:true,externalCommunication:false}}},actions};
+    }catch{
+      return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao MODO, mas não consegui ler o Radar de Mercado agora. Nenhuma coleta foi executada; qualquer atualização continua exigindo aprovação explícita.',facts:{modo:{connected:true,marketRadar:{unavailable:true,collectionRequiresExplicitApproval:true,externalCommunication:false}}},actions};
+    }
   }
   if(match(text,['prospeccao','prospectar','prospect','icp','outbound','lead b2b','leads b2b','clientes b2b'])){
     actions.push({label:'Ver Prospecção',target:'marketing'});

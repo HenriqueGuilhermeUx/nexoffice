@@ -9,6 +9,18 @@ const prospectingCampaignSchema=z.object({name:z.string().max(160).optional(),se
 const prospectingLeadSchema=z.object({name:z.string().min(1).max(180),role:z.string().max(160).optional(),company:z.string().min(1).max(180),email:z.string().email().optional(),linkedinUrl:z.string().url().optional(),websiteUrl:z.string().url().optional(),location:z.string().max(160).optional(),fitScore:z.number().min(0).max(100).optional(),reason:z.string().max(1000).optional(),signal:z.string().max(1000).optional(),source:z.string().max(80).optional(),sourceRef:z.string().max(600).optional(),metadata:z.record(z.string(),z.unknown()).optional()});
 const discoverySchema=z.object({approved:z.literal(true),limit:z.coerce.number().int().min(1).max(50).default(20)});
 const approachSchema=z.object({channel:z.enum(['email','linkedin','whatsapp']).default('email')});
+const marketRadarSchema=z.object({
+  approved:z.literal(true),
+  name:z.string().trim().min(3).max(140).optional(),
+  objective:z.string().trim().min(3).max(1200),
+  regions:z.array(z.string().trim().min(2).max(180)).max(20).default([]),
+  keywords:z.array(z.string().trim().min(2).max(180)).max(40).default([]),
+  competitors:z.array(z.string().trim().min(2).max(1000)).max(40).default([]),
+  maxItems:z.coerce.number().int().min(1).max(500).default(50),
+  niche:z.string().trim().max(240).optional(),
+  websiteUrl:z.union([z.literal(''),z.string().url().max(1000)]).optional(),
+  instagramHandle:z.string().trim().max(160).optional()
+}).refine(value=>value.keywords.length>0||value.competitors.length>0,{message:'Informe termos de mercado ou concorrentes para o radar.',path:['keywords']});
 function fail(error:unknown){if(error instanceof ModoMarketingError)throw Object.assign(new Error(error.message),{statusCode:error.status,code:error.code,payload:error.payload});throw error}
 
 export async function registerMarketingRoutes(app:FastifyInstance){
@@ -54,4 +66,8 @@ export async function registerMarketingRoutes(app:FastifyInstance){
   app.post('/v1/marketing/prospecting/campaigns/:id/leads',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),id=z.string().uuid().parse((req.params as any).id),input=prospectingLeadSchema.parse(req.body);try{const result=await modoMarketingRequest(ctx.workspaceId,`prospecting/campaigns/${id}/leads`,'POST',input);await auditLog(ctx,'marketing.prospecting.lead.added','prospecting_campaign',id,null,{externalEffect:false,externalCommunication:false});return result}catch(e){return fail(e)}});
   app.post('/v1/marketing/prospecting/campaigns/:id/discover',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),id=z.string().uuid().parse((req.params as any).id),input=discoverySchema.parse(req.body);try{const result=await modoMarketingRequest<any>(ctx.workspaceId,`prospecting/campaigns/${id}/discover`,'POST',input);await auditLog(ctx,'marketing.prospecting.discovery','prospecting_campaign',id,null,{explicitApproval:true,limit:input.limit,provider:result?.provider||null,externalCommunication:false,providerCompute:true});return result}catch(e){return fail(e)}});
   app.post('/v1/marketing/prospecting/leads/:id/approach',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),id=z.string().uuid().parse((req.params as any).id),input=approachSchema.parse(req.body||{});try{const result=await modoMarketingRequest(ctx.workspaceId,`prospecting/leads/${id}/approach`,'POST',input);await auditLog(ctx,'marketing.prospecting.approach.prepared','prospecting_lead',id,null,{channel:input.channel,externalEffect:false,externalCommunication:false});return result}catch(e){return fail(e)}});
+
+  app.get('/v1/marketing/market-radar/missions',async req=>{const ctx=await workspaceContext(req,'integrations.read');try{return await modoMarketingRequest(ctx.workspaceId,'intelligence/market-radar/missions')}catch(e){return fail(e)}});
+  app.get('/v1/marketing/market-radar/missions/:id/results',async req=>{const ctx=await workspaceContext(req,'integrations.read'),id=z.string().uuid().parse((req.params as any).id),limit=Math.min(200,Math.max(1,Number((req.query as any)?.limit||50)));try{return await modoMarketingRequest(ctx.workspaceId,`intelligence/market-radar/missions/${id}/results?limit=${limit}`)}catch(e){return fail(e)}});
+  app.post('/v1/marketing/market-radar/missions',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),input=marketRadarSchema.parse(req.body);try{const result=await modoMarketingRequest<any>(ctx.workspaceId,'intelligence/market-radar/missions','POST',{approved:true,name:input.name||`Radar de Mercado · ${ctx.workspaceName}`,objective:input.objective,brandName:ctx.workspaceName,niche:input.niche||'',websiteUrl:input.websiteUrl||'',instagramHandle:input.instagramHandle||'',regions:input.regions,keywords:input.keywords,competitors:input.competitors,maxItems:input.maxItems});await auditLog(ctx,'marketing.market_radar.collection_requested','workspace',ctx.workspaceId,null,{missionId:result?.mission?.id||null,explicitApproval:true,providerCompute:Boolean(result?.governance?.providerCompute),externalCommunication:false,externalEffect:false});return result}catch(e){return fail(e)}});
 }
