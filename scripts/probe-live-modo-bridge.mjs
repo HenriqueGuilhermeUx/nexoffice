@@ -1,0 +1,17 @@
+const base=process.env.API_URL||'https://api.nexoffices.com.br';
+const suffix=Date.now().toString(36);
+const email=`modo-bridge-probe-${suffix}@nexoffices.test`;
+const password='ProbePass!2026';
+const register=await fetch(`${base}/v1/auth/register`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:'MODO Bridge Probe',email,password,businessName:`MODO Bridge Probe ${suffix}`,vertical:'general'})});
+const reg=await register.json().catch(()=>({}));
+if(!register.ok)throw new Error(`register ${register.status}: ${JSON.stringify(reg)}`);
+const headers={authorization:`Bearer ${reg.token}`,'x-workspace-id':reg.workspace.id};
+const response=await fetch(`${base}/v1/marketing/status`,{headers});
+const status=await response.json().catch(()=>({}));
+if(!response.ok)throw new Error(`marketing ${response.status}: ${JSON.stringify(status)}`);
+if(status.configured!==true)throw new Error(`MODO bridge not configured: ${JSON.stringify(status)}`);
+if(status.provider!=='modo')throw new Error(`unexpected provider ${status.provider}`);
+if(status.health?.contract!=='nexoffice-marketing-v1')throw new Error(`unexpected contract ${JSON.stringify(status.health)}`);
+if(status.health?.externalCampaignActivation!==false)throw new Error('externalCampaignActivation must remain false');
+if(!Array.isArray(status.health?.workflow)||status.health.workflow.join('>')!=='draft>review>ready')throw new Error(`unexpected governance ${JSON.stringify(status.health?.workflow)}`);
+console.log(JSON.stringify({ok:true,domain:base,provider:status.provider,contract:status.health.contract,workflow:status.health.workflow,externalCampaignActivation:status.health.externalCampaignActivation,capabilities:status.health.capabilities},null,2));
