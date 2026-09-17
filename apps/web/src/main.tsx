@@ -6,6 +6,7 @@ import DailyOpsPulse from './DailyOpsPulse';
 import CommandCenterOverview from './CommandCenterOverview';
 import DigitalTeamConsole from './DigitalTeamConsole';
 import IntegrationSetupCenter from './IntegrationSetupCenter';
+import DocumentIntelligenceCenter from './DocumentIntelligenceCenter';
 import DocWalletConnectBridge from './DocWalletConnectBridge';
 import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import StandaloneSetup from './StandaloneSetup';
@@ -26,5 +27,5 @@ import './statement-import.css';
 import './financial-intelligence.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/></React.StrictMode>
 );
