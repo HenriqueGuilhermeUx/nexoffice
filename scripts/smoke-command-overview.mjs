@@ -26,9 +26,13 @@ const events=[
 ];
 for(const [type,payload] of events)await call('/v1/events',{method:'POST',body:{type,source:'smoke.command-overview',payload}});
 
+const account=await call('/v1/finance/accounts',{method:'POST',body:{name:'Conta Radar',kind:'bank',openingBalanceMinor:100000,currency:'BRL'}});
+await call('/v1/ledger',{method:'POST',body:{accountId:account.id,direction:'expense',category:'fornecedores',description:'Pagamento que pressiona caixa',amountMinor:350000,currency:'BRL',status:'open',dueAt:new Date(Date.now()+7*86400000).toISOString()}});
+await call('/v1/finance/intelligence/refresh',{method:'POST',body:{}});
+
 const overview=await call('/v1/command/overview');
 assert(Array.isArray(overview.areas),'overview returns areas');
-assert(overview.areas.length===8,'overview exposes approvals plus seven operational domains');
+assert(overview.areas.length===8,'base overview exposes approvals plus seven operational domains');
 const byId=Object.fromEntries(overview.areas.map(area=>[area.id,area]));
 for(const id of ['approvals','messages','pix','documents','fiscal','growth','agenda','crm'])assert(byId[id],`${id} area exists`);
 for(const id of ['messages','pix','documents','fiscal','growth','agenda','crm']){
@@ -44,4 +48,11 @@ assert(byId.growth.actions.some(action=>action.actionType==='campaign.opportunit
 assert(byId.agenda.actions.some(action=>action.actionType==='appointment.cancelled'),'Agenda area classifies appointment action');
 assert(byId.crm.actions.some(action=>action.actionType==='lead.created'),'CRM area classifies lead action');
 
-console.log(JSON.stringify({ok:true,pendingApprovals:overview.pendingApprovals,areas:overview.areas.map(area=>({id:area.id,attention:area.attention}))},null,2));
+const intelligence=await call('/v1/command/intelligence');
+assert(intelligence.finance?.id==='finance','command intelligence exposes finance area');
+assert(intelligence.finance.attention>=1,'finance area surfaces projected cash risk');
+assert(Number(intelligence.finance.metrics.projectedCash30Minor)<0,'finance card receives negative 30-day cash projection');
+assert(Array.isArray(intelligence.finance.actions)&&intelligence.finance.actions.length>=1,'finance card exposes top recommendation');
+assert(intelligence.marketing&&typeof intelligence.marketing.detail==='string','marketing intelligence has a safe no-data state');
+
+console.log(JSON.stringify({ok:true,pendingApprovals:overview.pendingApprovals,areas:overview.areas.map(area=>({id:area.id,attention:area.attention})),finance:{attention:intelligence.finance.attention,projectedCash30Minor:intelligence.finance.metrics.projectedCash30Minor,topRecommendation:intelligence.finance.actions?.[0]?.title||null},marketing:{attention:intelligence.marketing.attention,detail:intelligence.marketing.detail}},null,2));
