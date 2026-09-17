@@ -105,7 +105,7 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const finance=await financeSummary(workspaceId);const payable=await query<any>(`select description,amount_minor,due_at,status from ledger_entries where workspace_id=$1 and direction='expense' and status in ('open','overdue','planned') order by due_at nulls last limit 8`,[workspaceId]);
     actions.push({label:'Abrir financeiro',target:'finance'});return {agentRole:forcedRole||'controller',text:`Há ${money(finance.payable_minor)} em contas a pagar abertas. ${payable.length?`Próximos itens: ${payable.map(x=>`${x.description} (${money(x.amount_minor)})`).join('; ')}.`:'Não encontrei despesas futuras registradas.'}`,facts:{finance,payable},actions};
   }
-  if(match(text,['lead','leads','pipeline','crm','venda','vendas','oportunidade','oportunidades','proposta'])){
+  if(forcedRole!=='growth'&&match(text,['lead','leads','pipeline','crm','venda','vendas','oportunidade','oportunidades','proposta'])){
     const summary=(await query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline,count(*) filter(where stage='proposal')::int proposals from crm_deals where workspace_id=$1`,[workspaceId]))[0];
     const deals=await query<any>(`select title,stage,value_minor,next_action from crm_deals where workspace_id=$1 and stage not in ('won','lost') order by value_minor desc,updated_at desc limit 8`,[workspaceId]);
     actions.push({label:'Abrir CRM',target:'crm'});return {agentRole:forcedRole||'crm',text:`Seu pipeline aberto é de ${money(summary.pipeline)}, com ${summary.open_deals} oportunidade(s) e ${summary.proposals} proposta(s).${deals.length?` Eu priorizaria: ${deals.slice(0,4).map(x=>`${x.title} (${money(x.value_minor)}${x.next_action?`, próximo passo: ${x.next_action}`:''})`).join('; ')}.`:''}`,facts:{summary,deals},actions};
@@ -118,7 +118,7 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const rows=await query<any>(`select title,priority,due_at,status from tasks where workspace_id=$1 and status in ('todo','doing') order by case priority when 'critical' then 1 when 'high' then 2 else 3 end,due_at nulls last limit 12`,[workspaceId]);
     actions.push({label:'Abrir tarefas',target:'agenda'});return {agentRole:forcedRole||'secretary',text:rows.length?`Há ${rows.length} tarefa(s) abertas na lista principal. Prioridades: ${rows.slice(0,6).map(x=>`${x.title}${x.due_at?` até ${datePt(x.due_at)}`:''}`).join('; ')}.`:'Não encontrei tarefas abertas.',facts:{tasks:rows},actions};
   }
-  if(match(text,['documento','documentos','assinatura','assinaturas','contrato','contratos'])){
+  if(forcedRole==='documents'||match(text,['documento','documentos','assinatura','assinaturas','contrato','contratos'])){
     const [docs,docWallet]=await Promise.all([
       query<any>(`select title,status,intelligence_status,signature_status,document_type from document_refs where workspace_id=$1 order by updated_at desc limit 12`,[workspaceId]),
       readDocWalletUpcomingExpirations(workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'}))
@@ -130,7 +130,7 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const upcoming=alerts.length?` No DocWallet encontrei ${alerts.length} alerta(s) com vencimento nos próximos 60 dias. Prioridades: ${alerts.slice(0,4).map((item:any)=>`${item.title||'Documento'}${item.dueDate?` em ${dateOnlyPt(item.dueDate)}`:''}`).join('; ')}.`:'';
     actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:`${local}${upcoming}`,facts:{documents:docs,docWallet:{connected:Boolean(docWallet.ok),upcomingAlerts:alerts.slice(0,8)}},actions};
   }
-  if(match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade','google ads','trafego','midia'])){
+  if(forcedRole==='growth'||match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade','google ads','trafego','midia'])){
     let insights:any=null;
     if(modoMarketingConfigured())try{insights=await modoMarketingRequest<any>(workspaceId,'insights?days=30')}catch{}
     actions.push({label:'Ver Marketing',target:'marketing'});
