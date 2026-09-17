@@ -11,6 +11,7 @@ import {registerRuntimeRoutes} from './routes-runtime.js';
 import {registerAssistantRoutes} from './routes-assistant.js';
 import {registerCollectionsRoutes} from './routes-collections.js';
 import {registerReconciliationRoutes} from './routes-reconciliation.js';
+import {registerStatementImportRoutes} from './routes-statement-import.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
@@ -45,7 +46,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.20.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.21.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -70,6 +71,7 @@ await registerAutomationRoutes(app);
 await registerUsageRoutes(app);
 await registerCollectionsRoutes(app);
 await registerReconciliationRoutes(app);
+await registerStatementImportRoutes(app);
 await registerStandaloneRoutes(app);
 await registerBillingRoutes(app);
 
