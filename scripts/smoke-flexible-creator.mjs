@@ -1,0 +1,16 @@
+const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
+let token='';let workspace='';
+const call=async(path,{method='GET',body,auth=true}={})=>{const headers={'content-type':'application/json'};if(auth&&token)headers.authorization=`Bearer ${token}`;if(auth&&workspace)headers['x-workspace-id']=workspace;const r=await fetch(base+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined});const payload=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(payload)}`);return payload};
+const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
+const email=`flex-${Date.now()}@nexoffice.test`;
+const reg=await call('/v1/auth/register',{method:'POST',auth:false,body:{name:'Flexible Smoke',email,password:'SmokePass123!',businessName:'Flexible Smoke',vertical:'general'}});token=reg.token;workspace=reg.workspace.id;
+const contact=await call('/v1/crm/contacts',{method:'POST',body:{kind:'person',name:'Cliente Timeline',email:'cliente@nexoffice.test',tags:['smoke'],customFields:{segment:'teste'}}});
+const templates=await call('/v1/flexible-modules/templates');assert(templates.some(x=>x.key==='visits'),'visits template available');assert(templates.some(x=>x.key==='brand-deals'),'creator template available to every workspace');
+const visit=await call('/v1/flexible-modules',{method:'POST',body:{templateKey:'visits'}});assert(visit.key==='visits','visits module created');
+await call(`/v1/flexible-modules/${visit.id}/records`,{method:'POST',body:{contactId:contact.id,title:'Visita comercial',occurredAt:new Date().toISOString(),data:{visit_type:'Presencial',notes:'Smoke test'}}});
+const rows=await call(`/v1/flexible-modules/${visit.id}/records`);assert(rows.length===1&&rows[0].contact_name==='Cliente Timeline','flexible record linked to contact');
+const view=await call(`/v1/contacts/${contact.id}/360`);assert(view.summary.customRecords===1,'contact 360 includes custom records');assert(view.timeline.some(x=>x.kind==='custom'&&x.title==='Visita comercial'),'timeline includes flexible record');
+const creator=await call('/v1/workspace/vertical-pack',{method:'PUT',body:{packId:'creator'}});assert(creator.pack.id==='creator','creator pack applied');assert(creator.workspace.modules.includes('creator-pack'),'creator module marker enabled');assert(creator.workspace.modules.includes('flexible-modules'),'flexible modules remain horizontal');
+const modules=await call('/v1/flexible-modules');assert(modules.some(x=>x.key==='brand-deals'),'Creator seeds Brand Deals');assert(modules.some(x=>x.key==='creator-deliverables'),'Creator seeds deliverables');assert(modules.some(x=>x.key==='content-calendar'),'Creator seeds editorial calendar');
+const marketing=await call('/v1/marketing/status');assert(marketing.provider==='modo','marketing office uses MODO provider');assert(marketing.contract==='nexoffice-marketing-v1'||marketing.health?.contract==='nexoffice-marketing-v1','versioned marketing contract exposed');
+console.log(JSON.stringify({ok:true,workspace,flexibleModules:modules.map(x=>x.key),creator:creator.pack.id,marketingConfigured:marketing.configured},null,2));
