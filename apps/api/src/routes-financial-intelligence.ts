@@ -24,7 +24,9 @@ export async function registerFinancialIntelligenceRoutes(app:FastifyInstance){
   app.post('/v1/finance/intelligence/simulate',async req=>{
     const ctx=await workspaceContext(req,'finance.read');
     const input=z.object({revenueChangePct:z.number().min(-100).max(500).default(0),expenseChangePct:z.number().min(-100).max(500).default(0),oneOffInflowMinor:z.number().int().min(0).default(0),oneOffOutflowMinor:z.number().int().min(0).default(0)}).parse(req.body||{});
-    const current=(await readFinancialIntelligence(ctx.workspaceId))||await buildFinancialIntelligence(ctx.workspaceId);
+    let current=await readFinancialIntelligence(ctx.workspaceId);
+    if(!current)current=await buildFinancialIntelligence(ctx.workspaceId);
+    if(!current)throw new ApiError(500,'finance_snapshot_failed','Não foi possível gerar a visão financeira.');
     return simulateFromMetrics(current.metrics,input);
   });
 
