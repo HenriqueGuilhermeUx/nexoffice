@@ -1,0 +1,15 @@
+const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
+let token='';let workspace='';
+const call=async(path,{method='GET',body,auth=true}={})=>{const headers={'content-type':'application/json'};if(auth&&token)headers.authorization=`Bearer ${token}`;if(auth&&workspace)headers['x-workspace-id']=workspace;const r=await fetch(base+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined});const payload=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(payload)}`);return payload};
+const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
+const suffix=Date.now().toString(36);
+const reg=await call('/v1/auth/register',{method:'POST',auth:false,body:{name:'Statement Smoke',email:`statement-${suffix}@nexoffice.test`,password:'SmokePass123!',businessName:'Statement Smoke',vertical:'general'}});token=reg.token;workspace=reg.workspace.id;
+const account=await call('/v1/finance/accounts',{method:'POST',body:{name:'Banco Teste',kind:'bank',openingBalanceMinor:0,currency:'BRL'}});
+await call('/v1/ledger',{method:'POST',body:{accountId:account.id,direction:'income',category:'vendas',description:'Cliente Alpha',amountMinor:125050,currency:'BRL',status:'open',dueAt:'2026-09-15T12:00:00.000Z'}});
+const csv='Data;Descricao;Valor;Favorecido;Documento\n15/09/2026;Cliente Alpha;1.250,50;Cliente Alpha;PIX-001\n16/09/2026;Fornecedor Beta;-300,00;Fornecedor Beta;PIX-002';
+const preview=await call('/v1/reconciliation/import-file/preview',{method:'POST',body:{filename:'extrato.csv',content:csv}});assert(preview.format==='csv','csv detected');assert(preview.count===2,'two transactions previewed');
+const imported=await call('/v1/reconciliation/import-file',{method:'POST',body:{accountId:account.id,filename:'extrato.csv',content:csv}});assert(imported.inserted===2,'two transactions imported');assert(imported.rawFileStored===false,'raw statement is not stored');
+const duplicate=await call('/v1/reconciliation/import-file',{method:'POST',body:{accountId:account.id,filename:'extrato.csv',content:csv}});assert(duplicate.inserted===0&&duplicate.duplicates===2,'duplicate import is idempotent');
+const rec=await call('/v1/reconciliation/auto-match',{method:'POST',body:{max:20,minConfidence:.9}});assert(rec.matched>=1,'matching engine reconciles matching income');
+const summary=await call('/v1/reconciliation/summary');assert(summary.total===2,'statement transactions available for reconciliation');assert(summary.matched>=1,'matched transaction recorded');
+console.log(JSON.stringify({ok:true,workspace,format:preview.format,imported:imported.inserted,duplicates:duplicate.duplicates,matched:rec.matched,rawFileStored:imported.rawFileStored},null,2));
