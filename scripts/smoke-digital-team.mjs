@@ -37,6 +37,10 @@ for(const role of roles){
     assert(result.facts.docWallet.connected===false,'Dora degrades safely when DocWallet runtime is not configured in CI');
     assert(Array.isArray(result.facts.docWallet.upcomingAlerts),'Dora keeps a stable document-alert contract');
   }
+  if(role==='growth'){
+    assert(result.facts?.modo,'Maya returns explicit MODO capability state');
+    assert(result.facts.modo.connected===false,'Maya degrades safely when MODO runtime is not configured in CI');
+  }
   const messages=await call(`/v1/assistant/conversations/${result.conversationId}/messages`);
   assert(messages.length===2,`${role} persists user and assistant messages`);
   assert(messages[0].agent_role===role||messages[1].agent_role===role,`${role} is persisted in conversation messages`);
@@ -46,4 +50,4 @@ const conversations=await call('/v1/assistant/conversations');
 assert(conversations.length===roles.length,'all eight specialist conversations are persisted for the same user/workspace');
 for(const role of roles)assert(conversations.some(item=>item.agent_role===role),`${role} conversation is discoverable`);
 
-console.log(JSON.stringify({ok:true,workspace,roles,conversations:conversations.length,sharedWorkspace:true,docWalletFallbackSafe:true},null,2));
+console.log(JSON.stringify({ok:true,workspace,roles,conversations:conversations.length,sharedWorkspace:true,docWalletFallbackSafe:true,modoFallbackSafe:true},null,2));
