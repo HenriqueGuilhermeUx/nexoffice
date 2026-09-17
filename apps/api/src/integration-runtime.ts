@@ -1,12 +1,13 @@
 import {query} from './db.js';
+import {capabilityForAction,capabilityIdsForProvider} from './capability-registry.js';
 
 export const CAPABILITIES = {
-  docwallet: {label:'DocWallet', baseEnv:'DOCWALLET_BASE_URL', keyEnv:'DOCWALLET_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['documents','ocr','signature','approval']},
-  staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/.netlify/functions/nexoffice-assistant', capabilities:['business_conversation','voice_orchestration','workspace_context']},
-  smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/api/internal/nexoffice/health', capabilities:['whatsapp','service','qualification','follow-up','human_approval']},
-  nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/v1/internal/nexoffice/health', capabilities:['pix','charges','reconciliation','human_approval','idempotency']},
-  modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/api/v1/internal/nexoffice/health', capabilities:['growth','content','campaigns','intelligence','planning_only']},
-  taxagent: {label:'TaxAgent', baseEnv:'TAXAGENT_BASE_URL', keyEnv:'TAXAGENT_API_KEY', health:'/v1/health', capabilities:['nfse','tax_engine','readiness','fiscal_ledger','idempotency','safety_gates']}
+  docwallet: {label:'DocWallet', baseEnv:'DOCWALLET_BASE_URL', keyEnv:'DOCWALLET_API_KEY', health:'/api/internal/nexoffice/health', capabilities:capabilityIdsForProvider('docwallet')},
+  staff: {label:'Staff', baseEnv:'STAFF_BASE_URL', keyEnv:'STAFF_API_KEY', health:'/.netlify/functions/nexoffice-assistant', capabilities:capabilityIdsForProvider('staff')},
+  smartbots: {label:'SmartBots', baseEnv:'SMARTBOTS_BASE_URL', keyEnv:'SMARTBOTS_API_KEY', health:'/api/internal/nexoffice/health', capabilities:capabilityIdsForProvider('smartbots')},
+  nextgen: {label:'NextGen', baseEnv:'NEXTGEN_BASE_URL', keyEnv:'NEXTGEN_API_KEY', health:'/v1/internal/nexoffice/health', capabilities:capabilityIdsForProvider('nextgen')},
+  modo: {label:'MODO', baseEnv:'MODO_BASE_URL', keyEnv:'MODO_API_KEY', health:'/api/v1/internal/nexoffice/health', capabilities:capabilityIdsForProvider('modo')},
+  taxagent: {label:'TaxAgent', baseEnv:'TAXAGENT_BASE_URL', keyEnv:'TAXAGENT_API_KEY', health:'/v1/health', capabilities:capabilityIdsForProvider('taxagent')}
 } as const;
 
 export type Provider = keyof typeof CAPABILITIES;
@@ -39,11 +40,14 @@ async function upsertIntegrationHealth(workspaceId:string,provider:string,status
 }
 
 export function routeForAction(actionType:string):string|null{
-  if(actionType.startsWith('message.send')||actionType==='collection.reminder.send')return 'smartbots.message.send';
-  if(actionType.startsWith('payment.charge')||actionType.startsWith('collection.charge'))return 'nextgen.charge.create';
-  if(actionType==='document.analyze'||actionType==='document.signature_request'||actionType.startsWith('document.'))return 'docwallet.document.action';
-  if(actionType.startsWith('campaign.')||actionType.startsWith('growth.'))return 'modo.growth.action';
-  if(actionType.startsWith('voice.')||actionType.startsWith('assistant.'))return 'staff.assistant.action';
+  const capability=capabilityForAction(actionType);
+  if(capability?.provider==='smartbots')return 'smartbots.message.send';
+  if(capability?.provider==='nextgen')return 'nextgen.charge.create';
+  if(capability?.provider==='docwallet')return 'docwallet.document.action';
+  if(capability?.provider==='modo')return 'modo.growth.action';
+  if(capability?.provider==='staff')return 'staff.assistant.action';
+  if(capability?.provider==='taxagent')return 'taxagent.invoice.issue';
+  if(actionType.startsWith('document.'))return 'docwallet.document.action';
   if(actionType.startsWith('invoice.issue'))return 'taxagent.invoice.issue';
   return null;
 }
