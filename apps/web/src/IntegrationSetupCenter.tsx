@@ -7,11 +7,11 @@ type SmartBots={status:string;botId?:string|null;external_account_ref?:string|nu
 type TaxAgent={status:string;companyId?:string|null;external_account_ref?:string|null;environment?:'test'|'production';secretConfigured?:boolean};
 
 const copy:Record<string,{purpose:string;scope:string}>={
-  docwallet:{purpose:'Documentos, OCR, inteligência e assinatura',scope:'Autorização explícita por workspace; arquivos brutos continuam no DocWallet.'},
-  staff:{purpose:'Conversa, voz e contexto empresarial',scope:'Runtime compartilhado; somente contexto empresarial do workspace.'},
-  smartbots:{purpose:'WhatsApp, atendimento e follow-up',scope:'Bot vinculado por workspace; outbound exige aprovação humana comprovada.'},
-  nextgen:{purpose:'Cobrança Pix e reconciliação',scope:'Runtime compartilhado; cobrança continua approval-first e idempotente.'},
-  modo:{purpose:'Growth, campanhas e conteúdo',scope:'Bridge planning-only; não publica nem altera orçamento.'},
+  docwallet:{purpose:'Document Intelligence, assinatura e confiança digital',scope:'Autorização explícita por workspace; arquivos brutos continuam no DocWallet.'},
+  staff:{purpose:'Conversa empresarial e interpretação de contexto',scope:'Somente snapshot empresarial autorizado; memória pessoal do Staff não entra no NexOffice.'},
+  smartbots:{purpose:'Comunicação, atendimento e follow-up',scope:'Bot vinculado por workspace; outbound exige governança e aprovação humana comprovada.'},
+  nextgen:{purpose:'Cobrança, regras e reconciliação',scope:'Rail financeiro permanece protegido; sem Bank Connect nesta fase e execução continua approval-first/idempotente.'},
+  modo:{purpose:'Growth, campanhas, Google Ads e inteligência',scope:'OAuth e métricas podem ser reais; ativação, publicação e mudança de orçamento continuam protegidas.'},
   taxagent:{purpose:'NFS-e e motor fiscal',scope:'Company por workspace + secret_ref; emissão continua approval-first.'}
 };
 
@@ -32,8 +32,8 @@ export default function IntegrationSetupCenter(){
   if(!authenticated||!active)return null;
 
   return <aside className="integrationSetupCenter" aria-label="Configuração de integrações NexOffice">
-    <div className="iscHead"><div><p>AV INTEGRATION HUB</p><h3>Configuração guiada</h3><small>{ready}/{catalog.length||6} capabilities com runtime preparado</small></div><button onClick={()=>void load()}>↻</button></div>
-    <div className="iscGuard">Secrets ficam no servidor. O navegador recebe apenas status, referências seguras e fluxos explícitos de autorização.</div>
+    <div className="iscHead"><div><p>AV CAPABILITY HUB</p><h3>Motores do ecossistema</h3><small>{ready}/{catalog.length||6} runtimes preparados</small></div><button onClick={()=>void load()}>↻</button></div>
+    <div className="iscGuard">O NexOffice escolhe capacidades; os motores especializados continuam donos dos seus domínios. Secrets ficam no servidor e efeitos externos respeitam governança.</div>
     {error&&<div className="iscError">{error}</div>}{notice&&<div className="iscNotice">{notice}</div>}
     <div className="iscList">{catalog.map(item=>{const info=copy[item.provider]||{purpose:item.capabilities.join(' · '),scope:'Integração por workspace.'};const runtime=item.baseUrlConfigured&&item.credentialConfigured;return <article key={item.provider}>
       <div className="iscRow"><div><b>{item.label}</b><small>{info.purpose}</small></div><span className={runtime?'ready':'pending'}>{item.state?.status|| (runtime?'runtime pronto':'runtime pendente')}</span></div>
@@ -44,6 +44,6 @@ export default function IntegrationSetupCenter(){
       {!['docwallet','smartbots','taxagent'].includes(item.provider)&&<div className="iscActions"><button onClick={()=>void probe(item.provider)} disabled={!item.baseUrlConfigured||Boolean(busy)}>{busy===item.provider?'Testando…':'Testar conexão'}</button><small>Configuração operacional gerenciada no runtime.</small></div>}
       {item.state?.last_error&&<div className="iscInlineError">{item.state.last_error}</div>}
     </article>})}</div>
-    <div className="iscFoot"><span>WhatsApp · approval-first</span><span>Pix · approval-first</span><span>Fiscal · approval-first</span></div>
+    <div className="iscFoot"><span>Dados mínimos</span><span>Capabilities por motor</span><span>Efeitos externos protegidos</span></div>
   </aside>;
 }
