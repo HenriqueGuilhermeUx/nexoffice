@@ -1,0 +1,90 @@
+.marketingCenter{display:flex;flex-direction:column;gap:18px}
+.marketingHero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding:24px;border:1px solid var(--line,#e7e9ee);border-radius:20px;background:linear-gradient(135deg,#fff 0%,#f8f9fb 100%)}
+.marketingHero h2{margin:4px 0 8px;font-size:30px}
+.marketingHero p{max-width:760px;margin:0;color:var(--muted,#6d7480);line-height:1.6}
+.marketingHeroActions{display:flex;gap:10px;flex-wrap:wrap}
+.marketingGuardrails{display:flex;gap:10px;flex-wrap:wrap}
+.marketingGuardrails span{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid var(--line,#e7e9ee);border-radius:999px;background:#fff;font-size:12px;color:#4b5563}
+.marketingGuardrails span b{font-size:12px}
+.marketingGuardrails .off{background:#fbfbfc;color:#6b7280}
+.marketingBusy{height:3px;border-radius:999px;background:linear-gradient(90deg,transparent,#111827,transparent);animation:marketingBusy 1.1s linear infinite;background-size:220% 100%}
+@keyframes marketingBusy{0%{background-position:220% 0}100%{background-position:-220% 0}}
+.marketingError{padding:12px 14px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#991b1b}
+.marketingLayout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:18px;align-items:start}
+.marketingDraftList{display:flex;flex-direction:column;gap:9px;padding:14px;border:1px solid var(--line,#e7e9ee);border-radius:18px;background:#fafafa;max-height:calc(100vh - 260px);overflow:auto}
+.marketingListHead{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 4px 8px}
+.marketingListHead div{display:flex;flex-direction:column;gap:2px}
+.marketingListHead small{font-size:10px;letter-spacing:.13em;color:#8b919a}
+.marketingListHead span{font-size:11px;padding:4px 8px;border-radius:999px;background:#111827;color:#fff}
+.marketingDraftList>button{appearance:none;text-align:left;border:1px solid #e6e8ed;border-radius:14px;background:#fff;padding:13px;cursor:pointer;display:flex;flex-direction:column;gap:7px;transition:.18s ease}
+.marketingDraftList>button:hover{transform:translateY(-1px);border-color:#cbd0d8}
+.marketingDraftList>button.active{border-color:#111827;box-shadow:0 0 0 1px #111827}
+.marketingDraftList>button p{margin:0;color:#6b7280;font-size:12px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.marketingDraftList>button>small{color:#8b919a}
+.draftCardTop{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.draftStatus{display:inline-flex;width:max-content;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.02em;background:#eef2f7;color:#475569}
+.draftStatus.ready{background:#ecfdf5;color:#047857}
+.draftStatus.approved{background:#111827;color:#fff}
+.draftStatus.processing,.draftStatus.queued{background:#eff6ff;color:#1d4ed8}
+.draftStatus.failed{background:#fff1f2;color:#be123c}
+.marketingPreview{min-width:0}
+.contentPreview,.marketingPreviewEmpty{border:1px solid var(--line,#e7e9ee);border-radius:18px;background:#fff;padding:22px}
+.marketingPreviewEmpty{min-height:430px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.marketingPreviewEmpty>div{font-size:36px;margin-bottom:8px}
+.marketingPreviewEmpty p{max-width:520px;color:#6b7280;line-height:1.6}
+.contentPreview>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:18px;border-bottom:1px solid #edf0f3}
+.contentPreview>header h3{font-size:25px;margin:9px 0 5px}
+.contentPreview>header p{margin:0;color:#6b7280}
+.previewActions{display:flex;align-items:center;gap:8px}
+.approvedBadge{display:inline-flex;padding:8px 11px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700}
+.generationState{display:flex;gap:14px;align-items:center;padding:26px;margin-top:18px;border-radius:14px;background:#f8fafc}
+.generationState p{margin:5px 0 0;color:#64748b}
+.spinner{width:26px;height:26px;border:3px solid #dce3ea;border-top-color:#111827;border-radius:50%;animation:spin .8s linear infinite;flex:0 0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.contentHeroImage{margin-top:18px;border-radius:16px;overflow:hidden;background:#f4f5f7}
+.contentHeroImage img{display:block;width:100%;max-height:520px;object-fit:cover}
+.contentBlock{margin-top:16px;border:1px solid #eceef2;border-radius:14px;padding:16px}
+.contentBlock.highlight{background:#111827;color:#fff;border-color:#111827}
+.contentBlock>small{display:block;font-size:10px;letter-spacing:.13em;color:#8b919a;margin-bottom:8px}
+.contentBlock.highlight>small{color:#aeb7c4}
+.contentBlock b{font-size:18px;line-height:1.45}
+.contentBlock p{line-height:1.6;color:#5f6670;margin:6px 0 0;white-space:pre-wrap}
+.contentBlock.highlight p{color:#fff}
+.caption{font-size:14px}
+.slideGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.slideGrid article,.scriptList article{border:1px solid #e8ebef;border-radius:12px;padding:12px;background:#fafbfc}
+.slideGrid article span,.scriptList article>span{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:8px;background:#111827;color:#fff;font-size:10px;margin-bottom:8px}
+.slideGrid article b{display:block;font-size:14px}
+.slideGrid article p,.scriptList article p{font-size:12px}
+.slideGrid article em{display:block;margin-top:8px;font-size:11px;color:#475569}
+.scriptList{display:flex;flex-direction:column;gap:10px}
+.scriptList article b{display:block;font-size:14px}
+.scriptList strong{font-size:11px;color:#111827}
+.contentTwoCol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hashtags{color:#2563eb!important}
+.visualGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.visualGrid figure{margin:0;border:1px solid #e8ebef;border-radius:12px;overflow:hidden;background:#fafafa}
+.visualGrid img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
+.visualGrid figcaption{padding:8px;font-size:11px;color:#6b7280}
+.contentApprovalFooter{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:18px;padding:16px;border-radius:14px;background:#f7f8fa}
+.contentApprovalFooter p{margin:4px 0 0;color:#6b7280;font-size:12px}
+.marketingGovernanceNote{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px 15px;border:1px dashed #cfd5dc;border-radius:14px;color:#5c6470;background:#fbfcfd}
+.marketingGovernanceNote b{color:#111827}
+.marketingGovernanceNote small{white-space:nowrap;color:#8b919a}
+.marketingEmpty{padding:24px 12px;text-align:center;color:#6b7280}
+.marketingEmpty p{margin:6px 0 14px}
+.marketingModalBack{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:22px;z-index:90}
+.marketingCreateModal{position:relative;width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(15,23,42,.22)}
+.marketingCreateModal h2{font-size:28px;margin:5px 0 8px}
+.marketingCreateModal>p:not(.eyebrow){color:#6b7280;margin-top:0}
+.marketingClose{position:absolute;top:15px;right:15px;width:34px;height:34px;border-radius:50%;font-size:20px}
+.marketingFormGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+.marketingFormGrid label{display:flex;flex-direction:column;gap:6px}
+.marketingFormGrid label span{font-size:12px;font-weight:700;color:#4b5563}
+.marketingFormGrid select,.marketingFormGrid textarea{width:100%;border:1px solid #d9dde3;border-radius:11px;padding:11px 12px;font:inherit;background:#fff}
+.marketingFormGrid textarea{resize:vertical}
+.marketingFormGrid .wide{grid-column:1/-1}
+.marketingModalFoot{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:18px}
+.marketingModalFoot small{color:#6b7280}
+@media(max-width:950px){.marketingHero{flex-direction:column}.marketingLayout{grid-template-columns:1fr}.marketingDraftList{max-height:none}.contentTwoCol{grid-template-columns:1fr}.marketingGovernanceNote{grid-template-columns:1fr}.marketingGovernanceNote small{white-space:normal}}
+@media(max-width:640px){.marketingHero,.contentPreview,.marketingCreateModal{padding:17px}.marketingFormGrid{grid-template-columns:1fr}.contentPreview>header,.contentApprovalFooter,.marketingModalFoot{flex-direction:column;align-items:flex-start}.marketingHeroActions{width:100%}.marketingHeroActions button,.marketingModalFoot button{width:100%}}
