@@ -83,6 +83,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/012_health_operational_signals.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/013_billing_trial.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/014_flexible_modules_creator.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/015_financial_intelligence.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -103,6 +104,8 @@ jobs:
         run: node scripts/smoke-fiscal.mjs
       - name: Smoke test Flexible Modules and Creator pack
         run: node scripts/smoke-flexible-creator.mjs
+      - name: Smoke test Financial Intelligence
+        run: node scripts/smoke-financial-intelligence.mjs
       - name: Smoke test CSV and OFX statement import
         run: node scripts/smoke-statement-import.mjs
       - name: Smoke test AV platform provisioning
