@@ -1,7 +1,7 @@
 const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
 let token='';let workspace='';
 const call=async(path,{method='GET',body,auth=true}={})=>{const headers={'content-type':'application/json'};if(auth&&token)headers.authorization=`Bearer ${token}`;if(auth&&workspace)headers['x-workspace-id']=workspace;const r=await fetch(base+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined});const payload=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(payload)}`);return payload};
-const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
+const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const suffix=Date.now().toString(36);
 const reg=await call('/v1/auth/register',{method:'POST',auth:false,body:{name:'Finance Intelligence Smoke',email:`finance-intel-${suffix}@nexoffice.test`,password:'SmokePass123!',businessName:'Finance Intelligence Smoke',vertical:'general'}});token=reg.token;workspace=reg.workspace.id;
 const account=await call('/v1/finance/accounts',{method:'POST',body:{name:'Conta Operacional',kind:'bank',openingBalanceMinor:300000,currency:'BRL'}});
@@ -12,6 +12,8 @@ await call('/v1/ledger',{method:'POST',body:{accountId:account.id,direction:'exp
 await call('/v1/ledger',{method:'POST',body:{contactId:customer.id,accountId:account.id,direction:'income',category:'servicos',description:'Recebível vencido',amountMinor:200000,currency:'BRL',status:'overdue',dueAt:new Date(Date.now()-5*86400000).toISOString()}});
 await call('/v1/ledger',{method:'POST',body:{accountId:account.id,direction:'expense',category:'fornecedores',description:'Pagamento grande',amountMinor:800000,currency:'BRL',status:'open',dueAt:new Date(Date.now()+7*86400000).toISOString()}});
 await call('/v1/crm/deals',{method:'POST',body:{contactId:customer.id,title:'Nova proposta',stage:'proposal',valueMinor:400000,source:'indicacao',nextAction:'follow-up'}});
+await call('/v1/dashboard');await sleep(250);await call('/v1/dashboard');await sleep(250);
+const dailyHistory=await call('/v1/finance/intelligence/history?limit=10');assert(dailyHistory.length===1,'dashboard creates at most one automatic snapshot per day');
 const intel=await call('/v1/finance/intelligence/refresh',{method:'POST',body:{}});
 assert(intel?.snapshot?.id,'snapshot created');
 assert(Number(intel.metrics.currentCashMinor)===400000,'current cash derived from opening + paid flows');
@@ -26,6 +28,5 @@ const decision=await call(`/v1/finance/recommendations/${rec.id}/decision`,{meth
 assert(decision.id,'decision stored');
 const outcome=await call(`/v1/finance/decisions/${decision.id}/outcome`,{method:'PATCH',body:{outcome:{result:'improved',deltaMinor:250000},note:'Caixa recuperado após ação'}});
 assert(outcome.reviewed_at,'outcome recorded');
-const history=await call('/v1/finance/intelligence/history?limit=10');
-assert(history.length>=1,'snapshot history available');
-console.log(JSON.stringify({ok:true,workspace,snapshot:intel.snapshot.id,signals:intel.signals.map(x=>x.code),recommendations:intel.recommendations.length,simulation:simulation.simulatedProjectedCashMinor,decision:decision.id,outcomeRecorded:Boolean(outcome.reviewed_at)},null,2));
+const history=await call('/v1/finance/intelligence/history?limit=10');assert(history.length>=2,'automatic and manual snapshot history available');
+console.log(JSON.stringify({ok:true,workspace,dailySnapshots:dailyHistory.length,snapshot:intel.snapshot.id,signals:intel.signals.map(x=>x.code),recommendations:intel.recommendations.length,simulation:simulation.simulatedProjectedCashMinor,decision:decision.id,outcomeRecorded:Boolean(outcome.reviewed_at)},null,2));
