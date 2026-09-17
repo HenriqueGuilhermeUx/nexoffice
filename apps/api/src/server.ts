@@ -12,6 +12,7 @@ import {registerFinancialIntelligenceRoutes} from './routes-financial-intelligen
 import {registerCommandRoutes} from './routes-command.js';
 import {registerCommandIntelligenceRoutes} from './routes-command-intelligence.js';
 import {registerRuntimeRoutes} from './routes-runtime.js';
+import {registerCapabilityRoutes} from './routes-capabilities.js';
 import {registerAssistantRoutes} from './routes-assistant.js';
 import {registerCollectionsRoutes} from './routes-collections.js';
 import {registerReconciliationRoutes} from './routes-reconciliation.js';
@@ -58,7 +59,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.24.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.25.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -68,6 +69,7 @@ await registerFinancialIntelligenceRoutes(app);
 await registerCommandRoutes(app);
 await registerCommandIntelligenceRoutes(app);
 await registerRuntimeRoutes(app);
+await registerCapabilityRoutes(app);
 await registerAssistantRoutes(app);
 await registerStaffRoutes(app);
 await registerSmartBotsRoutes(app);
