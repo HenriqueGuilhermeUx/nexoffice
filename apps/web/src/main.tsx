@@ -13,6 +13,7 @@ import BillingCenter from './BillingCenter';
 import MarketingLanding from './MarketingLanding';
 import BusinessExtensions from './BusinessExtensions';
 import StatementImportCenter from './StatementImportCenter';
+import FinancialIntelligenceCenter from './FinancialIntelligenceCenter';
 import './styles.css';
 import './operations-dock.css';
 import './docwallet-connect.css';
@@ -22,7 +23,8 @@ import './billing-center.css';
 import './marketing-landing.css';
 import './business-extensions.css';
 import './statement-import.css';
+import './financial-intelligence.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/></React.StrictMode>
 );
