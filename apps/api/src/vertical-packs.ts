@@ -21,7 +21,7 @@ export const VERTICAL_PACKS:Record<VerticalPackId,any>={
     recommendedIntegrations:['docwallet','staff','smartbots','nextgen','modo','taxagent','mydatamed'],
     domainOwner:'mydatamed',
     excludedObjects:['identidade de paciente via bridge MyDataMed','CPF/CNS de paciente via bridge','prontuário','diagnóstico','prescrição','medicação','exame clínico bruto','nota clínica','genética','dado de wearable','dados Health Connect'],
-    privacy:{sensitiveDomainData:true,forbidRawHealthDataFromBridge:true,forbidPatientIdentityFromBridge:true,aggregateOperationalSignalsOnly:true,standaloneAdministrativeRecordsAllowed:true},
+    privacy:{sensitiveDomainData:true,forbidRawHealthData:true,forbidPatientIdentity:true,forbidRawHealthDataFromBridge:true,forbidPatientIdentityFromBridge:true,aggregateOperationalSignalsOnly:true,standaloneAdministrativeRecordsAllowed:true},
     plannedCapabilities:['organization-link','aggregate-ops-signals','administrative-service-history','flexible-modules']
   },
   condo:{
