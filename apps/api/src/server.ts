@@ -102,6 +102,20 @@ app.setErrorHandler((error,_req,reply)=>{
 
 await app.listen({port,host:'0.0.0.0'});
 
+const staffBase=String(process.env.STAFF_BASE_URL||'').replace(/\/$/,'');
+const staffKey=String(process.env.STAFF_API_KEY||'');
+if(staffBase&&staffKey){
+  void fetch(`${staffBase}/.netlify/functions/nexoffice-assistant`,{
+    headers:{Authorization:`Bearer ${staffKey}`,'X-NexOffice-Workspace-ID':'nexoffice-system-health',accept:'application/json'},
+    signal:AbortSignal.timeout(8000)
+  }).then(async response=>{
+    const payload=await response.json().catch(()=>({} as any)) as any;
+    const privacyOk=payload?.privacyMode==='business_context_only'&&payload?.personalMemoryAccess===false&&payload?.externalActions===false;
+    if(!response.ok||!privacyOk)throw new Error(`HTTP ${response.status}; privacy_contract=${privacyOk?'ok':'invalid'}`);
+    app.log.info({integration:'staff',service:payload?.service||null,privacyMode:payload?.privacyMode||null,personalMemoryAccess:payload?.personalMemoryAccess,externalActions:payload?.externalActions,capabilities:Array.isArray(payload?.capabilities)?payload.capabilities:[]},'Staff business bridge health OK');
+  }).catch(error=>app.log.error({integration:'staff',error:error instanceof Error?error.message:String(error)},'Staff business bridge health FAILED'));
+}else app.log.warn({integration:'staff'},'Staff business bridge not configured');
+
 if(modoMarketingConfigured()){
   void modoMarketingRequest<any>('system-health','health').then(result=>{
     app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],googleAds:result?.googleAds||null,externalCampaignActivation:result?.externalCampaignActivation},'MODO marketing bridge health OK');
