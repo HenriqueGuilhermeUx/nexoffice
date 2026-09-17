@@ -60,7 +60,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.27.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.28.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -133,7 +133,7 @@ if(staffBase&&staffKey){
 
 if(modoMarketingConfigured()){
   void modoMarketingRequest<any>('system-health','health').then(result=>{
-    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],googleAds:result?.googleAds||null,prospecting:result?.prospecting||null,marketRadar:result?.marketRadar||null,externalCampaignActivation:result?.externalCampaignActivation,externalProspectingOutreach:result?.externalProspectingOutreach},'MODO marketing bridge health OK');
+    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],googleAds:result?.googleAds||null,prospecting:result?.prospecting||null,marketRadar:result?.marketRadar||null,content:result?.content||null,externalCampaignActivation:result?.externalCampaignActivation,externalProspectingOutreach:result?.externalProspectingOutreach},'MODO marketing bridge health OK');
   }).catch(error=>{
     app.log.error({integration:'modo',error:error instanceof Error?error.message:String(error)},'MODO marketing bridge health FAILED');
   });
