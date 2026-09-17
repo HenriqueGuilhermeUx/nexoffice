@@ -114,11 +114,26 @@ if(staffBase&&staffKey){
     if(!response.ok||!privacyOk)throw new Error(`HTTP ${response.status}; privacy_contract=${privacyOk?'ok':'invalid'}`);
     app.log.info({integration:'staff',service:payload?.service||null,privacyMode:payload?.privacyMode||null,personalMemoryAccess:payload?.personalMemoryAccess,externalActions:payload?.externalActions,capabilities:Array.isArray(payload?.capabilities)?payload.capabilities:[]},'Staff business bridge health OK');
   }).catch(error=>app.log.error({integration:'staff',error:error instanceof Error?error.message:String(error)},'Staff business bridge health FAILED'));
+
+  if(String(process.env.NEXOFFICE_STAFF_DEEP_PROBE||'false').toLowerCase()==='true'){
+    const probeWorkspaceId='nexoffice-deep-probe';
+    void fetch(`${staffBase}/.netlify/functions/nexoffice-assistant`,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${staffKey}`,'X-NexOffice-Workspace-ID':probeWorkspaceId,accept:'application/json','content-type':'application/json'},
+      body:JSON.stringify({message:'Responda em uma frase curta confirmando que o contexto empresarial está disponível.',agentRole:'controller',conversationHistory:[],context:{workspace:{id:probeWorkspaceId,name:'NexOffice Deep Probe'},pulse:{probe:true},priorities:[]},correlationId:`staff-deep-probe-${Date.now()}`}),
+      signal:AbortSignal.timeout(30000)
+    }).then(async response=>{
+      const payload=await response.json().catch(()=>({} as any)) as any;
+      const contractOk=payload?.privacyMode==='workspace_context_only'&&payload?.personalMemoryAccess===false&&payload?.externalActions===false&&typeof payload?.response==='string'&&payload.response.trim().length>0;
+      if(!response.ok||!contractOk)throw new Error(`HTTP ${response.status}; deep_contract=${contractOk?'ok':'invalid'}; error=${String(payload?.error||'unknown')}`);
+      app.log.info({integration:'staff',deepProbe:true,privacyMode:payload?.privacyMode,personalMemoryAccess:payload?.personalMemoryAccess,externalActions:payload?.externalActions,hasResponse:true},'Staff business bridge deep probe OK');
+    }).catch(error=>app.log.error({integration:'staff',deepProbe:true,error:error instanceof Error?error.message:String(error)},'Staff business bridge deep probe FAILED'));
+  }
 }else app.log.warn({integration:'staff'},'Staff business bridge not configured');
 
 if(modoMarketingConfigured()){
   void modoMarketingRequest<any>('system-health','health').then(result=>{
-    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],googleAds:result?.googleAds||null,externalCampaignActivation:result?.externalCampaignActivation},'MODO marketing bridge health OK');
+    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],googleAds:result?.googleAds||null,prospecting:result?.prospecting||null,externalCampaignActivation:result?.externalCampaignActivation,externalProspectingOutreach:result?.externalProspectingOutreach},'MODO marketing bridge health OK');
   }).catch(error=>{
     app.log.error({integration:'modo',error:error instanceof Error?error.message:String(error)},'MODO marketing bridge health FAILED');
   });
