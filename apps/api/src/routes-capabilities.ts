@@ -70,7 +70,7 @@ export async function workspaceCapabilityGraph(workspaceId:string){
   ]));
 
   return {
-    version:'2026-09-17',
+    version:'2026-09-17.2',
     workspaceId,
     vertical,
     externalActionsEnabled,

@@ -16,9 +16,9 @@ const registered=await call('/v1/auth/register',{method:'POST',body:{name:'Capab
 token=registered.token;workspace=registered.workspace.id;
 
 const graph=await call('/v1/capabilities');
-assert(graph.version==='2026-09-17','capability graph version is explicit');
+assert(graph.version==='2026-09-17.2','capability graph version is explicit');
 assert(graph.externalActionsEnabled===false,'CI keeps external actions disabled');
-assert(Array.isArray(graph.capabilities)&&graph.capabilities.length>=24,'ecosystem capabilities are exposed');
+assert(Array.isArray(graph.capabilities)&&graph.capabilities.length>=29,'ecosystem capabilities are exposed');
 assert(graph.byAgent&&graph.byAgent.growth&&graph.byAgent.documents&&graph.byAgent.controller,'agent capability views exist');
 
 const googleAds=graph.capabilities.find(item=>item.id==='growth.google_ads.metrics.read');
@@ -35,6 +35,16 @@ const discovery=graph.capabilities.find(item=>item.id==='growth.prospecting.disc
 assert(discovery&&discovery.provider==='modo','B2B discovery is owned by MODO');
 assert(discovery.maturity==='guarded','external provider discovery stays guarded');
 assert(discovery.approvalRequired===true&&discovery.effect==='prepare','discovery requires explicit approval and remains preparation-only');
+
+const marketRadar=graph.capabilities.find(item=>item.id==='growth.market_intelligence.read');
+assert(marketRadar&&marketRadar.provider==='modo','Market Radar is owned by MODO');
+assert(marketRadar.maturity==='active'&&marketRadar.effect==='read','Market Radar read capability is active after runtime readiness proof');
+assert(marketRadar.approvalRequired===false,'reading existing Market Radar results requires no external action');
+
+const marketRadarCollect=graph.capabilities.find(item=>item.id==='growth.market_intelligence.collect');
+assert(marketRadarCollect&&marketRadarCollect.provider==='modo','Market Radar collection is owned by MODO');
+assert(marketRadarCollect.maturity==='guarded'&&marketRadarCollect.effect==='prepare','Market Radar collection remains guarded preparation');
+assert(marketRadarCollect.approvalRequired===true,'Market Radar collection requires explicit approval');
 
 const campaignActivation=graph.capabilities.find(item=>item.id==='growth.campaign.activate');
 assert(campaignActivation&&campaignActivation.maturity==='planned','campaign activation remains outside current rollout');
