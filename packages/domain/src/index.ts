@@ -1,7 +1,7 @@
 export type UUID = string;
 export type ISODate = string;
 
-export type BusinessVertical = 'general' | 'legal' | 'health' | 'condo' | 'commerce';
+export type BusinessVertical = 'general' | 'legal' | 'health' | 'condo' | 'commerce' | 'creator';
 export type WorkspacePlan = 'starter' | 'pro' | 'business' | 'enterprise';
 export type WorkspaceStatus = 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
 export type AutonomyMode = 'automatic' | 'notify' | 'approval_required';
@@ -174,7 +174,41 @@ export interface AutonomyPolicy {
   conditions?: Record<string, unknown>;
 }
 
-const HIGH_RISK_PREFIXES = ['payment.refund', 'payment.discount', 'campaign.budget.', 'contract.cancel', 'document.sign_on_behalf', 'legal.', 'clinical.'];
+export interface FlexibleModuleField {
+  key: string;
+  label: string;
+  type: 'text'|'textarea'|'number'|'currency'|'date'|'datetime'|'boolean'|'select'|'email'|'phone'|'url'|'document_ref';
+  required?: boolean;
+  options?: string[];
+  placeholder?: string;
+}
+
+export interface FlexibleModule {
+  id: UUID;
+  workspaceId: UUID;
+  key: string;
+  name: string;
+  singularLabel: string;
+  pluralLabel: string;
+  description?: string|null;
+  active: boolean;
+  config: {fields: FlexibleModuleField[]; contactRequired?: boolean; occurredAtLabel?: string; [key:string]:unknown};
+}
+
+export interface FlexibleRecord {
+  id: UUID;
+  workspaceId: UUID;
+  moduleId: UUID;
+  contactId?: UUID|null;
+  title: string;
+  status: string;
+  occurredAt?: ISODate|null;
+  data: Record<string,unknown>;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
+const HIGH_RISK_PREFIXES = ['payment.refund', 'payment.discount', 'campaign.budget.', 'campaign.ready', 'campaign.launch', 'contract.cancel', 'document.sign_on_behalf', 'legal.', 'clinical.'];
 
 export function defaultAutonomyFor(actionType: string): AutonomyMode {
   if (HIGH_RISK_PREFIXES.some(prefix => actionType.startsWith(prefix))) return 'approval_required';
@@ -198,7 +232,7 @@ export function agentForEvent(eventType: string): AgentRole {
   if (eventType.startsWith('payment.overdue') || eventType.startsWith('collection.')) return 'collections';
   if (eventType.startsWith('payment.') || eventType.startsWith('ledger.') || eventType.startsWith('invoice.')) return 'erp';
   if (eventType.startsWith('document.')) return 'documents';
-  if (eventType.startsWith('campaign.') || eventType.startsWith('growth.')) return 'growth';
+  if (eventType.startsWith('campaign.') || eventType.startsWith('growth.') || eventType.startsWith('demand.')) return 'growth';
   return 'controller';
 }
 
@@ -207,5 +241,5 @@ export function moneyFromMinor(valueMinor: number, currency = 'BRL'): string {
 }
 
 export const NEXOFFICE_MODULES = [
-  'crm', 'agenda', 'tasks', 'erp', 'collections', 'documents', 'service', 'command-center', 'agents', 'growth', 'usage'
+  'crm', 'agenda', 'tasks', 'erp', 'collections', 'documents', 'service', 'command-center', 'agents', 'growth', 'usage', 'flexible-modules'
 ] as const;
