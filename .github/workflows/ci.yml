@@ -103,6 +103,8 @@ jobs:
         run: node scripts/smoke-fiscal.mjs
       - name: Smoke test Flexible Modules and Creator pack
         run: node scripts/smoke-flexible-creator.mjs
+      - name: Smoke test CSV and OFX statement import
+        run: node scripts/smoke-statement-import.mjs
       - name: Smoke test AV platform provisioning
         run: node scripts/smoke-platform.mjs
       - name: Smoke test AV vertical bridge SDK
