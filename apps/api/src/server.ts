@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import {db} from './db.js';
 import {runMigrations} from './migrations.js';
+import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
@@ -83,3 +84,11 @@ app.setErrorHandler((error,_req,reply)=>{
 });
 
 await app.listen({port,host:'0.0.0.0'});
+
+if(modoMarketingConfigured()){
+  void modoMarketingRequest<any>('system-health','health').then(result=>{
+    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],externalCampaignActivation:result?.externalCampaignActivation},'MODO marketing bridge health OK');
+  }).catch(error=>{
+    app.log.error({integration:'modo',error:error instanceof Error?error.message:String(error)},'MODO marketing bridge health FAILED');
+  });
+}else app.log.warn({integration:'modo'},'MODO marketing bridge not configured');
