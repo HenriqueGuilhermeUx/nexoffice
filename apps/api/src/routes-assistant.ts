@@ -34,7 +34,7 @@ export async function registerAssistantRoutes(app:FastifyInstance){
     priorities.push(...buildOperationalPriorities(vertical,operationalSignals));
     priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
     const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':vertical==='condo'?'Como está a operação dos condomínios no SindCopilot?':vertical==='commerce'?'Como está minha operação de commerce?':null;
-    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?'].filter(Boolean)};
+    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Como está minha prospecção B2B?'].filter(Boolean)};
   });
 
   app.get('/v1/assistant/conversations',async req=>{
@@ -129,6 +129,24 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const local=docs.length?`Há ${docs.length} documento(s) recentes no NexOffice. ${signatureCount} têm assinatura em andamento e ${analysisCount} precisam de atenção na análise.`:'Ainda não há referências documentais neste workspace.';
     const upcoming=alerts.length?` No DocWallet encontrei ${alerts.length} alerta(s) com vencimento nos próximos 60 dias. Prioridades: ${alerts.slice(0,4).map((item:any)=>`${item.title||'Documento'}${item.dueDate?` em ${dateOnlyPt(item.dueDate)}`:''}`).join('; ')}.`:'';
     actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:`${local}${upcoming}`,facts:{documents:docs,docWallet:{connected:Boolean(docWallet.ok),upcomingAlerts:alerts.slice(0,8)}},actions};
+  }
+  if(match(text,['prospeccao','prospectar','prospect','icp','outbound','lead b2b','leads b2b','clientes b2b'])){
+    actions.push({label:'Ver Prospecção',target:'marketing'});
+    if(!modoMarketingConfigured())return {agentRole:forcedRole||'growth',text:'A Maya já tem a capability de prospecção B2B, mas o runtime MODO não está configurado neste ambiente. Quando conectado, ela lê ICPs, campanhas e leads priorizados; discovery externo exige aprovação explícita e nunca envia abordagem automaticamente.',facts:{modo:{connected:false,prospecting:{campaigns:[],leads:[],discoveryRequiresExplicitApproval:true,externalOutreach:false}}},actions};
+    try{
+      const campaigns=await modoMarketingRequest<any[]>(workspaceId,'prospecting/campaigns');
+      const details=await Promise.all(campaigns.slice(0,5).map(async campaign=>{
+        const leads=await modoMarketingRequest<any[]>(workspaceId,`prospecting/campaigns/${campaign.id}/leads`).catch(()=>[] as any[]);
+        return {campaign,leads};
+      }));
+      const leads=details.flatMap(item=>item.leads.map((lead:any)=>({...lead,campaignName:item.campaign.name||item.campaign.segment||'Campanha'}))).sort((a:any,b:any)=>Number(b.fitScore||0)-Number(a.fitScore||0));
+      const campaignLine=campaigns.length?`Há ${campaigns.length} campanha(s) de prospecção B2B estruturada(s) na MODO, com ${leads.length} lead(s) nas cinco campanhas mais recentes.`:'Ainda não há campanha de prospecção B2B criada para este workspace.';
+      const topLine=leads.length?` Leads mais aderentes agora: ${leads.slice(0,5).map((lead:any)=>`${lead.name||'Contato'} · ${lead.company||'empresa'}${lead.fitScore!=null?` (fit ${Number(lead.fitScore)}/100)`:''}`).join('; ')}.`:' Posso estruturar um ICP e uma campanha antes de qualquer discovery externo.';
+      const governance=' Discovery externo via MODO/Apify exige aprovação explícita; a Maya apenas prepara abordagem e não envia e-mail, LinkedIn ou WhatsApp automaticamente.';
+      return {agentRole:forcedRole||'growth',text:`${campaignLine}${topLine}${governance}`,facts:{modo:{connected:true,prospecting:{campaigns,leads:leads.slice(0,20),discoveryRequiresExplicitApproval:true,externalOutreach:false}}},actions};
+    }catch{
+      return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao MODO, mas não consegui ler a prospecção agora. Nenhum discovery ou outreach foi executado. A busca externa continua exigindo aprovação explícita.',facts:{modo:{connected:true,prospecting:{unavailable:true,discoveryRequiresExplicitApproval:true,externalOutreach:false}}},actions};
+    }
   }
   if(forcedRole==='growth'||match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade','google ads','trafego','midia'])){
     let insights:any=null;
