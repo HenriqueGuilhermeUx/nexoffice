@@ -34,7 +34,7 @@ export async function registerAssistantRoutes(app:FastifyInstance){
     priorities.push(...buildOperationalPriorities(vertical,operationalSignals));
     priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
     const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':vertical==='condo'?'Como está a operação dos condomínios no SindCopilot?':vertical==='commerce'?'Como está minha operação de commerce?':null;
-    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Como está minha prospecção B2B?','Como está meu radar de mercado?'].filter(Boolean)};
+    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Como está minha prospecção B2B?','Como está meu radar de mercado?','Quais conteúdos a Maya já preparou?'].filter(Boolean)};
   });
 
   app.get('/v1/assistant/conversations',async req=>{
@@ -151,6 +151,20 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
       return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao MODO, mas não consegui ler o Radar de Mercado agora. Nenhuma coleta foi executada; qualquer atualização continua exigindo aprovação explícita.',facts:{modo:{connected:true,marketRadar:{unavailable:true,collectionRequiresExplicitApproval:true,externalCommunication:false}}},actions};
     }
   }
+  if(match(text,['conteudo','conteudos','post','posts','carrossel','carrosseis','roteiro','roteiros','story','stories','criativo','criativos'])){
+    actions.push({label:'Ver Conteúdos',target:'marketing'});
+    if(!modoMarketingConfigured())return {agentRole:forcedRole||'growth',text:'A Maya já tem a capability de criação de drafts de conteúdo, mas o runtime MODO não está configurado neste ambiente. A geração prepara conteúdo dentro do workspace; não publica em rede social e não consome créditos MODO do cliente NexOffice.',facts:{modo:{connected:false,content:{draftCreation:true,drafts:[],billingMode:'nexoffice_entitlement',modoCreditsCharged:0,publishing:false,externalPublication:false}}},actions};
+    try{
+      const [health,list]=await Promise.all([modoMarketingRequest<any>(workspaceId,'health'),modoMarketingRequest<any>(workspaceId,'content/drafts')]);
+      const contentState=health?.content||{},drafts=Array.isArray(list?.requests)?list.requests:[];
+      const ready=drafts.filter((item:any)=>['ready','approved'].includes(String(item.status||''))),recent=drafts.slice(0,5);
+      const summary=drafts.length?`A Maya tem ${drafts.length} draft(s) de conteúdo neste workspace; ${ready.length} está(ão) pronto(s) ou aprovado(s). Mais recentes: ${recent.map((item:any)=>`${item.contentType||'conteúdo'} · ${item.channel||'canal'} · ${item.status||'status desconhecido'}`).join('; ')}.`:'Ainda não há drafts de conteúdo neste workspace.';
+      const provider=contentState?.provider?` O Content Engine está em ${contentState.provider}.`:'';
+      return {agentRole:forcedRole||'growth',text:`${summary}${provider} Posso preparar um novo draft por uma ação explícita no Marketing. Isso não publica nada: publicação continua separada e sujeita à governança.`,facts:{modo:{connected:true,content:{provider:contentState?.provider||null,imageGeneration:contentState?.imageGeneration||null,draftCreation:Boolean(contentState?.draftCreation),drafts:recent,billingMode:'nexoffice_entitlement',modoCreditsCharged:0,publishing:false,externalPublication:false}}},actions};
+    }catch{
+      return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao MODO, mas não consegui ler os drafts agora. Nenhuma geração ou publicação foi disparada. A criação continua uma ação explícita e publicação permanece separada.',facts:{modo:{connected:true,content:{unavailable:true,draftCreation:true,billingMode:'nexoffice_entitlement',modoCreditsCharged:0,publishing:false,externalPublication:false}}},actions};
+    }
+  }
   if(match(text,['prospeccao','prospectar','prospect','icp','outbound','lead b2b','leads b2b','clientes b2b'])){
     actions.push({label:'Ver Prospecção',target:'marketing'});
     if(!modoMarketingConfigured())return {agentRole:forcedRole||'growth',text:'A Maya já tem a capability de prospecção B2B, mas o runtime MODO não está configurado neste ambiente. Quando conectado, ela lê ICPs, campanhas e leads priorizados; discovery externo exige aprovação explícita e nunca envia abordagem automaticamente.',facts:{modo:{connected:false,prospecting:{campaigns:[],leads:[],discoveryRequiresExplicitApproval:true,externalOutreach:false}}},actions};
@@ -169,7 +183,7 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
       return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao MODO, mas não consegui ler a prospecção agora. Nenhum discovery ou outreach foi executado. A busca externa continua exigindo aprovação explícita.',facts:{modo:{connected:true,prospecting:{unavailable:true,discoveryRequiresExplicitApproval:true,externalOutreach:false}}},actions};
     }
   }
-  if(forcedRole==='growth'||match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade','google ads','trafego','midia'])){
+  if(forcedRole==='growth'||match(text,['marketing','campanha','campanhas','growth','publicidade','google ads','trafego','midia'])){
     let insights:any=null;
     if(modoMarketingConfigured())try{insights=await modoMarketingRequest<any>(workspaceId,'insights?days=30')}catch{}
     actions.push({label:'Ver Marketing',target:'marketing'});
