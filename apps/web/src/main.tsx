@@ -11,6 +11,7 @@ import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import StandaloneSetup from './StandaloneSetup';
 import BillingCenter from './BillingCenter';
 import MarketingLanding from './MarketingLanding';
+import BusinessExtensions from './BusinessExtensions';
 import './styles.css';
 import './operations-dock.css';
 import './docwallet-connect.css';
@@ -18,7 +19,8 @@ import './platform-handoff.css';
 import './standalone-setup.css';
 import './billing-center.css';
 import './marketing-landing.css';
+import './business-extensions.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/></React.StrictMode>
 );
