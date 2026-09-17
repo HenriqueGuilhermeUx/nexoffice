@@ -18,13 +18,23 @@ token=registered.token;workspace=registered.workspace.id;
 const graph=await call('/v1/capabilities');
 assert(graph.version==='2026-09-17','capability graph version is explicit');
 assert(graph.externalActionsEnabled===false,'CI keeps external actions disabled');
-assert(Array.isArray(graph.capabilities)&&graph.capabilities.length>=23,'ecosystem capabilities are exposed');
+assert(Array.isArray(graph.capabilities)&&graph.capabilities.length>=24,'ecosystem capabilities are exposed');
 assert(graph.byAgent&&graph.byAgent.growth&&graph.byAgent.documents&&graph.byAgent.controller,'agent capability views exist');
 
 const googleAds=graph.capabilities.find(item=>item.id==='growth.google_ads.metrics.read');
 assert(googleAds&&googleAds.provider==='modo','Google Ads metrics are owned by MODO');
 assert(googleAds.maturity==='active','Google Ads read capability is active, not planning-only');
 assert(googleAds.effect==='read','Google Ads metrics remain read-only');
+
+const prospecting=graph.capabilities.find(item=>item.id==='growth.prospecting.b2b');
+assert(prospecting&&prospecting.provider==='modo','B2B prospecting is owned by MODO');
+assert(prospecting.maturity==='active','ICP and prospecting workspace capability is active');
+assert(prospecting.effect==='read'&&prospecting.approvalRequired===false,'prospecting workspace management has no external outreach effect');
+
+const discovery=graph.capabilities.find(item=>item.id==='growth.prospecting.discovery');
+assert(discovery&&discovery.provider==='modo','B2B discovery is owned by MODO');
+assert(discovery.maturity==='guarded','external provider discovery stays guarded');
+assert(discovery.approvalRequired===true&&discovery.effect==='prepare','discovery requires explicit approval and remains preparation-only');
 
 const campaignActivation=graph.capabilities.find(item=>item.id==='growth.campaign.activate');
 assert(campaignActivation&&campaignActivation.maturity==='planned','campaign activation remains outside current rollout');
