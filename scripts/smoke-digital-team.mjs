@@ -24,7 +24,7 @@ const prompts={
   collections:'O que tenho para receber?',
   controller:'Quais despesas e riscos financeiros devo acompanhar?',
   documents:'Quais documentos precisam de atenção?',
-  growth:'Que oportunidades de growth existem agora?'
+  growth:'Como está minha prospecção B2B?'
 };
 
 for(const role of roles){
@@ -40,6 +40,9 @@ for(const role of roles){
   if(role==='growth'){
     assert(result.facts?.modo,'Maya returns explicit MODO capability state');
     assert(result.facts.modo.connected===false,'Maya degrades safely when MODO runtime is not configured in CI');
+    assert(result.facts.modo.prospecting?.discoveryRequiresExplicitApproval===true,'Maya keeps B2B discovery approval-first');
+    assert(result.facts.modo.prospecting?.externalOutreach===false,'Maya never implies automatic B2B outreach');
+    assert(result.actions?.some(item=>item.label==='Ver Prospecção'),'Maya routes explicit B2B prospecting intent to the marketing workspace');
   }
   const messages=await call(`/v1/assistant/conversations/${result.conversationId}/messages`);
   assert(messages.length===2,`${role} persists user and assistant messages`);
@@ -50,4 +53,4 @@ const conversations=await call('/v1/assistant/conversations');
 assert(conversations.length===roles.length,'all eight specialist conversations are persisted for the same user/workspace');
 for(const role of roles)assert(conversations.some(item=>item.agent_role===role),`${role} conversation is discoverable`);
 
-console.log(JSON.stringify({ok:true,workspace,roles,conversations:conversations.length,sharedWorkspace:true,docWalletFallbackSafe:true,modoFallbackSafe:true},null,2));
+console.log(JSON.stringify({ok:true,workspace,roles,conversations:conversations.length,sharedWorkspace:true,docWalletFallbackSafe:true,modoFallbackSafe:true,prospectingApprovalFirst:true,externalProspectingOutreach:false},null,2));
