@@ -110,7 +110,7 @@ if(staffBase&&staffKey){
     signal:AbortSignal.timeout(8000)
   }).then(async response=>{
     const payload=await response.json().catch(()=>({} as any)) as any;
-    const privacyOk=payload?.privacyMode==='business_context_only'&&payload?.personalMemoryAccess===false&&payload?.externalActions===false;
+    const privacyOk=payload?.privacyMode==='workspace_context_only'&&payload?.personalMemoryAccess===false&&payload?.externalActions===false;
     if(!response.ok||!privacyOk)throw new Error(`HTTP ${response.status}; privacy_contract=${privacyOk?'ok':'invalid'}`);
     app.log.info({integration:'staff',service:payload?.service||null,privacyMode:payload?.privacyMode||null,personalMemoryAccess:payload?.personalMemoryAccess,externalActions:payload?.externalActions,capabilities:Array.isArray(payload?.capabilities)?payload.capabilities:[]},'Staff business bridge health OK');
   }).catch(error=>app.log.error({integration:'staff',error:error instanceof Error?error.message:String(error)},'Staff business bridge health FAILED'));
