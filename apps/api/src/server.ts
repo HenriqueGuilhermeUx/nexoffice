@@ -15,6 +15,8 @@ import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
 import {registerVerticalRoutes} from './routes-vertical.js';
+import {registerFlexibleRoutes} from './routes-flexible.js';
+import {registerMarketingRoutes} from './routes-marketing.js';
 import {registerPlatformRoutes} from './routes-platform.js';
 import {registerPlatformHealthRoutes} from './routes-platform-health.js';
 import {registerPlatformLegalRoutes} from './routes-platform-legal.js';
@@ -43,7 +45,7 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.19.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.20.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -55,7 +57,9 @@ await registerAssistantRoutes(app);
 await registerStaffRoutes(app);
 await registerSmartBotsRoutes(app);
 await registerFiscalRoutes(app);
+await registerFlexibleRoutes(app);
 await registerVerticalRoutes(app);
+await registerMarketingRoutes(app);
 await registerPlatformRoutes(app);
 await registerPlatformHealthRoutes(app);
 await registerPlatformLegalRoutes(app);
@@ -73,7 +77,7 @@ app.setErrorHandler((error,_req,reply)=>{
   app.log.error(error);
   const anyError=error as any;
   const status=Number(anyError?.statusCode||anyError?.status||(anyError?.issues?400:500));
-  reply.code(status).send({error:anyError?.code||'request_failed',message:error instanceof Error?error.message:String(error),issues:anyError?.issues});
+  reply.code(status).send({error:anyError?.code||'request_failed',message:error instanceof Error?error.message:String(error),issues:anyError?.issues,payload:anyError?.payload});
 });
 
 await app.listen({port,host:'0.0.0.0'});
