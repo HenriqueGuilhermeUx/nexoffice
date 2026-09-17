@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import {db} from './db.js';
 import {runMigrations} from './migrations.js';
 import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
+import {ensureDailyFinancialIntelligence} from './financial-intelligence-daily.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
@@ -46,9 +47,17 @@ app.addHook('onSend',async(req,reply,payload)=>{
   reply.header('access-control-max-age','86400');
   return payload;
 });
+app.addHook('onResponse',async(req,reply)=>{
+  if(req.method!=='GET'||!req.url.startsWith('/v1/dashboard')||reply.statusCode>=300)return;
+  const workspaceId=String(req.headers['x-workspace-id']||'').trim();
+  if(!workspaceId)return;
+  void ensureDailyFinancialIntelligence(workspaceId).then(result=>{
+    if(result.created)app.log.info({workspaceId,snapshotId:result.snapshotId},'Daily financial intelligence captured');
+  }).catch(error=>app.log.warn({workspaceId,error:error instanceof Error?error.message:String(error)},'Daily financial intelligence capture failed'));
+});
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.22.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.23.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -89,7 +98,7 @@ await app.listen({port,host:'0.0.0.0'});
 
 if(modoMarketingConfigured()){
   void modoMarketingRequest<any>('system-health','health').then(result=>{
-    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],externalCampaignActivation:result?.externalCampaignActivation},'MODO marketing bridge health OK');
+    app.log.info({integration:'modo',contract:result?.contract||null,workflow:result?.workflow||[],googleAds:result?.googleAds||null,externalCampaignActivation:result?.externalCampaignActivation},'MODO marketing bridge health OK');
   }).catch(error=>{
     app.log.error({integration:'modo',error:error instanceof Error?error.message:String(error)},'MODO marketing bridge health FAILED');
   });
