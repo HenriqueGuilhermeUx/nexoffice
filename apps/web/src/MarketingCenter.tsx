@@ -1,0 +1,248 @@
+import {useEffect,useMemo,useState,type FormEvent} from 'react';
+import {api,post} from './api';
+import './marketing-center.css';
+
+type GeneratedContent={
+  hook:string;
+  title:string;
+  caption:string;
+  cta:string;
+  hashtags:string[];
+  visualDirection:string;
+  slides:Array<{title:string;body:string}>;
+  script:Array<{scene:string;visual:string;voiceover:string}>;
+  storyFrames:Array<{headline:string;body:string;interaction:string}>;
+  adaptationNotes:string[];
+  imageUrl?:string|null;
+  imageStatus?:string;
+  visualAssets?:Array<{kind:string;index:number;label:string;imageUrl?:string|null;imageStatus?:string}>;
+};
+type Draft={
+  id:string;
+  contentType:string;
+  objective:string;
+  brief:string;
+  channel:string;
+  status:string;
+  creditsCharged:number;
+  revisionCount:number;
+  maxRevisions:number;
+  output?:GeneratedContent|null;
+  error?:string|null;
+  approvedAt?:string|null;
+  createdAt:string;
+  updatedAt:string;
+};
+type DraftList={requests:Draft[];governance?:Governance};
+type DraftResult={request:Draft;governance?:Governance};
+type Governance={
+  workspaceScoped?:boolean;
+  billingMode?:string;
+  modoCreditsCharged?:number;
+  publishing?:boolean;
+  externalPublication?:boolean;
+  explicitApproval?:boolean;
+};
+
+const statusLabel:Record<string,string>={
+  queued:'Na fila',
+  processing:'Gerando',
+  ready:'Pronto para revisar',
+  approved:'Aprovado',
+  revision_requested:'Em revisão',
+  failed:'Falhou',
+  cancelled:'Cancelado'
+};
+const typeLabel:Record<string,string>={
+  static_post:'Post',
+  story:'Story',
+  carousel:'Carrossel',
+  short_video_script:'Roteiro de vídeo',
+  channel_adaptation:'Adaptação de canal'
+};
+const objectiveLabel:Record<string,string>={
+  autoridade:'Autoridade',
+  demanda:'Demanda',
+  relacionamento:'Relacionamento',
+  conversao:'Conversão',
+  educacao:'Educação'
+};
+const formatDate=(value?:string|null)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
+
+export default function MarketingCenter({workspaceId}:{workspaceId:string}){
+  const [drafts,setDrafts]=useState<Draft[]>([]);
+  const [selectedId,setSelectedId]=useState('');
+  const [selected,setSelected]=useState<Draft|null>(null);
+  const [governance,setGovernance]=useState<Governance|null>(null);
+  const [showCreate,setShowCreate]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+
+  const current=useMemo(()=>selected||drafts.find(item=>item.id===selectedId)||drafts[0]||null,[selected,selectedId,drafts]);
+
+  useEffect(()=>{if(workspaceId)void load()},[workspaceId]);
+
+  async function load(){
+    setBusy(true);setError('');
+    try{
+      const result=await api<DraftList>('/v1/marketing/content/drafts');
+      const list=result.requests||[];
+      setDrafts(list);
+      setGovernance(result.governance||null);
+      const nextId=selectedId&&list.some(item=>item.id===selectedId)?selectedId:list[0]?.id||'';
+      setSelectedId(nextId);
+      if(nextId){
+        const detail=await api<DraftResult>(`/v1/marketing/content/drafts/${nextId}`);
+        setSelected(detail.request);
+        setGovernance(detail.governance||result.governance||null);
+      }else setSelected(null);
+    }catch(e:any){setError(e?.message||'Não foi possível carregar os conteúdos.')}
+    finally{setBusy(false)}
+  }
+
+  async function openDraft(id:string){
+    setSelectedId(id);setBusy(true);setError('');
+    try{
+      const detail=await api<DraftResult>(`/v1/marketing/content/drafts/${id}`);
+      setSelected(detail.request);
+      setGovernance(detail.governance||governance);
+    }catch(e:any){setError(e?.message||'Não foi possível abrir o conteúdo.')}
+    finally{setBusy(false)}
+  }
+
+  async function createDraft(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();setBusy(true);setError('');
+    const form=new FormData(e.currentTarget);
+    try{
+      const result=await post<DraftResult>('/v1/marketing/content/drafts',{
+        contentType:String(form.get('contentType')||'carousel'),
+        objective:String(form.get('objective')||'demanda'),
+        brief:String(form.get('brief')||''),
+        channel:String(form.get('channel')||'Instagram'),
+        niche:String(form.get('niche')||'outro'),
+        websiteUrl:'',
+        instagramHandle:''
+      });
+      setShowCreate(false);
+      setSelectedId(result.request.id);
+      setSelected(result.request);
+      setGovernance(result.governance||null);
+      await pollDraft(result.request.id);
+      await load();
+    }catch(e:any){setError(e?.message||'Não foi possível criar o conteúdo.')}
+    finally{setBusy(false)}
+  }
+
+  async function pollDraft(id:string){
+    for(let attempt=0;attempt<18;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,900));
+      try{
+        const detail=await api<DraftResult>(`/v1/marketing/content/drafts/${id}`);
+        setSelected(detail.request);
+        if(['ready','approved','failed','cancelled'].includes(detail.request.status))return;
+      }catch{return}
+    }
+  }
+
+  async function approve(id:string){
+    setBusy(true);setError('');
+    try{
+      const result=await post<DraftResult>(`/v1/marketing/content/drafts/${id}/approve`,{});
+      setSelected(result.request);
+      setGovernance(result.governance||governance);
+      setDrafts(items=>items.map(item=>item.id===id?result.request:item));
+    }catch(e:any){setError(e?.message||'Não foi possível aprovar este conteúdo.')}
+    finally{setBusy(false)}
+  }
+
+  return <div className="marketingCenter">
+    <div className="marketingHero">
+      <div>
+        <p className="eyebrow">ESCRITÓRIO DE MARKETING · POWERED BY MODO</p>
+        <h2>Conteúdos</h2>
+        <p>A Maya transforma briefing em conteúdo pronto para revisão. A criação acontece na MODO; o NexOffice mantém a experiência, o contexto e a governança.</p>
+      </div>
+      <div className="marketingHeroActions">
+        <button onClick={()=>load()}>Atualizar</button>
+        <button className="primary" onClick={()=>setShowCreate(true)}>+ Criar com Maya</button>
+      </div>
+    </div>
+
+    <div className="marketingGuardrails">
+      <span><b>✓</b> Isolado por empresa</span>
+      <span><b>✓</b> Sem consumir créditos MODO</span>
+      <span><b>✓</b> Aprovação humana</span>
+      <span className="off"><b>○</b> Publicação automática desligada</span>
+    </div>
+
+    {busy&&<div className="marketingBusy"/>}
+    {error&&<div className="marketingError">{error}</div>}
+
+    <div className="marketingLayout">
+      <aside className="marketingDraftList">
+        <div className="marketingListHead"><div><small>DRAFTS</small><b>{drafts.length} conteúdo(s)</b></div><span>Maya</span></div>
+        {drafts.length?drafts.map(item=><button key={item.id} className={current?.id===item.id?'active':''} onClick={()=>openDraft(item.id)}>
+          <div className="draftCardTop"><span className={`draftStatus ${item.status}`}>{statusLabel[item.status]||item.status}</span><small>{formatDate(item.createdAt)}</small></div>
+          <b>{typeLabel[item.contentType]||item.contentType} · {objectiveLabel[item.objective]||item.objective}</b>
+          <p>{item.brief}</p>
+          <small>{item.channel}</small>
+        </button>):<div className="marketingEmpty"><b>Nenhum conteúdo ainda.</b><p>Crie o primeiro briefing com a Maya.</p><button className="primary" onClick={()=>setShowCreate(true)}>Criar conteúdo</button></div>}
+      </aside>
+
+      <main className="marketingPreview">
+        {current?<ContentPreview draft={current} onApprove={()=>approve(current.id)}/>:<div className="marketingPreviewEmpty"><div>✦</div><h3>Maya está pronta</h3><p>Descreva o que você quer comunicar. A MODO prepara o conteúdo; você revisa antes de qualquer próximo passo.</p><button className="primary" onClick={()=>setShowCreate(true)}>Criar com Maya</button></div>}
+      </main>
+    </div>
+
+    <div className="marketingGovernanceNote">
+      <b>Governança ativa</b>
+      <span>O draft pode ser criado e aprovado dentro do NexOffice. Aprovar não publica nada. Publicação externa continua separada e desabilitada nesta etapa.</span>
+      {governance?.billingMode&&<small>{governance.billingMode} · MODO credits: {governance.modoCreditsCharged??0}</small>}
+    </div>
+
+    {showCreate&&<div className="marketingModalBack" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setShowCreate(false)}}>
+      <form className="marketingCreateModal" onSubmit={createDraft}>
+        <button type="button" className="marketingClose" onClick={()=>setShowCreate(false)}>×</button>
+        <p className="eyebrow">CRIAR COM MAYA</p>
+        <h2>O que você quer comunicar?</h2>
+        <p>Um bom briefing já é suficiente. A Maya usa o Content Engine da MODO para estruturar a peça.</p>
+        <div className="marketingFormGrid">
+          <label><span>Formato</span><select name="contentType" defaultValue="carousel"><option value="carousel">Carrossel</option><option value="static_post">Post</option><option value="story">Story</option><option value="short_video_script">Roteiro de vídeo</option><option value="channel_adaptation">Adaptação de canal</option></select></label>
+          <label><span>Objetivo</span><select name="objective" defaultValue="demanda"><option value="demanda">Gerar demanda</option><option value="autoridade">Construir autoridade</option><option value="educacao">Educar</option><option value="relacionamento">Relacionamento</option><option value="conversao">Conversão</option></select></label>
+          <label><span>Canal</span><select name="channel" defaultValue="Instagram"><option>Instagram</option><option>LinkedIn</option><option>Facebook</option><option>TikTok</option><option>YouTube</option></select></label>
+          <label><span>Perfil do negócio</span><select name="niche" defaultValue="outro"><option value="outro">Geral</option><option value="servicos_profissionais">Serviços profissionais</option><option value="creator">Creator</option><option value="varejo">Varejo</option><option value="educacao">Educação</option><option value="imoveis">Imóveis</option><option value="saude_estetica">Saúde / estética</option></select></label>
+          <label className="wide"><span>Briefing</span><textarea name="brief" required minLength={10} rows={7} placeholder="Ex.: Quero um carrossel mostrando por que pequenas empresas perdem dinheiro quando vendas, cobranças e tarefas ficam espalhadas em WhatsApp e planilhas. Tom direto, sem exagero."/></label>
+        </div>
+        <div className="marketingModalFoot"><small>Nada será publicado automaticamente.</small><button className="primary" disabled={busy}>{busy?'Maya está preparando…':'Criar draft'}</button></div>
+      </form>
+    </div>}
+  </div>;
+}
+
+function ContentPreview({draft,onApprove}:{draft:Draft;onApprove:()=>void}){
+  const output=draft.output;
+  return <div className="contentPreview">
+    <header>
+      <div><span className={`draftStatus ${draft.status}`}>{statusLabel[draft.status]||draft.status}</span><h3>{output?.title||typeLabel[draft.contentType]||'Conteúdo'}</h3><p>{typeLabel[draft.contentType]||draft.contentType} · {objectiveLabel[draft.objective]||draft.objective} · {draft.channel}</p></div>
+      <div className="previewActions">{draft.status==='ready'&&<button className="primary" onClick={onApprove}>Aprovar conteúdo</button>}{draft.status==='approved'&&<span className="approvedBadge">✓ Aprovado internamente</span>}</div>
+    </header>
+
+    {['queued','processing'].includes(draft.status)&&<div className="generationState"><div className="spinner"/><div><b>Maya está preparando o conteúdo.</b><p>A geração acontece na MODO. Você pode sair desta tela e voltar depois.</p></div></div>}
+    {draft.status==='failed'&&<div className="marketingError"><b>Falha na geração.</b> {draft.error||'Tente criar um novo draft.'}</div>}
+
+    {output&&<>
+      {output.imageUrl&&<div className="contentHeroImage"><img src={output.imageUrl} alt={output.title}/></div>}
+      <section className="contentBlock highlight"><small>HOOK</small><b>{output.hook}</b></section>
+      <section className="contentBlock"><small>LEGENDA</small><p className="caption">{output.caption}</p></section>
+      {output.slides?.length>0&&<section className="contentBlock"><small>CARROSSEL</small><div className="slideGrid">{output.slides.map((slide,index)=><article key={index}><span>{index+1}</span><b>{slide.title}</b><p>{slide.body}</p></article>)}</div></section>}
+      {output.storyFrames?.length>0&&<section className="contentBlock"><small>STORIES</small><div className="slideGrid">{output.storyFrames.map((frame,index)=><article key={index}><span>{index+1}</span><b>{frame.headline}</b><p>{frame.body}</p>{frame.interaction&&<em>{frame.interaction}</em>}</article>)}</div></section>}
+      {output.script?.length>0&&<section className="contentBlock"><small>ROTEIRO</small><div className="scriptList">{output.script.map((scene,index)=><article key={index}><span>Cena {index+1}</span><b>{scene.scene}</b><p><strong>Visual:</strong> {scene.visual}</p><p><strong>Voz:</strong> {scene.voiceover}</p></article>)}</div></section>}
+      <div className="contentTwoCol">
+        <section className="contentBlock"><small>CTA</small><b>{output.cta}</b>{output.hashtags?.length>0&&<p className="hashtags">{output.hashtags.join(' ')}</p>}</section>
+        <section className="contentBlock"><small>DIREÇÃO VISUAL</small><p>{output.visualDirection}</p></section>
+      </div>
+      {output.visualAssets?.some(asset=>asset.imageUrl)&&<section className="contentBlock"><small>VISUAIS GERADOS</small><div className="visualGrid">{output.visualAssets.filter(asset=>asset.imageUrl).map(asset=><figure key={`${asset.kind}-${asset.index}`}><img src={asset.imageUrl||''} alt={asset.label}/><figcaption>{asset.label}</figcaption></figure>)}</div></section>}
+      <footer className="contentApprovalFooter"><div><b>{draft.status==='approved'?'Conteúdo aprovado.':'Revise antes de aprovar.'}</b><p>A aprovação é interna. O NexOffice não publica esta peça automaticamente.</p></div>{draft.status==='ready'&&<button className="primary" onClick={onApprove}>Aprovar conteúdo</button>}</footer>
+    </>}
+  </div>;
+}
