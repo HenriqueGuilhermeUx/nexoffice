@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext,ApiError} from './auth.js';
 import {query} from './db.js';
 import {financeSummary} from './events.js';
+import {readDocWalletUpcomingExpirations} from './docwallet-intelligence-adapter.js';
 import {buildOperationalPriorities,operationalSignalNarrative,safeOperationalSignal,type OperationalSignal} from './operational-signals.js';
 
 const uuid=z.string().uuid();
@@ -117,8 +118,16 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     actions.push({label:'Abrir tarefas',target:'agenda'});return {agentRole:forcedRole||'secretary',text:rows.length?`Há ${rows.length} tarefa(s) abertas na lista principal. Prioridades: ${rows.slice(0,6).map(x=>`${x.title}${x.due_at?` até ${datePt(x.due_at)}`:''}`).join('; ')}.`:'Não encontrei tarefas abertas.',facts:{tasks:rows},actions};
   }
   if(match(text,['documento','documentos','assinatura','assinaturas','contrato','contratos'])){
-    const docs=await query<any>(`select title,status,intelligence_status,signature_status,document_type from document_refs where workspace_id=$1 order by updated_at desc limit 12`,[workspaceId]);
-    actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:docs.length?`Há ${docs.length} documento(s) recentes no NexOffice. ${docs.filter(x=>x.signature_status&&!['not_requested','signed','completed'].includes(x.signature_status)).length} têm assinatura em andamento e ${docs.filter(x=>['queued','processing','error'].includes(x.intelligence_status)).length} precisam de atenção na análise.`:'Ainda não há referências documentais neste workspace.',facts:{documents:docs},actions};
+    const [docs,docWallet]=await Promise.all([
+      query<any>(`select title,status,intelligence_status,signature_status,document_type from document_refs where workspace_id=$1 order by updated_at desc limit 12`,[workspaceId]),
+      readDocWalletUpcomingExpirations(workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'}))
+    ]);
+    const alerts=docWallet.ok&&Array.isArray((docWallet as any).payload?.alerts)?(docWallet as any).payload.alerts:[];
+    const signatureCount=docs.filter(x=>x.signature_status&&!['not_requested','signed','completed'].includes(x.signature_status)).length;
+    const analysisCount=docs.filter(x=>['queued','processing','error'].includes(x.intelligence_status)).length;
+    const local=docs.length?`Há ${docs.length} documento(s) recentes no NexOffice. ${signatureCount} têm assinatura em andamento e ${analysisCount} precisam de atenção na análise.`:'Ainda não há referências documentais neste workspace.';
+    const upcoming=alerts.length?` No DocWallet encontrei ${alerts.length} alerta(s) com vencimento nos próximos 60 dias. Prioridades: ${alerts.slice(0,4).map((item:any)=>`${item.title||'Documento'}${item.dueDate?` em ${dateOnlyPt(item.dueDate)}`:''}`).join('; ')}.`:'';
+    actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:`${local}${upcoming}`,facts:{documents:docs,docWallet:{connected:Boolean(docWallet.ok),upcomingAlerts:alerts.slice(0,8)}},actions};
   }
   if(match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade'])){
     actions.push({label:'Ver integrações',target:'integrations'});return {agentRole:forcedRole||'growth',text:'O Growth Agent está preparado para receber sinais do CRM, agenda e serviços vendidos e repassá-los ao MODO. Antes de publicar ou alterar orçamento, o NexOffice respeita sua política de aprovação.',facts:{},actions};
@@ -139,3 +148,4 @@ function normalize(value:string){return value.normalize('NFD').replace(/[\u0300-
 function match(text:string,words:string[]){return words.some(w=>text.includes(w))}
 function money(value:any){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0)/100)}
 function datePt(value:any){return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(value))}
+function dateOnlyPt(value:any){const date=new Date(`${String(value).slice(0,10)}T12:00:00-03:00`);return Number.isNaN(date.getTime())?String(value):new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeZone:'America/Sao_Paulo'}).format(date)}
