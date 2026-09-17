@@ -7,6 +7,7 @@ import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
 import {registerFinanceRoutes} from './routes-finance.js';
+import {registerFinancialIntelligenceRoutes} from './routes-financial-intelligence.js';
 import {registerCommandRoutes} from './routes-command.js';
 import {registerRuntimeRoutes} from './routes-runtime.js';
 import {registerAssistantRoutes} from './routes-assistant.js';
@@ -47,12 +48,13 @@ app.addHook('onSend',async(req,reply,payload)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.21.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.22.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
 await registerOpsRoutes(app);
 await registerFinanceRoutes(app);
+await registerFinancialIntelligenceRoutes(app);
 await registerCommandRoutes(app);
 await registerRuntimeRoutes(app);
 await registerAssistantRoutes(app);
