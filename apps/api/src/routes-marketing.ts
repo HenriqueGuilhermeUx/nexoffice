@@ -9,6 +9,15 @@ const prospectingCampaignSchema=z.object({name:z.string().max(160).optional(),se
 const prospectingLeadSchema=z.object({name:z.string().min(1).max(180),role:z.string().max(160).optional(),company:z.string().min(1).max(180),email:z.string().email().optional(),linkedinUrl:z.string().url().optional(),websiteUrl:z.string().url().optional(),location:z.string().max(160).optional(),fitScore:z.number().min(0).max(100).optional(),reason:z.string().max(1000).optional(),signal:z.string().max(1000).optional(),source:z.string().max(80).optional(),sourceRef:z.string().max(600).optional(),metadata:z.record(z.string(),z.unknown()).optional()});
 const discoverySchema=z.object({approved:z.literal(true),limit:z.coerce.number().int().min(1).max(50).default(20)});
 const approachSchema=z.object({channel:z.enum(['email','linkedin','whatsapp']).default('email')});
+const contentDraftSchema=z.object({
+  contentType:z.enum(['static_post','story','carousel','short_video_script','channel_adaptation']),
+  objective:z.enum(['autoridade','demanda','relacionamento','conversao','educacao']),
+  brief:z.string().trim().min(10).max(2000),
+  channel:z.string().trim().min(2).max(60).default('Instagram'),
+  niche:z.enum(['saude_estetica','servicos_profissionais','imoveis','varejo','educacao','creator','outro']).default('outro'),
+  websiteUrl:z.union([z.literal(''),z.string().url().max(500)]).optional().default(''),
+  instagramHandle:z.string().trim().max(80).optional().default('')
+});
 const marketRadarSchema=z.object({
   approved:z.literal(true),
   name:z.string().trim().min(3).max(140).optional(),
@@ -66,6 +75,10 @@ export async function registerMarketingRoutes(app:FastifyInstance){
   app.post('/v1/marketing/prospecting/campaigns/:id/leads',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),id=z.string().uuid().parse((req.params as any).id),input=prospectingLeadSchema.parse(req.body);try{const result=await modoMarketingRequest(ctx.workspaceId,`prospecting/campaigns/${id}/leads`,'POST',input);await auditLog(ctx,'marketing.prospecting.lead.added','prospecting_campaign',id,null,{externalEffect:false,externalCommunication:false});return result}catch(e){return fail(e)}});
   app.post('/v1/marketing/prospecting/campaigns/:id/discover',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),id=z.string().uuid().parse((req.params as any).id),input=discoverySchema.parse(req.body);try{const result=await modoMarketingRequest<any>(ctx.workspaceId,`prospecting/campaigns/${id}/discover`,'POST',input);await auditLog(ctx,'marketing.prospecting.discovery','prospecting_campaign',id,null,{explicitApproval:true,limit:input.limit,provider:result?.provider||null,externalCommunication:false,providerCompute:true});return result}catch(e){return fail(e)}});
   app.post('/v1/marketing/prospecting/leads/:id/approach',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),id=z.string().uuid().parse((req.params as any).id),input=approachSchema.parse(req.body||{});try{const result=await modoMarketingRequest(ctx.workspaceId,`prospecting/leads/${id}/approach`,'POST',input);await auditLog(ctx,'marketing.prospecting.approach.prepared','prospecting_lead',id,null,{channel:input.channel,externalEffect:false,externalCommunication:false});return result}catch(e){return fail(e)}});
+
+  app.get('/v1/marketing/content/drafts',async req=>{const ctx=await workspaceContext(req,'integrations.read');try{return await modoMarketingRequest(ctx.workspaceId,'content/drafts')}catch(e){return fail(e)}});
+  app.get('/v1/marketing/content/drafts/:id',async req=>{const ctx=await workspaceContext(req,'integrations.read'),id=z.string().uuid().parse((req.params as any).id);try{return await modoMarketingRequest(ctx.workspaceId,`content/drafts/${id}`)}catch(e){return fail(e)}});
+  app.post('/v1/marketing/content/drafts',async req=>{const ctx=await workspaceContext(req,'integrations.manage'),input=contentDraftSchema.parse(req.body);try{const result=await modoMarketingRequest<any>(ctx.workspaceId,'content/drafts','POST',{brandName:ctx.workspaceName,niche:input.niche,websiteUrl:input.websiteUrl,instagramHandle:input.instagramHandle,contentType:input.contentType,objective:input.objective,brief:input.brief,channel:input.channel});await auditLog(ctx,'marketing.content.draft.created','workspace',ctx.workspaceId,null,{contentRequestId:result?.request?.id||null,contentType:input.contentType,objective:input.objective,channel:input.channel,billingMode:'nexoffice_entitlement',modoCreditsCharged:0,externalEffect:false,externalPublication:false});return result}catch(e){return fail(e)}});
 
   app.get('/v1/marketing/market-radar/missions',async req=>{const ctx=await workspaceContext(req,'integrations.read');try{return await modoMarketingRequest(ctx.workspaceId,'intelligence/market-radar/missions')}catch(e){return fail(e)}});
   app.get('/v1/marketing/market-radar/missions/:id/results',async req=>{const ctx=await workspaceContext(req,'integrations.read'),id=z.string().uuid().parse((req.params as any).id),limit=Math.min(200,Math.max(1,Number((req.query as any)?.limit||50)));try{return await modoMarketingRequest(ctx.workspaceId,`intelligence/market-radar/missions/${id}/results?limit=${limit}`)}catch(e){return fail(e)}});
