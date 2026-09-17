@@ -4,6 +4,7 @@ import {workspaceContext,ApiError} from './auth.js';
 import {query} from './db.js';
 import {financeSummary} from './events.js';
 import {readDocWalletUpcomingExpirations} from './docwallet-intelligence-adapter.js';
+import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
 import {buildOperationalPriorities,operationalSignalNarrative,safeOperationalSignal,type OperationalSignal} from './operational-signals.js';
 
 const uuid=z.string().uuid();
@@ -129,8 +130,18 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     const upcoming=alerts.length?` No DocWallet encontrei ${alerts.length} alerta(s) com vencimento nos próximos 60 dias. Prioridades: ${alerts.slice(0,4).map((item:any)=>`${item.title||'Documento'}${item.dueDate?` em ${dateOnlyPt(item.dueDate)}`:''}`).join('; ')}.`:'';
     actions.push({label:'Abrir documentos',target:'documents'});return {agentRole:forcedRole||'documents',text:`${local}${upcoming}`,facts:{documents:docs,docWallet:{connected:Boolean(docWallet.ok),upcomingAlerts:alerts.slice(0,8)}},actions};
   }
-  if(match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade'])){
-    actions.push({label:'Ver integrações',target:'integrations'});return {agentRole:forcedRole||'growth',text:'O Growth Agent está preparado para receber sinais do CRM, agenda e serviços vendidos e repassá-los ao MODO. Antes de publicar ou alterar orçamento, o NexOffice respeita sua política de aprovação.',facts:{},actions};
+  if(match(text,['marketing','campanha','campanhas','conteudo','growth','publicidade','google ads','trafego','midia'])){
+    let insights:any=null;
+    if(modoMarketingConfigured())try{insights=await modoMarketingRequest<any>(workspaceId,'insights?days=30')}catch{}
+    actions.push({label:'Ver Marketing',target:'marketing'});
+    if(insights){
+      const demand=insights.demandTotals||{},google=insights.googleAds||null,blended=insights.blended||null;
+      const demandLine=`Nos últimos ${Number(insights.periodDays||30)} dias, a MODO acompanha ${Number(insights.projects||0)} projeto(s): ${Number(demand.pageViews||0)} visita(s), ${Number(demand.leads||0)} lead(s), ${Number(demand.qualifiedLeads||0)} lead(s) qualificado(s) e ${Number(demand.customers||0)} cliente(s) registrado(s).`;
+      const adsLine=google?` Google Ads: ${Number(google.impressions||0)} impressões, ${Number(google.clicks||0)} cliques e ${money(google.costMinor||0)} de custo real no período${google.conversions!==undefined?`, com ${Number(google.conversions||0)} conversão(ões) reportada(s)`:''}.`: ' A conta Google Ads ainda não está conectada para métricas reais.';
+      const cacLine=blended?.cacMinor!=null?` CAC combinado observado: ${money(blended.cacMinor)}. É uma leitura agregada do workspace, não atribuição individual de campanha.`:'';
+      return {agentRole:forcedRole||'growth',text:`${demandLine}${adsLine}${cacLine} Posso usar esse contexto para preparar o próximo movimento; publicação, ativação ou mudança de orçamento continuam sujeitas à governança.`,facts:{modo:{connected:true,insights}},actions};
+    }
+    return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao contrato de growth do NexOffice e pode usar o MODO quando o runtime estiver configurado. O plano de campanha, Demand e Google Ads ficam separados de qualquer ativação externa: publicar ou alterar orçamento continua sujeito à governança.',facts:{modo:{connected:false}},actions};
   }
   const [finance,crm,tasks,agenda,actionsOpen,signals]=await Promise.all([financeSummary(workspaceId),query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline from crm_deals where workspace_id=$1`,[workspaceId]),query<any>(`select count(*)::int due from tasks where workspace_id=$1 and status in ('todo','doing') and (due_at is null or due_at<=now()+interval '24 hours')`,[workspaceId]),query<any>(`select count(*)::int today from appointments where workspace_id=$1 and starts_at>=date_trunc('day',now()) and starts_at<date_trunc('day',now())+interval '1 day' and status<>'cancelled'`,[workspaceId]),query<any>(`select count(*)::int n from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[workspaceId]),getOperationalSignals(workspaceId)]);
   const operational=operationalSignalNarrative(vertical,signals);
