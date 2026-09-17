@@ -18,7 +18,7 @@ token=registered.token;workspace=registered.workspace.id;
 const graph=await call('/v1/capabilities');
 assert(graph.version==='2026-09-17','capability graph version is explicit');
 assert(graph.externalActionsEnabled===false,'CI keeps external actions disabled');
-assert(Array.isArray(graph.capabilities)&&graph.capabilities.length>=20,'ecosystem capabilities are exposed');
+assert(Array.isArray(graph.capabilities)&&graph.capabilities.length>=23,'ecosystem capabilities are exposed');
 assert(graph.byAgent&&graph.byAgent.growth&&graph.byAgent.documents&&graph.byAgent.controller,'agent capability views exist');
 
 const googleAds=graph.capabilities.find(item=>item.id==='growth.google_ads.metrics.read');
@@ -36,8 +36,15 @@ assert(finance&&String(finance.source).includes('F-Insight'),'financial intellig
 const rules=graph.capabilities.find(item=>item.id==='automation.rule.evaluate');
 assert(rules&&String(rules.source).includes('NextGen'),'rule engine records NextGen execution-pattern reuse');
 
-const doc=graph.capabilities.find(item=>item.id==='documents.analyze');
-assert(doc&&doc.provider==='docwallet','document intelligence is routed to DocWallet');
+for(const id of ['documents.analyze','documents.intelligence.read','documents.alerts.read','documents.expirations.read']){
+  const capability=graph.capabilities.find(item=>item.id===id);
+  assert(capability&&capability.provider==='docwallet',`${id} is owned by DocWallet`);
+  assert(capability.maturity==='active',`${id} is active after tested DocWallet bridge support`);
+  assert(capability.effect==='read',`${id} remains read-only`);
+}
+const signature=graph.capabilities.find(item=>item.id==='documents.signature.request');
+assert(signature&&signature.provider==='docwallet'&&signature.maturity==='guarded','DocWallet signature remains guarded');
+assert(signature.approvalRequired===true,'DocWallet signature remains approval-first');
 
 const legal=graph.capabilities.find(item=>item.id==='legal.operational_signals.read');
 assert(legal&&legal.availability==='inactive_for_workspace','legal capability stays scoped out of a general workspace');
