@@ -4,6 +4,7 @@ import {db} from './db.js';
 import {runMigrations} from './migrations.js';
 import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
 import {ensureDailyFinancialIntelligence} from './financial-intelligence-daily.js';
+import {reconcileWooviBillingSubscriptions} from './billing-reconciliation.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
@@ -106,6 +107,12 @@ if(String(process.env.NEXOFFICE_BILLING_ENABLED||'false').toLowerCase()==='true'
   void ensureWooviBillingWebhooks().then(result=>{
     app.log.info({integration:'woovi',...result},'Woovi billing webhook setup OK');
   }).catch(error=>app.log.error({integration:'woovi',error:error instanceof Error?error.message:String(error)},'Woovi billing webhook setup FAILED'));
+
+  const reconcileBilling=()=>void reconcileWooviBillingSubscriptions().then(result=>{
+    app.log.info({integration:'woovi',mode:'polling_fallback',configured:result.configured,scanned:result.scanned,updated:result.updated,errors:result.errors},'Woovi billing reconciliation OK');
+  }).catch(error=>app.log.error({integration:'woovi',mode:'polling_fallback',error:error instanceof Error?error.message:String(error)},'Woovi billing reconciliation FAILED'));
+  const firstBillingSync=setTimeout(reconcileBilling,5_000);firstBillingSync.unref();
+  const billingSyncInterval=setInterval(reconcileBilling,15*60_000);billingSyncInterval.unref();
 }
 
 const staffBase=String(process.env.STAFF_BASE_URL||'').replace(/\/$/,'');
