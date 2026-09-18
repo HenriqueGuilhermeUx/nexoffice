@@ -14,6 +14,8 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
 
@@ -38,22 +40,22 @@ jobs:
           CI: '1'
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Build installable debug APK
+      - name: Build standalone release APK
         working-directory: apps/mobile/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: Prepare APK
         run: |
           mkdir -p dist
-          cp apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/NexOffice-Mobile-Founder.apk
-          ls -lh dist/NexOffice-Mobile-Founder.apk
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk dist/NexOffice-Mobile-Founder-Standalone.apk
+          ls -lh dist/NexOffice-Mobile-Founder-Standalone.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NexOffice-Mobile-Founder-APK
-          path: dist/NexOffice-Mobile-Founder.apk
+          name: NexOffice-Mobile-Founder-Standalone-APK
+          path: dist/NexOffice-Mobile-Founder-Standalone.apk
           if-no-files-found: error
           retention-days: 14
