@@ -180,24 +180,21 @@ async function processWooviBillingEvent(payload:any,event:WooviBillingEvent){
 
 export async function ensureWooviBillingWebhooks(){
   const {token,url}=webhookConfig();
-  if(!token||!url)return {configured:false,created:0,existing:0,events:[] as string[]};
+  if(!token||!url)return {configured:false,providerRegistrationAvailable:false,created:0,existing:0,events:[] as string[]};
   wooviConfig();
-  const listed=await woovi(`/api/v1/webhook?url=${encodeURIComponent(url)}`);
-  const candidates=Array.isArray(listed)?listed:Array.isArray(listed?.webhooks)?listed.webhooks:Array.isArray(listed?.data)?listed.data:[];
   let created=0,existing=0;
   for(const event of WOOVI_BILLING_EVENTS){
-    const found=candidates.some((item:any)=>String(item?.event||item?.webhook?.event||'')===event&&String(item?.url||item?.webhook?.url||'')===url);
-    if(found){existing++;continue}
     try{
       await woovi('/api/v1/webhook?validate=false',{method:'POST',body:JSON.stringify({webhook:{name:`NexOffice Billing · ${event}`,event,url,authorization:token,isActive:true}})});
       created++;
     }catch(error:any){
       const message=String(error?.message||'').toLowerCase();
-      if(message.includes('duplic')||message.includes('unique')||message.includes('already'))existing++;
-      else throw error;
+      if(message.includes('duplic')||message.includes('unique')||message.includes('already')||message.includes('já existe')){existing++;continue}
+      if(message.includes('escopo obrigatório')||message.includes('scope'))return {configured:true,providerRegistrationAvailable:false,manualSetupRequired:true,created,existing,events:[...WOOVI_BILLING_EVENTS],url};
+      throw error;
     }
   }
-  return {configured:true,created,existing,events:[...WOOVI_BILLING_EVENTS],url};
+  return {configured:true,providerRegistrationAvailable:true,manualSetupRequired:false,created,existing,events:[...WOOVI_BILLING_EVENTS],url};
 }
 
 export async function registerBillingRoutes(app:FastifyInstance){
