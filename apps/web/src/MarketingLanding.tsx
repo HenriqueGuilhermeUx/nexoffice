@@ -166,6 +166,15 @@ export default function MarketingLanding(){
         <span>7 dias grátis · sem cartão</span>
       </section>
     </main>
-    <footer className="mkFooter"><b>NexOffice</b><span>Controle operacional para empresas que querem crescer sem aumentar o caos.</span><span>© 2026 NexOffice</span></footer>
+    <footer className="mkFooter">
+      <b>NexOffice</b>
+      <nav style={{display:'flex',justifyContent:'center',gap:'14px',flexWrap:'wrap'}}>
+        <a style={{color:'#d8e1e7',textDecoration:'none'}} href="/?legal=terms">Termos</a>
+        <a style={{color:'#d8e1e7',textDecoration:'none'}} href="/?legal=privacy">Privacidade</a>
+        <a style={{color:'#d8e1e7',textDecoration:'none'}} href="/?legal=cancellation">Cancelamento</a>
+        <a style={{color:'#d8e1e7',textDecoration:'none'}} href="/?legal=support">Suporte</a>
+      </nav>
+      <span>© 2026 NexOffice · 7 dias grátis · R$ 197/mês no preço fundador</span>
+    </footer>
   </div>;
 }
