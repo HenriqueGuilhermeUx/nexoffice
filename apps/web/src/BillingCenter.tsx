@@ -33,6 +33,7 @@ export default function BillingCenter(){
   async function subscribe(e:FormEvent<HTMLFormElement>){
     e.preventDefault();setBusy(true);setError('');
     const f=new FormData(e.currentTarget);const value=(k:string)=>String(f.get(k)||'').trim();
+    if(f.get('acceptCommercial')!=='yes'){setBusy(false);setError('Confirme os termos da assinatura antes de continuar.');return}
     try{
       const r=await post<any>('/v1/billing/subscribe',{customer:{name:value('name'),taxID:value('taxID').replace(/\D/g,''),email:value('email'),phone:value('phone').replace(/\D/g,''),address:{zipcode:value('zipcode').replace(/\D/g,''),street:value('street'),number:value('number'),neighborhood:value('neighborhood'),city:value('city'),state:value('state').toUpperCase(),complement:value('complement')||undefined}}});
       if(r.checkout)setCheckout(r.checkout);await load();
@@ -59,18 +60,20 @@ export default function BillingCenter(){
         <p className="billingLead">{active?`Plano NexOffice Pro por ${money(billing.priceMinor)}/mês, cobrado via Pix Automático.`:`Não haverá novas renovações. Seu acesso permanece disponível até ${date(billing.currentPeriodEndsAt)}.`}</p>
         {error&&<div className="billingError">{error}</div>}
         <div className="billingSummary"><span>Plano</span><b>{billing.planName}</b><span>Status</span><b>{active?'Ativo':'Cancelado'}</b><span>Valor</span><b>{money(billing.priceMinor)}/mês</b>{billing.currentPeriodEndsAt&&<><span>Período atual até</span><b>{date(billing.currentPeriodEndsAt)}</b></>}</div>
+        <div className="billingPolicyLinks"><a href="/?legal=cancellation">Política de cancelamento</a><a href="/?legal=support">Suporte</a></div>
         {active&&<button className="billingDanger" disabled={busy} onClick={cancel}>{busy?'Cancelando…':'Cancelar renovação'}</button>}
       </div>:<>
       <h2>Continue operando seu negócio por {money(billing.priceMinor)}/mês</h2>
       <p className="billingLead">CRM, financeiro, agenda, Central de Comando, Equipe Digital, documentos, automações e integrações em um único sistema operacional.</p>
-      {!billing.billingConfigured&&<div className="billingNotice">A cobrança Woovi ainda está em configuração neste ambiente. Seu trial continua normalmente.</div>}
+      {!billing.billingConfigured&&<div className="billingNotice">A cobrança ainda está em configuração neste ambiente. Seu trial continua normalmente e nenhuma assinatura é criada enquanto o checkout não estiver disponível.</div>}
       {error&&<div className="billingError">{error}</div>}
-      {checkout?.emv?<div className="billingCheckout"><h3>Autorize o Pix Automático no seu banco</h3><p>Copie o código abaixo e abra seu aplicativo bancário. A cobrança começa no fim do trial; se o trial já terminou, a primeira mensalidade é paga na autorização.</p><textarea readOnly value={checkout.emv}/><div className="billingActions"><button onClick={copy}>Copiar código Pix</button><button className="billingPrimary" disabled={busy} onClick={refresh}>{busy?'Verificando…':'Já autorizei no banco'}</button></div></div>:
+      {checkout?.emv?<div className="billingCheckout"><h3>Autorize o Pix Automático no seu banco</h3><p>Copie o código abaixo e abra seu aplicativo bancário. A cobrança começa no fim do trial; se o trial já terminou, a primeira mensalidade é paga na autorização.</p><textarea readOnly value={checkout.emv}/><div className="billingActions"><button onClick={copy}>Copiar código Pix</button><button className="billingPrimary" disabled={busy} onClick={refresh}>{busy?'Verificando…':'Já autorizei no banco'}</button></div><small>Ao autorizar, você confirma a assinatura mensal apresentada. A renovação pode ser cancelada no NexOffice.</small></div>:
       <form className="billingForm" onSubmit={subscribe}>
         <div className="billingGrid"><label>Nome / razão social<input name="name" defaultValue={billing.user.name} required/></label><label>CPF ou CNPJ<input name="taxID" required/></label><label>E-mail<input name="email" type="email" defaultValue={billing.user.email} required/></label><label>Celular / WhatsApp<input name="phone" required/></label><label>CEP<input name="zipcode" required/></label><label>Rua<input name="street" required/></label><label>Número<input name="number" required/></label><label>Bairro<input name="neighborhood" required/></label><label>Cidade<input name="city" required/></label><label>UF<input name="state" maxLength={2} required/></label><label className="billingWide">Complemento<input name="complement"/></label></div>
-        <div className="billingSummary"><span>Plano</span><b>{billing.planName}</b><span>Mensalidade</span><b>{money(billing.priceMinor)}</b><span>Trial</span><b>7 dias grátis</b></div>
+        <div className="billingSummary"><span>Plano</span><b>{billing.planName}</b><span>Mensalidade</span><b>{money(billing.priceMinor)}</b><span>Trial</span><b>7 dias grátis</b><span>Forma de cobrança</span><b>Pix Automático após autorização</b></div>
+        <label className="billingAcceptance"><input type="checkbox" name="acceptCommercial" value="yes" required/><span>Li e aceito os <a href="/?legal=terms">Termos de Uso</a>, a <a href="/?legal=privacy">Política de Privacidade</a> e a <a href="/?legal=cancellation">Política de Cancelamento</a>. Entendo que a assinatura custa {money(billing.priceMinor)}/mês e depende de autorização do Pix Automático.</span></label>
         <button className="billingPrimary billingSubmit" disabled={busy||!billing.billingConfigured}>{busy?'Criando assinatura…':'Autorizar Pix Automático'}</button>
-        <small>Sem cartão. Cobrança mensal via Pix Automático. Você pode cancelar quando quiser.</small>
+        <small>Sem cartão. O trial é gratuito. A mensalidade só segue pela jornada de autorização apresentada no checkout. Você pode cancelar a renovação quando quiser.</small>
       </form>}</>}
     </div></div>}
   </>;
