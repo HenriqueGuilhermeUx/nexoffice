@@ -1,0 +1,61 @@
+name: Mobile APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/mobile-command-center
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobile-apk.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck mobile
+        run: npm run typecheck -w @nexoffice/mobile
+
+      - name: Generate Android project
+        working-directory: apps/mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build installable debug APK
+        working-directory: apps/mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare APK
+        run: |
+          mkdir -p dist
+          cp apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/NexOffice-Mobile-Founder.apk
+          ls -lh dist/NexOffice-Mobile-Founder.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexOffice-Mobile-Founder-APK
+          path: dist/NexOffice-Mobile-Founder.apk
+          if-no-files-found: error
+          retention-days: 14
