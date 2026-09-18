@@ -33,7 +33,7 @@ import {registerSignalRoutes} from './routes-signals.js';
 import {registerAutomationRoutes} from './routes-automation.js';
 import {registerUsageRoutes} from './routes-usage.js';
 import {registerStandaloneRoutes} from './routes-standalone.js';
-import {registerBillingRoutes} from './routes-billing.js';
+import {ensureWooviBillingWebhooks,registerBillingRoutes} from './routes-billing.js';
 
 if(String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true')await runMigrations();
 
@@ -60,7 +60,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.28.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.29.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -101,6 +101,12 @@ app.setErrorHandler((error,_req,reply)=>{
 });
 
 await app.listen({port,host:'0.0.0.0'});
+
+if(String(process.env.NEXOFFICE_BILLING_ENABLED||'false').toLowerCase()==='true'){
+  void ensureWooviBillingWebhooks().then(result=>{
+    app.log.info({integration:'woovi',...result},'Woovi billing webhook setup OK');
+  }).catch(error=>app.log.error({integration:'woovi',error:error instanceof Error?error.message:String(error)},'Woovi billing webhook setup FAILED'));
+}
 
 const staffBase=String(process.env.STAFF_BASE_URL||'').replace(/\/$/,'');
 const staffKey=String(process.env.STAFF_API_KEY||'');
