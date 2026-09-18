@@ -5,6 +5,8 @@ import {query} from './db.js';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_DAYS = Math.max(1, Number(process.env.SESSION_TTL_DAYS || 30));
+const BILLING_GRACE_DAYS = 7;
+const DAY = 86_400_000;
 
 export class ApiError extends Error {
   statusCode: number;
@@ -71,7 +73,7 @@ export function hashOpaqueToken(token: string): string {
 export async function issueSession(userId: string): Promise<{token:string;expiresAt:string}> {
   const token = randomBytes(32).toString('base64url');
   const tokenHash = hashOpaqueToken(token);
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000).toISOString();
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * DAY).toISOString();
   await query(`insert into auth_sessions(user_id,token_hash,expires_at) values($1,$2,$3)`, [userId,tokenHash,expiresAt]);
   return {token,expiresAt};
 }
@@ -82,6 +84,12 @@ function bearer(req: FastifyRequest): string {
   const token = auth.slice(7).trim();
   if (!token) throw new ApiError(401,'unauthorized','Sessão necessária.');
   return token;
+}
+
+function billingMetadata(value:unknown):Record<string,any>{
+  if(!value)return {};
+  if(typeof value==='object')return value as Record<string,any>;
+  try{return JSON.parse(String(value)) as Record<string,any>}catch{return {}}
 }
 
 export async function authenticate(req: FastifyRequest): Promise<AuthUser> {
@@ -108,11 +116,11 @@ export async function workspaceContext(req: FastifyRequest, permission?: string)
   const requested = raw ? String(raw) : null;
   const rows = await query<any>(
     requested
-      ? `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at,b.current_period_ends_at
+      ? `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at,b.current_period_ends_at,b.metadata billing_metadata
            from workspace_members m join workspaces w on w.id=m.workspace_id
            left join workspace_billing b on b.workspace_id=w.id
           where m.user_id=$1 and m.workspace_id=$2 and m.active=true limit 1`
-      : `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at,b.current_period_ends_at
+      : `select m.workspace_id,m.role,m.permissions,w.name,w.status workspace_status,b.status billing_status,b.trial_ends_at,b.current_period_ends_at,b.metadata billing_metadata
            from workspace_members m join workspaces w on w.id=m.workspace_id
            left join workspace_billing b on b.workspace_id=w.id
           where m.user_id=$1 and m.active=true
@@ -121,10 +129,16 @@ export async function workspaceContext(req: FastifyRequest, permission?: string)
   );
   if (!rows.length) throw new ApiError(403,'workspace_access_denied','Você não tem acesso a esse workspace.');
   const billingStatus=String(rows[0].billing_status||'active');
+  const now=Date.now();
+  const trialEnd=rows[0].trial_ends_at?new Date(rows[0].trial_ends_at).getTime():0;
   const paidThrough=rows[0].current_period_ends_at?new Date(rows[0].current_period_ends_at).getTime():0;
-  const cancelledButPaidThrough=billingStatus==='cancelled'&&paidThrough>Date.now();
-  if(billingStatus==='trialing'&&rows[0].trial_ends_at&&new Date(rows[0].trial_ends_at).getTime()<=Date.now())throw new ApiError(402,'trial_expired','Seu período gratuito de 7 dias terminou. Assine o NexOffice Pro para continuar.');
-  if(['expired','past_due'].includes(billingStatus)||(billingStatus==='cancelled'&&!cancelledButPaidThrough))throw new ApiError(402,'subscription_required','Sua assinatura do NexOffice precisa ser regularizada para continuar.');
+  const metadata=billingMetadata(rows[0].billing_metadata);
+  const pastDueAt=metadata.pastDueAt?new Date(String(metadata.pastDueAt)).getTime():0;
+  const pastDueGrace=billingStatus==='past_due'&&pastDueAt>0&&pastDueAt+BILLING_GRACE_DAYS*DAY>now;
+  const cancelledButPaidThrough=billingStatus==='cancelled'&&paidThrough>now;
+  const trialLike=billingStatus==='trialing'||billingStatus==='pending_activation';
+  if(trialLike&&trialEnd>0&&trialEnd<=now)throw new ApiError(402,'trial_expired','Seu período gratuito de 7 dias terminou. Assine o NexOffice Pro para continuar.');
+  if(billingStatus==='expired'||(billingStatus==='past_due'&&!pastDueGrace)||(billingStatus==='cancelled'&&!cancelledButPaidThrough))throw new ApiError(402,'subscription_required','Sua assinatura do NexOffice precisa ser regularizada para continuar.');
   if(String(rows[0].workspace_status)==='suspended')throw new ApiError(402,'workspace_suspended','Este workspace está suspenso. Regularize a assinatura para continuar.');
   const ctx: WorkspaceContext = {
     user,
