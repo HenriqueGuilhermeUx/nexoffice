@@ -31,10 +31,10 @@ export async function buildWeeklyIntelligence(workspaceId:string){
       coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline_minor
       from crm_deals where workspace_id=$1`,[workspaceId,dateIso(start),dateIso(previousStart)]),
     query<any>(`select
-      (select count(*) from tasks where workspace_id=$1 and status='done' and coalesce(completed_at,updated_at)>=$2)::int tasks_done,
+      (select count(*) from tasks where workspace_id=$1 and status='done' and coalesce(completed_at,updated_at)>=$2::timestamptz)::int tasks_done,
       (select count(*) from tasks where workspace_id=$1 and status in ('todo','doing') and due_at<now())::int tasks_overdue,
-      (select count(*) from appointments where workspace_id=$1 and starts_at>=$2 and starts_at<=$4 and status='completed')::int appointments_done,
-      (select count(*) from appointments where workspace_id=$1 and starts_at>=$2 and starts_at<=$4 and status in ('cancelled','no_show'))::int appointment_losses`,[workspaceId,dateIso(start),dateIso(previousStart),dateIso(end)]),
+      (select count(*) from appointments where workspace_id=$1 and starts_at>=$2::timestamptz and starts_at<=$3::timestamptz and status='completed')::int appointments_done,
+      (select count(*) from appointments where workspace_id=$1 and starts_at>=$2::timestamptz and starts_at<=$3::timestamptz and status in ('cancelled','no_show'))::int appointment_losses`,[workspaceId,dateIso(start),dateIso(end)]),
     query<any>(`select overall_score,as_of from intelligence_snapshots where workspace_id=$1 and as_of>=now()-interval '14 days' order by as_of desc`,[workspaceId])
   ]);
   const l=ledger[0]||{},c=crm[0]||{},o=ops[0]||{};
