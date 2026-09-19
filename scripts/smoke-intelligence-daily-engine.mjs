@@ -1,0 +1,10 @@
+const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
+let token='';
+const call=async(path,{method='GET',body}={})=>{const r=await fetch(base+path,{method,headers:{'content-type':'application/json',authorization:`Bearer ${token}`},body:body===undefined?undefined:JSON.stringify(body)});const payload=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(payload)}`);return payload};
+const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
+const login=await fetch(base+'/v1/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'admin-smoke@nexoffice.test',password:'SmokePass123!'})});
+const auth=await login.json();if(!login.ok)throw new Error(`login -> ${login.status} ${JSON.stringify(auth)}`);token=auth.token;
+const before=await call('/v1/admin/intelligence/learning/daily');assert(before?.id==='global','daily engine state exists');
+const run=await call('/v1/admin/intelligence/learning/daily/run',{method:'POST',body:{force:true}});assert(run.claimed===true,'forced daily engine run is claimed');assert(Number(run.workspaces)>=1,'daily engine scans active workspaces');
+const after=await call('/v1/admin/intelligence/learning/daily');assert(after.status==='completed','daily engine state completes');assert(after.completed_at,'daily engine completion timestamp recorded');assert(Number(after.last_summary?.workspaces)>=1,'daily engine summary persisted');
+console.log(JSON.stringify({ok:true,status:after.status,workspaces:run.workspaces,financialSnapshots:run.financialSnapshots,businessSnapshots:run.businessSnapshots,evaluatedActions:run.evaluatedActions,suggestionsCreated:run.suggestionsCreated,errors:run.errors},null,2));
