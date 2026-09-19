@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {api,session} from './api';
+import {api,post,session} from './api';
 
 type Priority={source:string;severity:string;title:string;reason:string;action:string;dimension:string;signalId?:string|null};
 type Driver={type:string;key:string;label:string;delta:number;direction:'better'|'worse'|'neutral';text:string};
@@ -16,7 +16,7 @@ export default function BusinessRadarCenter(){
   useEffect(()=>{const timer=setInterval(()=>{const key=`${session.token()}|${session.workspace()}`;setSessionKey(prev=>prev===key?prev:key)},700);return()=>clearInterval(timer)},[]);
   useEffect(()=>{if(!authenticated){setOpen(false);setRadar(null);return}void load()},[sessionKey]);
   async function load(){setBusy(true);setError('');try{setRadar(await api<Radar>('/v1/intelligence/radar'))}catch(e:any){setError(e?.message||'Não foi possível montar seu radar.')}finally{setBusy(false)}}
-  async function createAction(index:number){setActionBusy(index);setActionMessage('');setError('');try{const r=await api<any>('/v1/intelligence/actions/task',{method:'POST',body:{priorityIndex:index}});setActionMessage(`Tarefa criada: ${r?.task?.title||'prioridade do Radar'}. O NexOffice vai acompanhar o resultado.`)}catch(e:any){setError(e?.message||'Não foi possível criar a tarefa.')}finally{setActionBusy(null)}}
+  async function createAction(index:number){setActionBusy(index);setActionMessage('');setError('');try{const r=await post<any>('/v1/intelligence/actions/task',{priorityIndex:index});setActionMessage(`Tarefa criada: ${r?.task?.title||'prioridade do Radar'}. O NexOffice vai acompanhar o resultado.`)}catch(e:any){setError(e?.message||'Não foi possível criar a tarefa.')}finally{setActionBusy(null)}}
   if(!authenticated)return null;
   const attention=(radar?.priorities||[]).filter(x=>x.severity==='critical'||x.severity==='attention').length;
   return <>
