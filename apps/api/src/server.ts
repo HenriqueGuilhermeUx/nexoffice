@@ -58,12 +58,11 @@ app.addHook('onResponse',async(req,reply)=>{
   if(req.method!=='GET'||!req.url.startsWith('/v1/dashboard')||reply.statusCode>=300)return;
   const workspaceId=String(req.headers['x-workspace-id']||'').trim();
   if(!workspaceId)return;
-  void ensureDailyFinancialIntelligence(workspaceId).then(result=>{
-    if(result.created)app.log.info({workspaceId,snapshotId:result.snapshotId},'Daily financial intelligence captured');
-  }).catch(error=>app.log.warn({workspaceId,error:error instanceof Error?error.message:String(error)},'Daily financial intelligence capture failed'));
-  void ensureDailyBusinessIntelligence(workspaceId).then(result=>{
-    if(result.created)app.log.info({workspaceId,snapshotId:result.snapshotId},'Daily business intelligence captured');
-  }).catch(error=>app.log.warn({workspaceId,error:error instanceof Error?error.message:String(error)},'Daily business intelligence capture failed'));
+  void ensureDailyFinancialIntelligence(workspaceId).then(async financialResult=>{
+    if(financialResult.created)app.log.info({workspaceId,snapshotId:financialResult.snapshotId},'Daily financial intelligence captured');
+    const businessResult=await ensureDailyBusinessIntelligence(workspaceId);
+    if(businessResult.created)app.log.info({workspaceId,snapshotId:businessResult.snapshotId},'Daily business intelligence captured');
+  }).catch(error=>app.log.warn({workspaceId,error:error instanceof Error?error.message:String(error)},'Daily intelligence capture failed'));
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
