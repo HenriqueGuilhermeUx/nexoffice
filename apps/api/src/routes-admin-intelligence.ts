@@ -1,5 +1,6 @@
 import type {FastifyInstance} from 'fastify';
 import {z} from 'zod';
+import {ApiError} from './auth.js';
 import {query} from './db.js';
 import {requirePlatformAdmin} from './platform-admin.js';
 import {buildBusinessIntelligence,businessIntelligenceHistory,getBusinessProfile,recordIntelligenceMetric,upsertBusinessProfile} from './business-intelligence.js';
@@ -44,7 +45,7 @@ export async function registerAdminIntelligenceRoutes(app:FastifyInstance){
 
   app.get('/v1/admin/intelligence/companies/:id',async req=>{
     await requirePlatformAdmin(req);const workspaceId=uuid.parse((req.params as any).id);
-    const company=(await query<any>(`select id,name,slug,vertical::text vertical,plan,status,created_at,updated_at from workspaces where id=$1`,[workspaceId]))[0];if(!company)return app.httpErrors?.notFound?.()||{error:'not_found'};
+    const company=(await query<any>(`select id,name,slug,vertical::text vertical,plan,status,created_at,updated_at from workspaces where id=$1`,[workspaceId]))[0];if(!company)throw new ApiError(404,'not_found','Empresa não encontrada.');
     const [profile,latest,history,signals,metrics,outcomes,members,usage]=await Promise.all([
       getBusinessProfile(workspaceId),
       query<any>(`select * from intelligence_snapshots where workspace_id=$1 order by as_of desc limit 1`,[workspaceId]),
@@ -65,5 +66,5 @@ export async function registerAdminIntelligenceRoutes(app:FastifyInstance){
 
   app.get('/v1/admin/intelligence/sectors',async req=>{await requirePlatformAdmin(req);return query<any>(`select coalesce(p.sector,w.vertical::text,'general') sector,coalesce(p.subsector,'') subsector,count(*)::int companies,round(avg(s.overall_score),1) average_score,round(avg(s.knowledge_pct),1) average_knowledge,count(*) filter(where s.status='critical')::int critical,count(*) filter(where s.status='attention')::int attention from workspaces w left join business_profiles p on p.workspace_id=w.id left join lateral(select overall_score,knowledge_pct,status from intelligence_snapshots x where x.workspace_id=w.id order by as_of desc limit 1) s on true where w.status<>'cancelled' group by 1,2 order by 1,2`)});
   app.get('/v1/admin/intelligence/rules',async req=>{await requirePlatformAdmin(req);return query<any>(`select * from intelligence_rules order by sector,dimension,code,version desc`)});
-  app.patch('/v1/admin/intelligence/rules/:id',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const input=ruleUpdate.parse(req.body||{});const before=(await query<any>(`select * from intelligence_rules where id=$1`,[id]))[0];if(!before)return{error:'not_found'};return (await query<any>(`update intelligence_rules set active=coalesce($2,active),warning_value=case when $3::boolean then $4 else warning_value end,critical_value=case when $5::boolean then $6 else critical_value end,weight=coalesce($7,weight),title=coalesce($8,title),message_template=coalesce($9,message_template),recommendation=case when $10::boolean then $11 else recommendation end,updated_at=now() where id=$1 returning *`,[id,input.active??null,Object.prototype.hasOwnProperty.call(input,'warningValue'),input.warningValue??null,Object.prototype.hasOwnProperty.call(input,'criticalValue'),input.criticalValue??null,input.weight??null,input.title??null,input.messageTemplate??null,Object.prototype.hasOwnProperty.call(input,'recommendation'),input.recommendation??null]))[0]});
+  app.patch('/v1/admin/intelligence/rules/:id',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const input=ruleUpdate.parse(req.body||{});const before=(await query<any>(`select * from intelligence_rules where id=$1`,[id]))[0];if(!before)throw new ApiError(404,'not_found','Regra não encontrada.');return (await query<any>(`update intelligence_rules set active=coalesce($2,active),warning_value=case when $3::boolean then $4 else warning_value end,critical_value=case when $5::boolean then $6 else critical_value end,weight=coalesce($7,weight),title=coalesce($8,title),message_template=coalesce($9,message_template),recommendation=case when $10::boolean then $11 else recommendation end,updated_at=now() where id=$1 returning *`,[id,input.active??null,Object.prototype.hasOwnProperty.call(input,'warningValue'),input.warningValue??null,Object.prototype.hasOwnProperty.call(input,'criticalValue'),input.criticalValue??null,input.weight??null,input.title??null,input.messageTemplate??null,Object.prototype.hasOwnProperty.call(input,'recommendation'),input.recommendation??null]))[0]});
 }
