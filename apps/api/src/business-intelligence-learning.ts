@@ -75,7 +75,7 @@ export async function evaluateIntelligenceAction(actionId:string,force=true){
 }
 
 async function createSuggestion(rule:any,type:'increase_weight'|'decrease_weight'|'review_recommendation',sample:number,confidence:number,evidence:Record<string,unknown>,suggested:Record<string,unknown>,rationale:string){
-  const existing=(await query<any>(`select id from intelligence_rule_suggestions where source_rule_id=$1 and suggestion_type=$2 and status='pending' limit 1`,[rule.id,type]))[0];if(existing)return existing;
+  const existing=(await query<any>(`select id from intelligence_rule_suggestions where source_rule_id=$1 and suggestion_type=$2 and status='pending' limit 1`,[rule.id,type]))[0];if(existing)return{...existing,existing:true};
   return (await query<any>(`insert into intelligence_rule_suggestions(source_rule_id,rule_code,rule_version,suggestion_type,sample_size,confidence,evidence,current_config,suggested_config,rationale)
     values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,[rule.id,rule.code,rule.version,type,sample,confidence,JSON.stringify(evidence),JSON.stringify({weight:Number(rule.weight),recommendation:rule.recommendation||null}),JSON.stringify(suggested),rationale]))[0];
 }
@@ -88,12 +88,12 @@ export async function generateLearningSuggestions(){
     where r.active=true group by r.id`);
   let created=0;
   for(const rule of accuracy){const reviewed=n(rule.reviewed);if(reviewed<8)continue;const rate=(n(rule.confirmed)+n(rule.partial)*.5)/reviewed;const confidence=Math.min(.95,.55+reviewed/100);
-    if(rate>=.75){const next=round(Number(rule.weight||1)*1.1,4);const r=await createSuggestion(rule,'increase_weight',reviewed,confidence,{confirmationRate:round(rate*100,1),confirmed:n(rule.confirmed),partial:n(rule.partial),notConfirmed:n(rule.not_confirmed)},{weight:next},`A regra confirmou ou confirmou parcialmente em ${round(rate*100,1)}% das revisões recentes. Vale testar um peso um pouco maior em uma nova versão.`);if(r?.id)created++}
-    else if(rate<.4){const next=Math.max(0,round(Number(rule.weight||1)*.85,4));const r=await createSuggestion(rule,'decrease_weight',reviewed,confidence,{confirmationRate:round(rate*100,1),confirmed:n(rule.confirmed),partial:n(rule.partial),notConfirmed:n(rule.not_confirmed)},{weight:next},`A regra confirmou ou confirmou parcialmente em apenas ${round(rate*100,1)}% das revisões recentes. Vale reduzir seu peso e continuar observando.`);if(r?.id)created++}
+    if(rate>=.75){const next=round(Number(rule.weight||1)*1.1,4);const r=await createSuggestion(rule,'increase_weight',reviewed,confidence,{confirmationRate:round(rate*100,1),confirmed:n(rule.confirmed),partial:n(rule.partial),notConfirmed:n(rule.not_confirmed)},{weight:next},`A regra confirmou ou confirmou parcialmente em ${round(rate*100,1)}% das revisões recentes. Vale testar um peso um pouco maior em uma nova versão.`);if(r?.id&&!r.existing)created++}
+    else if(rate<.4){const next=Math.max(0,round(Number(rule.weight||1)*.85,4));const r=await createSuggestion(rule,'decrease_weight',reviewed,confidence,{confirmationRate:round(rate*100,1),confirmed:n(rule.confirmed),partial:n(rule.partial),notConfirmed:n(rule.not_confirmed)},{weight:next},`A regra confirmou ou confirmou parcialmente em apenas ${round(rate*100,1)}% das revisões recentes. Vale reduzir seu peso e continuar observando.`);if(r?.id&&!r.existing)created++}
   }
   const actionStats=await query<any>(`select r.*,count(a.id) filter(where a.evaluation_status in ('improved','stable','worsened'))::int evaluated,count(a.id) filter(where a.evaluation_status='improved')::int improved,count(a.id) filter(where a.evaluation_status='worsened')::int worsened
     from intelligence_rules r left join intelligence_actions a on a.rule_id=r.id and a.evaluated_at>=now()-interval '180 days' where r.active=true group by r.id`);
-  for(const rule of actionStats){const evaluated=n(rule.evaluated);if(evaluated<6)continue;const rate=n(rule.improved)/evaluated;if(rate<.3){const confidence=Math.min(.9,.5+evaluated/100);const r=await createSuggestion(rule,'review_recommendation',evaluated,confidence,{improvementRate:round(rate*100,1),improved:n(rule.improved),worsened:n(rule.worsened)},{reviewRecommendation:true},`Menos de 30% das ações acompanhadas mostraram melhora no indicador. A regra pode até detectar bem o problema, mas a recomendação merece revisão.`);if(r?.id)created++}}
+  for(const rule of actionStats){const evaluated=n(rule.evaluated);if(evaluated<6)continue;const rate=n(rule.improved)/evaluated;if(rate<.3){const confidence=Math.min(.9,.5+evaluated/100);const r=await createSuggestion(rule,'review_recommendation',evaluated,confidence,{improvementRate:round(rate*100,1),improved:n(rule.improved),worsened:n(rule.worsened)},{reviewRecommendation:true},`Menos de 30% das ações acompanhadas mostraram melhora no indicador. A regra pode até detectar bem o problema, mas a recomendação merece revisão.`);if(r?.id&&!r.existing)created++}}
   return{created};
 }
 
@@ -110,12 +110,14 @@ export async function getLearningOverview(){
 }
 
 export async function applyLearningSuggestion(id:string,userId:string){
-  const suggestion=(await query<any>(`select s.*,r.* from intelligence_rule_suggestions s join intelligence_rules r on r.id=s.source_rule_id where s.id=$1 and s.status='pending'`,[id]))[0];if(!suggestion)return null;if(!suggestion.active){await query(`update intelligence_rule_suggestions set status='stale',updated_at=now() where id=$1`,[id]);return{stale:true}}
+  const suggestion=(await query<any>(`select s.id suggestion_id,s.suggestion_type,s.suggested_config,r.id rule_id,r.code rule_code,r.version rule_version,r.active rule_active,r.sector,r.subsector,r.dimension,r.metric_key,r.operator,r.warning_value,r.critical_value,r.weight,r.title,r.message_template,r.recommendation,r.config
+    from intelligence_rule_suggestions s join intelligence_rules r on r.id=s.source_rule_id where s.id=$1 and s.status='pending'`,[id]))[0];
+  if(!suggestion)return null;if(!suggestion.rule_active){await query(`update intelligence_rule_suggestions set status='stale',updated_at=now() where id=$1`,[id]);return{stale:true}}
   if(!['increase_weight','decrease_weight'].includes(suggestion.suggestion_type))return{requiresManualReview:true,suggestion};
   const suggested=obj(suggestion.suggested_config);const weight=Number(suggested.weight);if(!Number.isFinite(weight)||weight<0)return{invalid:true};
-  const rule=(await query<any>(`with deactivated as(update intelligence_rules set active=false,updated_at=now() where code=$2 and active=true returning id)
+  const rule=(await query<any>(`with deactivated as(update intelligence_rules set active=false,updated_at=now() where code=$1 and active=true returning id)
     insert into intelligence_rules(code,version,active,sector,subsector,dimension,metric_key,operator,warning_value,critical_value,weight,title,message_template,recommendation,config,created_by)
-    values($2,(select coalesce(max(version),0)+1 from intelligence_rules where code=$2),true,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'learning-approved') returning *`,[id,suggestion.rule_code,suggestion.sector,suggestion.subsector,suggestion.dimension,suggestion.metric_key,suggestion.operator,suggestion.warning_value,suggestion.critical_value,weight,suggestion.title,suggestion.message_template,suggestion.recommendation,suggestion.config]))[0];
+    values($1,(select coalesce(max(version),0)+1 from intelligence_rules where code=$1),true,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'learning-approved') returning *`,[suggestion.rule_code,suggestion.sector,suggestion.subsector,suggestion.dimension,suggestion.metric_key,suggestion.operator,suggestion.warning_value,suggestion.critical_value,weight,suggestion.title,suggestion.message_template,suggestion.recommendation,suggestion.config]))[0];
   await query(`update intelligence_rule_suggestions set status='applied',reviewed_at=now(),reviewed_by=$2,updated_at=now() where id=$1`,[id,userId]);return{rule};
 }
 
