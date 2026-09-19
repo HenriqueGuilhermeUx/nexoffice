@@ -5,6 +5,7 @@ import {runMigrations} from './migrations.js';
 import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
 import {ensureDailyFinancialIntelligence} from './financial-intelligence-daily.js';
 import {ensureDailyBusinessIntelligence} from './business-intelligence-daily.js';
+import {runDailyIntelligenceEngine} from './business-intelligence-daily-engine.js';
 import {reconcileWooviBillingSubscriptions} from './billing-reconciliation.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
@@ -66,7 +67,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.30.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.31.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -109,6 +110,14 @@ app.setErrorHandler((error,_req,reply)=>{
 });
 
 await app.listen({port,host:'0.0.0.0'});
+
+if(String(process.env.NEXOFFICE_INTELLIGENCE_DAILY_ENGINE||'true').toLowerCase()==='true'){
+  const runDailyLearning=()=>void runDailyIntelligenceEngine(false).then(result=>{
+    if(result.claimed)app.log.info({intelligence:'daily-engine',...result},'Daily intelligence learning sweep completed');
+  }).catch(error=>app.log.error({intelligence:'daily-engine',error:error instanceof Error?error.message:String(error)},'Daily intelligence learning sweep FAILED'));
+  const firstIntelligenceSweep=setTimeout(runDailyLearning,30_000);firstIntelligenceSweep.unref();
+  const intelligenceSweepInterval=setInterval(runDailyLearning,60*60_000);intelligenceSweepInterval.unref();
+}else app.log.warn({intelligence:'daily-engine'},'Daily intelligence learning engine disabled');
 
 if(String(process.env.NEXOFFICE_BILLING_ENABLED||'false').toLowerCase()==='true'){
   void ensureWooviBillingWebhooks().then(result=>{
