@@ -5,10 +5,10 @@ import './command-center-overview.css';
 type AreaAction={id:string;title:string;summary:string;priority:string;status:string;autonomy:string;approvalId?:string|null;actionType:string};
 type Area={id:string;label:string;attention:number;detail:string;metrics:Record<string,number>;actions?:AreaAction[]};
 type Overview={generatedAt:string;pendingApprovals:number;areas:Area[]};
-type Intelligence={generatedAt:string;snapshotAt?:string|null;finance:Area;marketing:{attention:number;detail:string;metrics:Record<string,number>;actions?:AreaAction[]}};
+type Intelligence={generatedAt:string;snapshotAt?:string|null;business:Area;finance:Area;marketing:{attention:number;detail:string;metrics:Record<string,number>;actions?:AreaAction[]}};
 
-const icons:Record<string,string>={approvals:'✓',messages:'↗',pix:'₿',finance:'R$',documents:'▱',fiscal:'§',growth:'↗',agenda:'◷',crm:'◎'};
-const safeAreas=new Set(['approvals','messages','pix','finance','documents','fiscal','growth','agenda','crm']);
+const icons:Record<string,string>={approvals:'✓',messages:'↗',pix:'₿',business:'◈',finance:'R$',documents:'▱',fiscal:'§',growth:'↗',agenda:'◷',crm:'◎'};
+const safeAreas=new Set(['approvals','messages','pix','business','finance','documents','fiscal','growth','agenda','crm']);
 
 function mergeIntelligence(base:Overview,intel:Intelligence|null):Overview{
   if(!intel)return base;
@@ -19,7 +19,7 @@ function mergeIntelligence(base:Overview,intel:Intelligence|null):Overview{
   });
   const growthIndex=areas.findIndex(area=>area.id==='growth');
   const insertAt=growthIndex>=0?growthIndex:Math.min(3,areas.length);
-  areas.splice(insertAt,0,intel.finance);
+  areas.splice(insertAt,0,intel.business,intel.finance);
   return {...base,areas};
 }
 
