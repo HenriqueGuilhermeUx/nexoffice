@@ -4,12 +4,15 @@ import {db} from './db.js';
 import {runMigrations} from './migrations.js';
 import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
 import {ensureDailyFinancialIntelligence} from './financial-intelligence-daily.js';
+import {ensureDailyBusinessIntelligence} from './business-intelligence-daily.js';
 import {reconcileWooviBillingSubscriptions} from './billing-reconciliation.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
 import {registerFinanceRoutes} from './routes-finance.js';
 import {registerFinancialIntelligenceRoutes} from './routes-financial-intelligence.js';
+import {registerBusinessIntelligenceRoutes} from './routes-business-intelligence.js';
+import {registerAdminIntelligenceRoutes} from './routes-admin-intelligence.js';
 import {registerCommandRoutes} from './routes-command.js';
 import {registerCommandIntelligenceRoutes} from './routes-command-intelligence.js';
 import {registerRuntimeRoutes} from './routes-runtime.js';
@@ -55,19 +58,23 @@ app.addHook('onResponse',async(req,reply)=>{
   if(req.method!=='GET'||!req.url.startsWith('/v1/dashboard')||reply.statusCode>=300)return;
   const workspaceId=String(req.headers['x-workspace-id']||'').trim();
   if(!workspaceId)return;
-  void ensureDailyFinancialIntelligence(workspaceId).then(result=>{
-    if(result.created)app.log.info({workspaceId,snapshotId:result.snapshotId},'Daily financial intelligence captured');
-  }).catch(error=>app.log.warn({workspaceId,error:error instanceof Error?error.message:String(error)},'Daily financial intelligence capture failed'));
+  void ensureDailyFinancialIntelligence(workspaceId).then(async financialResult=>{
+    if(financialResult.created)app.log.info({workspaceId,snapshotId:financialResult.snapshotId},'Daily financial intelligence captured');
+    const businessResult=await ensureDailyBusinessIntelligence(workspaceId);
+    if(businessResult.created)app.log.info({workspaceId,snapshotId:businessResult.snapshotId},'Daily business intelligence captured');
+  }).catch(error=>app.log.warn({workspaceId,error:error instanceof Error?error.message:String(error)},'Daily intelligence capture failed'));
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.29.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.30.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
 await registerOpsRoutes(app);
 await registerFinanceRoutes(app);
 await registerFinancialIntelligenceRoutes(app);
+await registerBusinessIntelligenceRoutes(app);
+await registerAdminIntelligenceRoutes(app);
 await registerCommandRoutes(app);
 await registerCommandIntelligenceRoutes(app);
 await registerRuntimeRoutes(app);
