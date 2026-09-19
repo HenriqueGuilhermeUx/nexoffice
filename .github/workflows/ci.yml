@@ -60,6 +60,7 @@ jobs:
       WEB_APP_URL: http://localhost:5173
       NEXOFFICE_EXTERNAL_ACTIONS: "false"
       NEXOFFICE_INTERNAL_KEY: "platform-smoke-key"
+      NEXOFFICE_ADMIN_EMAILS: "admin-smoke@nexoffice.test"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -86,6 +87,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/015_financial_intelligence.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/016_finance_daily_history.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/017_business_intelligence.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/018_intelligence_depth.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -108,6 +110,8 @@ jobs:
         run: node scripts/smoke-flexible-creator.mjs
       - name: Smoke test Financial Intelligence
         run: node scripts/smoke-financial-intelligence.mjs
+      - name: Smoke test Business Radar and Intelligence Lab
+        run: node scripts/smoke-business-intelligence-depth.mjs
       - name: Smoke test CSV and OFX statement import
         run: node scripts/smoke-statement-import.mjs
       - name: Smoke test AV platform provisioning
