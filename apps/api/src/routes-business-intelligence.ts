@@ -6,6 +6,7 @@ import {auditLog} from './events.js';
 import {buildBusinessIntelligence,businessIntelligenceHistory,getBusinessProfile,readBusinessIntelligence,recordIntelligenceMetric,upsertBusinessProfile} from './business-intelligence.js';
 import {buildBusinessRadar} from './business-intelligence-depth.js';
 import {buildWeeklyIntelligence,intelligenceAdvisor} from './business-intelligence-weekly.js';
+import {registerIntelligenceLearningRoutes} from './routes-intelligence-learning.js';
 
 const profileSchema=z.object({
   sector:z.string().trim().min(2).max(80).optional(),subsector:z.string().trim().max(120).nullable().optional(),revenueModel:z.string().trim().max(80).optional(),
@@ -34,4 +35,5 @@ export async function registerBusinessIntelligenceRoutes(app:FastifyInstance){
     await auditLog(ctx,'intelligence.priority.task_created','task',task.id,null,{taskId:task.id,actionId:action.id,signalId:priority.signalId||null},{externalEffect:false});return{task,action};
   });
   app.post('/v1/intelligence/metrics',async req=>{const ctx=await workspaceContext(req,'workspace.read');const input=metricSchema.parse(req.body||{});const metric=await recordIntelligenceMetric(ctx.workspaceId,input);await auditLog(ctx,'intelligence.metric.recorded','workspace',ctx.workspaceId,null,{metricKey:input.metricKey,source:input.source,quality:input.quality},{externalEffect:false});return metric});
+  await registerIntelligenceLearningRoutes(app);
 }
