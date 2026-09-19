@@ -1,6 +1,7 @@
 import type {FastifyInstance} from 'fastify';
 import {workspaceContext} from './auth.js';
 import {query} from './db.js';
+import {buildBusinessRadar} from './business-intelligence-depth.js';
 
 const n=(value:unknown)=>Number(value||0);
 const brl=(minor:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(minor/100);
@@ -15,10 +16,11 @@ function actionFromSignal(row:SignalRow,prefix:string){return{id:row.id,title:ro
 export async function registerCommandIntelligenceRoutes(app:FastifyInstance){
   app.get('/v1/command/intelligence',async req=>{
     const ctx=await workspaceContext(req,'command.read');
-    const [signals,recommendations,snapshots]=await Promise.all([
+    const [signals,recommendations,snapshots,business]=await Promise.all([
       query<SignalRow>(`select id,code,level,title,message,evidence,created_at from finance_signals where workspace_id=$1 and active=true order by case level when 'critical' then 1 when 'attention' then 2 else 3 end,created_at desc limit 30`,[ctx.workspaceId]),
       query<RecommendationRow>(`select r.id,r.code,r.priority,r.title,r.message,s.code signal_code,r.created_at from finance_recommendations r left join finance_signals s on s.id=r.signal_id where r.workspace_id=$1 and r.status='open' order by case r.priority when 'urgent' then 1 when 'high' then 2 when 'normal' then 3 else 4 end,r.created_at desc limit 20`,[ctx.workspaceId]),
-      query<any>(`select id,as_of,metrics,sources from finance_snapshots where workspace_id=$1 order by as_of desc limit 1`,[ctx.workspaceId])
+      query<any>(`select id,as_of,metrics,sources from finance_snapshots where workspace_id=$1 order by as_of desc limit 1`,[ctx.workspaceId]),
+      buildBusinessRadar(ctx.workspaceId).catch(()=>null)
     ]);
 
     const snapshot=snapshots[0]||null,metrics=snapshot?.metrics||{};
@@ -46,9 +48,21 @@ export async function registerCommandIntelligenceRoutes(app:FastifyInstance){
     else if(actual?.costMinor>0)marketingDetail=`Google Ads: ${brl(n(actual.costMinor))} investidos · ${n(actual.conversions)} conversão(ões)${actual.roas!==null&&actual.roas!==undefined?` · ROAS ${Number(actual.roas).toFixed(2)}x`:''}`;
     else if(marketing.configured)marketingDetail=`MODO conectado · ${n(marketing.readyCampaigns)} campanha(s) pronta(s) · métricas reais aguardando mídia conectada`;
 
+    const businessPriorities=business?.priorities||[];
+    const businessAttention=businessPriorities.filter((x:any)=>x.severity==='critical'||x.severity==='attention').length;
+    const businessDelta=business?.scoreDelta;
+    const businessDetail=business
+      ?`Índice ${business.score}/100${businessDelta===null||businessDelta===undefined?'':` · ${businessDelta>0?'+':''}${businessDelta} ponto(s)`}${businessAttention?` · ${businessAttention} prioridade(s)`:' · sem prioridade importante'}`
+      :'Saúde do Negócio ainda aprendendo com a operação.';
+
     return {
       generatedAt:new Date().toISOString(),
       snapshotAt:snapshot?.as_of||null,
+      business:{
+        id:'business',label:'Saúde do Negócio',attention:businessAttention,detail:businessDetail,
+        metrics:{score:Number(business?.score||0),scoreDelta:Number(businessDelta||0),knowledge:Number(business?.knowledge?.percent||0)},
+        actions:businessPriorities.slice(0,3).map((row:any,index:number)=>({id:String(row.signalId||`business-${index}`),title:row.title,summary:row.reason,priority:row.severity==='critical'?'urgent':row.severity==='attention'?'high':'normal',status:'open',autonomy:'insight',approvalId:null,actionType:'business.intelligence.priority'}))
+      },
       finance:{
         id:'finance',label:'Finanças',attention:financeCritical+financeAttention,detail:financeDetail,
         metrics:{criticalSignals:financeCritical,attentionSignals:financeAttention,projectedCash30Minor:projected30,overdueReceivableMinor:overdueReceivable,runwayMonths:runway===null?0:runway},

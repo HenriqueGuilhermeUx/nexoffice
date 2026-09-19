@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext} from './auth.js';
 import {auditLog} from './events.js';
 import {buildBusinessIntelligence,businessIntelligenceHistory,getBusinessProfile,readBusinessIntelligence,recordIntelligenceMetric,upsertBusinessProfile} from './business-intelligence.js';
+import {buildBusinessRadar} from './business-intelligence-depth.js';
 
 const profileSchema=z.object({
   sector:z.string().trim().min(2).max(80).optional(),subsector:z.string().trim().max(120).nullable().optional(),revenueModel:z.string().trim().max(80).optional(),
@@ -17,5 +18,6 @@ export async function registerBusinessIntelligenceRoutes(app:FastifyInstance){
   app.get('/v1/intelligence/health',async req=>{const ctx=await workspaceContext(req,'workspace.read');return (await readBusinessIntelligence(ctx.workspaceId))||buildBusinessIntelligence(ctx.workspaceId)});
   app.post('/v1/intelligence/health/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');const result=await buildBusinessIntelligence(ctx.workspaceId);await auditLog(ctx,'intelligence.health.refreshed','workspace',ctx.workspaceId,null,{snapshotId:result?.snapshot?.id,score:result?.scores?.overall,knowledge:result?.knowledge?.percent},{externalEffect:false});return result});
   app.get('/v1/intelligence/history',async req=>{const ctx=await workspaceContext(req,'workspace.read');const limit=Math.min(365,Math.max(1,Number((req.query as any)?.limit||60)));return businessIntelligenceHistory(ctx.workspaceId,limit)});
+  app.get('/v1/intelligence/radar',async req=>{const ctx=await workspaceContext(req,'workspace.read');return buildBusinessRadar(ctx.workspaceId)});
   app.post('/v1/intelligence/metrics',async req=>{const ctx=await workspaceContext(req,'workspace.read');const input=metricSchema.parse(req.body||{});const metric=await recordIntelligenceMetric(ctx.workspaceId,input);await auditLog(ctx,'intelligence.metric.recorded','workspace',ctx.workspaceId,null,{metricKey:input.metricKey,source:input.source,quality:input.quality},{externalEffect:false});return metric});
 }
