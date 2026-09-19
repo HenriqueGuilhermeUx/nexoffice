@@ -15,7 +15,10 @@ const metricCatalog:Record<string,{label:string;better:'up'|'down';unit?:string;
   task_overdue_rate_pct:{label:'Tarefas atrasadas',better:'down',unit:'%',minDelta:3},
   appointment_problem_rate_pct:{label:'Perdas na agenda',better:'down',unit:'%',minDelta:3},
   future_appointment_change_pct:{label:'Ritmo da agenda futura',better:'up',unit:'%',minDelta:5},
-  deal_win_rate_90:{label:'Conversão de oportunidades',better:'up',unit:'%',minDelta:3}
+  deal_win_rate_90:{label:'Conversão de oportunidades',better:'up',unit:'%',minDelta:3},
+  commerce_stockout_rate_pct:{label:'Falta de estoque',better:'down',unit:'%',minDelta:2},
+  commerce_conversion_rate_pct:{label:'Conversão da loja',better:'up',unit:'%',minDelta:.3},
+  commerce_returning_customer_pct:{label:'Clientes recorrentes da loja',better:'up',unit:'%',minDelta:3}
 };
 
 function monthlyAmount(row:any){
@@ -41,8 +44,7 @@ function topDrivers(current:any,previous:any){
     if(!Number.isFinite(a)||!Number.isFinite(b))continue;
     const delta=round(a-b,2);if(Math.abs(delta)<(meta.minDelta||1))continue;
     const improved=meta.better==='up'?delta>0:delta<0;
-    const direction=improved?'better':'worse';
-    drivers.push({type:'metric',key,label:meta.label,delta,direction,text:`${meta.label} ${delta>0?'aumentou':'caiu'} ${Math.abs(delta)}${meta.unit||''}.`});
+    drivers.push({type:'metric',key,label:meta.label,delta,direction:improved?'better':'worse',text:`${meta.label} ${delta>0?'aumentou':'caiu'} ${Math.abs(delta)}${meta.unit||''}.`});
   }
   return drivers.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,6);
 }
@@ -59,7 +61,7 @@ function priorityFromSignal(signal:any){
 }
 
 export async function buildBusinessRadar(workspaceId:string){
-  const [health,profile,snapshots,recurringRows,agendaRows,manualRows]=await Promise.all([
+  const [health,profile,snapshots,recurringRows,agendaRows,manualRows,commerceRows]=await Promise.all([
     readBusinessIntelligence(workspaceId),
     getBusinessProfile(workspaceId),
     query<any>(`select * from intelligence_snapshots where workspace_id=$1 order by as_of desc limit 2`,[workspaceId]),
@@ -72,12 +74,14 @@ export async function buildBusinessRadar(workspaceId:string){
       count(distinct contact_id) filter(where starts_at>=now()-interval '90 days' and starts_at<now() and contact_id is not null)::int customers_90,
       count(distinct contact_id) filter(where contact_id in(select contact_id from appointments a2 where a2.workspace_id=$1 and a2.contact_id is not null group by contact_id having count(*) filter(where a2.starts_at>=now()-interval '180 days' and a2.starts_at<now())>=2) and starts_at>=now()-interval '90 days' and starts_at<now())::int repeat_customers_90
       from appointments where workspace_id=$1`,[workspaceId]),
-    query<any>(`select distinct on(metric_key) metric_key,value_numeric,value_text,unit,quality,confidence,observed_at from intelligence_metrics where workspace_id=$1 and source<>'derived' order by metric_key,observed_at desc`,[workspaceId])
+    query<any>(`select distinct on(metric_key) metric_key,value_numeric,value_text,unit,quality,confidence,observed_at from intelligence_metrics where workspace_id=$1 and source<>'derived' order by metric_key,observed_at desc`,[workspaceId]),
+    query<any>(`select distinct on(signal_type) signal_type,source_product,period_start,period_end,metrics,dimensions,created_at from workspace_operational_signals where workspace_id=$1 and source_product in ('shopify','woocommerce','nuvemshop','mercadolivre','manual-commerce') order by signal_type,period_end desc,created_at desc`,[workspaceId])
   ]);
   if(!health)return{generatedAt:new Date().toISOString(),status:'learning',score:null,scoreDelta:null,drivers:[],priorities:[],sector:{kind:'general',metrics:[],insights:[]}};
 
   const current=snapshots[0]||health.snapshot,previous=snapshots[1]||null;
   const manual:Record<string,any>={};for(const row of manualRows)manual[row.metric_key]=row.value_numeric??row.value_text;
+  const commerce:Record<string,any>={};for(const row of commerceRows)commerce[row.signal_type]={...obj(row.metrics),source:row.source_product,periodEnd:row.period_end};
   let recurringIncomeMonthly=0,recurringExpenseMonthly=0,activeRecurringIncome=0,expiring60=0;
   for(const row of recurringRows){const monthly=monthlyAmount(row);if(row.direction==='income'){recurringIncomeMonthly+=monthly;activeRecurringIncome++}else recurringExpenseMonthly+=monthly;if(row.ends_at&&new Date(row.ends_at).getTime()<=Date.now()+60*86400000)expiring60++}
   recurringIncomeMonthly=Math.round(recurringIncomeMonthly);recurringExpenseMonthly=Math.round(recurringExpenseMonthly);
@@ -88,11 +92,26 @@ export async function buildBusinessRadar(workspaceId:string){
   const showRate=past90>=3?round((past90-problems90)/past90*100):null;
   const repeatRate=customers90>0?round(repeat90/customers90*100):null;
 
+  const inv=obj(commerce['inventory.summary']),orders=obj(commerce['orders.summary']),customers=obj(commerce['customers.summary']),conversion=obj(commerce['conversion.summary']),fulfillment=obj(commerce['fulfillment.summary']);
+  const activeSkus=n(inv.activeSkus),outSkus=n(inv.outOfStockSkus),lowSkus=n(inv.lowStockSkus),ordersCount=n(orders.orders),cancelledOrders=n(orders.cancelled),returningCustomers=n(customers.returningCustomers),newCustomers=n(customers.newCustomers);
+  const commerceStockoutRate=activeSkus>0?round(outSkus/activeSkus*100):null;
+  const commerceLowStockRate=activeSkus>0?round(lowSkus/activeSkus*100):null;
+  const commerceCancelRate=ordersCount>0?round(cancelledOrders/ordersCount*100):null;
+  const commerceReturningRate=returningCustomers+newCustomers>0?round(returningCustomers/(returningCustomers+newCustomers)*100):null;
+  const commerceConversionRate=conversion.conversionRateBps===undefined?null:round(n(conversion.conversionRateBps)/100,2);
+  const fulfillmentTotal=n(fulfillment.shipped)+n(fulfillment.delivered)+n(fulfillment.delayed),commerceDelayRate=fulfillmentTotal>0?round(n(fulfillment.delayed)/fulfillmentTotal*100):null;
+
   if(recurringShare!==null)await saveDailyDerivedMetric(workspaceId,'recurring_revenue_share_pct',recurringShare,'%',{monthlyMinor:recurringIncomeMonthly});
   if(showRate!==null)await saveDailyDerivedMetric(workspaceId,'appointment_show_rate_pct',showRate,'%',{});
   if(repeatRate!==null)await saveDailyDerivedMetric(workspaceId,'appointment_repeat_customer_pct',repeatRate,'%',{});
   await saveDailyDerivedMetric(workspaceId,'active_recurring_income_rules',activeRecurringIncome,'regras',{});
   await saveDailyDerivedMetric(workspaceId,'monthly_recurring_income_minor',recurringIncomeMonthly,'centavos',{});
+  if(commerceStockoutRate!==null)await saveDailyDerivedMetric(workspaceId,'commerce_stockout_rate_pct',commerceStockoutRate,'%',{source:inv.source||null});
+  if(commerceLowStockRate!==null)await saveDailyDerivedMetric(workspaceId,'commerce_low_stock_rate_pct',commerceLowStockRate,'%',{source:inv.source||null});
+  if(commerceCancelRate!==null)await saveDailyDerivedMetric(workspaceId,'commerce_cancel_rate_pct',commerceCancelRate,'%',{source:orders.source||null});
+  if(commerceReturningRate!==null)await saveDailyDerivedMetric(workspaceId,'commerce_returning_customer_pct',commerceReturningRate,'%',{source:customers.source||null});
+  if(commerceConversionRate!==null)await saveDailyDerivedMetric(workspaceId,'commerce_conversion_rate_pct',commerceConversionRate,'%',{source:conversion.source||null});
+  if(commerceDelayRate!==null)await saveDailyDerivedMetric(workspaceId,'commerce_fulfillment_delay_pct',commerceDelayRate,'%',{source:fulfillment.source||null});
 
   const sectorName=String(profile?.sector||'general');
   const sectorMetrics:Array<{key:string;label:string;value:string;quality:'automatic'|'informed'}>=[];
@@ -106,13 +125,20 @@ export async function buildBusinessRadar(workspaceId:string){
     if(showRate!==null&&showRate<85)sectorInsights.push({level:'attention',title:'Comparecimento pode melhorar',message:`O comparecimento está em ${showRate}%. Confirmação e remarcação podem proteger receita.`});
   }
   if(['commerce','restaurant'].includes(sectorName)||profile?.uses_inventory){
-    const inventoryTurnover=manual.inventory_turnover===undefined?null:Number(manual.inventory_turnover),waste=manual.waste_rate_pct===undefined?null:Number(manual.waste_rate_pct),margin=manual.gross_margin_pct===undefined?null:Number(manual.gross_margin_pct),stockout=manual.stockout_rate_pct===undefined?null:Number(manual.stockout_rate_pct);
+    const inventoryTurnover=manual.inventory_turnover===undefined?null:Number(manual.inventory_turnover),waste=manual.waste_rate_pct===undefined?null:Number(manual.waste_rate_pct),margin=manual.gross_margin_pct===undefined?null:Number(manual.gross_margin_pct),manualStockout=manual.stockout_rate_pct===undefined?null:Number(manual.stockout_rate_pct);
     sectorMetrics.push({key:'inventory_turnover',label:'Giro de estoque',value:inventoryTurnover===null?'Não informado':`${round(inventoryTurnover,2)}x`,quality:'informed'});
     sectorMetrics.push({key:'gross_margin',label:'Margem bruta',value:margin===null?'Não informada':`${round(margin)}%`,quality:'informed'});
-    sectorMetrics.push({key:'stockout',label:'Falta de estoque',value:stockout===null?'Não informada':`${round(stockout)}%`,quality:'informed'});
+    const stockoutValue=commerceStockoutRate??manualStockout;sectorMetrics.push({key:'stockout',label:'Falta de estoque',value:stockoutValue===null?'Não informada':`${round(stockoutValue)}%`,quality:commerceStockoutRate!==null?'automatic':'informed'});
+    if(commerceConversionRate!==null)sectorMetrics.push({key:'commerce_conversion',label:'Conversão da loja',value:`${commerceConversionRate}%`,quality:'automatic'});
+    if(commerceReturningRate!==null)sectorMetrics.push({key:'returning_customers',label:'Clientes que voltaram',value:`${commerceReturningRate}%`,quality:'automatic'});
+    if(orders.netRevenueMinor!==undefined)sectorMetrics.push({key:'commerce_net_revenue',label:'Receita líquida do canal',value:brl(n(orders.netRevenueMinor)),quality:'automatic'});
     if(inventoryTurnover!==null&&inventoryTurnover<1)sectorInsights.push({level:'attention',title:'Capital parado em estoque',message:'O giro informado está baixo. Vale rever itens parados antes de aumentar compras.'});
     if(waste!==null&&waste>8)sectorInsights.push({level:'attention',title:'Desperdício pressionando margem',message:`O desperdício informado está em ${round(waste)}%.`});
     if(margin!==null&&margin<20)sectorInsights.push({level:'attention',title:'Margem apertada',message:`A margem bruta informada está em ${round(margin)}%.`});
+    if(commerceStockoutRate!==null&&commerceStockoutRate>10)sectorInsights.push({level:'attention',title:'Falta de estoque pode estar tirando vendas',message:`${commerceStockoutRate}% dos itens ativos estão sem estoque no último sinal recebido.`});
+    if(commerceCancelRate!==null&&commerceCancelRate>8)sectorInsights.push({level:'attention',title:'Cancelamentos acima do desejável',message:`${commerceCancelRate}% dos pedidos do último período foram cancelados.`});
+    if(commerceDelayRate!==null&&commerceDelayRate>10)sectorInsights.push({level:'attention',title:'Atrasos no atendimento dos pedidos',message:`${commerceDelayRate}% do fluxo recente de entrega está marcado como atrasado.`});
+    if(commerceConversionRate!==null&&commerceConversionRate>=2)sectorInsights.push({level:'good',title:'Conversão da loja sendo acompanhada',message:`O canal conectado reporta conversão de ${commerceConversionRate}%. O NexOffice passará a comparar essa curva com o próprio histórico.`});
   }
   if(profile?.recurring_revenue||profile?.uses_contracts||['professional_services','education'].includes(sectorName)){
     sectorMetrics.push({key:'recurring_income',label:'Receita recorrente mensal cadastrada',value:brl(recurringIncomeMonthly),quality:'automatic'});
@@ -138,6 +164,7 @@ export async function buildBusinessRadar(workspaceId:string){
     drivers,priorities,knowledge:health.knowledge,
     recurring:{monthlyIncomeMinor:recurringIncomeMonthly,monthlyExpenseMinor:recurringExpenseMonthly,incomeSharePct:recurringShare,activeIncomeRules:activeRecurringIncome,expiring60Days:expiring60},
     sector:{kind:sectorName,metrics:sectorMetrics,insights:sectorInsights},
+    commerce:{connected:commerceRows.length>0,signals:commerceRows.length,stockoutRatePct:commerceStockoutRate,lowStockRatePct:commerceLowStockRate,cancelRatePct:commerceCancelRate,returningCustomerPct:commerceReturningRate,conversionRatePct:commerceConversionRate,fulfillmentDelayPct:commerceDelayRate},
     snapshotAt:health.snapshot.as_of
   };
 }
