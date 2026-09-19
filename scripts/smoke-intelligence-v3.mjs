@@ -1,0 +1,22 @@
+const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
+let token='',workspace='';
+const call=async(path,{method='GET',body,auth=true}={})=>{const headers={'content-type':'application/json'};if(auth&&token)headers.authorization=`Bearer ${token}`;if(auth&&workspace)headers['x-workspace-id']=workspace;const r=await fetch(base+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined});const payload=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(payload)}`);return payload};
+const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
+const iso=days=>new Date(Date.now()+days*86400000).toISOString();
+
+const reg=await call('/v1/auth/register',{method:'POST',auth:false,body:{name:'Intelligence V3 Smoke',email:'intel-v3@nexoffice.test',password:'SmokePass123!',businessName:'Servicos V3',vertical:'general'}});token=reg.token;workspace=reg.workspace.id;
+await call('/v1/intelligence/profile',{method:'PUT',body:{sector:'services',subsector:'consultoria',revenueModel:'recurring',sellsServices:true,recurringRevenue:true,usesAgenda:true,usesContracts:true,employeeCount:3,activeCustomersEstimate:12,primarySalesChannel:'indicacao'}});
+const account=await call('/v1/finance/accounts',{method:'POST',body:{name:'Conta V3',kind:'bank',openingBalanceMinor:400000,currency:'BRL'}});
+const customer=await call('/v1/crm/contacts',{method:'POST',body:{kind:'company',name:'Cliente V3',tags:['intelligence-v3'],customFields:{}}});
+await call('/v1/ledger',{method:'POST',body:{contactId:customer.id,accountId:account.id,direction:'income',category:'servico',description:'Receita recebida',amountMinor:900000,currency:'BRL',status:'paid',paidAt:iso(-2)}});
+await call('/v1/ledger',{method:'POST',body:{contactId:customer.id,accountId:account.id,direction:'income',category:'servico',description:'Recebivel vencido V3',amountMinor:500000,currency:'BRL',status:'overdue',dueAt:iso(-5)}});
+await call('/v1/recurring-rules',{method:'POST',body:{contactId:customer.id,accountId:account.id,direction:'income',category:'contrato',description:'Contrato mensal V3',amountMinor:350000,currency:'BRL',frequency:'monthly',intervalCount:1,nextRunAt:iso(10),endsAt:iso(90),metadata:{contract:true}}});
+for(const d of [-20,-12,-4])await call('/v1/appointments',{method:'POST',body:{contactId:customer.id,title:'Atendimento V3',startsAt:iso(d),status:'completed'}});
+await call('/v1/intelligence/health/refresh',{method:'POST',body:{}});
+const radar=await call('/v1/intelligence/radar');assert(Array.isArray(radar.priorities)&&radar.priorities.length>0,'radar has actionable priority');
+const weekly=await call('/v1/intelligence/weekly');assert(weekly.brief?.summary,'weekly brief generated');assert(Array.isArray(weekly.wins)&&Array.isArray(weekly.attention),'weekly brief has wins and attention');
+const todayAdvice=await call('/v1/intelligence/advisor',{method:'POST',body:{mode:'today',agentRole:'controller'}});assert(String(todayAdvice.text||'').includes('indice')||String(todayAdvice.text||'').includes('índice'),'advisor uses business radar');
+const weekAdvice=await call('/v1/intelligence/advisor',{method:'POST',body:{mode:'week',agentRole:'controller'}});assert(String(weekAdvice.text||'').length>20,'advisor weekly answer generated');
+const action=await call('/v1/intelligence/actions/task',{method:'POST',body:{priorityIndex:0}});assert(action.task?.id&&action.action?.id,'priority becomes tracked internal task');assert(action.task.metadata?.origin==='nexoffice_intelligence','task keeps intelligence origin');
+const tasks=await call('/v1/tasks');assert(tasks.some(x=>x.id===action.task.id),'created priority task appears in agenda');
+console.log(JSON.stringify({ok:true,weeklySummary:weekly.brief.summary,taskId:action.task.id,priorityCount:radar.priorities.length},null,2));
