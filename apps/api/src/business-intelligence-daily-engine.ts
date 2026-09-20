@@ -6,15 +6,17 @@ import {rebuildAnonymousBenchmarks} from './business-benchmark.js';
 import {buildTemporalRisk} from './business-temporal-risk.js';
 import {evaluateTemporalActions} from './business-sector-intelligence-v3.js';
 import {runSectorIntelligenceV4} from './business-sector-intelligence-v4.js';
+import {collectNativeBusinessMetrics} from './business-data-collector.js';
 
 export type DailyIntelligenceEngineSummary={
-  claimed:boolean;workspaces:number;financialSnapshots:number;businessSnapshots:number;temporalRiskSnapshots:number;temporalSignals:number;sectorObservations:number;sectorSignals:number;
+  claimed:boolean;workspaces:number;dataMetricsWritten:number;dataCoverageStrong:number;dataCoverageUsable:number;dataCoverageForming:number;
+  financialSnapshots:number;businessSnapshots:number;temporalRiskSnapshots:number;temporalSignals:number;sectorObservations:number;sectorSignals:number;
   evaluatedActions:number;improved:number;stable:number;worsened:number;insufficient:number;temporalActionsEvaluated:number;
   suggestionsCreated:number;benchmarkCohorts:number;benchmarkMetricRows:number;benchmarkEligibleWorkspaces:number;
   errors:number;errorSamples:Array<{workspaceId:string;error:string}>;
 };
 
-const emptySummary=(claimed:boolean):DailyIntelligenceEngineSummary=>({claimed,workspaces:0,financialSnapshots:0,businessSnapshots:0,temporalRiskSnapshots:0,temporalSignals:0,sectorObservations:0,sectorSignals:0,evaluatedActions:0,improved:0,stable:0,worsened:0,insufficient:0,temporalActionsEvaluated:0,suggestionsCreated:0,benchmarkCohorts:0,benchmarkMetricRows:0,benchmarkEligibleWorkspaces:0,errors:0,errorSamples:[]});
+const emptySummary=(claimed:boolean):DailyIntelligenceEngineSummary=>({claimed,workspaces:0,dataMetricsWritten:0,dataCoverageStrong:0,dataCoverageUsable:0,dataCoverageForming:0,financialSnapshots:0,businessSnapshots:0,temporalRiskSnapshots:0,temporalSignals:0,sectorObservations:0,sectorSignals:0,evaluatedActions:0,improved:0,stable:0,worsened:0,insufficient:0,temporalActionsEvaluated:0,suggestionsCreated:0,benchmarkCohorts:0,benchmarkMetricRows:0,benchmarkEligibleWorkspaces:0,errors:0,errorSamples:[]});
 
 async function claim(force:boolean){
   if(force)return (await query<any>(`update intelligence_learning_daily_state set run_date=current_date,status='running',started_at=now(),completed_at=null,last_error=null,updated_at=now() where id='global' returning *`))[0]||null;
@@ -32,12 +34,17 @@ export async function runDailyIntelligenceEngine(force=false):Promise<DailyIntel
   const summary=emptySummary(true);
   try{
     const workspaces=await query<any>(`select id from workspaces where status<>'cancelled' order by created_at asc`);
+    const collectionSchema=Boolean((await query<any>(`select to_regclass('public.intelligence_data_coverage_snapshots') is not null ready`))[0]?.ready);
     const temporalSchema=Boolean((await query<any>(`select to_regclass('public.intelligence_risk_snapshots') is not null ready`))[0]?.ready);
     const sectorSchema=Boolean((await query<any>(`select to_regclass('public.intelligence_temporal_observations') is not null ready`))[0]?.ready);
     summary.workspaces=workspaces.length;
     for(const workspace of workspaces){
       const workspaceId=String(workspace.id);
       try{
+        if(collectionSchema){
+          const collection=await collectNativeBusinessMetrics(workspaceId,false);summary.dataMetricsWritten+=Number(collection.written||0);
+          if(collection.coverage?.status==='strong')summary.dataCoverageStrong++;else if(collection.coverage?.status==='usable')summary.dataCoverageUsable++;else summary.dataCoverageForming++;
+        }
         const financial=await ensureDailyFinancialIntelligence(workspaceId);if(financial.created)summary.financialSnapshots++;
         const business=await ensureDailyBusinessIntelligence(workspaceId);if(business.created)summary.businessSnapshots++;
         if(temporalSchema){const temporal=await buildTemporalRisk(workspaceId);summary.temporalRiskSnapshots++;summary.temporalSignals+=Number(temporal.signals?.length||0)}
