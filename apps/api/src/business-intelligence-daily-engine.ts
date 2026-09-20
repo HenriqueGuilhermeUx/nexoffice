@@ -20,8 +20,7 @@ async function claim(force:boolean){
     where id='global' and (
       run_date is null or run_date<current_date or status='failed' or
       (status='running' and started_at<now()-interval '2 hours') or
-      not exists(select 1 from intelligence_benchmark_runs b where b.run_date=current_date and b.status='completed') or
-      exists(select 1 from workspaces w where w.status<>'cancelled' and not exists(select 1 from intelligence_risk_snapshots r where r.workspace_id=w.id and r.run_date=current_date and r.model_version='temporal-risk-v2'))
+      not exists(select 1 from intelligence_benchmark_runs b where b.run_date=current_date and b.status='completed')
     ) returning *`))[0]||null;
 }
 
@@ -31,13 +30,14 @@ export async function runDailyIntelligenceEngine(force=false):Promise<DailyIntel
   const summary=emptySummary(true);
   try{
     const workspaces=await query<any>(`select id from workspaces where status<>'cancelled' order by created_at asc`);
+    const temporalSchema=Boolean((await query<any>(`select to_regclass('public.intelligence_risk_snapshots') is not null ready`))[0]?.ready);
     summary.workspaces=workspaces.length;
     for(const workspace of workspaces){
       const workspaceId=String(workspace.id);
       try{
         const financial=await ensureDailyFinancialIntelligence(workspaceId);if(financial.created)summary.financialSnapshots++;
         const business=await ensureDailyBusinessIntelligence(workspaceId);if(business.created)summary.businessSnapshots++;
-        const temporal=await buildTemporalRisk(workspaceId);summary.temporalRiskSnapshots++;summary.temporalSignals+=Number(temporal.signals?.length||0);
+        if(temporalSchema){const temporal=await buildTemporalRisk(workspaceId);summary.temporalRiskSnapshots++;summary.temporalSignals+=Number(temporal.signals?.length||0)}
         const learning=await syncAndEvaluateIntelligenceActions(workspaceId,false);
         summary.evaluatedActions+=Number(learning.evaluated||0);summary.improved+=Number(learning.improved||0);summary.stable+=Number(learning.stable||0);summary.worsened+=Number(learning.worsened||0);summary.insufficient+=Number(learning.insufficient||0);
       }catch(error){summary.errors++;if(summary.errorSamples.length<20)summary.errorSamples.push({workspaceId,error:error instanceof Error?error.message:String(error)})}
