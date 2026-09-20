@@ -4,7 +4,8 @@ import {ensureDailyBusinessIntelligence} from './business-intelligence-daily.js'
 import {generateLearningSuggestions,syncAndEvaluateIntelligenceActions} from './business-intelligence-learning.js';
 import {rebuildAnonymousBenchmarks} from './business-benchmark.js';
 import {buildTemporalRisk} from './business-temporal-risk.js';
-import {evaluateTemporalActions,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
+import {evaluateTemporalActions} from './business-sector-intelligence-v3.js';
+import {runSectorIntelligenceV4} from './business-sector-intelligence-v4.js';
 
 export type DailyIntelligenceEngineSummary={
   claimed:boolean;workspaces:number;financialSnapshots:number;businessSnapshots:number;temporalRiskSnapshots:number;temporalSignals:number;sectorObservations:number;sectorSignals:number;
@@ -40,7 +41,7 @@ export async function runDailyIntelligenceEngine(force=false):Promise<DailyIntel
         const financial=await ensureDailyFinancialIntelligence(workspaceId);if(financial.created)summary.financialSnapshots++;
         const business=await ensureDailyBusinessIntelligence(workspaceId);if(business.created)summary.businessSnapshots++;
         if(temporalSchema){const temporal=await buildTemporalRisk(workspaceId);summary.temporalRiskSnapshots++;summary.temporalSignals+=Number(temporal.signals?.length||0)}
-        if(sectorSchema){const sector=await runSectorIntelligenceV3(workspaceId);summary.sectorObservations+=Number(sector.observations||0);summary.sectorSignals+=Number(sector.signals||0);const actions=await evaluateTemporalActions(workspaceId);summary.temporalActionsEvaluated+=Number(actions.evaluated||0);summary.improved+=Number(actions.improved||0);summary.stable+=Number(actions.stable||0);summary.worsened+=Number(actions.worsened||0)}
+        if(sectorSchema){const sector=await runSectorIntelligenceV4(workspaceId);summary.sectorObservations+=Number(sector.observations||0);summary.sectorSignals+=Number(sector.signals||0);const actions=await evaluateTemporalActions(workspaceId);summary.temporalActionsEvaluated+=Number(actions.evaluated||0);summary.improved+=Number(actions.improved||0);summary.stable+=Number(actions.stable||0);summary.worsened+=Number(actions.worsened||0)}
         const learning=await syncAndEvaluateIntelligenceActions(workspaceId,false);
         summary.evaluatedActions+=Number(learning.evaluated||0);summary.improved+=Number(learning.improved||0);summary.stable+=Number(learning.stable||0);summary.worsened+=Number(learning.worsened||0);summary.insufficient+=Number(learning.insufficient||0);
       }catch(error){summary.errors++;if(summary.errorSamples.length<20)summary.errorSamples.push({workspaceId,error:error instanceof Error?error.message:String(error)})}
