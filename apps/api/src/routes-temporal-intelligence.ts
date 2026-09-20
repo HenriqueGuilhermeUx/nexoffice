@@ -4,7 +4,7 @@ import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {requirePlatformAdmin} from './platform-admin.js';
 import {buildTemporalRisk,listSectorOntologies,readBusinessTrajectory,readInternalRiskDetail} from './business-temporal-risk.js';
-import {createTemporalAction,getSectorCheckin,readSectorValidationOverview,recordSectorCheckin,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
+import {createTemporalAction,evaluateTemporalActions,getSectorCheckin,readSectorValidationOverview,recordSectorCheckin,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
 
 const uuid=z.string().uuid();
 const ontologyUpdate=z.object({
@@ -42,6 +42,7 @@ export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
     return{summary:summary[0]||{},companies,signals,sectors};
   });
   app.get('/v1/admin/intelligence/trajectory/validation',async req=>{await requirePlatformAdmin(req);return readSectorValidationOverview()});
+  app.post('/v1/admin/intelligence/trajectory/actions/evaluate',async req=>{await requirePlatformAdmin(req);return evaluateTemporalActions()});
   app.get('/v1/admin/intelligence/companies/:id/trajectory',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const exists=(await query<any>(`select 1 from workspaces where id=$1`,[id]))[0];if(!exists)throw new ApiError(404,'not_found','Empresa não encontrada.');return readInternalRiskDetail(id)});
   app.post('/v1/admin/intelligence/companies/:id/trajectory/refresh',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);await buildTemporalRisk(id);await runSectorIntelligenceV3(id);return readInternalRiskDetail(id)});
   app.get('/v1/admin/intelligence/ontologies',async req=>{await requirePlatformAdmin(req);return listSectorOntologies()});
