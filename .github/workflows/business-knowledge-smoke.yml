@@ -1,0 +1,63 @@
+name: Business Knowledge Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/business-knowledge.ts'
+      - 'apps/api/src/routes-business-intelligence.ts'
+      - 'apps/api/src/routes-crm.ts'
+      - 'apps/api/src/routes-finance.ts'
+      - 'apps/api/src/routes-ops.ts'
+      - 'apps/web/src/BusinessKnowledgeCenter.tsx'
+      - 'apps/web/src/business-knowledge.css'
+      - 'scripts/smoke-business-knowledge.mjs'
+      - '.github/workflows/business-knowledge-smoke.yml'
+
+jobs:
+  knowledge:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      WEB_APP_URL: http://localhost:5173
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+      - name: Start isolated API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-knowledge-api.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-knowledge-api.log
+          exit 1
+      - name: Validate intelligent onboarding and natural data capture
+        run: node scripts/smoke-business-knowledge.mjs
+      - name: API logs on failure
+        if: failure()
+        run: cat /tmp/nexoffice-knowledge-api.log || true
