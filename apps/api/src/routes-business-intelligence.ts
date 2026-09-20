@@ -6,6 +6,7 @@ import {auditLog} from './events.js';
 import {buildBusinessIntelligence,businessIntelligenceHistory,getBusinessProfile,readBusinessIntelligence,recordIntelligenceMetric,upsertBusinessProfile} from './business-intelligence.js';
 import {buildBusinessRadar} from './business-intelligence-depth.js';
 import {buildWeeklyIntelligence,intelligenceAdvisor} from './business-intelligence-weekly.js';
+import {getAnonymousBusinessBenchmark} from './business-benchmark.js';
 import {registerIntelligenceLearningRoutes} from './routes-intelligence-learning.js';
 
 const profileSchema=z.object({
@@ -23,6 +24,7 @@ export async function registerBusinessIntelligenceRoutes(app:FastifyInstance){
   app.post('/v1/intelligence/health/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');const result=await buildBusinessIntelligence(ctx.workspaceId);await auditLog(ctx,'intelligence.health.refreshed','workspace',ctx.workspaceId,null,{snapshotId:result?.snapshot?.id,score:result?.scores?.overall,knowledge:result?.knowledge?.percent},{externalEffect:false});return result});
   app.get('/v1/intelligence/history',async req=>{const ctx=await workspaceContext(req,'workspace.read');const limit=Math.min(365,Math.max(1,Number((req.query as any)?.limit||60)));return businessIntelligenceHistory(ctx.workspaceId,limit)});
   app.get('/v1/intelligence/radar',async req=>{const ctx=await workspaceContext(req,'workspace.read');return buildBusinessRadar(ctx.workspaceId)});
+  app.get('/v1/intelligence/benchmark',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getAnonymousBusinessBenchmark(ctx.workspaceId)});
   app.get('/v1/intelligence/weekly',async req=>{const ctx=await workspaceContext(req,'workspace.read');return buildWeeklyIntelligence(ctx.workspaceId)});
   app.post('/v1/intelligence/advisor',async req=>{const ctx=await workspaceContext(req,'command.read');const input=advisorSchema.parse(req.body||{});return intelligenceAdvisor(ctx.workspaceId,input.mode,input.agentRole||null)});
   app.post('/v1/intelligence/actions/task',async req=>{
