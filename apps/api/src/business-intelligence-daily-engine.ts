@@ -2,12 +2,16 @@ import {query} from './db.js';
 import {ensureDailyFinancialIntelligence} from './financial-intelligence-daily.js';
 import {ensureDailyBusinessIntelligence} from './business-intelligence-daily.js';
 import {generateLearningSuggestions,syncAndEvaluateIntelligenceActions} from './business-intelligence-learning.js';
+import {rebuildAnonymousBenchmarks} from './business-benchmark.js';
 
 export type DailyIntelligenceEngineSummary={
   claimed:boolean;workspaces:number;financialSnapshots:number;businessSnapshots:number;
   evaluatedActions:number;improved:number;stable:number;worsened:number;insufficient:number;
-  suggestionsCreated:number;errors:number;errorSamples:Array<{workspaceId:string;error:string}>;
+  suggestionsCreated:number;benchmarkCohorts:number;benchmarkMetricRows:number;benchmarkEligibleWorkspaces:number;
+  errors:number;errorSamples:Array<{workspaceId:string;error:string}>;
 };
+
+const emptySummary=(claimed:boolean):DailyIntelligenceEngineSummary=>({claimed,workspaces:0,financialSnapshots:0,businessSnapshots:0,evaluatedActions:0,improved:0,stable:0,worsened:0,insufficient:0,suggestionsCreated:0,benchmarkCohorts:0,benchmarkMetricRows:0,benchmarkEligibleWorkspaces:0,errors:0,errorSamples:[]});
 
 async function claim(force:boolean){
   if(force)return (await query<any>(`update intelligence_learning_daily_state set run_date=current_date,status='running',started_at=now(),completed_at=null,last_error=null,updated_at=now() where id='global' returning *`))[0]||null;
@@ -17,8 +21,8 @@ async function claim(force:boolean){
 
 export async function runDailyIntelligenceEngine(force=false):Promise<DailyIntelligenceEngineSummary>{
   const claimed=await claim(force);
-  if(!claimed)return{claimed:false,workspaces:0,financialSnapshots:0,businessSnapshots:0,evaluatedActions:0,improved:0,stable:0,worsened:0,insufficient:0,suggestionsCreated:0,errors:0,errorSamples:[]};
-  const summary:DailyIntelligenceEngineSummary={claimed:true,workspaces:0,financialSnapshots:0,businessSnapshots:0,evaluatedActions:0,improved:0,stable:0,worsened:0,insufficient:0,suggestionsCreated:0,errors:0,errorSamples:[]};
+  if(!claimed)return emptySummary(false);
+  const summary=emptySummary(true);
   try{
     const workspaces=await query<any>(`select id from workspaces where status<>'cancelled' order by created_at asc`);
     summary.workspaces=workspaces.length;
@@ -29,11 +33,10 @@ export async function runDailyIntelligenceEngine(force=false):Promise<DailyIntel
         const business=await ensureDailyBusinessIntelligence(workspaceId);if(business.created)summary.businessSnapshots++;
         const learning=await syncAndEvaluateIntelligenceActions(workspaceId,false);
         summary.evaluatedActions+=Number(learning.evaluated||0);summary.improved+=Number(learning.improved||0);summary.stable+=Number(learning.stable||0);summary.worsened+=Number(learning.worsened||0);summary.insufficient+=Number(learning.insufficient||0);
-      }catch(error){
-        summary.errors++;if(summary.errorSamples.length<20)summary.errorSamples.push({workspaceId,error:error instanceof Error?error.message:String(error)});
-      }
+      }catch(error){summary.errors++;if(summary.errorSamples.length<20)summary.errorSamples.push({workspaceId,error:error instanceof Error?error.message:String(error)})}
     }
     const suggestions=await generateLearningSuggestions();summary.suggestionsCreated=Number(suggestions.created||0);
+    try{const benchmark=await rebuildAnonymousBenchmarks();summary.benchmarkCohorts=Number(benchmark.cohortsCreated||0);summary.benchmarkMetricRows=Number(benchmark.metricRowsCreated||0);summary.benchmarkEligibleWorkspaces=Number(benchmark.eligibleWorkspaces||0)}catch(error){summary.errors++;if(summary.errorSamples.length<20)summary.errorSamples.push({workspaceId:'benchmark',error:error instanceof Error?error.message:String(error)})}
     await query(`update intelligence_learning_daily_state set status='completed',completed_at=now(),last_summary=$2::jsonb,last_error=null,updated_at=now() where id=$1`,['global',JSON.stringify(summary)]);
     return summary;
   }catch(error){
