@@ -28,7 +28,9 @@ const Orders=Base.extend({
     averageOrderValueMinor:MoneyMinor.default(0),
     cancelled:Count.default(0),
     refundedOrders:Count.default(0),
-    refundedMinor:MoneyMinor.default(0)
+    refundedMinor:MoneyMinor.default(0),
+    costOfGoodsMinor:MoneyMinor.optional(),
+    grossMarginBps:BasisPoints.optional()
   }).strict()
 });
 
@@ -48,7 +50,10 @@ const Inventory=Base.extend({
   metrics:z.object({
     activeSkus:Count.default(0),
     lowStockSkus:Count.default(0),
-    outOfStockSkus:Count.default(0)
+    outOfStockSkus:Count.default(0),
+    slowMovingSkus:Count.optional(),
+    deadStockSkus:Count.optional(),
+    inventoryValueMinor:MoneyMinor.optional()
   }).strict()
 });
 

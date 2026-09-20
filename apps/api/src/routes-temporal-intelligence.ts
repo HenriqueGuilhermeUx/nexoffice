@@ -4,18 +4,32 @@ import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {requirePlatformAdmin} from './platform-admin.js';
 import {buildTemporalRisk,listSectorOntologies,readBusinessTrajectory,readInternalRiskDetail} from './business-temporal-risk.js';
+import {createTemporalAction,evaluateTemporalActions,getSectorCheckin,readSectorValidationOverview,recordSectorCheckin,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
 
 const uuid=z.string().uuid();
 const ontologyUpdate=z.object({
   active:z.boolean().optional(),maturity:z.enum(['initial','observed','validated']).optional(),operationalAsset:z.string().trim().min(3).max(500).optional(),failureMode:z.string().trim().min(3).max(800).optional(),
   anticipationMinDays:z.number().int().min(0).max(3650).nullable().optional(),anticipationMaxDays:z.number().int().min(0).max(3650).nullable().optional(),leadingSignals:z.array(z.record(z.string(),z.unknown())).optional(),mitigatingActions:z.array(z.string().trim().min(2).max(500)).optional(),description:z.string().trim().max(1500).nullable().optional()
 });
+const sectorCheckin=z.object({values:z.record(z.string().regex(/^[a-z0-9_]{2,80}$/),z.number().finite()).refine(v=>Object.keys(v).length<=20,'Envie no máximo 20 indicadores por atualização.')});
+
+async function attachTrackedActions(workspaceId:string,result:any){
+  const rows=await query<any>(`select s.id,s.code,a.id action_id,a.status action_status,t.status task_status,a.evaluation_status,a.effect_summary from intelligence_temporal_signals s left join intelligence_actions a on a.temporal_signal_id=s.id left join tasks t on t.id=a.task_id where s.workspace_id=$1 and s.active=true`,[workspaceId]);
+  const byCode=new Map(rows.map((x:any)=>[x.code,x]));
+  return{...result,movements:(result?.movements||[]).map((m:any)=>{const row:any=byCode.get(m.code);return{...m,signalId:row?.id||null,trackedAction:row?.action_id?{id:row.action_id,status:row.action_status,taskStatus:row.task_status,evaluationStatus:row.evaluation_status,effectSummary:row.effect_summary}:null}})};
+}
+async function customerTrajectory(workspaceId:string,refresh=false){
+  let current=await readBusinessTrajectory(workspaceId);if(refresh||!current.available)await buildTemporalRisk(workspaceId);
+  await runSectorIntelligenceV3(workspaceId);current=await readBusinessTrajectory(workspaceId);
+  const [trajectory,checkin]=await Promise.all([attachTrackedActions(workspaceId,current),getSectorCheckin(workspaceId)]);return{...trajectory,checkin};
+}
 
 export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
-  app.get('/v1/intelligence/trajectory',async req=>{
-    const ctx=await workspaceContext(req,'workspace.read');let result=await readBusinessTrajectory(ctx.workspaceId);if(!result.available){await buildTemporalRisk(ctx.workspaceId);result=await readBusinessTrajectory(ctx.workspaceId)}return result;
-  });
-  app.post('/v1/intelligence/trajectory/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');await buildTemporalRisk(ctx.workspaceId);return readBusinessTrajectory(ctx.workspaceId)});
+  app.get('/v1/intelligence/trajectory',async req=>{const ctx=await workspaceContext(req,'workspace.read');return customerTrajectory(ctx.workspaceId,false)});
+  app.post('/v1/intelligence/trajectory/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');return customerTrajectory(ctx.workspaceId,true)});
+  app.post('/v1/intelligence/trajectory/actions/:signalId',async req=>{const ctx=await workspaceContext(req,'agenda.write');const signalId=uuid.parse((req.params as any).signalId);try{return await createTemporalAction(ctx.workspaceId,ctx.user.id,signalId)}catch(error){throw new ApiError(404,'temporal_signal_not_found',error instanceof Error?error.message:String(error))}});
+  app.get('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getSectorCheckin(ctx.workspaceId)});
+  app.post('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'crm.write');const input=sectorCheckin.parse(req.body||{});await recordSectorCheckin(ctx.workspaceId,input.values);return customerTrajectory(ctx.workspaceId,false)});
 
   app.get('/v1/admin/intelligence/trajectory',async req=>{
     await requirePlatformAdmin(req);
@@ -27,8 +41,10 @@ export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
     ]);
     return{summary:summary[0]||{},companies,signals,sectors};
   });
+  app.get('/v1/admin/intelligence/trajectory/validation',async req=>{await requirePlatformAdmin(req);return readSectorValidationOverview()});
+  app.post('/v1/admin/intelligence/trajectory/actions/evaluate',async req=>{await requirePlatformAdmin(req);return evaluateTemporalActions()});
   app.get('/v1/admin/intelligence/companies/:id/trajectory',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const exists=(await query<any>(`select 1 from workspaces where id=$1`,[id]))[0];if(!exists)throw new ApiError(404,'not_found','Empresa não encontrada.');return readInternalRiskDetail(id)});
-  app.post('/v1/admin/intelligence/companies/:id/trajectory/refresh',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);await buildTemporalRisk(id);return readInternalRiskDetail(id)});
+  app.post('/v1/admin/intelligence/companies/:id/trajectory/refresh',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);await buildTemporalRisk(id);await runSectorIntelligenceV3(id);return readInternalRiskDetail(id)});
   app.get('/v1/admin/intelligence/ontologies',async req=>{await requirePlatformAdmin(req);return listSectorOntologies()});
   app.patch('/v1/admin/intelligence/ontologies/:id',async req=>{
     const user=await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const input=ontologyUpdate.parse(req.body||{});const current=(await query<any>(`select * from sector_ontologies where id=$1`,[id]))[0];if(!current)throw new ApiError(404,'not_found','Ontologia não encontrada.');
