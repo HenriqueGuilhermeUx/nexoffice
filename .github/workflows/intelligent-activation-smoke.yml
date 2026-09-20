@@ -1,0 +1,25 @@
+name: Intelligent Activation Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/business-knowledge.ts'
+      - 'apps/web/src/BusinessKnowledgeCenter.tsx'
+      - 'docs/INTELLIGENT_ACTIVATION.md'
+      - '.github/workflows/intelligent-activation-smoke.yml'
+
+jobs:
+  intelligent-activation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Build web and API
+        run: npm run build
+      - name: Guard activation contract
+        run: |
+          node -e "const fs=require('fs');const api=fs.readFileSync('apps/api/src/business-knowledge.ts','utf8');const web=fs.readFileSync('apps/web/src/BusinessKnowledgeCenter.tsx','utf8');if(!api.includes('buildActivation')||!api.includes('actions:items.sort')||!web.includes('ATIVAÇÃO INTELIGENTE')||!web.includes('startActivation'))process.exit(1);"
