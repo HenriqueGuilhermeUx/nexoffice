@@ -7,6 +7,7 @@ import {buildBusinessIntelligence,businessIntelligenceHistory,getBusinessProfile
 import {buildBusinessRadar} from './business-intelligence-depth.js';
 import {buildWeeklyIntelligence,intelligenceAdvisor} from './business-intelligence-weekly.js';
 import {getAnonymousBusinessBenchmark} from './business-benchmark.js';
+import {getBusinessKnowledge} from './business-knowledge.js';
 import {registerIntelligenceLearningRoutes} from './routes-intelligence-learning.js';
 
 const profileSchema=z.object({
@@ -22,6 +23,7 @@ export async function registerBusinessIntelligenceRoutes(app:FastifyInstance){
   app.put('/v1/intelligence/profile',async req=>{const ctx=await workspaceContext(req,'workspace.read');const input=profileSchema.parse(req.body||{});const before=await getBusinessProfile(ctx.workspaceId);const updated=await upsertBusinessProfile(ctx.workspaceId,input);await auditLog(ctx,'intelligence.profile.updated','workspace',ctx.workspaceId,before,updated,{externalEffect:false});return updated});
   app.get('/v1/intelligence/health',async req=>{const ctx=await workspaceContext(req,'workspace.read');return (await readBusinessIntelligence(ctx.workspaceId))||buildBusinessIntelligence(ctx.workspaceId)});
   app.post('/v1/intelligence/health/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');const result=await buildBusinessIntelligence(ctx.workspaceId);await auditLog(ctx,'intelligence.health.refreshed','workspace',ctx.workspaceId,null,{snapshotId:result?.snapshot?.id,score:result?.scores?.overall,knowledge:result?.knowledge?.percent},{externalEffect:false});return result});
+  app.get('/v1/intelligence/knowledge',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getBusinessKnowledge(ctx.workspaceId)});
   app.get('/v1/intelligence/history',async req=>{const ctx=await workspaceContext(req,'workspace.read');const limit=Math.min(365,Math.max(1,Number((req.query as any)?.limit||60)));return businessIntelligenceHistory(ctx.workspaceId,limit)});
   app.get('/v1/intelligence/radar',async req=>{const ctx=await workspaceContext(req,'workspace.read');return buildBusinessRadar(ctx.workspaceId)});
   app.get('/v1/intelligence/benchmark',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getAnonymousBusinessBenchmark(ctx.workspaceId)});
