@@ -9,11 +9,12 @@ export default function ActivationJourneyTracker(){
   useEffect(()=>{const timer=setInterval(()=>{const next=`${session.token()}|${session.workspace()}`;setSessionKey(prev=>prev===next?prev:next)},700);return()=>clearInterval(timer)},[]);
   useEffect(()=>{
     if(!session.token()||!session.workspace())return;
-    let disposed=false,lastSignature='';const cleanups:Array<()=>void>=[];
+    let disposed=false,lastSignature='';let cleanups:Array<()=>void>=[];
+    const clearListeners=()=>{cleanups.splice(0).forEach(fn=>fn())};
     const inspect=async()=>{
-      const panel=document.querySelector('.knowledgeActivation .activationList');if(!panel)return;
-      const buttons=[...panel.querySelectorAll<HTMLButtonElement>('article button')];if(!buttons.length)return;
-      const signature=buttons.map(x=>x.textContent||'').join('|');if(signature===lastSignature)return;lastSignature=signature;
+      const panel=document.querySelector('.knowledgeActivation .activationList');if(!panel){lastSignature='';clearListeners();return}
+      const buttons=[...panel.querySelectorAll<HTMLButtonElement>('article button')];if(!buttons.length){lastSignature='';clearListeners();return}
+      const signature=buttons.map(x=>x.textContent||'').join('|');if(signature===lastSignature)return;lastSignature=signature;clearListeners();
       try{
         const knowledge=await api<Knowledge>('/v1/intelligence/knowledge');if(disposed)return;const actions=knowledge.activation?.actions||[];const day=new Date().toISOString().slice(0,10);const storageKey=`nexoffice.activation.seen.${session.workspace()}.${day}`;let seen:string[]=[];try{seen=JSON.parse(sessionStorage.getItem(storageKey)||'[]')}catch{}const seenSet=new Set(seen);
         actions.forEach((item,index)=>{
@@ -24,7 +25,7 @@ export default function ActivationJourneyTracker(){
       }catch{}
     };
     const observer=new MutationObserver(()=>void inspect());observer.observe(document.body,{subtree:true,childList:true});void inspect();
-    return()=>{disposed=true;observer.disconnect();cleanups.splice(0).forEach(fn=>fn())};
+    return()=>{disposed=true;observer.disconnect();clearListeners()};
   },[sessionKey]);
   return null;
 }
