@@ -106,3 +106,6 @@ values
  '["Tratar atrasos e renegociações cedo","Acompanhar engajamento e rematrícula"]'::jsonb,
  'Fica mais profundo quando frequência, rematrícula e evasão estiverem estruturadas.')
 on conflict(sector,archetype,version) do nothing;
+
+-- Se o motor diário já rodou hoje antes desta migração, libera uma única nova rodada.
+update intelligence_learning_daily_state set run_date=null,status='idle',started_at=null,completed_at=null,updated_at=now() where id='global';
