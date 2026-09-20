@@ -5,6 +5,8 @@ on:
     paths:
       - 'apps/api/src/business-knowledge.ts'
       - 'apps/web/src/BusinessKnowledgeCenter.tsx'
+      - 'apps/web/src/intelligent-activation.css'
+      - 'apps/web/src/main.tsx'
       - 'docs/INTELLIGENT_ACTIVATION.md'
       - '.github/workflows/intelligent-activation-smoke.yml'
 
@@ -22,4 +24,4 @@ jobs:
         run: npm run build
       - name: Guard activation contract
         run: |
-          node -e "const fs=require('fs');const api=fs.readFileSync('apps/api/src/business-knowledge.ts','utf8');const web=fs.readFileSync('apps/web/src/BusinessKnowledgeCenter.tsx','utf8');if(!api.includes('buildActivation')||!api.includes('actions:items.sort')||!web.includes('ATIVAÇÃO INTELIGENTE')||!web.includes('startActivation'))process.exit(1);"
+          node -e "const fs=require('fs');const api=fs.readFileSync('apps/api/src/business-knowledge.ts','utf8');const web=fs.readFileSync('apps/web/src/BusinessKnowledgeCenter.tsx','utf8');const main=fs.readFileSync('apps/web/src/main.tsx','utf8');if(!api.includes('buildActivation')||!api.includes('actions:items.sort')||!web.includes('ATIVAÇÃO INTELIGENTE')||!web.includes('startActivation')||!main.includes('intelligent-activation.css'))process.exit(1);"

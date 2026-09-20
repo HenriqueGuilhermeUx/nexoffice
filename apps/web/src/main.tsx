@@ -34,6 +34,7 @@ import './business-health.css';
 import './business-radar.css';
 import './business-benchmark.css';
 import './business-knowledge.css';
+import './intelligent-activation.css';
 import './business-trajectory.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
