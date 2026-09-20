@@ -16,7 +16,11 @@ const emptySummary=(claimed:boolean):DailyIntelligenceEngineSummary=>({claimed,w
 async function claim(force:boolean){
   if(force)return (await query<any>(`update intelligence_learning_daily_state set run_date=current_date,status='running',started_at=now(),completed_at=null,last_error=null,updated_at=now() where id='global' returning *`))[0]||null;
   return (await query<any>(`update intelligence_learning_daily_state set run_date=current_date,status='running',started_at=now(),completed_at=null,last_error=null,updated_at=now()
-    where id='global' and (run_date is null or run_date<current_date or status='failed' or (status='running' and started_at<now()-interval '2 hours')) returning *`))[0]||null;
+    where id='global' and (
+      run_date is null or run_date<current_date or status='failed' or
+      (status='running' and started_at<now()-interval '2 hours') or
+      not exists(select 1 from intelligence_benchmark_runs b where b.run_date=current_date and b.status='completed')
+    ) returning *`))[0]||null;
 }
 
 export async function runDailyIntelligenceEngine(force=false):Promise<DailyIntelligenceEngineSummary>{
