@@ -4,7 +4,7 @@ import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {requirePlatformAdmin} from './platform-admin.js';
 import {buildTemporalRisk,listSectorOntologies,readBusinessTrajectory,readInternalRiskDetail} from './business-temporal-risk.js';
-import {createTemporalAction,enrichTrajectoryWithActions,getSectorCheckin,readSectorValidationOverview,recordSectorCheckin,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
+import {createTemporalAction,getSectorCheckin,readSectorValidationOverview,recordSectorCheckin,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
 
 const uuid=z.string().uuid();
 const ontologyUpdate=z.object({
@@ -13,10 +13,15 @@ const ontologyUpdate=z.object({
 });
 const sectorCheckin=z.object({values:z.record(z.string().regex(/^[a-z0-9_]{2,80}$/),z.number().finite()).refine(v=>Object.keys(v).length<=20,'Envie no máximo 20 indicadores por atualização.')});
 
+async function attachTrackedActions(workspaceId:string,result:any){
+  const rows=await query<any>(`select s.id,s.code,a.id action_id,a.status action_status,t.status task_status,a.evaluation_status,a.effect_summary from intelligence_temporal_signals s left join intelligence_actions a on a.temporal_signal_id=s.id left join tasks t on t.id=a.task_id where s.workspace_id=$1 and s.active=true`,[workspaceId]);
+  const byCode=new Map(rows.map((x:any)=>[x.code,x]));
+  return{...result,movements:(result?.movements||[]).map((m:any)=>{const row:any=byCode.get(m.code);return{...m,signalId:row?.id||null,trackedAction:row?.action_id?{id:row.action_id,status:row.action_status,taskStatus:row.task_status,evaluationStatus:row.evaluation_status,effectSummary:row.effect_summary}:null}})};
+}
 async function customerTrajectory(workspaceId:string,refresh=false){
   let current=await readBusinessTrajectory(workspaceId);if(refresh||!current.available)await buildTemporalRisk(workspaceId);
   await runSectorIntelligenceV3(workspaceId);current=await readBusinessTrajectory(workspaceId);
-  const [trajectory,checkin]=await Promise.all([enrichTrajectoryWithActions(workspaceId,current),getSectorCheckin(workspaceId)]);return{...trajectory,checkin};
+  const [trajectory,checkin]=await Promise.all([attachTrackedActions(workspaceId,current),getSectorCheckin(workspaceId)]);return{...trajectory,checkin};
 }
 
 export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
@@ -24,7 +29,7 @@ export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
   app.post('/v1/intelligence/trajectory/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');return customerTrajectory(ctx.workspaceId,true)});
   app.post('/v1/intelligence/trajectory/actions/:signalId',async req=>{const ctx=await workspaceContext(req,'agenda.write');const signalId=uuid.parse((req.params as any).signalId);try{return await createTemporalAction(ctx.workspaceId,ctx.user.id,signalId)}catch(error){throw new ApiError(404,'temporal_signal_not_found',error instanceof Error?error.message:String(error))}});
   app.get('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getSectorCheckin(ctx.workspaceId)});
-  app.post('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'workspace.read');const input=sectorCheckin.parse(req.body||{});await recordSectorCheckin(ctx.workspaceId,input.values);return customerTrajectory(ctx.workspaceId,false)});
+  app.post('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'crm.write');const input=sectorCheckin.parse(req.body||{});await recordSectorCheckin(ctx.workspaceId,input.values);return customerTrajectory(ctx.workspaceId,false)});
 
   app.get('/v1/admin/intelligence/trajectory',async req=>{
     await requirePlatformAdmin(req);
