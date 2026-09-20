@@ -30,6 +30,7 @@ import './statement-import.css';
 import './financial-intelligence.css';
 import './business-health.css';
 import './business-radar.css';
+import './business-benchmark.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><BusinessHealthCenter/><BusinessRadarCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>

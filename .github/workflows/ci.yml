@@ -92,6 +92,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/019_weekly_intelligence_actions.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/020_intelligence_learning_loop.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/021_intelligence_daily_engine.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/022_anonymous_benchmarks.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -122,6 +123,8 @@ jobs:
         run: node scripts/smoke-intelligence-learning.mjs
       - name: Smoke test daily intelligence engine
         run: node scripts/smoke-intelligence-daily-engine.mjs
+      - name: Smoke test anonymous sector benchmarks
+        run: node scripts/smoke-anonymous-benchmark.mjs
       - name: Smoke test CSV and OFX statement import
         run: node scripts/smoke-statement-import.mjs
       - name: Smoke test AV platform provisioning
