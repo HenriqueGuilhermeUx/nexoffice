@@ -4,7 +4,9 @@ import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {requirePlatformAdmin} from './platform-admin.js';
 import {buildTemporalRisk,listSectorOntologies,readBusinessTrajectory,readInternalRiskDetail} from './business-temporal-risk.js';
-import {createTemporalAction,evaluateTemporalActions,getSectorCheckin,readSectorValidationOverview,recordSectorCheckin,runSectorIntelligenceV3} from './business-sector-intelligence-v3.js';
+import {createTemporalAction,evaluateTemporalActions,readSectorValidationOverview} from './business-sector-intelligence-v3.js';
+import {getSectorCheckinV4,recordSectorCheckinV4,runSectorIntelligenceV4} from './business-sector-intelligence-v4.js';
+import {readCompanyLongitudinal} from './business-longitudinal.js';
 
 const uuid=z.string().uuid();
 const ontologyUpdate=z.object({
@@ -20,16 +22,16 @@ async function attachTrackedActions(workspaceId:string,result:any){
 }
 async function customerTrajectory(workspaceId:string,refresh=false){
   let current=await readBusinessTrajectory(workspaceId);if(refresh||!current.available)await buildTemporalRisk(workspaceId);
-  await runSectorIntelligenceV3(workspaceId);current=await readBusinessTrajectory(workspaceId);
-  const [trajectory,checkin]=await Promise.all([attachTrackedActions(workspaceId,current),getSectorCheckin(workspaceId)]);return{...trajectory,checkin};
+  await runSectorIntelligenceV4(workspaceId);current=await readBusinessTrajectory(workspaceId);
+  const [trajectory,checkin]=await Promise.all([attachTrackedActions(workspaceId,current),getSectorCheckinV4(workspaceId)]);return{...trajectory,checkin};
 }
 
 export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
   app.get('/v1/intelligence/trajectory',async req=>{const ctx=await workspaceContext(req,'workspace.read');return customerTrajectory(ctx.workspaceId,false)});
   app.post('/v1/intelligence/trajectory/refresh',async req=>{const ctx=await workspaceContext(req,'workspace.read');return customerTrajectory(ctx.workspaceId,true)});
   app.post('/v1/intelligence/trajectory/actions/:signalId',async req=>{const ctx=await workspaceContext(req,'agenda.write');const signalId=uuid.parse((req.params as any).signalId);try{return await createTemporalAction(ctx.workspaceId,ctx.user.id,signalId)}catch(error){throw new ApiError(404,'temporal_signal_not_found',error instanceof Error?error.message:String(error))}});
-  app.get('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getSectorCheckin(ctx.workspaceId)});
-  app.post('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'crm.write');const input=sectorCheckin.parse(req.body||{});await recordSectorCheckin(ctx.workspaceId,input.values);return customerTrajectory(ctx.workspaceId,false)});
+  app.get('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getSectorCheckinV4(ctx.workspaceId)});
+  app.post('/v1/intelligence/sector-checkin',async req=>{const ctx=await workspaceContext(req,'crm.write');const input=sectorCheckin.parse(req.body||{});await recordSectorCheckinV4(ctx.workspaceId,input.values);return customerTrajectory(ctx.workspaceId,false)});
 
   app.get('/v1/admin/intelligence/trajectory',async req=>{
     await requirePlatformAdmin(req);
@@ -44,7 +46,8 @@ export async function registerTemporalIntelligenceRoutes(app:FastifyInstance){
   app.get('/v1/admin/intelligence/trajectory/validation',async req=>{await requirePlatformAdmin(req);return readSectorValidationOverview()});
   app.post('/v1/admin/intelligence/trajectory/actions/evaluate',async req=>{await requirePlatformAdmin(req);return evaluateTemporalActions()});
   app.get('/v1/admin/intelligence/companies/:id/trajectory',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const exists=(await query<any>(`select 1 from workspaces where id=$1`,[id]))[0];if(!exists)throw new ApiError(404,'not_found','Empresa não encontrada.');return readInternalRiskDetail(id)});
-  app.post('/v1/admin/intelligence/companies/:id/trajectory/refresh',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);await buildTemporalRisk(id);await runSectorIntelligenceV3(id);return readInternalRiskDetail(id)});
+  app.post('/v1/admin/intelligence/companies/:id/trajectory/refresh',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);await buildTemporalRisk(id);await runSectorIntelligenceV4(id);return readInternalRiskDetail(id)});
+  app.get('/v1/admin/intelligence/companies/:id/longitudinal',async req=>{await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const dossier=await readCompanyLongitudinal(id);if(!dossier)throw new ApiError(404,'not_found','Empresa não encontrada.');return dossier});
   app.get('/v1/admin/intelligence/ontologies',async req=>{await requirePlatformAdmin(req);return listSectorOntologies()});
   app.patch('/v1/admin/intelligence/ontologies/:id',async req=>{
     const user=await requirePlatformAdmin(req);const id=uuid.parse((req.params as any).id);const input=ontologyUpdate.parse(req.body||{});const current=(await query<any>(`select * from sector_ontologies where id=$1`,[id]))[0];if(!current)throw new ApiError(404,'not_found','Ontologia não encontrada.');
