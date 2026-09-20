@@ -1,0 +1,64 @@
+name: Sector Intelligence V4 Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/business-sector-intelligence-v4.ts'
+      - 'apps/api/src/business-longitudinal.ts'
+      - 'apps/api/src/business-intelligence-daily-engine.ts'
+      - 'apps/api/src/routes-temporal-intelligence.ts'
+      - 'apps/web/public/adm/empresa.*'
+      - 'apps/web/public/adm/index.html'
+      - 'infra/postgres/025_sector_intelligence_v4_longitudinal.sql'
+      - 'scripts/smoke-sector-intelligence-v4.mjs'
+      - '.github/workflows/sector-intelligence-v4-smoke.yml'
+
+jobs:
+  sector-intelligence-v4:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      WEB_APP_URL: http://localhost:5173
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+      NEXOFFICE_ADMIN_EMAILS: sector-v4-admin@nexoffice.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+      - name: Start isolated API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-sector-v4.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-sector-v4.log
+          exit 1
+      - name: Validate sector v4 and longitudinal dossier
+        run: node scripts/smoke-sector-intelligence-v4.mjs
+      - name: API logs on failure
+        if: failure()
+        run: cat /tmp/nexoffice-sector-v4.log || true
