@@ -7,7 +7,7 @@ const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
 const call=async(path,{method='GET',body}={})=>{const headers={'content-type':'application/json'};if(token)headers.authorization=`Bearer ${token}`;if(workspace)headers['x-workspace-id']=workspace;const r=await fetch(base+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});const p=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(p)}`);return p};
 try{
   const stamp=Date.now();const email=`founder-${stamp}@nexoffice.test`;
-  const reg=await call('/v1/auth/register',{method:'POST',body:{name:'Founder Smoke',email,password:'SmokePass123!',businessName:'Founder Services',vertical:'services'}});token=reg.token;workspace=reg.workspace.id;assert(token&&workspace,'workspace registered');
+  const reg=await call('/v1/auth/register',{method:'POST',body:{name:'Founder Smoke',email,password:'SmokePass123!',businessName:'Founder Services',vertical:'general'}});token=reg.token;workspace=reg.workspace.id;assert(token&&workspace,'workspace registered');
   await call('/v1/intelligence/profile',{method:'PUT',body:{sector:'professional_services',subsector:'consultoria',revenueModel:'project',sellsProducts:false,sellsServices:true,recurringRevenue:false,usesAgenda:false,usesInventory:false,usesContracts:true,employeeCount:3,activeCustomersEstimate:8}});
 
   await call('/v1/intelligence/activation/event',{method:'POST',body:{recommendationKey:'customers',target:'crm',event:'shown'}});
