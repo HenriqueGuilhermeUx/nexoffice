@@ -1,0 +1,22 @@
+name: Data Maturity Portfolio Smoke
+on:
+  pull_request:
+    paths:
+      - 'apps/web/public/adm/dados.*'
+      - 'apps/web/public/adm/index.html'
+      - 'apps/web/src/BusinessTrajectoryCenter.tsx'
+      - '.github/workflows/data-maturity-portfolio-smoke.yml'
+jobs:
+  data-maturity-portfolio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate admin JavaScript
+        run: node --check apps/web/public/adm/dados.js
+      - name: Install dependencies
+        run: npm install
+      - name: Build web and API
+        run: npm run build
