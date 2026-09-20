@@ -1,25 +1,33 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useState,type FormEvent} from 'react';
 import {api,post,session} from './api';
 
-type Movement={code:string;severity:'attention'|'critical';title:string;whatChanged:string;whyItMatters:string;action:string;horizonDays:number;runDate:string};
-type Trajectory={available:boolean;generatedAt?:string|null;movements:Movement[];message:string;note:string};
+type TrackedAction={id:string;status:string;taskStatus?:string|null;evaluationStatus?:string|null;effectSummary?:string|null};
+type Movement={code:string;severity:'attention'|'critical';title:string;whatChanged:string;whyItMatters:string;action:string;horizonDays:number;runDate:string;signalId?:string|null;trackedAction?:TrackedAction|null};
+type CheckinField={key:string;label:string;unit:string;help:string;min?:number;max?:number};
+type Checkin={sector:string;fields:CheckinField[];latest:Record<string,{value_numeric?:number|string|null;observed_at?:string;source?:string}|null>};
+type Trajectory={available:boolean;generatedAt?:string|null;movements:Movement[];message:string;note:string;checkin?:Checkin};
+
+const actionStatus=(a?:TrackedAction|null)=>{if(!a)return'';if(a.evaluationStatus==='improved')return'Resultado: melhorou';if(a.evaluationStatus==='worsened')return'Resultado: piorou';if(a.evaluationStatus==='stable')return'Resultado: estável';if(a.taskStatus==='done'||a.status==='done')return'Concluída · aguardando nova leitura';return'Tarefa em acompanhamento'};
 
 export default function BusinessTrajectoryCenter(){
-  const [open,setOpen]=useState(false);const [data,setData]=useState<Trajectory|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+  const [open,setOpen]=useState(false);const [data,setData]=useState<Trajectory|null>(null);const [busy,setBusy]=useState(false);const [actionBusy,setActionBusy]=useState('');const [error,setError]=useState('');const [message,setMessage]=useState('');
   const [sessionKey,setSessionKey]=useState(()=>`${session.token()}|${session.workspace()}`);const authenticated=Boolean(session.token()&&session.workspace());
   useEffect(()=>{const timer=setInterval(()=>{const key=`${session.token()}|${session.workspace()}`;setSessionKey(prev=>prev===key?prev:key)},700);return()=>clearInterval(timer)},[]);
   useEffect(()=>{if(!authenticated){setOpen(false);setData(null);return}void load(false)},[sessionKey]);
   async function load(refresh:boolean){setBusy(true);setError('');try{setData(refresh?await post<Trajectory>('/v1/intelligence/trajectory/refresh',{}):await api<Trajectory>('/v1/intelligence/trajectory'))}catch(e:any){setError(e?.message||'Não foi possível montar a trajetória do negócio.')}finally{setBusy(false)}}
+  async function createAction(m:Movement){if(!m.signalId)return;setActionBusy(m.signalId);setError('');setMessage('');try{const r=await post<any>(`/v1/intelligence/trajectory/actions/${m.signalId}`,{});setMessage(r?.existing?'Esta mudança já estava sendo acompanhada.':'Tarefa criada. O NexOffice vai comparar o indicador depois da execução.');await load(false)}catch(e:any){setError(e?.message||'Não foi possível criar a tarefa.')}finally{setActionBusy('')}}
+  async function saveCheckin(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget),values:Record<string,number>={};for(const field of data?.checkin?.fields||[]){const raw=String(f.get(field.key)||'').trim();if(raw!==''){const value=Number(raw);if(Number.isFinite(value))values[field.key]=value}}if(!Object.keys(values).length)return;setBusy(true);setError('');setMessage('');try{setData(await post<Trajectory>('/v1/intelligence/sector-checkin',{values}));setMessage('Indicadores atualizados. A Trajetória já recalculou a leitura do negócio.')}catch(err:any){setError(err?.message||'Não foi possível salvar os indicadores.')}finally{setBusy(false)}}
   if(!authenticated)return null;
-  const count=data?.movements?.length||0;
+  const count=data?.movements?.length||0,checkin=data?.checkin;
   return <>
     <button className={`businessTrajectoryLauncher ${count?'hasMovement':''}`} onClick={()=>setOpen(true)}><span>↗</span><b>Trajetória</b>{count?<strong>{count}</strong>:null}</button>
     {open&&<div className="businessTrajectoryBackdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}><section className="businessTrajectoryPanel">
       <header><div><small>NEXOFFICE · TRAJETÓRIA DO NEGÓCIO</small><h2>Mudanças antes de chegarem ao caixa</h2><p>O NexOffice compara sua empresa com ela mesma e procura mudanças de comportamento que merecem ação.</p></div><div className="trajectoryActions"><button onClick={()=>void load(true)} disabled={busy}>{busy?'Atualizando…':'Atualizar'}</button><button className="close" onClick={()=>setOpen(false)}>×</button></div></header>
-      {error&&<div className="trajectoryError">{error}</div>}
+      {error&&<div className="trajectoryError">{error}</div>}{message&&<div className="trajectorySuccess">{message}</div>}
       <div className="trajectoryBody">{data?<>
         <section className="trajectorySummary"><div><small>LEITURA ATUAL</small><h3>{data.message}</h3><p>{count?`${count} mudança(s) relevante(s) encontrada(s) com os dados disponíveis.`:'Continue usando o NexOffice. Quanto mais histórico existe, melhor fica a comparação.'}</p></div></section>
-        {count?<div className="trajectoryList">{data.movements.map((m,i)=><article key={`${m.code}-${i}`} className={m.severity}><div className="trajectorySignalHead"><span>{m.severity==='critical'?'AGIR AGORA':'ACOMPANHAR'}</span><small>janela aproximada: {m.horizonDays} dias</small></div><h3>{m.title}</h3><p>{m.whatChanged}</p><div className="trajectoryExplain"><b>Por que isso importa</b><span>{m.whyItMatters}</span></div><div className="trajectoryAction"><b>Próximo passo</b><span>{m.action}</span></div></article>)}</div>:<div className="trajectoryEmpty">Nenhuma deterioração temporal importante foi detectada agora.</div>}
+        {count?<div className="trajectoryList">{data.movements.map((m,i)=><article key={`${m.code}-${i}`} className={m.severity}><div className="trajectorySignalHead"><span>{m.severity==='critical'?'AGIR AGORA':'ACOMPANHAR'}</span><small>janela aproximada: {m.horizonDays} dias</small></div><h3>{m.title}</h3><p>{m.whatChanged}</p><div className="trajectoryExplain"><b>Por que isso importa</b><span>{m.whyItMatters}</span></div><div className="trajectoryAction"><b>Próximo passo</b><span>{m.action}</span></div><div className="trajectoryTrack">{m.trackedAction?<><b>{actionStatus(m.trackedAction)}</b>{m.trackedAction.effectSummary&&<span>{m.trackedAction.effectSummary}</span>}</>:<button disabled={!m.signalId||Boolean(actionBusy)} onClick={()=>void createAction(m)}>{actionBusy===m.signalId?'Criando…':'Criar tarefa e acompanhar resultado'}</button>}</div></article>)}</div>:<div className="trajectoryEmpty">Nenhuma deterioração temporal importante foi detectada agora.</div>}
+        {checkin?.fields?.length?<section className="trajectoryCheckin"><div><small>MAIS PRECISÃO PARA O SEU SETOR</small><h3>Atualização rápida do negócio</h3><p>Preencha apenas o que o NexOffice ainda não consegue calcular sozinho. Esses dados servem para melhorar sua leitura e as recomendações.</p></div><form onSubmit={saveCheckin}>{checkin.fields.map(field=>{const latest=checkin.latest?.[field.key];return <label key={field.key}><span>{field.label}<small>{field.help}</small></span><div><input name={field.key} type="number" step="any" min={field.min} max={field.max} defaultValue={latest?.value_numeric??''} placeholder="—"/><em>{field.unit}</em></div></label>})}<button disabled={busy}>Salvar e recalcular</button></form></section>:null}
         <footer>{data.note}</footer>
       </>:<div className="trajectoryEmpty">Preparando a primeira trajetória…</div>}</div>
     </section></div>}
