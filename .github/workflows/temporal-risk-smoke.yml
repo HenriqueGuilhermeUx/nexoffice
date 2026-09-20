@@ -1,0 +1,65 @@
+name: Temporal Risk Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/business-temporal-risk.ts'
+      - 'apps/api/src/routes-temporal-intelligence.ts'
+      - 'apps/api/src/business-intelligence-daily-engine.ts'
+      - 'apps/api/src/server.ts'
+      - 'infra/postgres/023_temporal_risk_ontology.sql'
+      - 'apps/web/src/BusinessTrajectoryCenter.tsx'
+      - 'apps/web/src/business-trajectory.css'
+      - 'apps/web/public/adm/trajetoria.*'
+      - 'scripts/smoke-temporal-risk-v2.mjs'
+      - '.github/workflows/temporal-risk-smoke.yml'
+
+jobs:
+  temporal-risk:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      WEB_APP_URL: http://localhost:5173
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+      NEXOFFICE_ADMIN_EMAILS: risk-smoke@nexoffice.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+      - name: Start isolated API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-temporal-risk.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-temporal-risk.log
+          exit 1
+      - name: Validate temporal risk and ontology versioning
+        run: node scripts/smoke-temporal-risk-v2.mjs
+      - name: API logs on failure
+        if: failure()
+        run: cat /tmp/nexoffice-temporal-risk.log || true
