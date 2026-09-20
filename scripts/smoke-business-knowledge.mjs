@@ -1,0 +1,23 @@
+import pg from 'pg';
+const {Client}=pg;
+const base=process.env.SMOKE_API_URL||'http://127.0.0.1:4000';
+const db=new Client({connectionString:process.env.DATABASE_URL,ssl:false});await db.connect();
+let token='',workspace='';
+const assert=(v,m)=>{if(!v)throw new Error(`ASSERT: ${m}`)};
+const call=async(path,{method='GET',body}={})=>{const headers={'content-type':'application/json'};if(token)headers.authorization=`Bearer ${token}`;if(workspace)headers['x-workspace-id']=workspace;const r=await fetch(base+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});const p=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`${method} ${path} -> ${r.status} ${JSON.stringify(p)}`);return p};
+try{
+  const stamp=Date.now();const email=`knowledge-${stamp}@nexoffice.test`;
+  const reg=await call('/v1/auth/register',{method:'POST',body:{name:'Knowledge Smoke',email,password:'SmokePass123!',businessName:'Knowledge Commerce',vertical:'commerce'}});token=reg.token;workspace=reg.workspace.id;assert(token&&workspace,'workspace registered');
+  const initial=await call('/v1/intelligence/knowledge');assert(Array.isArray(initial.coverage)&&initial.coverage.length===7,'knowledge coverage model exposed');assert(initial.onboarding?.shouldPrompt===true,'new workspace prompts intelligent onboarding');const initialPercent=Number(initial.percent||0);
+  await call('/v1/intelligence/profile',{method:'PUT',body:{sector:'commerce',subsector:'varejo',revenueModel:'transactional',sellsProducts:true,sellsServices:false,recurringRevenue:false,usesAgenda:false,usesInventory:true,usesContracts:false,employeeCount:5,activeCustomersEstimate:120,seasonality:'dezembro mais forte',mainDependency:'fornecedor principal'}});
+  const account=await call('/v1/finance/accounts',{method:'POST',body:{name:'Conta principal',kind:'bank',openingBalanceMinor:300000,currency:'BRL'}});
+  const contact=await call('/v1/crm/contacts',{method:'POST',body:{kind:'person',name:'Cliente Knowledge',source:'WhatsApp',tags:['knowledge-smoke'],customFields:{}}});
+  await call('/v1/crm/deals',{method:'POST',body:{contactId:contact.id,title:'Pedido Knowledge',stage:'proposal',valueMinor:180000,source:'WhatsApp',nextAction:'confirmar pedido'}});
+  await call('/v1/crm/activities',{method:'POST',body:{contactId:contact.id,type:'whatsapp',direction:'outbound',subject:'Follow-up do pedido',body:'Contato operacional'}});
+  await call('/v1/tasks',{method:'POST',body:{contactId:contact.id,title:'Separar pedido',status:'todo',priority:'high'}});
+  await call('/v1/ledger',{method:'POST',body:{contactId:contact.id,accountId:account.id,direction:'income',category:'vendas',description:'Venda Knowledge',amountMinor:180000,currency:'BRL',status:'paid',paidAt:new Date().toISOString()}});
+  await call('/v1/intelligence/health/refresh',{method:'POST',body:{}});
+  const learned=await call('/v1/intelligence/knowledge');assert(Number(learned.percent)>initialPercent,'official knowledge grows after normal usage');assert(Number(learned.liveEstimate)>=Number(learned.percent),'live explainable coverage is at least the current snapshot');assert(learned.onboarding?.shouldPrompt===false,'completed business context removes onboarding prompt');assert(learned.coverage.find(x=>x.key==='finance')?.covered===true,'finance coverage learned from ledger');assert(learned.coverage.find(x=>x.key==='customers')?.covered===true,'customer coverage learned from CRM');assert(learned.coverage.find(x=>x.key==='sales')?.covered===true,'sales coverage learned from deals');assert(learned.coverage.find(x=>x.key==='operations')?.covered===true,'operational coverage learned from routine');assert(learned.coverage.find(x=>x.key==='history')?.covered===true,'history coverage learned from business events');assert(learned.suggestions.some(x=>x.field==='primarySalesChannel'&&String(x.value)==='WhatsApp'),'sales channel inferred from actual CRM usage');assert(Number(learned.observed.events30)>=5,'natural usage created a useful business event trail');
+  const eventRows=(await db.query(`select type from business_events where workspace_id=$1 order by occurred_at`,[workspace])).rows.map(x=>x.type);for(const expected of ['lead.created','deal.created','customer.interaction_logged','task.created','finance.entry_created'])assert(eventRows.includes(expected),`event captured: ${expected}`);
+  console.log(JSON.stringify({ok:true,workspace,initialPercent,finalPercent:learned.percent,liveEstimate:learned.liveEstimate,events30:learned.observed.events30,suggestions:learned.suggestions,eventTypes:eventRows},null,2));
+}finally{await db.end()}
