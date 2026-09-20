@@ -15,15 +15,15 @@ try{
   }
   await db.query(`insert into workspace_members(workspace_id,user_id,role,permissions) values($1,$2,'owner',array['workspace.read','agenda.read','agenda.write','command.read']) on conflict do nothing`,[targetWorkspace,admin.id]);
   for(let i=0;i<9;i++){
-    const w=(await db.query(`insert into workspaces(name,slug,vertical,status) values($1,$2,'health','active') returning id`,[`Benchmark Health ${i+1}`,`benchmark-health-${i+1}-${Date.now()}`])).rows[0];
-    await db.query(`insert into business_profiles(workspace_id,sector,revenue_model,sells_services,employee_count,completeness_pct) values($1,'health','mixed',true,5,90)`,[w.id]);
+    const w=(await db.query(`insert into workspaces(name,slug,vertical,status) values($1,$2,'general','active') returning id`,[`Privacy Benchmark ${i+1}`,`privacy-benchmark-${i+1}-${Date.now()}`])).rows[0];
+    await db.query(`insert into business_profiles(workspace_id,sector,revenue_model,sells_services,employee_count,completeness_pct) values($1,'privacy_test_sector','mixed',true,5,90)`,[w.id]);
     await db.query(`insert into intelligence_snapshots(workspace_id,overall_score,finance_score,sales_score,customer_score,operation_score,resilience_score,knowledge_pct,status,trend,summary,metrics) values($1,$2,$2,$2,$2,$2,$2,85,'healthy','stable','privacy smoke','{}'::jsonb)`,[w.id,70+i]);
   }
   const login=await call('/v1/auth/login',{method:'POST',body:{email:'admin-smoke@nexoffice.test',password:'SmokePass123!'}});const token=login.token;assert(token,'admin token');
   const refreshed=await call('/v1/admin/intelligence/benchmarks/refresh',{method:'POST',body:{},token});assert(refreshed.rebuild?.cohortsCreated>=1,'benchmark cohorts created');assert(refreshed.overview?.available===true,'benchmark admin overview available');
   const commerce=refreshed.overview.sectors.find(x=>x.sector==='commerce');assert(commerce&&Number(commerce.sample_size)>=10,'commerce benchmark published with minimum sample');
-  const health=refreshed.overview.sectors.find(x=>x.sector==='health');assert(!health,'health benchmark withheld below privacy threshold');
+  const privateSmall=refreshed.overview.sectors.find(x=>x.sector==='privacy_test_sector');assert(!privateSmall,'cohort below privacy threshold is withheld');
   const customer=await call('/v1/intelligence/benchmark',{token,workspace:targetWorkspace});assert(customer.available===true,'customer benchmark available');assert(Number(customer.cohort?.sampleSize)>=10,'customer cohort respects privacy minimum');assert(customer.items.some(x=>x.key==='overall_score'),'overall score benchmark returned');
-  const serialized=JSON.stringify(customer);assert(!serialized.includes('Benchmark Commerce 2'),'payload never exposes peer company names');assert(!serialized.includes('Benchmark Health'),'payload never exposes other company names');
+  const serialized=JSON.stringify(customer);assert(!serialized.includes('Benchmark Commerce 2'),'payload never exposes peer company names');assert(!serialized.includes('Privacy Benchmark'),'payload never exposes other company names');
   console.log(JSON.stringify({ok:true,cohorts:refreshed.rebuild.cohortsCreated,metricRows:refreshed.rebuild.metricRowsCreated,customerCohort:customer.cohort,items:customer.items.length},null,2));
 }finally{await db.end()}
