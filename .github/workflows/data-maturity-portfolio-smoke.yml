@@ -5,6 +5,10 @@ on:
       - 'apps/web/public/adm/dados.*'
       - 'apps/web/public/adm/index.html'
       - 'apps/web/src/BusinessTrajectoryCenter.tsx'
+      - 'apps/api/src/business-knowledge.ts'
+      - 'apps/web/src/BusinessKnowledgeCenter.tsx'
+      - 'docs/INTELLIGENT_ACTIVATION.md'
+      - '.github/workflows/intelligent-activation-smoke.yml'
       - '.github/workflows/data-maturity-portfolio-smoke.yml'
 jobs:
   data-maturity-portfolio:
@@ -20,3 +24,6 @@ jobs:
         run: npm install
       - name: Build web and API
         run: npm run build
+      - name: Guard activation contract
+        run: |
+          node -e "const fs=require('fs');const api=fs.readFileSync('apps/api/src/business-knowledge.ts','utf8');const web=fs.readFileSync('apps/web/src/BusinessKnowledgeCenter.tsx','utf8');if(!api.includes('buildActivation')||!web.includes('ATIVAÇÃO INTELIGENTE'))process.exit(1);"

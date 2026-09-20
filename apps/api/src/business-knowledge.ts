@@ -5,11 +5,43 @@ const n=(v:any)=>Number(v||0);
 const clamp=(v:number,min=0,max=100)=>Math.max(min,Math.min(max,Math.round(v)));
 const round=(v:number,d=1)=>{const p=10**d;return Math.round(v*p)/p};
 
+type ActivationTarget='profile'|'crm'|'finance'|'agenda'|'documents'|'trajectory';
+type ActivationItem={key:string;title:string;whyNow:string;benefit:string;actionLabel:string;target:ActivationTarget;priority:number;estimatedMinutes:number;source:string};
+
 function knowledgeLevel(value:number){
   if(value>=90)return{key:'advanced',label:'Leitura avançada',message:'O NexOffice já tem uma visão ampla e longitudinal do seu negócio.'};
   if(value>=70)return{key:'solid',label:'Boa leitura',message:'Já existe base suficiente para uma leitura consistente. Continue operando normalmente para aprofundar o histórico.'};
   if(value>=40)return{key:'learning',label:'Aprendendo rápido',message:'A base já começou a ficar útil, mas alguns blocos ainda aumentariam bastante a precisão.'};
   return{key:'starting',label:'Começando',message:'Complete o essencial e use o NexOffice na rotina. A leitura melhora automaticamente conforme a operação acontece.'};
+}
+
+function buildActivation(profile:any,row:any,profilePct:number,hasOperations:boolean,hasSectorDepth:boolean){
+  const sector=String(profile?.sector||'general'),revenueModel=String(profile?.revenue_model||'mixed');
+  const items:ActivationItem[]=[];
+  const add=(item:ActivationItem)=>items.push(item);
+  const appointmentCount=n(row?.appointments_90)+n(row?.future_appointments);
+  if(profilePct<70)add({key:'profile',title:'Ajuste o contexto da empresa',whyNow:'Setor, forma de receita, porte e dependências mudam a interpretação de todo o restante.',benefit:'O NexOffice passa a priorizar indicadores, alertas e rotinas que realmente combinam com seu negócio.',actionLabel:'Completar perfil',target:'profile',priority:100,estimatedMinutes:2,source:'Perfil inteligente'});
+  if(Boolean(profile?.recurring_revenue)&&n(row?.recurring_income_rules)===0)add({key:'recurring',title:'Cadastre suas receitas recorrentes',whyNow:'Seu modelo depende de receita recorrente, mas o NexOffice ainda não enxerga essa base.',benefit:'Você acompanha previsibilidade, vencimentos e pressão de renovação antes de chegarem ao caixa.',actionLabel:'Ir para Financeiro',target:'finance',priority:96,estimatedMinutes:4,source:'Financeiro'});
+  if(Boolean(profile?.uses_agenda)&&appointmentCount<3)add({key:'agenda',title:'Coloque a agenda real para trabalhar',whyNow:'Seu negócio depende de agenda, mas ainda há pouco histórico de compromissos.',benefit:'O NexOffice começa a perceber ritmo futuro, cancelamentos, retornos e capacidade de atendimento.',actionLabel:'Abrir Agenda',target:'agenda',priority:94,estimatedMinutes:3,source:'Agenda'});
+  if(n(row?.contacts)===0)add({key:'customers',title:'Centralize seus clientes',whyNow:'Sem clientes identificados, fica difícil acompanhar recorrência, concentração e origem das vendas.',benefit:'Você ganha uma base única para relacionamento, vendas, cobrança e acompanhamento.',actionLabel:'Abrir CRM',target:'crm',priority:92,estimatedMinutes:3,source:'CRM'});
+  if(n(row?.ledger_entries)===0)add({key:'finance',title:'Comece pelo dinheiro que já passa pela empresa',whyNow:'Ainda não há movimentações suficientes para acompanhar caixa, recebíveis e atrasos.',benefit:'Você passa a enxergar entradas, saídas, vencimentos e pressão financeira em um só lugar.',actionLabel:'Abrir Financeiro',target:'finance',priority:['commerce','restaurant'].includes(sector)||revenueModel==='recurring'?93:88,estimatedMinutes:4,source:'Financeiro'});
+  if(n(row?.deals)===0)add({key:'sales',title:'Acompanhe as próximas vendas',whyNow:'O NexOffice ainda não enxerga seu funil comercial e a receita que pode chegar depois.',benefit:'Você organiza oportunidades, próximos passos e evita depender apenas do caixa já realizado.',actionLabel:'Abrir CRM',target:'crm',priority:['professional_services','real_estate','creator'].includes(sector)||['project','commission','transactional'].includes(revenueModel)?90:82,estimatedMinutes:3,source:'CRM comercial'});
+  if(Boolean(profile?.uses_contracts)&&n(row?.documents)===0)add({key:'documents',title:'Traga contratos e documentos importantes',whyNow:'Seu negócio depende de contratos, mas eles ainda não fazem parte da rotina centralizada.',benefit:'Você reduz dispersão, ganha contexto operacional e prepara renovações e decisões com mais antecedência.',actionLabel:'Abrir Documentos',target:'documents',priority:86,estimatedMinutes:4,source:'Documentos'});
+  if(!hasOperations)add({key:'operations',title:Boolean(profile?.uses_agenda)?'Use agenda e tarefas na rotina':'Organize as próximas tarefas',whyNow:'O NexOffice ainda tem pouco sinal sobre o ritmo real da operação.',benefit:'Você transforma execução diária em prioridades, acompanhamento e memória do negócio.',actionLabel:'Abrir Agenda e Tarefas',target:'agenda',priority:76,estimatedMinutes:2,source:'Rotina operacional'});
+  if(!hasSectorDepth&&['commerce','restaurant','education','professional_services','automotive','health','beauty'].includes(sector))add({key:'sector',title:'Complete a leitura do seu setor',whyNow:'Alguns indicadores importantes do seu tipo de negócio ainda não podem ser calculados automaticamente.',benefit:'A Trajetória passa a usar sinais mais específicos da sua operação, sem pedir um cadastro grande.',actionLabel:'Ver Trajetória',target:'trajectory',priority:72,estimatedMinutes:2,source:'Inteligência do setor'});
+  const completed=[
+    {key:'profile',label:'Contexto',done:profilePct>=70},
+    {key:'customers',label:'Clientes',done:n(row?.contacts)>0},
+    {key:'finance',label:'Financeiro',done:n(row?.ledger_entries)>0},
+    {key:'sales',label:'Vendas',done:n(row?.deals)>0},
+    {key:'operations',label:'Operação',done:hasOperations}
+  ];
+  if(Boolean(profile?.uses_agenda))completed.push({key:'agenda',label:'Agenda',done:appointmentCount>=3});
+  if(Boolean(profile?.recurring_revenue))completed.push({key:'recurring',label:'Recorrência',done:n(row?.recurring_income_rules)>0});
+  if(Boolean(profile?.uses_contracts))completed.push({key:'documents',label:'Documentos',done:n(row?.documents)>0});
+  const done=completed.filter(x=>x.done).length,total=completed.length,rate=total?done/total:0;
+  const stage=rate>=.85?'Operação conectada':rate>=.55?'Ganhando ritmo':'Primeiros ganhos';
+  return{stage,completedSteps:done,totalSteps:total,actions:items.sort((a,b)=>b.priority-a.priority).slice(0,3),completed,principle:'O NexOffice recomenda primeiro o que melhora sua gestão. O ganho de dados acontece como consequência do uso útil.'};
 }
 
 export async function getBusinessKnowledge(workspaceId:string){
@@ -64,6 +96,7 @@ export async function getBusinessKnowledge(workspaceId:string){
     profileCompletenessPct:profilePct,
     profile,
     onboarding:{shouldPrompt:profilePct<70,estimatedMinutes:2,steps:3},
+    activation:buildActivation(profile,row,profilePct,hasOperations,hasSectorDepth),
     coverage,
     nextSteps:nextSteps.slice(0,5),
     suggestions,
