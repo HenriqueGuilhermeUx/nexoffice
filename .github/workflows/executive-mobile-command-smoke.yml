@@ -1,0 +1,65 @@
+name: Executive Mobile Command Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/business-executive-brief.ts'
+      - 'apps/api/src/routes-founder-cockpit.ts'
+      - 'apps/web/src/ExecutiveBriefing.tsx'
+      - 'apps/web/src/executive-briefing.css'
+      - 'apps/web/src/main.tsx'
+      - 'apps/mobile/**'
+      - 'scripts/smoke-executive-mobile-command.mjs'
+      - '.github/workflows/executive-mobile-command-smoke.yml'
+
+jobs:
+  executive-mobile-command:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      WEB_APP_URL: http://localhost:5173
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Build API and web
+        run: npm run build
+      - name: Typecheck mobile
+        run: npm run typecheck -w @nexoffice/mobile
+      - name: Start isolated API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-executive.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-executive.log
+          exit 1
+      - name: Validate executive brief and action flow
+        run: node scripts/smoke-executive-mobile-command.mjs
+      - name: API logs on failure
+        if: failure()
+        run: cat /tmp/nexoffice-executive.log || true
