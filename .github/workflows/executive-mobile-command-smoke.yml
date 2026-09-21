@@ -3,6 +3,7 @@ name: Executive Mobile Command Smoke
 on:
   pull_request:
     paths:
+      - 'package.json'
       - 'apps/api/src/business-executive-brief.ts'
       - 'apps/api/src/routes-founder-cockpit.ts'
       - 'apps/web/src/ExecutiveBriefing.tsx'
@@ -44,11 +45,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - name: Install API and web dependencies
+        run: npm install
       - name: Build API and web
         run: npm run build
+      - name: Install mobile dependencies separately
+        run: npm --prefix apps/mobile install
       - name: Typecheck mobile
-        run: npm run typecheck -w @nexoffice/mobile
+        run: npm run mobile:typecheck
       - name: Start isolated API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-executive.log 2>&1 &
