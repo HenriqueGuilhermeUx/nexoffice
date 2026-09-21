@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {ApiError,workspaceContext} from './auth.js';
 import {auditLog,emitBusinessEvent} from './events.js';
 import {requirePlatformAdmin} from './platform-admin.js';
+import {getExecutiveBrief} from './business-executive-brief.js';
 import {buildSevenDayPlan,createSevenDayPlanTask,getActivationAnalytics,getFounderCockpit,getGlobalActivationAnalytics,syncActivationJourneys,trackActivationJourney} from './business-founder-cockpit.js';
 
 const uuid=z.string().uuid();
@@ -10,6 +11,7 @@ const activationEvent=z.object({recommendationKey:z.string().trim().regex(/^[a-z
 
 export async function registerFounderCockpitRoutes(app:FastifyInstance){
   app.get('/v1/intelligence/founder-cockpit',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getFounderCockpit(ctx.workspaceId)});
+  app.get('/v1/intelligence/executive-brief',async req=>{const ctx=await workspaceContext(req,'workspace.read');return getExecutiveBrief(ctx.workspaceId)});
   app.get('/v1/intelligence/activation',async req=>{const ctx=await workspaceContext(req,'workspace.read');await syncActivationJourneys(ctx.workspaceId);return getActivationAnalytics(ctx.workspaceId)});
   app.post('/v1/intelligence/activation/event',async req=>{const ctx=await workspaceContext(req,'workspace.read');const input=activationEvent.parse(req.body||{});const result=await trackActivationJourney(ctx.workspaceId,input.recommendationKey,input.target,input.event,{...input.metadata,userId:ctx.user.id});if(input.event==='clicked')await emitBusinessEvent(ctx.workspaceId,'intelligence.activation.clicked','nexoffice.intelligence','workspace',ctx.workspaceId,{recommendationKey:input.recommendationKey,target:input.target});return result});
   app.get('/v1/intelligence/plan/7-days',async req=>{const ctx=await workspaceContext(req,'workspace.read');return buildSevenDayPlan(ctx.workspaceId)});
