@@ -1,0 +1,78 @@
+name: Commercial V1 Growth Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/commercial-growth.ts'
+      - 'apps/api/src/routes-commercial-growth.ts'
+      - 'apps/api/src/server.ts'
+      - 'apps/web/src/CommercialGrowthCenter.tsx'
+      - 'apps/web/src/MarketingCenter.tsx'
+      - 'apps/web/src/commercial-growth-center.css'
+      - 'scripts/fake-modo-commercial.mjs'
+      - 'scripts/smoke-commercial-v1.mjs'
+      - 'docs/NEXOFFICE_COMMERCIAL_V1.md'
+      - '.github/workflows/commercial-v1-smoke.yml'
+
+jobs:
+  commercial-v1:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+      MODO_BASE_URL: http://127.0.0.1:4999
+      MODO_API_KEY: test-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Build API and web
+        run: npm run build
+      - name: Start fake MODO provider
+        run: |
+          node scripts/fake-modo-commercial.mjs > /tmp/fake-modo-commercial.log 2>&1 &
+          for i in {1..20}; do
+            if curl -fsS -H 'x-nexoffice-key: test-key' -H 'x-nexoffice-workspace-id: probe' http://127.0.0.1:4999/api/v1/internal/nexoffice/marketing/v1/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/fake-modo-commercial.log
+          exit 1
+      - name: Start isolated NexOffice API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-commercial-v1.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-commercial-v1.log
+          exit 1
+      - name: Validate Commercial V1 flow without external spend
+        run: SMOKE_USER_PASSWORD="Commercial$(date +%s)!A9" node scripts/smoke-commercial-v1.mjs
+      - name: Logs on failure
+        if: failure()
+        run: |
+          cat /tmp/nexoffice-commercial-v1.log || true
+          cat /tmp/fake-modo-commercial.log || true
