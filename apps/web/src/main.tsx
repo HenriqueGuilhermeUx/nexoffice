@@ -4,6 +4,7 @@ import App from './App';
 import OperationsDock from './OperationsDock';
 import DailyOpsPulse from './DailyOpsPulse';
 import CommandCenterOverview from './CommandCenterOverview';
+import ExecutiveBriefing from './ExecutiveBriefing';
 import FounderCockpit from './FounderCockpit';
 import ActivationJourneyTracker from './ActivationJourneyTracker';
 import DigitalTeamConsole from './DigitalTeamConsole';
@@ -40,5 +41,5 @@ import './intelligent-activation.css';
 import './business-trajectory.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
 );
