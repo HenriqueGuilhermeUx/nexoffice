@@ -1,4 +1,4 @@
 import { registerRootComponent } from 'expo';
-import App from './App';
+import ExecutiveMobileShell from './src/ExecutiveMobileShell';
 
-registerRootComponent(App);
+registerRootComponent(ExecutiveMobileShell);
