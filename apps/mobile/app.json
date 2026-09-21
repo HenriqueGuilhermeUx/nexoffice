@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "NexOffice",
+    "slug": "nexoffice",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "nexoffice",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.nexoffices.app"
+    },
+    "android": {
+      "package": "br.com.nexoffices.app",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "backgroundColor": "#F3F1EA"
+      }
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://api.nexoffices.com.br"
+    }
+  }
+}

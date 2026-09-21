@@ -3,13 +3,17 @@
   "version": "0.2.0",
   "private": true,
   "description": "NexOffice — o sistema operacional do seu negócio.",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/api", "apps/web", "packages/*"],
   "scripts": {
     "dev:api": "npm run dev -w @nexoffice/api",
     "dev:web": "npm run dev -w @nexoffice/web",
     "build": "npm run build -w @nexoffice/domain && npm run build -w @nexoffice/integrations && npm run build -w @nexoffice/api && npm run build -w @nexoffice/web",
     "typecheck": "npm run typecheck -ws --if-present",
     "test": "npm run test -ws --if-present",
+    "mobile:install": "npm --prefix apps/mobile install",
+    "mobile:typecheck": "npm --prefix apps/mobile run typecheck",
+    "mobile:start": "npm --prefix apps/mobile run start",
+    "mobile:android": "npm --prefix apps/mobile run android",
     "db:migrate": "node scripts/migrate.mjs",
     "smoke": "node scripts/smoke.mjs"
   },
