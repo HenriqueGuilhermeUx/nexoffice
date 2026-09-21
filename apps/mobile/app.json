@@ -2,7 +2,7 @@
   "expo": {
     "name": "NexOffice",
     "slug": "nexoffice",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "nexoffice",
@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "br.com.nexoffices.app",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#F3F1EA"
       }
