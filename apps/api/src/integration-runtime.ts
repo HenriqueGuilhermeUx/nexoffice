@@ -28,7 +28,7 @@ export async function probeProvider(workspaceId:string,provider:Provider){
   const headers={...providerHeaders(provider),...(workspaceScoped?{'X-NexOffice-Workspace-ID':workspaceId}:{})};
   try{
     const response=await fetch(`${base}${c.health}`,{headers,signal:AbortSignal.timeout(8000)});const text=await response.text();const payload=(()=>{try{return JSON.parse(text)}catch{return {text:text.slice(0,500)}}})();
-    const workspaceDisconnected=provider==='docwallet'&&response.ok&&(payload as any)?.workspaceConnected===false;
+    const workspaceDisconnected=response.ok&&((provider==='docwallet'&&(payload as any)?.workspaceConnected===false)||(provider==='smartbots'&&(payload as any)?.workspaceBound===false));
     const status=workspaceDisconnected?'disconnected':response.ok?'connected':'error';const ok=response.ok&&!workspaceDisconnected;
     await upsertIntegrationHealth(workspaceId,provider,status,response.ok?null:`HTTP ${response.status}`);return {provider,ok,status,httpStatus:response.status,payload};
   }catch(error){const message=error instanceof Error?error.message:String(error);await upsertIntegrationHealth(workspaceId,provider,'error',message);return {provider,ok:false,status:'error',error:message}}
@@ -37,6 +37,12 @@ export async function probeProvider(workspaceId:string,provider:Provider){
 async function upsertIntegrationHealth(workspaceId:string,provider:string,status:string,error:string|null){
   const capabilities=(CAPABILITIES as any)[provider]?.capabilities||[];
   await query(`insert into integrations(workspace_id,provider,status,capabilities,last_health_at,last_health_status,last_error) values($1,$2,$3,$4,now(),$3,$5) on conflict(workspace_id,provider) do update set status=excluded.status,capabilities=excluded.capabilities,last_health_at=now(),last_health_status=excluded.last_health_status,last_error=excluded.last_error,updated_at=now()`,[workspaceId,provider,status,capabilities,error]);
+}
+
+export async function bindSmartBotsWorkspace(workspaceId:string,botId:string,clientToken:string){
+  if(!workspaceId)return {ok:false,error:'smartbots_workspace_required'};
+  if(!botId||!clientToken)return {ok:false,error:'smartbots_bot_credentials_required'};
+  return providerRequest('smartbots',String(process.env.SMARTBOTS_BIND_PATH||'/api/internal/nexoffice/bind'),'POST',{botId,clientToken},{'X-NexOffice-Workspace-ID':workspaceId});
 }
 
 export function routeForAction(actionType:string):string|null{
