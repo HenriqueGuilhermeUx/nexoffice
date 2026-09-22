@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {auditLog} from './events.js';
+import {bindSmartBotsWorkspace,probeProvider} from './integration-runtime.js';
 
 export async function registerSmartBotsRoutes(app:FastifyInstance){
   app.get('/v1/integrations/smartbots',async req=>{
@@ -14,10 +15,26 @@ export async function registerSmartBotsRoutes(app:FastifyInstance){
 
   app.put('/v1/integrations/smartbots',async req=>{
     const ctx=await workspaceContext(req,'integrations.manage');
-    const input=z.object({botId:z.string().trim().min(3).max(160)}).parse(req.body);
+    const input=z.object({
+      botId:z.string().trim().min(3).max(160),
+      clientToken:z.string().trim().min(12).max(300)
+    }).parse(req.body);
+
+    const binding=await bindSmartBotsWorkspace(ctx.workspaceId,input.botId,input.clientToken);
+    if(!binding.ok){
+      const error:any=new Error(String(binding.error||'smartbots_binding_failed'));
+      error.code='smartbots_binding_failed';
+      error.statusCode=Number((binding as any).httpStatus||502);
+      error.payload=(binding as any).payload||null;
+      throw error;
+    }
+
     const before=(await query<any>(`select * from integrations where workspace_id=$1 and provider='smartbots' limit 1`,[ctx.workspaceId]))[0]||null;
-    const rows=await query<any>(`insert into integrations(workspace_id,provider,status,external_account_ref,capabilities,config,connected_at) values($1,'smartbots','configured',$2,$3,$4,now()) on conflict(workspace_id,provider) do update set status='configured',external_account_ref=excluded.external_account_ref,capabilities=excluded.capabilities,config=excluded.config,connected_at=coalesce(integrations.connected_at,now()),last_error=null,updated_at=now() returning *`,[ctx.workspaceId,input.botId,['whatsapp','service','qualification','follow-up','human_approval'],JSON.stringify({botId:input.botId,firstOutboundRequiresHumanApproval:true})]);
-    await auditLog(ctx,'integration.smartbots.connected','integration',rows[0].id,before,{provider:'smartbots',botId:input.botId},{secretStored:false,firstOutboundRequiresHumanApproval:true});
-    return {provider:'smartbots',status:rows[0].status,botId:rows[0].external_account_ref,capabilities:rows[0].capabilities};
+    const capabilities=['whatsapp','service','qualification','follow-up','human_approval','workspace_binding','idempotent_dispatch'];
+    const rows=await query<any>(`insert into integrations(workspace_id,provider,status,external_account_ref,capabilities,config,connected_at,last_error) values($1,'smartbots','connected',$2,$3,$4,now(),null) on conflict(workspace_id,provider) do update set status='connected',external_account_ref=excluded.external_account_ref,capabilities=excluded.capabilities,config=excluded.config,connected_at=coalesce(integrations.connected_at,now()),last_error=null,updated_at=now() returning *`,[ctx.workspaceId,input.botId,capabilities,JSON.stringify({botId:input.botId,firstOutboundRequiresHumanApproval:true,workspaceBindingVerified:true})]);
+    await auditLog(ctx,'integration.smartbots.connected','integration',rows[0].id,before,{provider:'smartbots',botId:input.botId},{secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true,firstOutboundRequiresHumanApproval:true});
+
+    const health=await probeProvider(ctx.workspaceId,'smartbots');
+    return {provider:'smartbots',status:health.ok?'connected':health.status,botId:rows[0].external_account_ref,capabilities:rows[0].capabilities,workspaceBindingVerified:true,health};
   });
 }
