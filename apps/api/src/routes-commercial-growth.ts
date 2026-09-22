@@ -1,6 +1,7 @@
 import type {FastifyInstance} from 'fastify';
 import {z} from 'zod';
 import {workspaceContext} from './auth.js';
+import {withAdvisoryLock} from './db.js';
 import {auditLog} from './events.js';
 import {approveCommercialCreative,buildCommercialContext,commercialLearning,createCommercialCampaign,qualityGateCommercialCreative,syncProjectLeadsToCrm} from './commercial-growth.js';
 
@@ -43,7 +44,8 @@ export async function registerCommercialGrowthRoutes(app:FastifyInstance){
   });
 
   app.post('/v1/marketing/commercial/projects/:id/sync-crm',async req=>{
-    const ctx=await workspaceContext(req,'crm.write'),projectId=uuid.parse((req.params as any).id),result=await syncProjectLeadsToCrm(ctx.workspaceId,projectId);
+    const ctx=await workspaceContext(req,'crm.write'),projectId=uuid.parse((req.params as any).id);
+    const result=await withAdvisoryLock(`commercial-crm-sync:${ctx.workspaceId}`,()=>syncProjectLeadsToCrm(ctx.workspaceId,projectId));
     await auditLog(ctx,'marketing.commercial.leads.synced','marketing_project',projectId,null,{...result,externalEffect:false,externalCommunication:false});
     return result;
   });
