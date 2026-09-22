@@ -31,3 +31,18 @@ export async function transaction<T>(fn: (client: pg.PoolClient) => Promise<T>):
     client.release();
   }
 }
+
+export async function withAdvisoryLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  if (!db) throw new Error('DATABASE_URL is not configured');
+  const client = await db.connect();
+  try {
+    await client.query('select pg_advisory_lock(hashtext($1))', [key]);
+    return await fn();
+  } finally {
+    try {
+      await client.query('select pg_advisory_unlock(hashtext($1))', [key]);
+    } finally {
+      client.release();
+    }
+  }
+}

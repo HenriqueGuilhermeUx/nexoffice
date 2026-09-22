@@ -5,12 +5,14 @@ on:
     paths:
       - 'apps/api/src/commercial-growth.ts'
       - 'apps/api/src/routes-commercial-growth.ts'
+      - 'apps/api/src/db.ts'
       - 'apps/api/src/server.ts'
       - 'apps/web/src/CommercialGrowthCenter.tsx'
       - 'apps/web/src/MarketingCenter.tsx'
       - 'apps/web/src/commercial-growth-center.css'
       - 'scripts/fake-modo-commercial.mjs'
       - 'scripts/smoke-commercial-v1.mjs'
+      - 'scripts/smoke-commercial-v1-hardening.mjs'
       - 'docs/NEXOFFICE_COMMERCIAL_V1.md'
       - '.github/workflows/commercial-v1-smoke.yml'
 
@@ -71,6 +73,8 @@ jobs:
           exit 1
       - name: Validate Commercial V1 flow without external spend
         run: SMOKE_USER_PASSWORD="Commercial$(date +%s)!A9" node scripts/smoke-commercial-v1.mjs
+      - name: Harden concurrency, tenant isolation and Quality Gate
+        run: SMOKE_USER_PASSWORD="Hardening$(date +%s)!A9" node scripts/smoke-commercial-v1-hardening.mjs
       - name: Logs on failure
         if: failure()
         run: |
