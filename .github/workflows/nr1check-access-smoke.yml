@@ -1,0 +1,62 @@
+name: NR1Check Client Access Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-capabilities.ts'
+      - 'apps/web/src/NR1CheckAccessCenter.tsx'
+      - 'apps/web/src/nr1check-access.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-nr1check-access.mjs'
+      - '.github/workflows/nr1check-access-smoke.yml'
+
+jobs:
+  nr1check-access:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+      NR1CHECK_WEB_URL: https://nr1check.netlify.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Build API and web
+        run: npm run build
+      - name: Start isolated API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-nr1check.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-nr1check.log
+          exit 1
+      - name: Validate privacy-safe NR1Check access
+        run: SMOKE_USER_PASSWORD="Nr1Access$(date +%s)!A9" node scripts/smoke-nr1check-access.mjs
+      - name: Logs on failure
+        if: failure()
+        run: cat /tmp/nexoffice-nr1check.log || true
