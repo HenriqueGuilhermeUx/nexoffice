@@ -1,10 +1,13 @@
 import type {FastifyInstance} from 'fastify';
 import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
+import {auditLog} from './events.js';
 import {AGENT_ROLES,CAPABILITY_REGISTRY,capabilitiesForRole,capabilityDefinition} from './capability-registry.js';
 import {providerCatalog} from './integration-runtime.js';
 
 type IntegrationState={provider:string;status:string;last_health_status?:string|null;last_health_at?:string|null;last_error?:string|null};
+const defaultNr1CheckWebUrl='https://nr1check.netlify.app';
+function nr1checkBaseUrl(){return String(process.env.NR1CHECK_WEB_URL||defaultNr1CheckWebUrl).trim().replace(/\/$/,'')}
 
 export async function registerCapabilityRoutes(app:FastifyInstance){
   app.get('/v1/capabilities',async req=>{
@@ -18,6 +21,28 @@ export async function registerCapabilityRoutes(app:FastifyInstance){
     if(!capabilityDefinition(id))throw new ApiError(404,'capability_not_found','Capability não encontrada.');
     const graph=await workspaceCapabilityGraph(ctx.workspaceId);
     return graph.capabilities.find(item=>item.id===id);
+  });
+
+  app.get('/v1/ecosystem/nr1check',async req=>{
+    const ctx=await workspaceContext(req,'integrations.read');
+    const [workspace]=await query<any>(`select name,vertical from workspaces where id=$1 limit 1`,[ctx.workspaceId]);
+    return {
+      product:'NR1Check',suite:'MindCompliance',status:'available',workspaceId:ctx.workspaceId,
+      businessName:String(workspace?.name||ctx.workspaceName||''),vertical:String(workspace?.vertical||'general'),
+      capabilities:['Diagnóstico e organização da NR-1','GRO/PGR e inventário de riscos','Plano de ação, responsáveis, prazos e evidências','Avaliação psicossocial com leitura agregada','Documentos e acompanhamento contínuo de compliance'],
+      access:{mode:'separate_auth',sso:false,cnpjRequiredForCompanyOnboarding:true},
+      privacy:{sharedWithNr1Check:['workspaceRef','businessName','sector'],neverSharedByThisBridge:['employeeData','cpf','healthData','psychosocialResponses','complaints','medicalData','rawDocuments'],note:'Dados individuais, denúncias e respostas psicossociais permanecem no NR1Check/MindCompliance e não são copiados para o NexOffice.'},
+      externalEffect:false
+    };
+  });
+
+  app.post('/v1/ecosystem/nr1check/launch',async req=>{
+    const ctx=await workspaceContext(req,'integrations.read');
+    const [workspace]=await query<any>(`select name,vertical from workspaces where id=$1 limit 1`,[ctx.workspaceId]);
+    const params=new URLSearchParams({source:'nexoffice',workspaceRef:ctx.workspaceId,businessName:String(workspace?.name||ctx.workspaceName||'').slice(0,180),sector:String(workspace?.vertical||'general').slice(0,120)});
+    const url=`${nr1checkBaseUrl()}/nexoffice?${params.toString()}`;
+    await auditLog(ctx,'ecosystem.nr1check.launch.prepared','external_product','nr1check',null,{externalEffect:false,sharedFields:['workspaceRef','businessName','sector'],sensitiveDataShared:false});
+    return {url,product:'NR1Check',suite:'MindCompliance',externalEffect:false,sharedFields:['workspaceRef','businessName','sector'],sso:false};
   });
 }
 
@@ -51,14 +76,7 @@ export async function workspaceCapabilityGraph(workspaceId:string){
     else if(def.effect==='external'&&!externalActionsEnabled)availability='external_actions_disabled';
     else if(def.approvalRequired)availability='approval_required';
 
-    return {
-      ...def,
-      availability,
-      usableNow:availability==='ready'||availability==='approval_required',
-      runtimeConfigured,
-      workspaceIntegration:integration?{status:integration.status,lastHealthStatus:integration.last_health_status||null,lastHealthAt:integration.last_health_at||null,lastError:integration.last_error||null}:null,
-      governance:{externalActionsEnabled,approvalRequired:def.approvalRequired,effect:def.effect}
-    };
+    return {...def,availability,usableNow:availability==='ready'||availability==='approval_required',runtimeConfigured,workspaceIntegration:integration?{status:integration.status,lastHealthStatus:integration.last_health_status||null,lastHealthAt:integration.last_health_at||null,lastError:integration.last_error||null}:null,governance:{externalActionsEnabled,approvalRequired:def.approvalRequired,effect:def.effect}};
   });
 
   const byAgent=Object.fromEntries(AGENT_ROLES.map(role=>[
@@ -69,13 +87,5 @@ export async function workspaceCapabilityGraph(workspaceId:string){
     })
   ]));
 
-  return {
-    version:'2026-09-17.2',
-    workspaceId,
-    vertical,
-    externalActionsEnabled,
-    summary:{total:capabilities.length,ready:capabilities.filter(item=>item.availability==='ready').length,approvalRequired:capabilities.filter(item=>item.availability==='approval_required').length,planned:capabilities.filter(item=>item.availability==='planned').length},
-    capabilities,
-    byAgent
-  };
+  return {version:'2026-09-17.2',workspaceId,vertical,externalActionsEnabled,summary:{total:capabilities.length,ready:capabilities.filter(item=>item.availability==='ready').length,approvalRequired:capabilities.filter(item=>item.availability==='approval_required').length,planned:capabilities.filter(item=>item.availability==='planned').length},capabilities,byAgent};
 }
