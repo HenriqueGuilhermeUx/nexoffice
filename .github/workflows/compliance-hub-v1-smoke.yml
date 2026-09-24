@@ -52,7 +52,7 @@ jobs:
           node-version: 22
       - name: Prepare isolated test credentials
         run: |
-          echo "NEXOFFICE_INTERNAL_KEY=compliance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          echo "NEXOFFICE_COMPLIANCE_BRIDGE_SECRET=compliance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-A9x" >> "$GITHUB_ENV"
           echo "SMOKE_USER_PASSWORD=Compliance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}!A9" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: npm install
@@ -67,7 +67,7 @@ jobs:
           done
           cat /tmp/nexoffice-compliance-v1.log
           exit 1
-      - name: Validate privacy-safe Compliance Hub
+      - name: Validate privacy-safe signed Compliance Hub
         run: node scripts/smoke-compliance-hub-v1.mjs
       - name: Logs on failure
         if: failure()
