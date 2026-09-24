@@ -80,7 +80,7 @@ async function saveIntegration(workspaceId:string,botId:string,remote:any){
 }
 async function remoteStatus(workspaceId:string){
   const result=await smartBotsAddonRequest(workspaceId,'status');
-  return result.ok?(result.payload as any):null;
+  return result.ok?((result as any).payload as any):null;
 }
 async function startOrHandoff(ctx:any){
   const eligibility=await billingEligibility(ctx.workspaceId);
@@ -89,8 +89,8 @@ async function startOrHandoff(ctx:any){
   const payload=await businessPayload(ctx);
   const existingBotId=String(before.integration?.external_account_ref||before.integration?.config?.botId||'').trim();
   const result=await smartBotsAddonRequest(ctx.workspaceId,'start',{eligible:true,existingBotId:existingBotId||undefined,...payload});
-  if(!result.ok){const error:any=new Error(String(result.error||'smartbots_addon_start_failed'));error.code='smartbots_addon_start_failed';error.statusCode=Number(result.httpStatus||502);error.payload=result.payload||null;throw error}
-  const remote=result.payload as any;
+  if(!result.ok){const error:any=new Error(String((result as any).error||'smartbots_addon_start_failed'));error.code='smartbots_addon_start_failed';error.statusCode=Number((result as any).httpStatus||502);error.payload=(result as any).payload||null;throw error}
+  const remote=(result as any).payload as any;
   const botId=String(remote?.botId||'').trim();if(!botId)throw new ApiError(502,'smartbots_addon_invalid_response','SmartBots não retornou o vínculo do workspace.');
   const [entitlement,integration]=await Promise.all([upsertEntitlement(ctx.workspaceId),saveIntegration(ctx.workspaceId,botId,remote)]);
   await auditLog(ctx,'integration.smartbots.addon_activated','integration',integration.id,before,{provider:'smartbots',botId,entitlementStatus:entitlement.status},{partner:'nexoffice',priceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true});
