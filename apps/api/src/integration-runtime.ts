@@ -45,6 +45,12 @@ export async function bindSmartBotsWorkspace(workspaceId:string,botId:string,cli
   return providerRequest('smartbots',String(process.env.SMARTBOTS_BIND_PATH||'/api/internal/nexoffice/bind'),'POST',{botId,clientToken},{'X-NexOffice-Workspace-ID':workspaceId});
 }
 
+export async function smartBotsAddonRequest(workspaceId:string,action:'status'|'start'|'sync',payload:Record<string,unknown>={}){
+  if(!workspaceId)return {ok:false,error:'smartbots_workspace_required'};
+  const path=String(process.env.SMARTBOTS_ADDON_PATH||'/.netlify/functions/nexoffice-addon');
+  return providerRequest('smartbots',path,'POST',{action,...payload},{'X-NexOffice-Workspace-ID':workspaceId});
+}
+
 export function routeForAction(actionType:string):string|null{
   const capability=capabilityForAction(actionType);
   if(capability?.provider==='smartbots')return 'smartbots.message.send';
