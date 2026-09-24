@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent,type ReactNode} from 'react';
 import {api,patch,post,put,session,type Workspace} from './api';
 import MarketingCenter from './MarketingCenter';
+import ComplianceCenter from './ComplianceCenter';
 
 type Dashboard={workspace?:{id:string;name:string;role:string};crm?:{deals:number;open_deals:number;open_pipeline_minor:number;won_month:number};finance?:{income_paid_minor:number;expense_paid_minor:number;receivable_minor:number;payable_minor:number;overdue_count:number};command?:{open_actions:number};approvals?:{pending_approvals:number};tasks?:{due_tasks:number};appointments?:{today_appointments:number};usage?:any[]};
 type Action={id:string;agent_role:string;title:string;summary:string;priority:string;autonomy:string;status:string;approval_id?:string|null;created_at:string};
@@ -36,7 +37,7 @@ export default function App(){
   const activeWorkspace=workspaces.find(w=>w.id===session.workspace())||workspaces[0];
   const switchWorkspace=async(id:string)=>{session.setWorkspace(id);setBusy(true);await refresh();setBusy(false)};
   const openPipeline=dashboard.crm?.open_pipeline_minor||0;const balance=Number(dashboard.finance?.income_paid_minor||0)-Number(dashboard.finance?.expense_paid_minor||0);
-  const nav=[['command','Central de Comando','◈'],['crm','CRM','◎'],['finance','Financeiro','▤'],['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],['team','Equipe Digital','✦'],['marketing','Marketing','◉'],['integrations','Integrações','⇄'],['settings','Empresa & Acessos','⚙']];
+  const nav=[['command','Central de Comando','◈'],['crm','CRM','◎'],['finance','Financeiro','▤'],['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],['team','Equipe Digital','✦'],['marketing','Marketing','◉'],['compliance','Compliance','✓'],['integrations','Integrações','⇄'],['settings','Empresa & Acessos','⚙']];
 
   async function act(actionId:string,decision:'approved'|'rejected'|'dismissed'){setBusy(true);try{await post(`/v1/command/actions/${actionId}/decision`,{decision});await refresh()}catch(e:any){setError(e.message)}finally{setBusy(false)}}
   async function moveDeal(id:string,stage:string){await patch(`/v1/crm/deals/${id}`,{stage});await refresh()}
@@ -59,6 +60,7 @@ export default function App(){
     if(view==='documents')return <Documents/>;
     if(view==='team')return <Team policies={policies} onEdit={p=>setModal(`policy:${p.action_type}`)}/>;
     if(view==='marketing')return <MarketingCenter workspaceId={activeWorkspace?.id||''}/>;
+    if(view==='compliance')return <ComplianceCenter/>;
     if(view==='integrations')return <Integrations current={integrations}/>;
     return <Settings members={members} workspace={activeWorkspace} onInvite={()=>setModal('invite')} onNewWorkspace={()=>setModal('workspace')}/>;
   }
@@ -98,4 +100,4 @@ function Modal({children,onClose}:{children:ReactNode;onClose:()=>void}){return 
 function Form({title,submit,children}:{title:string;submit:(e:FormEvent<HTMLFormElement>)=>void|Promise<void>;children:ReactNode}){return <form className="form" onSubmit={submit}><p className="eyebrow">NEXOFFICE</p><h2>{title}</h2><div className="formGrid">{children}</div><button className="primary formSave">Salvar</button></form>}
 function Field({name,label,type='text',required=false,placeholder='',select,options,defaultValue}:{name:string;label:string;type?:string;required?:boolean;placeholder?:string;select?:string[];options?:string[][];defaultValue?:string}){return <label className="field"><span>{label}</span>{select?<select name={name} defaultValue={defaultValue}>{select.map(s=>{const [v,l]=s.split(':');return <option key={v} value={v}>{l||v}</option>})}</select>:options?<select name={name}><option value="">Nenhum</option>{options.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>:<input name={name} type={type} required={required} placeholder={placeholder} defaultValue={defaultValue}/>}</label>}
 function data(e:FormEvent<HTMLFormElement>):Record<string,string>{e.preventDefault();return Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string,string>}
-function title(view:string){return ({command:'Central de Comando',crm:'CRM',finance:'Financeiro',agenda:'Agenda & Tarefas',documents:'Documentos',team:'Equipe Digital',marketing:'Marketing',integrations:'Integrações',settings:'Empresa & Acessos'} as Record<string,string>)[view]||'NexOffice'}
+function title(view:string){return ({command:'Central de Comando',crm:'CRM',finance:'Financeiro',agenda:'Agenda & Tarefas',documents:'Documentos',team:'Equipe Digital',marketing:'Marketing',compliance:'Compliance & Proteção',integrations:'Integrações',settings:'Empresa & Acessos'} as Record<string,string>)[view]||'NexOffice'}
