@@ -1,0 +1,37 @@
+name: SmartBots Add-on CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/integration-runtime.ts'
+      - 'apps/api/src/routes-smartbots.ts'
+      - 'apps/api/src/smartbots-addon-reconciliation.ts'
+      - 'apps/api/src/server.ts'
+      - 'apps/web/src/IntegrationSetupCenter.tsx'
+      - 'apps/web/src/integration-setup-center.css'
+      - 'scripts/smoke-smartbots-addon-contract.mjs'
+      - '.github/workflows/smartbots-addon-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/integration-runtime.ts'
+      - 'apps/api/src/routes-smartbots.ts'
+      - 'apps/api/src/smartbots-addon-reconciliation.ts'
+      - 'apps/api/src/server.ts'
+      - 'apps/web/src/IntegrationSetupCenter.tsx'
+      - 'scripts/smoke-smartbots-addon-contract.mjs'
+      - '.github/workflows/smartbots-addon-ci.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate SmartBots add-on architecture
+        run: node scripts/smoke-smartbots-addon-contract.mjs
