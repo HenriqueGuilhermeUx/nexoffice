@@ -5,10 +5,15 @@ on:
     paths:
       - 'apps/api/src/integration-runtime.ts'
       - 'apps/api/src/routes-smartbots.ts'
+      - 'apps/api/src/routes-revenue.ts'
+      - 'apps/api/src/routes-standalone.ts'
       - 'apps/api/src/smartbots-addon-reconciliation.ts'
       - 'apps/api/src/server.ts'
       - 'apps/web/src/IntegrationSetupCenter.tsx'
       - 'apps/web/src/integration-setup-center.css'
+      - 'apps/web/src/RevenueCenter.tsx'
+      - 'apps/web/src/revenue-center.css'
+      - 'apps/web/src/main.tsx'
       - 'scripts/smoke-smartbots-addon-contract.mjs'
       - '.github/workflows/smartbots-addon-ci.yml'
   push:
@@ -16,9 +21,15 @@ on:
     paths:
       - 'apps/api/src/integration-runtime.ts'
       - 'apps/api/src/routes-smartbots.ts'
+      - 'apps/api/src/routes-revenue.ts'
+      - 'apps/api/src/routes-standalone.ts'
       - 'apps/api/src/smartbots-addon-reconciliation.ts'
       - 'apps/api/src/server.ts'
       - 'apps/web/src/IntegrationSetupCenter.tsx'
+      - 'apps/web/src/integration-setup-center.css'
+      - 'apps/web/src/RevenueCenter.tsx'
+      - 'apps/web/src/revenue-center.css'
+      - 'apps/web/src/main.tsx'
       - 'scripts/smoke-smartbots-addon-contract.mjs'
       - '.github/workflows/smartbots-addon-ci.yml'
 
