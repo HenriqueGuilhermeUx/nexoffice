@@ -7,6 +7,7 @@ import {ensureDailyFinancialIntelligence} from './financial-intelligence-daily.j
 import {ensureDailyBusinessIntelligence} from './business-intelligence-daily.js';
 import {runDailyIntelligenceEngine} from './business-intelligence-daily-engine.js';
 import {reconcileWooviBillingSubscriptions} from './billing-reconciliation.js';
+import {reconcileSmartBotsAddonEntitlements} from './smartbots-addon-reconciliation.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
@@ -70,7 +71,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.33.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.34.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -129,6 +130,13 @@ if(String(process.env.NEXOFFICE_BILLING_ENABLED||'false').toLowerCase()==='true'
   void ensureWooviBillingWebhooks().then(result=>{app.log.info({integration:'woovi',...result},'Woovi billing webhook setup OK')}).catch(error=>app.log.error({integration:'woovi',error:error instanceof Error?error.message:String(error)},'Woovi billing webhook setup FAILED'));
   const reconcileBilling=()=>void reconcileWooviBillingSubscriptions().then(result=>{app.log.info({integration:'woovi',mode:'polling_fallback',configured:result.configured,scanned:result.scanned,updated:result.updated,errors:result.errors},'Woovi billing reconciliation OK')}).catch(error=>app.log.error({integration:'woovi',mode:'polling_fallback',error:error instanceof Error?error.message:String(error)},'Woovi billing reconciliation FAILED'));
   const firstBillingSync=setTimeout(reconcileBilling,5_000);firstBillingSync.unref();const billingSyncInterval=setInterval(reconcileBilling,15*60_000);billingSyncInterval.unref();
+}
+
+const smartBotsConfigured=Boolean(String(process.env.SMARTBOTS_BASE_URL||'').trim()&&String(process.env.SMARTBOTS_API_KEY||'').trim());
+if(smartBotsConfigured&&String(process.env.NEXOFFICE_SMARTBOTS_ADDON_SYNC||'true').toLowerCase()==='true'){
+  const reconcileSmartBots=()=>void reconcileSmartBotsAddonEntitlements().then(result=>app.log.info({integration:'smartbots',mode:'addon_eligibility',...result},'SmartBots add-on reconciliation OK')).catch(error=>app.log.error({integration:'smartbots',mode:'addon_eligibility',error:error instanceof Error?error.message:String(error)},'SmartBots add-on reconciliation FAILED'));
+  const firstSmartBotsSync=setTimeout(reconcileSmartBots,60_000);firstSmartBotsSync.unref();
+  const smartBotsSyncInterval=setInterval(reconcileSmartBots,60*60_000);smartBotsSyncInterval.unref();
 }
 
 const staffBase=String(process.env.STAFF_BASE_URL||'').replace(/\/$/,'');const staffKey=String(process.env.STAFF_API_KEY||'');
