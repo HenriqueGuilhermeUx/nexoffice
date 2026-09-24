@@ -40,7 +40,7 @@ export async function reconcileSmartBotsAddonEntitlements(){
     if(!botId){unchanged++;continue}
     try{
       const remote=await smartBotsAddonRequest(row.workspace_id,'sync',{eligible:isEligible,existingBotId:botId});
-      if(!remote.ok)throw new Error(String(remote.error||'smartbots_addon_sync_failed'));
+      if(!remote.ok)throw new Error(String((remote as any).error||'smartbots_addon_sync_failed'));
       if(isEligible){
         const trialEnd=row.valid_until?new Date(row.valid_until).getTime():0;
         const nextStatus=trialEnd>Date.now()?'trial':'active';
