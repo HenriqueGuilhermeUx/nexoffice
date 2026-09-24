@@ -4,7 +4,7 @@ Status: branch de implementação isolada. Não integrar ao `main` sem validaç�
 
 ## Tese de produto
 
-Compliance é uma capacidade nativa do NexOffice, não um menu de apps externos. NR1Check e MindCompliance permanecem produtos separados, com dados canônicos, regras e privacidade próprios.
+Compliance é uma capacidade nativa do NexOffice, não um menu de apps externos. NR1Check/MindCompliance permanece o produto especializado, com dados canônicos, regras e privacidade próprios.
 
 ### NR1Check
 - diagnóstico/porta de entrada para NR-1 e descoberta de necessidades de compliance ocupacional
@@ -34,7 +34,7 @@ O onboarding pode perguntar apenas fatos empresariais simples, por exemplo:
 - já possui apoio de SST/gestão de riscos ocupacionais?
 - já verificou NR-1/PGR?
 
-A saída da triagem é somente um estado de relevância do onboarding:
+A saída é apenas estado de relevância de produto:
 - `not_relevant_now`
 - `worth_checking`
 - `review_recommended`
@@ -44,21 +44,27 @@ Esses estados não representam parecer jurídico.
 
 ## Contrato privacy-safe
 
-### NexOffice -> compliance: contexto empresarial permitido
+### NexOffice -> produto especializado
+O contexto empresarial permitido é:
 - `workspaceRef`
 - `businessName`
 - setor/classificação operacional
-- flags empresariais simples explicitamente informadas pelo cliente
 
-### Identidade de acesso na entrada federada
-Quando a bridge server-to-server estiver configurada, o NexOffice pode enviar ao NR1Check somente a identidade do usuário já autenticado necessária para provisionar/reusar a conta (`userRef`, `userEmail`, `userName`). Esses dados nunca entram na URL do navegador; são transmitidos backend-to-backend e usados somente para autenticação/provisionamento. O NR1Check emite um ticket de login de uso único e curta duração. Se a federação falhar, o fluxo seguro anterior continua disponível como fallback.
+Esse contexto não é colocado em query params legíveis. O backend do NexOffice gera um handoff HMAC-SHA256 assinado, com versão, nonce e expiração aproximada de 10 minutos.
 
-### NexOffice -> compliance: proibido
+Quando a entrada passwordless está disponível, a identidade mínima do usuário (`userRef`, `userEmail`, `userName`) cruza somente backend-to-backend para provisionar/reutilizar a conta Clerk. O navegador recebe apenas:
+- ticket Clerk de uso único e ~120 segundos;
+- handoff empresarial opaco assinado.
+
+Nenhum e-mail, nome do usuário, workspace, CNPJ ou setor é colocado como parâmetro legível na URL federada.
+
+### Dados proibidos na ponte
 - dados médicos/saúde
 - respostas de questionários psicossociais
 - denúncias/canal de relatos
 - CPF ou dados pessoais de empregados
 - documentos brutos
+- evidências confidenciais
 
 ### compliance -> NexOffice: permitido
 - status da integração
@@ -69,7 +75,7 @@ Quando a bridge server-to-server estiver configurada, o NexOffice pode enviar ao
 - próximo prazo
 - percentual de conclusão
 - categorias agregadas de alto nível
-- deep link/handoff seguro
+- deep link seguro para o produto especializado
 
 ### compliance -> NexOffice: proibido
 - respostas individuais
@@ -79,45 +85,69 @@ Quando a bridge server-to-server estiver configurada, o NexOffice pode enviar ao
 - evidências confidenciais
 - documentos brutos
 
-## Fluxo mínimo V1
+## Fluxo V1
 
 NexOffice
 -> triagem leve de relevância
 -> botão único de checagem
--> entrada federada NR1Check quando configurada, sem nova senha
--> fallback privacy-safe de login/cadastro quando a bridge estiver indisponível
+-> entrada passwordless quando Clerk/federação estiver configurado
+-> fallback com handoff assinado quando a federação estiver indisponível
+-> confirmação do CNPJ real no produto especializado
+-> criação/vínculo da empresa em uma única transação
 -> NR1Check diagnóstico/onboarding
--> MindCompliance gestão contínua quando aplicável
--> resumo agregado volta ao NexOffice
--> Briefing Executivo usa somente o resumo seguro quando há algo acionável
+-> MindCompliance gestão contínua
+-> resumo agregado consultado server-to-server pelo NexOffice
+-> cache seguro no workspace
+-> Briefing Executivo / Founder Cockpit usam somente o resumo acionável
 
 ## Arquitetura
 
 - repositórios e bancos independentes
 - nenhum banco compartilhado
-- adapters server-side
-- secrets apenas no backend
-- provisioning idempotente
-- ticket/session exchange single-use e curto quando suportado
+- adapter server-side
+- `NEXOFFICE_COMPLIANCE_BRIDGE_SECRET` apenas no backend dos dois produtos
+- mesma chave scoped autentica a API de resumo e assina o handoff
+- provisioning de conta de autenticação sem criar empresa/CNPJ automaticamente
+- vínculo `workspaceRef ↔ companyId` explícito e não sensível no produto especializado
 - isolamento multi-tenant
 - produto de origem continua dono dos dados canônicos
 - efeitos externos permanecem approval-gated
 
-## Estado do produto de origem
+## Endpoints NexOffice
 
-O repositório `HenriqueGuilhermeUx/nr1check` incorporou o PR #1 `Add privacy-safe NexOffice entry flow`, com fallback seguro que aceita somente `workspaceRef`, `businessName` e `sector`, expira o contexto em 24h e mantém todos os dados sensíveis no produto especializado.
+- `GET /v1/compliance/overview`
+- `PUT /v1/compliance/triage`
+- `POST /v1/compliance/nr1check/handoff`
+- `POST /v1/compliance/refresh`
+- `POST /v1/internal/compliance/summary` — opção de push agregado, protegida pela chave scoped
 
-A evolução passwordless está sendo desenvolvida separadamente no NR1Check, branch `feature/nexoffice-federated-entry`, usando bridge server-side e ticket Clerk de uso único. Nenhuma credencial real faz parte do código.
+## Contrato esperado no NR1Check/MindCompliance
 
-## Configuração necessária para ativar a federação
+- `POST /api/nexoffice/handoff/verify`
+- `POST /api/integrations/nexoffice/session` — passwordless opcional
+- `GET /api/internal/nexoffice/compliance-summary?workspaceRef=...`
+- `GET /api/internal/nexoffice/health`
 
-No NexOffice API:
+## Configuração
+
+No backend NexOffice:
 - `NR1CHECK_WEB_URL`
 - `NR1CHECK_API_URL`
-- `NR1CHECK_BRIDGE_KEY`
+- `NEXOFFICE_COMPLIANCE_BRIDGE_SECRET`
 
-No NR1Check API:
-- `NEXOFFICE_BRIDGE_KEY` com o mesmo segredo
-- Clerk já configurado no ambiente de destino
+No backend NR1Check/MindCompliance:
+- `NEXOFFICE_COMPLIANCE_BRIDGE_SECRET` com o mesmo segredo
+- Clerk configurado para o modo passwordless
 
-Sem essas variáveis, o NexOffice usa o fallback seguro existente e o restante do Compliance Hub continua funcionando.
+Sem `NR1CHECK_API_URL` ou sem disponibilidade da federação, o handoff assinado continua funcionando como fallback. Sem o segredo scoped, o NexOffice não cria handoff nem aceita resumo de compliance.
+
+## Validação obrigatória antes de merge
+
+- build API + web
+- isolamento entre tenants
+- handoff adulterado/expirado rejeitado
+- ticket passwordless curto e sem identidade em URL
+- ingestão estrita rejeita payload com campos sensíveis
+- banco especializado pode conter CPF, denúncia e evidência sentinela sem que nenhuma dessas strings apareça no resumo entregue ao NexOffice
+- Executive Brief recebe somente `aggregate_only`
+- nenhuma mudança habilita ações externas automáticas
