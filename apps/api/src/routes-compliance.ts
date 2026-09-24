@@ -25,7 +25,6 @@ function relevanceFor(input:TriageInput):{state:Relevance;title:string;detail:st
 
 function safeBase(value:string){const raw=String(value||'').trim();if(!raw)return null;try{const url=new URL(raw);if(!['https:','http:'].includes(url.protocol))return null;return url.toString().replace(/\/$/,'')}catch{return null}}
 function bridgeSecret(){return String(process.env.NEXOFFICE_COMPLIANCE_BRIDGE_SECRET||'').trim()}
-function browserBridgeConfigured(){return Boolean(safeBase(String(process.env.NR1CHECK_WEB_URL||''))&&bridgeSecret())}
 function federationConfigured(){return Boolean(safeBase(String(process.env.NR1CHECK_API_URL||''))&&safeBase(String(process.env.NR1CHECK_WEB_URL||''))&&bridgeSecret())}
 function liveSummaryConfigured(){return Boolean(safeBase(String(process.env.NR1CHECK_API_URL||''))&&bridgeSecret())}
 function safeEqual(received:string,expected:string){if(!received||!expected)return false;const a=Buffer.from(received),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b)}
@@ -76,5 +75,13 @@ export async function registerComplianceRoutes(app:FastifyInstance){
     await auditLog(ctx,'compliance.nr1check.handoff.created','workspace',ctx.workspaceId,null,{source:'nexoffice',mode:'signed_fallback',passwordless:false,sharedBusinessFields:['workspaceRef','businessName','sector'],identityInBrowserUrl:false,sensitiveBusinessDataShared:false,expiresAt:signed.expiresAt,externalEffect:false});return{url:signed.url,mode:'signed_fallback',passwordless:false,expiresAt:signed.expiresAt,sharedBusinessFields:['workspaceRef','businessName','sector'],identityInBrowserUrl:false,businessContextOpaque:true,sensitiveBusinessDataShared:false};
   });
   app.post('/v1/compliance/refresh',async req=>{const ctx=await workspaceContext(req,'integrations.read');const summary=await pullComplianceSummary(ctx.workspaceId);return{refreshed:Boolean(summary),summary,privacy:'aggregate_only'}});
-  app.post('/v1/internal/compliance/summary',async req=>{authorizeComplianceBridge(req);const raw=req.body as any,input=sanitizeSummary(raw,raw?.workspaceRef);if(!input)throw new ApiError(400,'invalid_compliance_summary','Resumo de compliance inválido.');const exists=(await query<any>(`select id from workspaces where id=$1`,[input.workspaceRef]))[0];if(!exists)throw new ApiError(404,'workspace_not_found','Workspace NexOffice não encontrado.');await persistSummary(input.workspaceRef,input);await query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,after_state,metadata) values($1,'service',$2,'compliance.summary.updated','workspace',$1::text,$3,$4)`,[input.workspaceRef,input.sourceProduct,JSON.stringify(input),JSON.stringify({privacy:'aggregate_only',rawRecordsAccepted:false})]).catch(()=>null);return{ok:true,workspaceId:input.workspaceRef,privacy:'aggregate_only'}});
+  app.post('/v1/internal/compliance/summary',async req=>{
+    authorizeComplianceBridge(req);
+    const parsed=Summary.safeParse(req.body);if(!parsed.success)throw new ApiError(400,'invalid_compliance_summary','Resumo de compliance inválido.');
+    const input:SummaryInput={...parsed.data,deepLink:acceptedComplianceDeepLink(parsed.data.deepLink)};
+    const exists=(await query<any>(`select id from workspaces where id=$1`,[input.workspaceRef]))[0];if(!exists)throw new ApiError(404,'workspace_not_found','Workspace NexOffice não encontrado.');
+    await persistSummary(input.workspaceRef,input);
+    await query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,after_state,metadata) values($1::uuid,'service',$2,'compliance.summary.updated','workspace',$3,$4,$5)`,[input.workspaceRef,input.sourceProduct,input.workspaceRef,JSON.stringify(input),JSON.stringify({privacy:'aggregate_only',rawRecordsAccepted:false})]);
+    return{ok:true,workspaceId:input.workspaceRef,privacy:'aggregate_only'};
+  });
 }
