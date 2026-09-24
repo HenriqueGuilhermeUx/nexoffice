@@ -1,0 +1,74 @@
+name: Compliance Hub V1 Smoke
+
+on:
+  pull_request:
+    paths:
+      - '.env.example'
+      - 'apps/api/src/routes-compliance.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/business-compliance.ts'
+      - 'apps/api/src/business-executive-brief.ts'
+      - 'apps/web/src/ComplianceCenter.tsx'
+      - 'apps/web/src/ComplianceDock.tsx'
+      - 'apps/web/src/compliance-center.css'
+      - 'apps/web/src/compliance-dock.css'
+      - 'apps/web/src/App.tsx'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-compliance-hub-v1.mjs'
+      - 'docs/NEXOFFICE_COMPLIANCE_HUB_V1.md'
+      - '.github/workflows/compliance-hub-v1-smoke.yml'
+
+jobs:
+  compliance-hub-v1:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+      NEXOFFICE_BILLING_ENABLED: "false"
+      NR1CHECK_WEB_URL: https://nr1check.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare isolated test credentials
+        run: |
+          echo "NEXOFFICE_INTERNAL_KEY=compliance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          echo "SMOKE_USER_PASSWORD=Compliance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}!A9" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        run: npm install
+      - name: Build API and web
+        run: npm run build
+      - name: Start isolated NexOffice API
+        run: |
+          node apps/api/dist/server.js > /tmp/nexoffice-compliance-v1.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nexoffice-compliance-v1.log
+          exit 1
+      - name: Validate privacy-safe Compliance Hub
+        run: node scripts/smoke-compliance-hub-v1.mjs
+      - name: Logs on failure
+        if: failure()
+        run: cat /tmp/nexoffice-compliance-v1.log || true

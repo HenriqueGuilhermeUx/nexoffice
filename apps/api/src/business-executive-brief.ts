@@ -1,4 +1,5 @@
 import {getFounderCockpit} from './business-founder-cockpit.js';
+import {getComplianceOperationalSnapshot} from './business-compliance.js';
 
 type ExecutiveDecision={
   id:string;
@@ -14,6 +15,7 @@ type ExecutiveDecision={
 };
 
 const money=(minor:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
+const shortDate=(value:string)=>new Intl.DateTimeFormat('pt-BR',{dateStyle:'medium'}).format(new Date(value));
 
 function pickTeam(c:any){
   if(Number(c.money?.overdueCount||0)>0)return{name:'Theo',agentRole:'collections',title:'Cobrança',prompt:'Quais recebimentos vencidos devo priorizar hoje e qual sequência de ação você recomenda?'};
@@ -23,7 +25,7 @@ function pickTeam(c:any){
 }
 
 export async function getExecutiveBrief(workspaceId:string){
-  const c:any=await getFounderCockpit(workspaceId);
+  const [c,compliance]=await Promise.all([getFounderCockpit(workspaceId),getComplianceOperationalSnapshot(workspaceId)]) as [any,Awaited<ReturnType<typeof getComplianceOperationalSnapshot>>];
   const activeItems=(c.plan?.items||[]).filter((x:any)=>!['done','cancelled','superseded'].includes(String(x.status)));
   const decisions:ExecutiveDecision[]=activeItems.slice(0,3).map((x:any)=>({
     id:String(x.id),title:String(x.title),detail:String(x.rationale||''),benefit:String(x.benefit||''),target:String(x.action_target||'task'),status:String(x.status||'suggested'),planItemId:String(x.id),taskId:x.task_id||null,dueAt:x.due_at||null,priority:Number(x.priority||0)
@@ -31,6 +33,8 @@ export async function getExecutiveBrief(workspaceId:string){
 
   let attention:any=null;
   if(Number(c.money?.overdueCount||0)>0)attention={kind:'receivables',title:`${c.money.overdueCount} recebimento(s) vencido(s)`,detail:`Há ${money(c.money.overdueMinor)} vencido(s). Vale priorizar caixa antes que a pressão aumente.`,target:'finance'};
+  else if(compliance.overdueActions>0)attention={kind:'compliance',title:`${compliance.overdueActions} ação(ões) de compliance vencida(s)`,detail:'Há pendências de compliance fora do prazo. O NexOffice mostra apenas o status agregado; detalhes e evidências continuam no produto especializado.',target:'compliance'};
+  else if(compliance.dueWithin7Days&&compliance.nextDueAt)attention={kind:'compliance_deadline',title:'Prazo de compliance nesta semana',detail:`Há um próximo prazo em ${shortDate(compliance.nextDueAt)}. Vale conferir o plano de ação antes do vencimento.`,target:'compliance'};
   else if(Number(c.operations?.overdueTasks||0)>0)attention={kind:'execution',title:`${c.operations.overdueTasks} tarefa(s) vencida(s)`,detail:'Há trabalho importante fora do prazo. Limpar essas pendências reduz acúmulo operacional.',target:'agenda'};
   else if(c.changes?.attention?.[0])attention={kind:'business_change',title:String(c.changes.attention[0].title||'Ponto de atenção'),detail:String(c.changes.attention[0].detail||''),target:'trajectory'};
 
@@ -55,12 +59,13 @@ export async function getExecutiveBrief(workspaceId:string){
     money:c.money,
     sales:c.sales,
     operations:c.operations,
+    compliance,
     decisions,
     attention,
     opportunity,
     weeklyProgress:{done,total,pct:total?Math.round(done/total*100):0,summary:c.plan?.plan?.summary||null},
     digitalTeam:team,
     recentResults:(c.results||[]).slice(0,2),
-    note:'Leitura executiva baseada na operação registrada no NexOffice. Comparações antes/depois não provam causalidade e índices internos de risco não são expostos ao cliente.'
+    note:'Leitura executiva baseada na operação registrada no NexOffice. Compliance aparece apenas por status agregado; dados sensíveis permanecem no produto especializado. Comparações antes/depois não provam causalidade e índices internos de risco não são expostos ao cliente.'
   };
 }
