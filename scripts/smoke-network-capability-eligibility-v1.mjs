@@ -8,6 +8,8 @@ const lacks=(text,value,label)=>must(!text.includes(value),label||`unexpected ${
 const model=read('apps/api/src/network-provider-capabilities.ts');
 const routes=read('apps/api/src/routes-network-capabilities.ts');
 const standalone=read('apps/api/src/routes-standalone.ts');
+const center=read('apps/web/src/NetworkCenter.tsx');
+const css=read('apps/web/src/network-capabilities.css');
 
 has(model,"networkReady:workspaceActive&&profilePublished&&activeService",'network eligibility derives from active workspace, published profile and active service');
 has(model,"has_document_flow",'document capability derives from observed operation data');
@@ -37,5 +39,14 @@ lacks(routes,'order by score','no score ranking');
 lacks(routes,'order by rating','no rating ranking');
 
 has(standalone,"registerNetworkCapabilityRoutes(app)",'capability routes registered');
+has(center,"api<CapabilityResponse>('/v1/network/capabilities')",'provider discovery loads capability evidence');
+has(center,"api<CapabilityEvidence>('/v1/network/provider/me/capabilities')",'provider self view loads capability evidence');
+has(center,'<CapabilitySummary data={p.capability} compact/>','public provider card shows capability evidence separately from trust');
+has(center,'<CapabilitySummary data={me?.capability}/>','provider self area shows capability evidence');
+has(center,'Não são certificação, nota, ranking ou garantia de qualidade.','UI explains evidence boundary');
+lacks(center,'melhor prestador','UI does not claim a best provider');
+lacks(center,'★★★★★','UI does not introduce stars');
+has(css,'.providerCapabilityBadges','capability badges have dedicated styling');
+has(css,'.providerCapabilityEligibility','eligibility state has dedicated styling');
 
 console.log('NexOffice Network Capability / Eligibility V1 contract OK');
