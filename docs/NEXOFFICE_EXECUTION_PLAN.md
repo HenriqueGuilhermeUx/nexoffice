@@ -49,9 +49,9 @@ Scope:
 - isolated SmartBots external-action gate, OFF by default.
 
 ### B. NexOffice Network + ecosystem offers
-Status: built in dedicated PR/branch.
+Status: base Network, contextual recommendations, Provider Trust and request-scoped Delegated Access are implemented in dedicated stacked PRs/branches; not merged/deployed.
 
-Scope:
+Implemented:
 - provider profiles, specialties, portfolio and services;
 - contextual provider discovery;
 - service requests between workspaces;
@@ -60,14 +60,24 @@ Scope:
 - Alternative Ventures Studio first-party complementary offer;
 - Nexa informational/future offer only;
 - owner-controlled encrypted Pix profile;
-- base `business_operations` lineage.
+- base `business_operations` lineage;
+- deterministic contextual Recommendation Engine with human decision required;
+- Provider Trust based on safe operational evidence, without stars, score or ranking;
+- request-scoped Delegated Access with explicit read-only scopes, expiry, revocation and audit;
+- no automatic `workspace_members` membership for external providers.
+
+Current Network increment:
+- Network Work Execution / Outcome Loop V1;
+- create or link a `business_operation` directly from an accepted provider request;
+- expose safe cross-domain lineage for the work without amounts, Pix secrets, raw documents or fiscal external references;
+- keep DocWallet, TaxAgent, SmartBots and owner-controlled Pix as authoritative downstream engines.
 
 Next Network increments:
-- provider badges/eligibility;
-- delegated least-privilege access bundles;
-- verified outcome/reputation scoring;
-- recommendation engine: software vs first-party offer vs specialist;
-- contextual provider matching from business signals.
+- native Network work UI for operation/contract lineage;
+- provider capability/eligibility badges based on real entitlements;
+- richer structured outcomes while keeping private metrics private;
+- contextual provider matching from business signals;
+- avoid generic marketplace/Fiverr behavior until network liquidity justifies it.
 
 ### C. DocWallet native contract creation
 Status: bridge work exists in dedicated NexOffice + DocWallet branches/PRs; contract-to-operation linkage is implemented in a stacked NexOffice milestone.
@@ -90,7 +100,7 @@ Implemented linkage:
 - no automatic signature, fiscal issuance, collection or communication.
 
 ### D. TaxAgent native fiscal flow
-Status: TaxAgent capability/adapter, approval-first invoice preparation and Commercial Operation status synchronization are implemented in dedicated stacked milestones.
+Status: TaxAgent capability/adapter, approval-first invoice preparation, Commercial Operation status synchronization and signed webhook synchronization are implemented in dedicated stacked milestones; production webhook setup remains OFF.
 
 Goal:
 - TaxAgent is available to the business owner, not only accountants;
@@ -105,10 +115,13 @@ Implemented synchronization:
 - read `GET /invoices/:id` from TaxAgent without reissuing or mutating the fiscal operation;
 - map `authorized` to `invoice_authorized` and rejected/cancelled states to operational attention;
 - surface real fiscal status in the Operação Comercial UI;
-- preserve TaxAgent as fiscal source of truth.
+- preserve TaxAgent as fiscal source of truth;
+- webhook-driven status updates implemented through the signed TaxAgent receiver;
+- signed TaxAgent webhook receiver for `invoice.authorized` and `invoice.rejected`;
+- HMAC-SHA256 verification, anti-replay window and persistent event idempotency;
+- webhook setup gate remains `NEXOFFICE_TAXAGENT_WEBHOOK_SETUP=false` by default and has not been activated.
 
 Next fiscal increment:
-- webhook-driven status updates so normal operation does not depend on manual refresh;
 - richer authorized invoice metadata (number/DANFSe links when the TaxAgent contract exposes safe references);
 - explicit fiscal-readiness guidance before production issuance.
 
@@ -177,18 +190,18 @@ Not allowed yet:
 
 ## Product recommendation engine direction
 
-NexOffice should eventually recommend the best next capability from business context rather than presenting a generic app catalog.
+NexOffice now has a deterministic contextual recommendation engine that combines workspace-local operational signals and keeps `externalEffects=false` / `humanDecisionRequired=true`.
 
-Examples:
-- campaign has clicks but weak conversion -> MODO optimization or specialist;
+Current examples:
+- campaign/pipeline weakness -> MODO or specialist;
 - stale proposals -> SmartBots/CRM playbook;
 - service agreed -> DocWallet contract;
-- contract signed/service delivered -> TaxAgent invoice;
-- invoice/receivable open -> owner Pix collection;
-- repeated fiscal complexity -> accountant via Network;
+- contract without fiscal progression -> TaxAgent;
+- authorized invoice without receivable -> owner-controlled Pix collection;
+- repeated fiscal complexity -> published accountant/fiscal specialist via Network;
 - legal routine doubt -> NexJud Mini;
 - need exceeds configurable SaaS -> Alternative Ventures Studio;
-- future financial account interest -> Nexa informational offer.
+- future financial account interest -> Nexa informational offer only, never automatic.
 
 ## Monetization direction
 
@@ -212,5 +225,6 @@ Later, only after network liquidity and appropriate infrastructure:
 - Keep milestones in separate feature branches/PRs until explicitly authorized to integrate.
 - Do not merge/deploy merely because the user says `bora`, `continue` or `manda bala`.
 - Production external actions remain OFF unless separately and explicitly authorized.
+- TaxAgent webhook setup remains OFF unless explicitly authorized.
 - Do not introduce Nexa operational finance until BaaS infrastructure is contracted, mapped, tested and homologated.
 - Prefer strengthening existing engines and bridges over duplicating domain logic in NexOffice.
