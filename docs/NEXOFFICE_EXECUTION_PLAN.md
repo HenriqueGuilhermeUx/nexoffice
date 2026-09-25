@@ -70,40 +70,53 @@ Next Network increments:
 - contextual provider matching from business signals.
 
 ### C. DocWallet native contract creation
-Status: bridge work exists in dedicated NexOffice + DocWallet branches/PRs.
+Status: built in dedicated stacked NexOffice milestone; DocWallet bridge dependency remains separately governed.
 
-Goal:
+Implemented:
 - create a contract from NexOffice using the real DocWallet contract engine;
 - use DocWallet templates;
 - store only `document_ref` + status/hash metadata in NexOffice;
 - no raw contract copy in NexOffice;
 - signature remains a separate governed action;
-- a contract can become the start of a `business_operation`.
+- validate CRM contact/deal ownership;
+- optionally create a `business_operation` together with the contract;
+- optionally link a new contract to an existing `business_operation`;
+- preserve idempotency and prevent duplicate lineage.
 
-Target UX:
-`CRM/deal -> Novo contrato -> DocWallet template -> review/sign -> Operação Comercial`
+Native UX:
+`CRM/deal -> Novo contrato -> DocWallet template -> Operação Comercial -> review/sign -> próximos passos`
+
+No contract creation flow automatically signs, invoices, charges or messages the customer.
 
 ### D. TaxAgent native fiscal flow
-Status: TaxAgent capability/adapter and business-operation invoice preparation exist.
+Status: invoice preparation exists; read-only TaxAgent -> Commercial Operation status synchronization is built in `feature/taxagent-operation-sync-v1` and pending PR/CI validation.
 
-Goal:
+Implemented / current milestone:
 - TaxAgent is available to the business owner, not only accountants;
 - prepare invoice data from CRM/contract/operation;
 - require human approval/readiness for fiscal effects;
-- synchronize TaxAgent authorized/rejected status back to `business_operations`;
-- connect authorized invoice reference to receivable and customer communication.
+- recover the TaxAgent invoice ID from the successful governed agent run;
+- read real fiscal state through `GET /v1/invoices/:id`;
+- synchronize authorized/rejected/processing state back to `business_operations`;
+- never regress an operation that already advanced to collection/payment;
+- retain only minimal fiscal state/error metadata in NexOffice, not TaxAgent canonical fiscal/customer payloads.
+
+Next fiscal increments:
+- optional TaxAgent webhook push into NexOffice to reduce manual polling;
+- expose safe fiscal document/reference availability to communication flows;
+- connect authorized invoice reference cleanly to receivable/customer communication without copying the fiscal source of truth.
 
 Accountants in NexOffice Network can additionally use TaxAgent professionally for multiple customers with explicit delegated access.
 
 ### E. Commercial Operation Orchestrator
-Status: active development in `feature/commercial-operation-orchestrator-v1`.
+Status: built and fully green in PR #31; subsequent milestones are stacked on top and remain unmerged.
 
 Canonical lineage:
 1. customer/contact;
 2. CRM opportunity;
 3. optional Network provider request;
 4. DocWallet contract reference;
-5. TaxAgent invoice action/reference;
+5. TaxAgent invoice action/reference/status;
 6. NexOffice receivable;
 7. owner-controlled Pix collection package;
 8. optional approved SmartBots reminder without payment secret;
