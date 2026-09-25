@@ -95,13 +95,13 @@ This is a lineage graph, not duplication: DocWallet owns the contract, TaxAgent 
 
 ## First-party ecosystem offers
 
-NexOffice can surface first-party offers contextually:
+NexOffice surfaces first-party offers contextually rather than turning the product into an ad catalog:
 
-- Alternative Ventures Studio — custom site/system/app/integration build.
-- Nexa — future financial account/fintech offer, informational only while BaaS is unavailable.
-- NexJud Mini — contextual legal help rather than a marketplace listing.
+- Alternative Ventures Studio — custom site/system/app/integration build. Available as an opt-in complementary service.
+- Nexa — future financial account/fintech offer. Informational/list-of-interest only while BaaS is unavailable. Interest never provisions an account or triggers a financial action.
+- NexJud Mini — contextual legal help and lightweight analysis. It is a capability, not a marketplace/ad listing.
 
-The product should recommend these only when relevant to a detected need; avoid turning the home screen into an ad catalog.
+Interest in AV Studio or Nexa is stored as an explicit workspace opt-in with no external side effect. The user's current need can be attached as context so the offer is relevant rather than generic.
 
 ## Network membership and monetization direction
 
@@ -121,6 +121,7 @@ The product should recommend these only when relevant to a detected need; avoid 
 - Fiscal, legal and financial domain boundaries remain explicit.
 - Nexa financial functionality stays disabled until separately authorized and homologated.
 - SmartBots, MODO, TaxAgent and DocWallet should remain replaceable behind capability/adaptor contracts where practical.
+- Pix secrets are encrypted at rest and must not be persisted in command actions, audit payloads or cross-workspace records.
 
 ## Current implementation milestone
 
@@ -136,16 +137,19 @@ Implemented in this milestone:
 - `business_operations` lineage for CRM/deal -> DocWallet -> TaxAgent -> collection;
 - invoice preparation through existing TaxAgent capability and human approval;
 - collection creation from a business operation;
-- secret-safe communication draft generation without persisting a raw Pix key.
+- secret-safe communication draft generation without persisting a raw Pix key;
+- Alternative Ventures Studio as a first-party complementary offer with opt-in interest capture;
+- Nexa as a strictly informational/future offer with opt-in interest capture and explicit no-BaaS/no-financial-action constraints;
+- native Network Center UI that combines ecosystem offers, external specialists and owner-controlled Pix collections.
 
 Still intentionally separated / next milestones:
 - DocWallet contract creation-from-template endpoint inside the NexOffice bridge;
 - secure SmartBots hydration/send for owner-Pix collection drafts after approval, aligned with the Revenue Loop branch;
 - TaxAgent async webhook/poll synchronization back to `business_operations` after authorization/rejection;
 - Network provider badges/eligibility and verified outcome scoring;
-- contextual NexJud Mini surface;
-- Alternative Ventures Studio first-party service card/request flow;
-- Nexa informational/future-offer card only.
+- contextual NexJud Mini surface and narrow server-to-server contract;
+- delegated provider access into client workspaces with explicit permission bundles;
+- contextual recommendation engine that chooses software, first-party offer or specialist based on business signals.
 
 ## Delivery discipline
 
