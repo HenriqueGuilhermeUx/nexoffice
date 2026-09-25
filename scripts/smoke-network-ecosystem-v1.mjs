@@ -52,7 +52,8 @@ has(standalone,'registerOwnedPaymentRoutes(app)','owner Pix routes registered');
 has(standalone,'registerBusinessOperationRoutes(app)','business-operation routes registered');
 has(standalone,'registerEcosystemRoutes(app)','ecosystem routes registered');
 has(main,'<NetworkCenter/>','Network UI mounted');
-has(ui,'Alternative Ventures Studio','AV Studio visible in UI through returned offer metadata/type contract');
+has(ui,"api<Offer[]>('/v1/ecosystem/offers')",'Network UI loads curated ecosystem offers');
+has(ui,"/v1/ecosystem/offers/${offer.key}/interest",'Network UI captures explicit first-party offer interest');
 has(ui,'Nexa/BaaS permanece fora do fluxo financeiro.','UI states Nexa financial boundary');
 has(ui,'DocWallet formaliza · TaxAgent fiscaliza · SmartBots comunica.','cross-engine business-flow framing');
 
