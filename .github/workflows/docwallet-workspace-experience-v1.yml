@@ -1,0 +1,28 @@
+name: DocWallet Workspace Experience V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-docwallet-workspace.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/DocumentWorkspaceCenter.tsx'
+      - 'apps/web/src/DocumentWorkspaceBridge.tsx'
+      - 'apps/web/src/document-workspace-center.css'
+      - 'apps/web/src/main.tsx'
+      - 'infra/postgres/036_docwallet_signature_allowance.sql'
+      - 'scripts/smoke-docwallet-workspace-experience-v1.mjs'
+      - '.github/workflows/docwallet-workspace-experience-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate DocWallet workspace experience contract
+        run: node scripts/smoke-docwallet-workspace-experience-v1.mjs
