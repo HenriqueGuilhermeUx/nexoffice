@@ -5,6 +5,9 @@ on:
     paths:
       - 'apps/api/src/routes-network-work-execution.ts'
       - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/NetworkWorkLineage.tsx'
+      - 'apps/web/src/network-work-lineage.css'
       - 'scripts/smoke-network-work-execution-loop-v1.mjs'
       - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
       - '.github/workflows/network-work-execution-loop-v1.yml'
@@ -13,6 +16,9 @@ on:
     paths:
       - 'apps/api/src/routes-network-work-execution.ts'
       - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/NetworkWorkLineage.tsx'
+      - 'apps/web/src/network-work-lineage.css'
       - 'scripts/smoke-network-work-execution-loop-v1.mjs'
       - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
       - '.github/workflows/network-work-execution-loop-v1.yml'
