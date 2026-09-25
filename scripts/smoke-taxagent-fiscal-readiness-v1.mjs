@@ -8,6 +8,8 @@ const lacks=(text,value,label)=>must(!text.includes(value),label||`unexpected ${
 const readiness=read('apps/api/src/taxagent-fiscal-readiness.ts');
 const routes=read('apps/api/src/routes-taxagent-operation-sync.ts');
 const sync=read('apps/api/src/taxagent-operation-sync.ts');
+const web=read('apps/web/src/BusinessOperationCenter.tsx');
+const css=read('apps/web/src/business-operation-center.css');
 
 has(routes,"app.get('/v1/business-operations/:id/fiscal-readiness'",'readiness endpoint exists');
 has(routes,"workspaceContext(req,'workspace.read')",'readiness is read scoped');
@@ -39,5 +41,20 @@ has(sync,'safeReferences:refs','safe references are returned to authenticated Ne
 lacks(sync,'danfse_url','DANFSe URL is not invented without a verified TaxAgent contract');
 lacks(sync,'verification_code','verification code is not invented without a verified TaxAgent contract');
 lacks(sync,'invoice_number','invoice number is not invented without a verified TaxAgent contract');
+
+has(web,'Checar nota','commercial operation UI starts with readiness instead of blind fiscal preparation');
+has(web,"/fiscal-readiness?environment=test",'UI checks readiness explicitly in test environment');
+has(web,'PRONTIDÃO FISCAL · TESTE','readiness panel clearly identifies test environment');
+has(web,'Esta checagem é local, não chama o TaxAgent e não emite nota.','UI explains readiness has no external effect');
+has(web,"environment:'test'",'invoice preparation remains test by default');
+has(web,'Preparar em teste para aprovação','UI keeps human approval semantics visible');
+has(web,"item.key!=='customer_city_code'",'missing city code can be supplied safely during preparation');
+has(web,'Inscrição Municipal não é presumida como requisito universal','UI preserves municipal-registration boundary');
+has(web,'Produção não é habilitada por esta tela.','UI explicitly keeps production disabled');
+lacks(web,"environment:'production'",'UI never prepares production fiscal action');
+lacks(web,'danfse_url','UI does not invent DANFSe link');
+lacks(web,'invoice_number','UI does not invent invoice number');
+has(css,'.bocReadiness','readiness panel has dedicated styling');
+has(css,'.bocChecks','readiness checks have dedicated styling');
 
 console.log('NexOffice TaxAgent Fiscal Readiness V1 contract OK');
