@@ -1,0 +1,36 @@
+name: Network Contextual Provider Matching V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-network-provider-matching.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'scripts/smoke-network-contextual-provider-matching-v1.mjs'
+      - '.github/workflows/network-contextual-provider-matching-v1.yml'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-capabilities.css'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/routes-network-provider-matching.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'scripts/smoke-network-contextual-provider-matching-v1.mjs'
+      - '.github/workflows/network-contextual-provider-matching-v1.yml'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-capabilities.css'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate contextual provider matching contract
+        run: node scripts/smoke-network-contextual-provider-matching-v1.mjs
