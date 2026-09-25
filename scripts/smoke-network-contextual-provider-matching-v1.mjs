@@ -7,6 +7,7 @@ const lacks=(text,value,label)=>must(!text.includes(value),label||`unexpected ${
 
 const routes=read('apps/api/src/routes-network-provider-matching.ts');
 const standalone=read('apps/api/src/routes-standalone.ts');
+const web=read('apps/web/src/NetworkCenter.tsx');
 
 has(routes,"app.post('/v1/network/provider-matches'",'contextual provider matching endpoint');
 has(routes,"workspaceContext(req,'workspace.read')",'matching is authenticated and workspace-scoped');
@@ -36,9 +37,21 @@ lacks(routes,'order by rating','no rating-based SQL ordering');
 lacks(routes,'workspace_members','matching never grants workspace membership');
 lacks(routes,'pix_key','matching never reads Pix secret');
 lacks(routes,'privateMetrics','matching never reads private outcome metrics');
+
 has(standalone,"import {registerNetworkProviderMatchingRoutes} from './routes-network-provider-matching.js'",'matcher import registered');
 has(standalone,'await registerNetworkProviderMatchingRoutes(app)','matcher route registered');
 has(standalone,"app.get('/v1/standalone/readiness'",'standalone registry remains intact after matcher registration');
 has(standalone,"workspace_invites where workspace_id=$1 and status='pending'",'standalone readiness body preserved');
+
+has(web,"post<ProviderMatchResponse>('/v1/network/provider-matches'",'discovery UI calls contextual matcher');
+has(web,'Encontrar compatibilidades','discovery UI exposes explicit matching action');
+has(web,'COMPATIBILIDADES EXPLICADAS','matched providers are visually separated from general directory');
+has(web,'Compatível porque','UI explains why each provider is related');
+has(web,'A ordem abaixo é alfabética. Não existe score, ranking ou “melhor prestador”','UI explicitly explains neutral ordering');
+has(web,'Compatibilidade contextual não é avaliação de qualidade nem garantia de resultado.','UI avoids quality claims');
+has(web,'Todos os especialistas publicados','general directory remains available after matching');
+lacks(web,'match.score','UI never reads a provider score');
+lacks(web,'bestProvider','UI never renders a best-provider designation');
+lacks(web,'sort((a,b)=>b.score','UI never sorts providers by score');
 
 console.log('NexOffice Network Contextual Provider Matching V1 contract OK');
