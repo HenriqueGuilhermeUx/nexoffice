@@ -21,7 +21,7 @@ has(routes,'reasons:distinct(reasons)','matcher returns human-readable match rea
 has(routes,'alphabetical ordering prevents an implicit quality hierarchy','display order is explicitly non-ranked');
 has(routes,'ranking:false','methodology forbids ranking');
 has(routes,'score:false','methodology forbids scores');
-has(routes,'bestProvider:false','methodology never selects a best provider');
+has(routes,'bestProvider:false','methodology explicitly forbids automatic best-provider selection');
 has(routes,'alphabeticalDisplayOrder:true','provider display ordering is neutral/deterministic');
 has(routes,'humanDecisionRequired:true','human chooses provider');
 has(routes,'observedCapabilitiesAreEvidenceOnly:true','capabilities are evidence, not quality judgment');
@@ -51,7 +51,8 @@ has(web,'A ordem abaixo é alfabética. Não existe score, ranking ou “melhor 
 has(web,'Compatibilidade contextual não é avaliação de qualidade nem garantia de resultado.','UI avoids quality claims');
 has(web,'Todos os especialistas publicados','general directory remains available after matching');
 lacks(web,'match.score','UI never reads a provider score');
-lacks(web,'bestProvider','UI never renders a best-provider designation');
+lacks(web,'match.bestProvider','UI never reads a best-provider designation');
+lacks(web,'methodology.bestProvider===true','UI never promotes a best-provider flag');
 lacks(web,'sort((a,b)=>b.score','UI never sorts providers by score');
 
 console.log('NexOffice Network Contextual Provider Matching V1 contract OK');
