@@ -45,8 +45,10 @@ has(lineage,'Nenhuma ação externa acontece automaticamente.','human-control ex
 has(lineage,'Não emite nota, não gera Pix e não envia mensagem.','operation creation boundary visible');
 has(lineage,"requester&&['accepted','in_progress','completed'].includes(request.status)",'only requester can see operation creation eligibility');
 lacks(lineage,'pixKey','lineage UI never handles Pix secret');
-lacks(lineage,'fiscalExternalRef','lineage UI never renders fiscal external reference');
+lacks(lineage,'fiscal_external_ref','lineage UI never renders raw fiscal external reference');
+lacks(lineage,'.fiscalExternalRef','lineage UI never accesses fiscal external reference field');
 lacks(lineage,'workspace_members','lineage UI never grants workspace membership');
+has(lineage,'fiscalExternalRefExposed:false','privacy flag remains explicit in UI contract');
 has(lineageCss,'.networkLineageSteps','lineage steps styled');
 has(lineageCss,'.networkOperationCreate','operation creation styled');
 
