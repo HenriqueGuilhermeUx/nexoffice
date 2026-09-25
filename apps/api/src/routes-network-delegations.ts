@@ -44,7 +44,7 @@ export async function registerNetworkDelegationRoutes(app:FastifyInstance){
 
   app.get('/v1/network/delegations/:id/context',async req=>{
     const ctx=await workspaceContext(req,'workspace.read'),id=uuid.parse((req.params as any).id);
-    const delegation=(await query<any>(`select d.*,r.title request_title,r.need_summary,r.status request_status,r.contact_id,r.document_ref_id,r.service_id,r.budget_minor,r.currency from provider_delegations d join provider_requests r on r.id=d.request_id where d.id=$1 and d.provider_workspace_id=$2 and d.status='active' and d.expires_at>now() and r.status in ('accepted','in_progress')`,[id,ctx.workspaceId]))[0];
+    const delegation=(await query<any>(`select d.*,r.title request_title,r.need_summary,r.status request_status,r.contact_id,r.document_ref_id,r.service_id from provider_delegations d join provider_requests r on r.id=d.request_id where d.id=$1 and d.provider_workspace_id=$2 and d.status='active' and d.expires_at>now() and r.status in ('accepted','in_progress')`,[id,ctx.workspaceId]))[0];
     if(!delegation)throw new ApiError(404,'delegation_not_active','Delegação não encontrada, expirada, revogada ou fora de um trabalho ativo.');
     const scopes=new Set<string>(Array.isArray(delegation.scopes)?delegation.scopes:[]),clientWorkspaceId=String(delegation.requester_workspace_id);
     const operations=await query<any>(`select id,deal_id,document_ref_id,ledger_entry_id,title,description,status,due_at,fiscal_status,updated_at from business_operations where workspace_id=$1 and provider_request_id=$2 order by updated_at desc limit 5`,[clientWorkspaceId,delegation.request_id]);
@@ -78,6 +78,6 @@ export async function registerNetworkDelegationRoutes(app:FastifyInstance){
     }
 
     await query(`insert into audit_log(workspace_id,actor_type,actor_ref,action,subject_type,subject_id,metadata) values($1,'workspace',$2,'network.delegation.context_read','provider_delegation',$3,$4)`,[clientWorkspaceId,ctx.workspaceId,id,JSON.stringify({requestId:delegation.request_id,scopes:[...scopes],readOnly:true})]);
-    return {delegationId:id,requestId:delegation.request_id,clientWorkspaceId,context,privacy:{broadWorkspaceAccess:false,pixSecretExposed:false,rawDocumentContentExposed:false,fiscalPayloadExposed:false,auditLogged:true}};
+    return {delegationId:id,requestId:delegation.request_id,context,privacy:{broadWorkspaceAccess:false,pixSecretExposed:false,rawDocumentContentExposed:false,fiscalPayloadExposed:false,auditLogged:true}};
   });
 }
