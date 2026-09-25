@@ -14,7 +14,7 @@ const checks=[
   ['UI loads existing operations',ui.includes("api<ExistingOperation[]>('/v1/business-operations')")],
   ['UI links contact',ui.includes("patch(`/v1/network/requests/${request.id}/contact`")],
   ['UI links existing operation',ui.includes("post<{requestContactId?:string|null}>(`/v1/network/requests/${request.id}/link-operation`")],
-  ['delegated contact access remains separate',ui.includes('contact_read continua separado')||ui.includes('escopo “Contato”'))],
+  ['delegated contact access remains separate',ui.includes('contact_read continua separado')||ui.includes('escopo “Contato”')],
   ['no external action',api.includes('externalEffect:false')&&ui.includes('Nenhuma ação externa foi executada.')],
   ['no Pix in linkage UI',!ui.includes('pixKey')&&!ui.includes('maskedPixKey')],
   ['no provider membership mutation',!api.includes('insert into workspace_members')&&!api.includes('update workspace_members')]
