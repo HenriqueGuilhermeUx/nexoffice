@@ -1,0 +1,34 @@
+name: DocWallet Contract Create V1 Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-docwallet-contracts.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/ContractCreator.tsx'
+      - 'apps/web/src/contract-creator.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-docwallet-contract-create-v1.mjs'
+      - '.github/workflows/docwallet-contract-create-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/routes-docwallet-contracts.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/ContractCreator.tsx'
+      - 'apps/web/src/contract-creator.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-docwallet-contract-create-v1.mjs'
+      - '.github/workflows/docwallet-contract-create-v1.yml'
+
+jobs:
+  docwallet-contract-create-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+      - run: node scripts/smoke-docwallet-contract-create-v1.mjs
