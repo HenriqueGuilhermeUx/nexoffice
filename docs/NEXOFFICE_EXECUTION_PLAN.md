@@ -114,7 +114,7 @@ Implemented linkage:
 - no automatic signature, fiscal issuance, collection or communication.
 
 ### D. TaxAgent native fiscal flow
-Status: TaxAgent capability/adapter, approval-first invoice preparation, Commercial Operation status synchronization and signed webhook synchronization are implemented in dedicated stacked milestones; production webhook setup remains OFF.
+Status: TaxAgent capability/adapter, approval-first invoice preparation, Commercial Operation status synchronization, signed webhook synchronization and Fiscal Readiness V1 are implemented in dedicated stacked milestones; production webhook/setup and production fiscal execution remain OFF.
 
 Goal:
 - TaxAgent is available to the business owner, not only accountants;
@@ -123,7 +123,7 @@ Goal:
 - synchronize TaxAgent authorized/rejected status back to `business_operations`;
 - connect authorized invoice reference to receivable and customer communication.
 
-Implemented synchronization:
+Implemented synchronization and readiness:
 - recover the real TaxAgent invoice ID from the executed approval action result;
 - persist only TaxAgent reference/status in the NexOffice lineage;
 - read `GET /invoices/:id` from TaxAgent without reissuing or mutating the fiscal operation;
@@ -133,11 +133,19 @@ Implemented synchronization:
 - webhook-driven status updates implemented through the signed TaxAgent receiver;
 - signed TaxAgent webhook receiver for `invoice.authorized` and `invoice.rejected`;
 - HMAC-SHA256 verification, anti-replay window and persistent event idempotency;
-- webhook setup gate remains `NEXOFFICE_TAXAGENT_WEBHOOK_SETUP=false` by default and has not been activated.
+- webhook setup gate remains `NEXOFFICE_TAXAGENT_WEBHOOK_SETUP=false` by default and has not been activated;
+- local/read-only Fiscal Readiness endpoint checks CRM tax document, customer IBGE code, operation description/value, TaxAgent integration, company mapping, credential and base URL without calling TaxAgent or emitting a fiscal action;
+- readiness distinguishes `test` from `production`, keeps human approval mandatory and reports the production external-action gate without enabling it;
+- Inscrição Municipal is not presumed to be a universal prerequisite by NexOffice; municipality-specific registration rules remain authoritative in TaxAgent/municipal integration;
+- Operação Comercial now starts fiscal preparation with `Checar nota`, shows checks/blockers/warnings, and prepares only `environment='test'` from this UI;
+- a missing customer IBGE code can be supplied during governed preparation while integration/company/credential/tax-document/value remain real blockers;
+- TaxAgent sync normalizes only currently verified safe references (`accessKey` and `providerReference`);
+- NexOffice does not invent DANFSe URL, invoice number or verification code without a verified TaxAgent response contract.
 
 Next fiscal increment:
-- richer authorized invoice metadata (number/DANFSe links when the TaxAgent contract exposes safe references);
-- explicit fiscal-readiness guidance before production issuance.
+- expose richer authorized invoice metadata such as number/DANFSe links only when the TaxAgent contract formally exposes safe references;
+- run real homologation scenarios across representative municipality/provider paths before enabling production fiscal execution;
+- keep production fiscal actions and webhook setup behind explicit operational authorization.
 
 Accountants in NexOffice Network can additionally use TaxAgent professionally for multiple customers with explicit delegated access.
 
