@@ -5,6 +5,7 @@ import {registerComplianceRoutes} from './routes-compliance.js';
 import {registerNetworkRoutes} from './routes-network.js';
 import {registerNetworkTrustRoutes} from './routes-network-trust.js';
 import {registerNetworkCapabilityRoutes} from './routes-network-capabilities.js';
+import {registerNetworkStructuredOutcomeRoutes} from './routes-network-structured-outcomes.js';
 import {registerNetworkDelegationRoutes} from './routes-network-delegations.js';
 import {registerNetworkWorkExecutionRoutes} from './routes-network-work-execution.js';
 import {registerOwnedPaymentRoutes} from './routes-owned-payments.js';
@@ -22,6 +23,7 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerNetworkRoutes(app);
   await registerNetworkTrustRoutes(app);
   await registerNetworkCapabilityRoutes(app);
+  await registerNetworkStructuredOutcomeRoutes(app);
   await registerNetworkDelegationRoutes(app);
   await registerNetworkWorkExecutionRoutes(app);
   await registerOwnedPaymentRoutes(app);
