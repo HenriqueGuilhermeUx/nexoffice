@@ -21,7 +21,7 @@ has(routes,'createBusinessOperation','optional commercial operation creation');
 has(routes,'operationId','existing commercial operation linkage');
 has(routes,'operation_contact_mismatch','operation/contact ownership guard');
 has(routes,'deal_contact_mismatch','deal/contact ownership guard');
-has(routes,"status='contract_ready'",'linked operation advances to contract-ready state');
+has(routes,"then 'contract_ready'",'linked draft operation advances to contract-ready state');
 has(routes,"source:'contract_creator'",'created operation records contract-origin lineage');
 has(routes,"business_operation.created_from_contract",'audit event for contract-originated operation');
 has(routes,"signatureRequested:false",'contract creation cannot auto-request signature');
