@@ -1,0 +1,48 @@
+import fs from 'node:fs';
+
+const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8');
+const route=read('apps/api/src/routes-docwallet-workspace.ts');
+const standalone=read('apps/api/src/routes-standalone.ts');
+const ui=read('apps/web/src/DocumentWorkspaceCenter.tsx');
+const bridge=read('apps/web/src/DocumentWorkspaceBridge.tsx');
+const migration=read('infra/postgres/036_docwallet_signature_allowance.sql');
+const main=read('apps/web/src/main.tsx');
+const must=(value,label)=>{if(!value)throw new Error(`DocWallet Workspace Experience V1 failed: ${label}`)};
+const has=(text,value,label)=>must(text.includes(value),label||`missing ${value}`);
+const lacks=(text,value,label)=>must(!text.includes(value),label||`unexpected ${value}`);
+
+has(migration,"tier in ('included','signatures_plus')",'explicit included/signatures+ entitlement');
+has(migration,'monthly_limit integer not null default 6','six documents included monthly');
+has(migration,'Never inferred from generic workspace plan','entitlement independent from generic plan');
+has(migration,'One signature request/document counts as one included usage','one document is one usage');
+has(route,"app.get('/v1/documents/signature-allowance'",'allowance endpoint');
+has(route,"app.get('/v1/documents/docwallet-center'",'document center endpoint');
+has(route,"app.post('/v1/documents/:id/signatures'",'signature request endpoint');
+has(route,"pg_advisory_xact_lock",'concurrent quota requests serialized');
+has(route,"monthly_limit:6",'default six allowance');
+has(route,'perSignatureCharge:false','no per-signature billing');
+has(route,'workspacesPlanInferred:false','no generic plan inference');
+has(route,'billingActivated:false','billing remains off');
+has(route,'signature_allowance_exhausted','quota gate explicit');
+has(route,"'/api/internal/nexoffice/signatures/request'",'DocWallet canonical signature bridge called');
+has(route,'rawDocumentsStoredInNexOffice:false','raw documents remain outside NexOffice');
+has(route,'sensitiveSignatureEvidenceStoredInNexOffice:false','sensitive signature evidence remains DocWallet-owned');
+lacks(route,'workspaces.plan','route never infers entitlement from workspace plan');
+lacks(route,'pix_key','document workspace never reads Pix secrets');
+has(standalone,'registerDocWalletWorkspaceRoutes(app)','workspace routes registered');
+has(ui,'6 documentos/mês incluídos no NexOffice','simple included allowance UX');
+has(ui,'Assinaturas+','expanded signature plan UX');
+has(ui,'Sem cobrança avulsa','no per-use customer pricing');
+has(ui,'Contratos & modelos','contracts/models visible');
+has(ui,'Assinaturas','signatures visible');
+has(ui,'Inteligência','intelligence visible');
+has(ui,'DocFlow','DocFlow visible');
+has(ui,'Validação & certificados','verification/certificates visible');
+has(ui,'O conteúdo não passa pelo NexOffice','raw content boundary visible');
+has(bridge,'createPortal(<DocumentWorkspaceCenter/>','new center mounted into documents view');
+has(main,'<DocumentWorkspaceBridge/>','document workspace bridge installed');
+lacks(ui,'API keys','technical API keys hidden from end-user UX');
+lacks(ui,'Webhooks','technical webhooks hidden from end-user UX');
+lacks(ui,'Conectores','technical storage connectors hidden from end-user UX');
+
+console.log('NexOffice DocWallet Workspace Experience V1 contract OK');
