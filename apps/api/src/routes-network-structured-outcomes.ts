@@ -16,6 +16,7 @@ const structuredOutcomeInput=z.object({
   impactTags:z.array(impactTag).max(6).default([]),
   privateMetrics:z.record(z.string().trim().min(1).max(60),privateMetricValue).default({})
 });
+const minimumPublicSample=3;
 
 const publicMethodology={
   version:'structured-outcomes-v1',
@@ -23,8 +24,9 @@ const publicMethodology={
   score:false,
   rating:false,
   publicMetricValues:false,
-  minimumCategorySample:3,
-  note:'Outcomes estruturados organizam evidência de trabalho. Não são avaliação, nota ou garantia de qualidade. Categorias públicas só aparecem com pelo menos três registros para reduzir risco de reidentificação.'
+  minimumCategorySample:minimumPublicSample,
+  minimumDetailSample:minimumPublicSample,
+  note:'Outcomes estruturados organizam evidência de trabalho. Não são avaliação, nota ou garantia de qualidade. Características detalhadas só aparecem publicamente com pelo menos três registros para reduzir risco de reidentificação.'
 } as const;
 
 export async function registerNetworkStructuredOutcomeRoutes(app:FastifyInstance){
@@ -65,9 +67,9 @@ export async function registerNetworkStructuredOutcomeRoutes(app:FastifyInstance
       join workspaces w on w.id=r.provider_workspace_id
       where p.status='published' and w.status='active' and o.metrics->>'schemaVersion'='structured-outcomes-v1'
       group by r.provider_workspace_id,o.metrics->>'outcomeType'
-      having count(*)>=3`);
+      having count(*)>=${minimumPublicSample}`);
     const byProvider=new Map<string,Array<{key:string;count:number}>>();
     for(const row of categories){const id=String(row.provider_workspace_id),list=byProvider.get(id)||[];list.push({key:String(row.outcome_type),count:Number(row.count||0)});byProvider.set(id,list);}
-    return {providers:rows.map(row=>({workspaceId:String(row.provider_workspace_id),structuredCount:Number(row.structured_count||0),measuredCount:Number(row.measured_count||0),observedCount:Number(row.observed_count||0),categories:byProvider.get(String(row.provider_workspace_id))||[]})),methodology:publicMethodology,privacy:{summaryExposed:false,privateMetricValuesExposed:false,clientIdentityExposed:false,requestIdentityExposed:false,smallCategorySamplesSuppressed:true}};
+    return {providers:rows.map(row=>{const structuredCount=Number(row.structured_count||0),detailVisible=structuredCount>=minimumPublicSample;return {workspaceId:String(row.provider_workspace_id),structuredCount,measuredCount:detailVisible?Number(row.measured_count||0):null,observedCount:detailVisible?Number(row.observed_count||0):null,categories:detailVisible?(byProvider.get(String(row.provider_workspace_id))||[]):[]};}),methodology:publicMethodology,privacy:{summaryExposed:false,privateMetricValuesExposed:false,clientIdentityExposed:false,requestIdentityExposed:false,smallDetailSamplesSuppressed:true}};
   });
 }
