@@ -3,6 +3,7 @@ name: SmartBots Add-on CI
 on:
   pull_request:
     paths:
+      - '.env.example'
       - 'apps/api/src/integration-runtime.ts'
       - 'apps/api/src/routes-smartbots.ts'
       - 'apps/api/src/routes-revenue.ts'
@@ -19,6 +20,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.env.example'
       - 'apps/api/src/integration-runtime.ts'
       - 'apps/api/src/routes-smartbots.ts'
       - 'apps/api/src/routes-revenue.ts'
