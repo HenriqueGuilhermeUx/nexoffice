@@ -1,0 +1,25 @@
+name: NexJud Mini V1 Smoke
+
+on:
+  pull_request:
+    paths:
+      - '.env.example'
+      - 'apps/api/src/routes-nexjud-mini.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NexJudMini.tsx'
+      - 'apps/web/src/nexjud-mini.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-nexjud-mini-v1.mjs'
+      - '.github/workflows/nexjud-mini-v1-smoke.yml'
+
+jobs:
+  nexjud-mini-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+      - run: node scripts/smoke-nexjud-mini-v1.mjs
