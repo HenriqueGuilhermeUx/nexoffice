@@ -7,6 +7,9 @@ const lacks=(text,value,label)=>must(!text.includes(value),label||`unexpected ${
 
 const routes=read('apps/api/src/routes-network-work-execution.ts');
 const standalone=read('apps/api/src/routes-standalone.ts');
+const center=read('apps/web/src/NetworkCenter.tsx');
+const lineage=read('apps/web/src/NetworkWorkLineage.tsx');
+const lineageCss=read('apps/web/src/network-work-lineage.css');
 
 has(routes,"app.post('/v1/network/requests/:id/operation'",'create operation from provider request');
 has(routes,"app.post('/v1/network/requests/:id/link-operation'",'link existing operation to provider request');
@@ -32,5 +35,19 @@ lacks(routes,'decryptPaymentValue','execution loop must not decrypt payment data
 lacks(routes,"emitBusinessEvent",'execution loop must not emit fiscal/payment/communication effects');
 lacks(routes,"NEXOFFICE_EXTERNAL_ACTIONS",'execution loop must not enable external action flags');
 has(standalone,'registerNetworkWorkExecutionRoutes(app)','work execution routes registered');
+
+has(center,"import NetworkWorkLineage from './NetworkWorkLineage'",'Network Center imports work lineage UI');
+has(center,'<NetworkWorkLineage request={r} requester={requester}/>','active work card renders native lineage');
+has(lineage,"/v1/network/requests/${request.id}/lineage",'UI reads safe lineage endpoint');
+has(lineage,"/v1/network/requests/${request.id}/operation",'requester can create operation from work card');
+has(lineage,'Criar Operação Comercial','explicit operation creation UX');
+has(lineage,'Nenhuma ação externa acontece automaticamente.','human-control explanation');
+has(lineage,'Não emite nota, não gera Pix e não envia mensagem.','operation creation boundary visible');
+has(lineage,"requester&&['accepted','in_progress','completed'].includes(request.status)",'only requester can see operation creation eligibility');
+lacks(lineage,'pixKey','lineage UI never handles Pix secret');
+lacks(lineage,'fiscalExternalRef','lineage UI never renders fiscal external reference');
+lacks(lineage,'workspace_members','lineage UI never grants workspace membership');
+has(lineageCss,'.networkLineageSteps','lineage steps styled');
+has(lineageCss,'.networkOperationCreate','operation creation styled');
 
 console.log('NexOffice Network Work Execution / Outcome Loop V1 contract OK');
