@@ -15,11 +15,13 @@ has(route,"/v1/legal/mini'",'ask route');
 has(route,'NEXOFFICE_NEXJUD_MINI_ENABLED','server-side feature gate');
 has(route,'NEXJUD_MINI_KEY','dedicated server-to-server key');
 has(route,'legalTextPersisted:false','audit explicitly excludes legal text');
+has(route,'questionLength:input.question.length','audit keeps only question length');
 has(route,"select name,vertical,plan,currency,timezone from workspaces",'business context allowlist');
 lacks(route,'crm_contacts','no CRM/customer data is forwarded');
 lacks(route,'document_refs','no documents are forwarded');
 lacks(route,'legal_domain_signals','no deep legal records are forwarded');
-lacks(route,'question:input.question','audit must not persist raw question');
+const audit=route.slice(route.indexOf("auditLog(ctx,'nexjud.mini.asked'"));
+lacks(audit,'question:input.question','audit must not persist raw question');
 
 has(ui,'A pergunta não é salva pelo NexOffice','UI persistence disclosure');
 has(ui,'Sem pesquisa jurídica em tempo real','UI source limitation');
