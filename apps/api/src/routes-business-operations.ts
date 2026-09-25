@@ -7,11 +7,14 @@ import {decryptPaymentValue,paymentDataEncryptionConfigured} from './payment-dat
 
 const uuid=z.string().uuid();
 const optionalUuid=uuid.optional().nullable();
+const digits=(value:unknown)=>String(value||'').replace(/\D/g,'');
+const money=(minor:unknown,currency='BRL')=>new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(Number(minor||0)/100);
+const datePt=(value:unknown)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(String(value))):null;
 
 export async function registerBusinessOperationRoutes(app:FastifyInstance){
   app.get('/v1/business-operations',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
-    return query<any>(`select o.*,c.name contact_name,c.email contact_email,c.phone contact_phone,c.document_number,d.title deal_title,dr.title document_title,dr.provider document_provider,dr.external_ref document_external_ref,a.status invoice_action_status,a.autonomy invoice_action_autonomy,l.status ledger_status from business_operations o left join crm_contacts c on c.id=o.contact_id left join crm_deals d on d.id=o.deal_id left join document_refs dr on dr.id=o.document_ref_id left join command_actions a on a.id=o.invoice_action_id left join ledger_entries l on l.id=o.ledger_entry_id where o.workspace_id=$1 order by o.updated_at desc limit 300`,[ctx.workspaceId]);
+    return query<any>(`select o.*,c.name contact_name,c.email contact_email,c.phone contact_phone,c.document_number,d.title deal_title,dr.title document_title,dr.provider document_provider,dr.external_ref document_external_ref,a.status invoice_action_status,a.autonomy invoice_action_autonomy,ca.status communication_action_status,ca.autonomy communication_action_autonomy,l.status ledger_status from business_operations o left join crm_contacts c on c.id=o.contact_id left join crm_deals d on d.id=o.deal_id left join document_refs dr on dr.id=o.document_ref_id left join command_actions a on a.id=o.invoice_action_id left join command_actions ca on ca.id=o.communication_action_id left join ledger_entries l on l.id=o.ledger_entry_id where o.workspace_id=$1 order by o.updated_at desc limit 300`,[ctx.workspaceId]);
   });
 
   app.post('/v1/business-operations',async req=>{
@@ -66,11 +69,34 @@ export async function registerBusinessOperationRoutes(app:FastifyInstance){
     if(!operation.ledger_id)throw new ApiError(409,'collection_required','Prepare o recebível antes da comunicação.');
     const profile=(await query<any>(`select * from workspace_payment_profiles where workspace_id=$1`,[ctx.workspaceId]))[0];if(!profile)throw new ApiError(409,'pix_profile_required','Cadastre os dados Pix do negócio antes de preparar a comunicação.');
     let pixKey:string;try{pixKey=decryptPaymentValue({ciphertext:profile.pix_key_ciphertext,iv:profile.pix_key_iv,tag:profile.pix_key_tag})}catch{throw new ApiError(409,'pix_profile_unreadable','Não foi possível ler a chave Pix protegida.');}
-    const amount=new Intl.NumberFormat('pt-BR',{style:'currency',currency:operation.currency||'BRL'}).format(Number(operation.amount_minor||0)/100);
-    const due=operation.due_at?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(operation.due_at)):null;
+    const amount=money(operation.amount_minor,operation.currency||'BRL');const due=datePt(operation.due_at);
     const message=[`Olá, ${operation.contact_name||'cliente'}!`,`Segue a cobrança referente a ${operation.description}.`,`Valor: ${amount}.`,due?`Vencimento: ${due}.`:'',`Pagamento via Pix`,`Favorecido: ${profile.beneficiary_name}`,`Chave Pix: ${pixKey}`,profile.instructions||'',operation.fiscal_external_ref?`Referência fiscal: ${operation.fiscal_external_ref}`:'','Se já realizou o pagamento, desconsidere esta mensagem.'].filter(Boolean).join('\n');
     await auditLog(ctx,'business_operation.communication_draft_created','business_operation',id,null,{ledgerEntryId:operation.ledger_id,channel:'whatsapp',externalEffect:false,secretPersisted:false});
     return {externalEffect:false,secretPersisted:false,channel:'whatsapp',recipient:operation.contact_phone||null,contactName:operation.contact_name,message,smartBots:{planned:true,note:'O envio nativo será ligado ao fluxo de aprovação do SmartBots sem persistir a chave Pix em texto aberto.'}};
+  });
+
+  app.post('/v1/business-operations/:id/prepare-communication',async req=>{
+    const ctx=await workspaceContext(req,'finance.write'),id=uuid.parse((req.params as any).id);
+    const input=z.object({note:z.string().trim().max(600).optional().nullable()}).parse(req.body||{});
+    const operation=(await query<any>(`select o.*,c.name contact_name,c.phone contact_phone,l.id ledger_id from business_operations o join crm_contacts c on c.id=o.contact_id left join ledger_entries l on l.id=o.ledger_entry_id where o.id=$1 and o.workspace_id=$2`,[id,ctx.workspaceId]))[0];
+    if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
+    if(!operation.ledger_id)throw new ApiError(409,'collection_required','Prepare o recebível antes da comunicação.');
+    if(operation.communication_action_id)throw new ApiError(409,'communication_already_prepared','Já existe uma comunicação preparada para esta operação.');
+    const recipient=digits(operation.contact_phone);if(recipient.length<10)throw new ApiError(409,'contact_whatsapp_required','Informe um WhatsApp válido no CRM antes de preparar a cobrança.');
+    const profile=(await query<any>(`select beneficiary_name from workspace_payment_profiles where workspace_id=$1`,[ctx.workspaceId]))[0];if(!profile)throw new ApiError(409,'pix_profile_required','Cadastre os dados Pix do negócio antes de preparar a cobrança.');
+    const amount=money(operation.amount_minor,operation.currency||'BRL'),due=datePt(operation.due_at);
+    const messageTemplate=[`Olá, ${operation.contact_name||'cliente'}!`,input.note||'',`Segue a cobrança referente a ${operation.description}.`,`Valor: ${amount}.`,due?`Vencimento: ${due}.`:'',`Pagamento via Pix`,`Favorecido: {{PIX_BENEFICIARY}}`,`Chave Pix: {{PIX_KEY}}`,`{{PIX_INSTRUCTIONS}}`,operation.fiscal_external_ref?`Referência fiscal: ${operation.fiscal_external_ref}`:'','Se já realizou o pagamento, desconsidere esta mensagem.'].filter(Boolean).join('\n');
+    const title=`Cobrança de ${operation.contact_name||operation.title}`;
+    const summary=`Cobrança Pix de ${amount} preparada sem persistir a chave Pix em texto aberto.`;
+    const payload={channel:'whatsapp',recipient,contactName:operation.contact_name,messageTemplate,paymentContext:{kind:'owner_pix',ledgerEntryId:operation.ledger_id,businessOperationId:id}};
+    const created=await transaction(async client=>{
+      const approval=await client.query<any>(`insert into approval_requests(workspace_id,action_type,title,description,status,requested_by_agent,subject_type,subject_id,proposed_payload) values($1,'message.send',$2,$3,'pending','collections','business_operation',$4,$5) returning *`,[ctx.workspaceId,title,summary,id,JSON.stringify(payload)]);
+      const action=await client.query<any>(`insert into command_actions(workspace_id,agent_role,title,summary,priority,status,autonomy,approval_id,subject_type,subject_id,primary_action,secondary_actions,metadata) values($1,'collections',$2,$3,'high','open','approval_required',$4,'business_operation',$5,$6,$7,$8) returning *`,[ctx.workspaceId,title,summary,approval.rows[0].id,id,JSON.stringify({type:'message.send',payload}),JSON.stringify([]),JSON.stringify({source:'business-operation',provider:'smartbots',humanApprovalRequired:true,paymentHydration:'owner_pix',pixKeyPersisted:false})]);
+      const updated=await client.query<any>(`update business_operations set communication_action_id=$3,status='communication_pending',metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId,action.rows[0].id,JSON.stringify({communicationPreparedAt:new Date().toISOString(),pixKeyPersisted:false})]);
+      return {approval:approval.rows[0],action:action.rows[0],operation:updated.rows[0]};
+    });
+    await auditLog(ctx,'business_operation.communication_prepared','business_operation',id,operation,{actionId:created.action.id,approvalId:created.approval.id,provider:'smartbots',externalEffect:false,pixKeyPersisted:false});
+    return {status:'pending_approval',operation:created.operation,action:created.action,approval:{id:created.approval.id,status:created.approval.status},governance:{humanApprovalRequired:true,externalEffect:false,pixKeyPersisted:false,paymentHydration:'execution_only'}};
   });
 
   app.post('/v1/business-operations/:id/mark-paid',async req=>{
