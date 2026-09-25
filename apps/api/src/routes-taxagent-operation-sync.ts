@@ -4,10 +4,13 @@ import {ApiError,workspaceContext} from './auth.js';
 import {auditLog} from './events.js';
 import {syncTaxAgentOperation} from './taxagent-operation-sync.js';
 import {taxAgentFiscalReadiness} from './taxagent-fiscal-readiness.js';
+import {registerTaxAgentHomologationRoutes} from './routes-taxagent-homologation.js';
 
 const uuid=z.string().uuid();
 
 export async function registerTaxAgentOperationSyncRoutes(app:FastifyInstance){
+  await registerTaxAgentHomologationRoutes(app);
+
   app.get('/v1/business-operations/:id/fiscal-readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
     const id=uuid.parse((req.params as any).id);
