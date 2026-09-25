@@ -1,0 +1,36 @@
+name: TaxAgent Fiscal Readiness V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/taxagent-fiscal-readiness.ts'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'apps/api/src/taxagent-operation-sync.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'scripts/smoke-taxagent-fiscal-readiness-v1.mjs'
+      - '.github/workflows/taxagent-fiscal-readiness-v1.yml'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/taxagent-fiscal-readiness.ts'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'apps/api/src/taxagent-operation-sync.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'scripts/smoke-taxagent-fiscal-readiness-v1.mjs'
+      - '.github/workflows/taxagent-fiscal-readiness-v1.yml'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate TaxAgent fiscal readiness contract
+        run: node scripts/smoke-taxagent-fiscal-readiness-v1.mjs
