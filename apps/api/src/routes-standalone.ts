@@ -4,6 +4,7 @@ import {query} from './db.js';
 import {registerComplianceRoutes} from './routes-compliance.js';
 import {registerNetworkRoutes} from './routes-network.js';
 import {registerNetworkTrustRoutes} from './routes-network-trust.js';
+import {registerNetworkDelegationRoutes} from './routes-network-delegations.js';
 import {registerOwnedPaymentRoutes} from './routes-owned-payments.js';
 import {registerBusinessOperationRoutes} from './routes-business-operations.js';
 import {registerEcosystemRoutes} from './routes-ecosystem.js';
@@ -18,6 +19,7 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerComplianceRoutes(app);
   await registerNetworkRoutes(app);
   await registerNetworkTrustRoutes(app);
+  await registerNetworkDelegationRoutes(app);
   await registerOwnedPaymentRoutes(app);
   await registerBusinessOperationRoutes(app);
   await registerEcosystemRoutes(app);

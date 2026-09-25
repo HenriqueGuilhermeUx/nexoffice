@@ -1,0 +1,36 @@
+name: Network Delegated Access V1
+
+on:
+  pull_request:
+    paths:
+      - 'infra/postgres/034_provider_delegated_access.sql'
+      - 'apps/api/src/routes-network-delegations.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-center.css'
+      - 'scripts/smoke-network-delegated-access-v1.mjs'
+      - '.github/workflows/network-delegated-access-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/postgres/034_provider_delegated_access.sql'
+      - 'apps/api/src/routes-network-delegations.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-center.css'
+      - 'scripts/smoke-network-delegated-access-v1.mjs'
+      - '.github/workflows/network-delegated-access-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate delegated Network access contract
+        run: node scripts/smoke-network-delegated-access-v1.mjs
