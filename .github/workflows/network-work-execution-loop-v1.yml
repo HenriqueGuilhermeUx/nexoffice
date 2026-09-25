@@ -1,0 +1,32 @@
+name: Network Work Execution Loop V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-network-work-execution.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'scripts/smoke-network-work-execution-loop-v1.mjs'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - '.github/workflows/network-work-execution-loop-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/routes-network-work-execution.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'scripts/smoke-network-work-execution-loop-v1.mjs'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - '.github/workflows/network-work-execution-loop-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate Network work execution contract
+        run: node scripts/smoke-network-work-execution-loop-v1.mjs
