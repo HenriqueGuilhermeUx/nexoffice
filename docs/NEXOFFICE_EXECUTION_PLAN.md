@@ -49,7 +49,7 @@ Scope:
 - isolated SmartBots external-action gate, OFF by default.
 
 ### B. NexOffice Network + ecosystem offers
-Status: base Network, contextual recommendations, Provider Trust and request-scoped Delegated Access are implemented in dedicated stacked PRs/branches; not merged/deployed.
+Status: base Network, contextual recommendations, Provider Trust, request-scoped Delegated Access, Network Work Execution UI and Capability/Eligibility Evidence are implemented in dedicated stacked PRs/branches; not merged/deployed.
 
 Implemented:
 - provider profiles, specialties, portfolio and services;
@@ -64,19 +64,27 @@ Implemented:
 - deterministic contextual Recommendation Engine with human decision required;
 - Provider Trust based on safe operational evidence, without stars, score or ranking;
 - request-scoped Delegated Access with explicit read-only scopes, expiry, revocation and audit;
-- no automatic `workspace_members` membership for external providers.
+- no automatic `workspace_members` membership for external providers;
+- Network Work Execution / Outcome Loop with create/link `business_operation` from accepted provider requests;
+- native Work UI for safe lineage `Trabalho -> Operação -> Contrato -> Nota -> Cobrança -> Comunicação -> Recebido -> Outcome`;
+- Capability/Eligibility Evidence separated from Provider Trust;
+- Network eligibility based on objective workspace state: active workspace + published provider profile + active service;
+- public capability badges derived only from observed NexOffice usage, never from inferred quality;
+- capability evidence can reflect documented operation, fiscal flow, collection flow, communication flow, delegated context and client-recorded outcome;
+- explicit methodology `ranking=false`, `score=false`, `certification=false`, `observedEvidenceOnly=true`.
 
 Current Network increment:
-- Network Work Execution / Outcome Loop V1;
-- create or link a `business_operation` directly from an accepted provider request;
-- expose safe cross-domain lineage for the work without amounts, Pix secrets, raw documents or fiscal external references;
-- keep DocWallet, TaxAgent, SmartBots and owner-controlled Pix as authoritative downstream engines.
+- Capability/Eligibility Evidence V1;
+- expose aggregated capability evidence publicly, to the provider itself and for a specific published provider;
+- show capability badges separately from Trust in provider cards and provider self view;
+- never expose client identity, amounts, Pix secret, raw document content or fiscal payload;
+- do not use `workspaces.plan` or generic `integrations` rows as commercial entitlement badges until their semantic contract is explicitly formalized.
 
 Next Network increments:
-- native Network work UI for operation/contract lineage;
-- provider capability/eligibility badges based on real entitlements;
 - richer structured outcomes while keeping private metrics private;
 - contextual provider matching from business signals;
+- formal entitlement contract if paid/add-on eligibility must become a Network badge;
+- stronger provider work lifecycle UX after real-client usage evidence;
 - avoid generic marketplace/Fiverr behavior until network liquidity justifies it.
 
 ### C. DocWallet native contract creation
