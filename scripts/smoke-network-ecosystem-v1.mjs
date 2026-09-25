@@ -34,9 +34,14 @@ has(migration29,'business_operations','business operation lineage table');
 has(operations,"'invoice.issue'",'TaxAgent invoice intent');
 has(operations,"governance:'human_approval_required'",'invoice human approval');
 has(operations,"/prepare-collection",'operation to receivable');
-has(operations,"/communication-draft",'secret-safe communication draft');
-has(operations,'secretPersisted:false','raw Pix key is not persisted in communication actions');
-lacks(operations,"action_type,title,description,status,requested_by_agent,subject_type,subject_id,proposed_payload) values($1,'message.send'",'raw Pix communication is not persisted as approval payload');
+has(operations,"/communication-draft",'authenticated owner-Pix communication draft');
+has(operations,'secretPersisted:false','raw Pix key is not persisted by the authenticated draft');
+has(operations,"/prepare-communication",'governed SmartBots collection reminder');
+has(operations,"'approval_required'",'SmartBots reminder remains approval-first');
+has(operations,'paymentDataIncluded:false','SmartBots reminder excludes payment secrets');
+has(operations,'pixKeyPersisted:false','SmartBots reminder records Pix non-persistence');
+lacks(operations,'{{PIX_KEY}}','no deferred Pix secret placeholder in outbound action');
+lacks(operations,'paymentHydration','no automatic payment-secret hydration into third-party messaging');
 
 has(ecosystem,"key:'av_studio'",'AV Studio first-party offer');
 has(ecosystem,"key:'nexa'",'Nexa future offer');
