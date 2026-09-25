@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {ApiError,workspaceContext} from './auth.js';
 import {query,transaction} from './db.js';
 import {auditLog,emitBusinessEvent} from './events.js';
+import {decryptPaymentValue,paymentDataEncryptionConfigured} from './payment-data-crypto.js';
 
 const uuid=z.string().uuid();
 const optionalUuid=uuid.optional().nullable();
@@ -58,19 +59,18 @@ export async function registerBusinessOperationRoutes(app:FastifyInstance){
     await auditLog(ctx,'business_operation.collection_prepared','business_operation',id,operation,{ledgerEntryId:result.ledger.id,externalEffect:false});return {reused:false,receivable:result.ledger,operation:result.updated,externalEffect:false,pixPackageEndpoint:`/v1/collections/ledger/${result.ledger.id}/pix-package`};
   });
 
-  app.post('/v1/business-operations/:id/prepare-communication',async req=>{
-    const ctx=await workspaceContext(req,'command.decide'),id=uuid.parse((req.params as any).id);
-    const operation=(await query<any>(`select o.*,c.name contact_name,c.phone contact_phone,l.id ledger_id,l.status ledger_status from business_operations o join crm_contacts c on c.id=o.contact_id left join ledger_entries l on l.id=o.ledger_entry_id where o.id=$1 and o.workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
+  app.post('/v1/business-operations/:id/communication-draft',async req=>{
+    const ctx=await workspaceContext(req,'finance.read'),id=uuid.parse((req.params as any).id);
+    if(!paymentDataEncryptionConfigured())throw new ApiError(409,'payment_data_key_not_configured','A proteção dos dados Pix ainda não foi configurada neste ambiente.');
+    const operation=(await query<any>(`select o.*,c.name contact_name,c.phone contact_phone,l.id ledger_id from business_operations o join crm_contacts c on c.id=o.contact_id left join ledger_entries l on l.id=o.ledger_entry_id where o.id=$1 and o.workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
     if(!operation.ledger_id)throw new ApiError(409,'collection_required','Prepare o recebível antes da comunicação.');
-    if(!String(operation.contact_phone||'').replace(/\D/g,''))throw new ApiError(409,'contact_phone_required','Cadastre o telefone do cliente no CRM.');
-    const profile=(await query<any>(`select workspace_id from workspace_payment_profiles where workspace_id=$1`,[ctx.workspaceId]))[0];if(!profile)throw new ApiError(409,'pix_profile_required','Cadastre os dados Pix do negócio antes de preparar a comunicação.');
-    const prepared=await transaction(async client=>{
-      const proposed={channel:'whatsapp',recipient:String(operation.contact_phone),contactName:String(operation.contact_name||'Cliente'),template:'business_operation_collection',businessOperationId:id,ledgerEntryId:operation.ledger_id};
-      const approval=(await client.query(`insert into approval_requests(workspace_id,action_type,title,description,status,requested_by_agent,subject_type,subject_id,proposed_payload) values($1,'message.send',$2,$3,'pending','collections','business_operation',$4,$5) returning id`,[ctx.workspaceId,`Enviar cobrança para ${operation.contact_name||'cliente'}`,`Comunicação de cobrança de ${operation.description}.`,id,JSON.stringify(proposed)])).rows[0];
-      const action=(await client.query(`insert into command_actions(workspace_id,agent_role,title,summary,priority,status,autonomy,approval_id,subject_type,subject_id,primary_action,metadata) values($1,'collections',$2,$3,'high','open','approval_required',$4,'business_operation',$5,$6,$7) returning *`,[ctx.workspaceId,`Cobrança para ${operation.contact_name||'cliente'}`,`${operation.description} · comunicação preparada e aguardando aprovação humana.`,approval.id,id,JSON.stringify({type:'message.send',payload:proposed}),JSON.stringify({source:'business_operation',provider:'smartbots',templateHydratedAtDispatch:true,humanApprovalRequired:true})])).rows[0];
-      await client.query(`update business_operations set status='communication_pending',metadata=metadata||$3::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[id,ctx.workspaceId,JSON.stringify({communicationActionId:action.id})]);return {approval,action};
-    });
-    await auditLog(ctx,'business_operation.communication_prepared','business_operation',id,operation,{actionId:prepared.action.id,approvalId:prepared.approval.id,externalEffect:false});return {...prepared,externalEffect:false,governance:'human_approval_required'};
+    const profile=(await query<any>(`select * from workspace_payment_profiles where workspace_id=$1`,[ctx.workspaceId]))[0];if(!profile)throw new ApiError(409,'pix_profile_required','Cadastre os dados Pix do negócio antes de preparar a comunicação.');
+    let pixKey:string;try{pixKey=decryptPaymentValue({ciphertext:profile.pix_key_ciphertext,iv:profile.pix_key_iv,tag:profile.pix_key_tag})}catch{throw new ApiError(409,'pix_profile_unreadable','Não foi possível ler a chave Pix protegida.');}
+    const amount=new Intl.NumberFormat('pt-BR',{style:'currency',currency:operation.currency||'BRL'}).format(Number(operation.amount_minor||0)/100);
+    const due=operation.due_at?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(operation.due_at)):null;
+    const message=[`Olá, ${operation.contact_name||'cliente'}!`,`Segue a cobrança referente a ${operation.description}.`,`Valor: ${amount}.`,due?`Vencimento: ${due}.`:'',`Pagamento via Pix`,`Favorecido: ${profile.beneficiary_name}`,`Chave Pix: ${pixKey}`,profile.instructions||'',operation.fiscal_external_ref?`Referência fiscal: ${operation.fiscal_external_ref}`:'','Se já realizou o pagamento, desconsidere esta mensagem.'].filter(Boolean).join('\n');
+    await auditLog(ctx,'business_operation.communication_draft_created','business_operation',id,null,{ledgerEntryId:operation.ledger_id,channel:'whatsapp',externalEffect:false,secretPersisted:false});
+    return {externalEffect:false,secretPersisted:false,channel:'whatsapp',recipient:operation.contact_phone||null,contactName:operation.contact_name,message,smartBots:{planned:true,note:'O envio nativo será ligado ao fluxo de aprovação do SmartBots sem persistir a chave Pix em texto aberto.'}};
   });
 
   app.post('/v1/business-operations/:id/mark-paid',async req=>{
