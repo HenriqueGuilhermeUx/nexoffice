@@ -1,10 +1,13 @@
-name: TaxAgent Fiscal Center V2 Smoke
+name: TaxAgent Fiscal Governance V3 Smoke
 
 on:
   pull_request:
     paths:
       - 'apps/api/src/routes-fiscal.ts'
+      - 'apps/api/src/routes-fiscal-governance.ts'
       - 'apps/api/src/taxagent-fiscal-client.ts'
+      - 'apps/api/src/integration-runtime.ts'
+      - 'apps/api/src/server.ts'
       - 'apps/web/src/FiscalCenterV2.tsx'
       - 'apps/web/src/FiscalCenterV2Portal.tsx'
       - 'apps/web/src/fiscal-center-v2.css'
@@ -35,8 +38,8 @@ jobs:
       PORT: '4000'
       ALLOWED_ORIGINS: '*'
       WEB_APP_URL: http://localhost:5173
-      NEXOFFICE_EXTERNAL_ACTIONS: 'false'
-      NEXOFFICE_INTERNAL_KEY: fiscal-v2-smoke-internal
+      NEXOFFICE_EXTERNAL_ACTIONS: 'true'
+      NEXOFFICE_INTERNAL_KEY: fiscal-v3-smoke-internal
       TAXAGENT_BASE_URL: http://127.0.0.1:4010
       TAXAGENT_NEXOFFICE_KEY: taxagent-partner-ci-key
       TAXAGENT_API_KEY: taxagent-partner-ci-key
@@ -72,7 +75,7 @@ jobs:
           done
           cat /tmp/nexoffice-api.log
           exit 1
-      - name: Run Fiscal Center V2 smoke
+      - name: Run Fiscal Governance V3 smoke
         run: node scripts/smoke-taxagent-fiscal-center-v2.mjs
       - name: Logs on failure
         if: failure()

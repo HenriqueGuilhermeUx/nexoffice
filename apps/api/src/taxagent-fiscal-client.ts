@@ -13,12 +13,14 @@ export function taxAgentPartnerConfigured():boolean{return Boolean(String(proces
 
 export async function taxAgentPartnerRequest<T=any>(path:string,method:'GET'|'POST'='GET',body?:unknown,extraHeaders:Record<string,string>={}):Promise<T>{
   const normalizedPath=String(path).replace(/^\//,'');
-  if(method==='POST'&&/\/invoices\/[^/]+\/cancel(?:\?|$)/.test('/'+normalizedPath)){
-    throw new ApiError(409,'fiscal_cancellation_governance_required','Cancelamento fiscal ainda não está liberado nesta ponte. Ele será executado somente quando passar pela mesma governança/aprovação humana da emissão.');
+  const governedCancellation=extraHeaders['x-nexoffice-governance']==='approved';
+  if(method==='POST'&&/\/invoices\/[^/]+\/cancel(?:\?|$)/.test('/'+normalizedPath)&&!governedCancellation){
+    throw new ApiError(409,'fiscal_cancellation_governance_required','Cancelamento fiscal exige aprovação humana explícita antes da execução.');
   }
   const base=String(process.env.TAXAGENT_BASE_URL||'').trim().replace(/\/$/,'');const key=String(process.env.TAXAGENT_NEXOFFICE_KEY||'').trim();
   if(!base||!key)throw new ApiError(503,'taxagent_partner_not_configured','Integração fiscal TaxAgent ainda não está configurada no servidor.');
-  const headers:Record<string,string>={accept:'application/json','x-taxagent-nexoffice-key':key,...extraHeaders};if(body!==undefined)headers['content-type']='application/json';
+  const forwardedHeaders={...extraHeaders};delete forwardedHeaders['x-nexoffice-governance'];
+  const headers:Record<string,string>={accept:'application/json','x-taxagent-nexoffice-key':key,...forwardedHeaders};if(body!==undefined)headers['content-type']='application/json';
   let response:Response;try{response=await fetch(`${base}/${normalizedPath}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(25000)})}catch(error){throw new ApiError(502,'taxagent_unreachable',error instanceof Error?error.message:'TaxAgent indisponível.')}
   const text=await response.text();let payload:any=text;try{payload=text?JSON.parse(text):{}}catch{}
   if(!response.ok){const message=typeof payload==='string'?payload.slice(0,1200):String(payload?.message||payload?.error||`TaxAgent HTTP ${response.status}`);throw new ApiError(response.status>=500?502:response.status,'taxagent_upstream_error',message)}

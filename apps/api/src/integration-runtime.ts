@@ -60,7 +60,7 @@ export function routeForAction(actionType:string):string|null{
   if(capability?.provider==='staff')return 'staff.assistant.action';
   if(capability?.provider==='taxagent')return 'taxagent.invoice.issue';
   if(actionType.startsWith('document.'))return 'docwallet.document.action';
-  if(actionType.startsWith('invoice.issue'))return 'taxagent.invoice.issue';
+  if(actionType.startsWith('invoice.'))return 'taxagent.invoice.issue';
   return null;
 }
 
@@ -153,7 +153,7 @@ async function dispatchTaxAgent(payload:any,workspaceId?:string){
   if(!workspaceId)return {ok:false,error:'taxagent_workspace_required'};
   const actionId=String(payload?.commandActionId||'').trim();
   if(!actionId)return {ok:false,error:'taxagent_command_action_required'};
-  const {humanApproved}=await approvalProof(workspaceId,actionId);
+  const {proof,humanApproved}=await approvalProof(workspaceId,actionId);
   if(!humanApproved)return {ok:false,error:'taxagent_human_approval_required'};
   const mapping=(await query<any>(`select external_account_ref,config,secret_ref from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[workspaceId]))[0];
   const companyId=String(mapping?.external_account_ref||'').trim();
@@ -163,8 +163,18 @@ async function dispatchTaxAgent(payload:any,workspaceId?:string){
   const credential=workspaceKey||String(process.env.TAXAGENT_API_KEY||'');
   if(!credential)return {ok:false,error:'taxagent_workspace_credential_not_configured'};
   const environment=String(mapping?.config?.environment||payload?.environment||'test');
-  const customer=payload?.customer||{};const service=payload?.service||{};
+  const actionType=String(payload?.actionType||'invoice.issue');
   const correlationId=String(payload?.correlationId||actionId).trim();
+  if(actionType==='invoice.cancel'){
+    const invoiceId=String(payload?.invoiceId||'').trim();
+    const reasonCode=String(payload?.reasonCode||'').trim();
+    const reason=String(payload?.reason||'').trim();
+    if(!invoiceId)return {ok:false,error:'taxagent_invoice_id_required'};
+    if(!['1','2','9'].includes(reasonCode)||reason.length<5)return {ok:false,error:'taxagent_cancellation_reason_invalid'};
+    return providerRequest('taxagent',`/v1/partners/nexoffice/companies/${encodeURIComponent(companyId)}/invoices/${encodeURIComponent(invoiceId)}/cancel`,'POST',{reason_code:reasonCode,reason},{'Idempotency-Key':correlationId},credential);
+  }
+  if(actionType!=='invoice.issue')return {ok:false,error:`taxagent_action_not_supported:${actionType}`};
+  const customer=payload?.customer||{};const service=payload?.service||{};
   const body={
     company_id:companyId,
     environment,
