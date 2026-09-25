@@ -16,7 +16,7 @@ has(migration,'fiscal_external_ref text','TaxAgent external invoice reference co
 has(migration,'fiscal_status text','TaxAgent fiscal status column');
 has(sync,'agent_runs','sync can recover invoice id from executed command result');
 has(sync,"run?.output?.payload?.id",'invoice id discovery uses real TaxAgent create response');
-has(sync,"method:'GET'",'status synchronization is read-only at TaxAgent');
+has(sync,'fetch(`${base}${invoiceBasePath()}/${encodeURIComponent(invoiceId)}`','status synchronization reads the TaxAgent invoice endpoint');
 has(sync,"/v1/invoices",'TaxAgent invoice endpoint contract');
 has(sync,"fiscalStatus==='authorized'",'authorized status mapping');
 has(sync,"['rejected','cancelled']",'rejected/cancelled attention mapping');
