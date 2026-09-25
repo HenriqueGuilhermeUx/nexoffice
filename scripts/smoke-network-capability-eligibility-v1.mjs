@@ -44,7 +44,8 @@ has(center,"api<CapabilityEvidence>('/v1/network/provider/me/capabilities')",'pr
 has(center,'<CapabilitySummary data={p.capability} compact/>','public provider card shows capability evidence separately from trust');
 has(center,'<CapabilitySummary data={me?.capability}/>','provider self area shows capability evidence');
 has(center,'Não são certificação, nota, ranking ou garantia de qualidade.','UI explains evidence boundary');
-lacks(center,'melhor prestador','UI does not claim a best provider');
+lacks(center,'O melhor prestador','UI never declares a best provider');
+lacks(center,'Melhor prestador:','UI never labels a provider as best');
 lacks(center,'★★★★★','UI does not introduce stars');
 has(css,'.providerCapabilityBadges','capability badges have dedicated styling');
 has(css,'.providerCapabilityEligibility','eligibility state has dedicated styling');

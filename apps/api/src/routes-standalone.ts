@@ -8,6 +8,7 @@ import {registerNetworkCapabilityRoutes} from './routes-network-capabilities.js'
 import {registerNetworkStructuredOutcomeRoutes} from './routes-network-structured-outcomes.js';
 import {registerNetworkDelegationRoutes} from './routes-network-delegations.js';
 import {registerNetworkWorkExecutionRoutes} from './routes-network-work-execution.js';
+import {registerNetworkProviderMatchingRoutes} from './routes-network-provider-matching.js';
 import {registerOwnedPaymentRoutes} from './routes-owned-payments.js';
 import {registerBusinessOperationRoutes} from './routes-business-operations.js';
 import {registerEcosystemRoutes} from './routes-ecosystem.js';
@@ -26,6 +27,7 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerNetworkStructuredOutcomeRoutes(app);
   await registerNetworkDelegationRoutes(app);
   await registerNetworkWorkExecutionRoutes(app);
+  await registerNetworkProviderMatchingRoutes(app);
   await registerOwnedPaymentRoutes(app);
   await registerBusinessOperationRoutes(app);
   await registerEcosystemRoutes(app);

@@ -49,7 +49,7 @@ Scope:
 - isolated SmartBots external-action gate, OFF by default.
 
 ### B. NexOffice Network + ecosystem offers
-Status: base Network, contextual recommendations, Provider Trust, request-scoped Delegated Access, Network Work Execution UI and Capability/Eligibility Evidence are implemented in dedicated stacked PRs/branches; not merged/deployed.
+Status: base Network, contextual recommendations, Provider Trust, request-scoped Delegated Access, Network Work Execution UI, Capability/Eligibility Evidence, Structured Outcomes V1 and Contextual Provider Matching V1 are implemented in dedicated stacked PRs/branches; not merged/deployed.
 
 Implemented:
 - provider profiles, specialties, portfolio and services;
@@ -71,20 +71,26 @@ Implemented:
 - Network eligibility based on objective workspace state: active workspace + published provider profile + active service;
 - public capability badges derived only from observed NexOffice usage, never from inferred quality;
 - capability evidence can reflect documented operation, fiscal flow, collection flow, communication flow, delegated context and client-recorded outcome;
-- explicit methodology `ranking=false`, `score=false`, `certification=false`, `observedEvidenceOnly=true`.
+- explicit capability methodology `ranking=false`, `score=false`, `certification=false`, `observedEvidenceOnly=true`;
+- Structured Outcomes V1 stored in the existing `provider_outcomes.metrics` JSON contract with outcome type, measurement status, impact tags and private metrics;
+- structured outcome detail remains requester-private; audit stores counts/metadata, not private metric values or outcome summary;
+- public structured-outcome detail is privacy-thresholded: measurement/category detail is suppressed below three structured outcomes and category evidence requires at least three records;
+- Contextual Provider Matching V1 combines explicit need, workspace vertical, safe operational signals, published provider profile/service text and observed capability evidence;
+- matching results explain `compatível porque...`, keep the general provider directory available and use neutral alphabetical display order;
+- explicit matching methodology `ranking=false`, `score=false`, `bestProvider=false`, `humanDecisionRequired=true`;
+- matching never exposes client identity, amounts, Pix secrets, raw documents, fiscal payloads or private outcome metrics and never grants workspace membership/delegated access.
 
 Current Network increment:
-- Capability/Eligibility Evidence V1;
-- expose aggregated capability evidence publicly, to the provider itself and for a specific published provider;
-- show capability badges separately from Trust in provider cards and provider self view;
-- never expose client identity, amounts, Pix secret, raw document content or fiscal payload;
-- do not use `workspaces.plan` or generic `integrations` rows as commercial entitlement badges until their semantic contract is explicitly formalized.
+- formal entitlement contract only if paid/add-on eligibility must become a Network badge;
+- keep commercial entitlement semantics separate from observed operational capabilities;
+- do not use `workspaces.plan` or generic `integrations` rows as commercial entitlement badges until their semantic contract is explicitly formalized;
+- preserve Trust, Capability and Matching as separate concepts: history/evidence, observed capability/eligibility and contextual relevance.
 
 Next Network increments:
-- richer structured outcomes while keeping private metrics private;
-- contextual provider matching from business signals;
-- formal entitlement contract if paid/add-on eligibility must become a Network badge;
+- formal entitlement model for paid/add-on badges when the product packaging requires it;
 - stronger provider work lifecycle UX after real-client usage evidence;
+- improve discovery facets/filters from real Network usage without turning them into provider ranking;
+- provider availability/service-region UX when real supply makes it useful;
 - avoid generic marketplace/Fiverr behavior until network liquidity justifies it.
 
 ### C. DocWallet native contract creation
@@ -198,7 +204,7 @@ Not allowed yet:
 
 ## Product recommendation engine direction
 
-NexOffice now has a deterministic contextual recommendation engine that combines workspace-local operational signals and keeps `externalEffects=false` / `humanDecisionRequired=true`.
+NexOffice now has a deterministic contextual recommendation engine and a separate contextual provider matcher. Both combine workspace-local operational signals with explicit user context where available and keep `externalEffects=false` / `humanDecisionRequired=true`.
 
 Current examples:
 - campaign/pipeline weakness -> MODO or specialist;
@@ -206,7 +212,8 @@ Current examples:
 - service agreed -> DocWallet contract;
 - contract without fiscal progression -> TaxAgent;
 - authorized invoice without receivable -> owner-controlled Pix collection;
-- repeated fiscal complexity -> published accountant/fiscal specialist via Network;
+- repeated fiscal complexity -> explain compatible published accountant/fiscal providers without ranking them;
+- explicit legal/technology/marketing/finance need -> show explainable compatible providers while retaining the full Network directory;
 - legal routine doubt -> NexJud Mini;
 - need exceeds configurable SaaS -> Alternative Ventures Studio;
 - future financial account interest -> Nexa informational offer only, never automatic.
