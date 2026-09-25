@@ -28,6 +28,13 @@ function operationalStatus(fiscalStatus:string,currentStatus:string){
   return currentStatus;
 }
 
+function safeReferences(payload:any){
+  return {
+    accessKey:payload?.access_key||null,
+    providerReference:payload?.provider_reference||null
+  };
+}
+
 export async function discoverTaxAgentInvoiceRef(workspaceId:string,operation:any){
   if(operation.fiscal_external_ref)return String(operation.fiscal_external_ref);
   if(!operation.invoice_action_id)return null;
@@ -54,16 +61,18 @@ export async function syncTaxAgentOperation(workspaceId:string,operationId:strin
   if(String(payload?.company_id||'')&&String(payload.company_id)!==credentials.companyId)return {ok:false as const,error:'taxagent_company_mismatch'};
   const fiscalStatus=String(payload?.status||'unknown');
   const nextStatus=operationalStatus(fiscalStatus,operation.status);
+  const refs=safeReferences(payload);
   const summary={
     taxAgentInvoiceId:invoiceId,
     taxAgentStatus:fiscalStatus,
     taxAgentProvider:payload?.provider||null,
-    taxAgentAccessKey:payload?.access_key||null,
-    taxAgentProviderReference:payload?.provider_reference||null,
+    taxAgentAccessKey:refs.accessKey,
+    taxAgentProviderReference:refs.providerReference,
+    taxAgentSafeReferences:refs,
     taxAgentLastSyncedAt:new Date().toISOString(),
     taxAgentRejection:payload?.rejection?{code:payload.rejection.code||null,message:payload.rejection.message||null}:null,
   };
   const rows=await query<any>(`update business_operations set fiscal_external_ref=$3,fiscal_status=$4,status=$5,metadata=metadata||$6::jsonb,updated_at=now() where id=$1 and workspace_id=$2 returning *`,[operationId,workspaceId,invoiceId,fiscalStatus,nextStatus,JSON.stringify(summary)]);
   operation=rows[0];
-  return {ok:true as const,operation,fiscal:{id:invoiceId,status:fiscalStatus,provider:payload?.provider||null,accessKey:payload?.access_key||null,providerReference:payload?.provider_reference||null,rejection:summary.taxAgentRejection},externalEffect:false};
+  return {ok:true as const,operation,fiscal:{id:invoiceId,status:fiscalStatus,provider:payload?.provider||null,safeReferences:refs,rejection:summary.taxAgentRejection},externalEffect:false};
 }
