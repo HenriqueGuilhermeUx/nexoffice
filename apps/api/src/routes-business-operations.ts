@@ -1,0 +1,82 @@
+import type {FastifyInstance} from 'fastify';
+import {z} from 'zod';
+import {ApiError,workspaceContext} from './auth.js';
+import {query,transaction} from './db.js';
+import {auditLog,emitBusinessEvent} from './events.js';
+
+const uuid=z.string().uuid();
+const optionalUuid=uuid.optional().nullable();
+
+export async function registerBusinessOperationRoutes(app:FastifyInstance){
+  app.get('/v1/business-operations',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    return query<any>(`select o.*,c.name contact_name,c.email contact_email,c.phone contact_phone,c.document_number,d.title deal_title,dr.title document_title,dr.provider document_provider,dr.external_ref document_external_ref,a.status invoice_action_status,a.autonomy invoice_action_autonomy,l.status ledger_status from business_operations o left join crm_contacts c on c.id=o.contact_id left join crm_deals d on d.id=o.deal_id left join document_refs dr on dr.id=o.document_ref_id left join command_actions a on a.id=o.invoice_action_id left join ledger_entries l on l.id=o.ledger_entry_id where o.workspace_id=$1 order by o.updated_at desc limit 300`,[ctx.workspaceId]);
+  });
+
+  app.post('/v1/business-operations',async req=>{
+    const ctx=await workspaceContext(req,'workspace.write');
+    const input=z.object({contactId:uuid,dealId:optionalUuid,providerRequestId:optionalUuid,documentRefId:optionalUuid,title:z.string().trim().min(2).max(200),description:z.string().trim().min(3).max(2500),amountMinor:z.number().int().min(0),dueAt:z.string().datetime().optional().nullable()}).parse(req.body);
+    if(!((await query<any>(`select id from crm_contacts where id=$1 and workspace_id=$2`,[input.contactId,ctx.workspaceId]))[0]))throw new ApiError(404,'contact_not_found','Cliente não encontrado neste workspace.');
+    if(input.dealId&&!((await query<any>(`select id from crm_deals where id=$1 and workspace_id=$2`,[input.dealId,ctx.workspaceId]))[0]))throw new ApiError(404,'deal_not_found','Oportunidade não encontrada neste workspace.');
+    if(input.documentRefId&&!((await query<any>(`select id from document_refs where id=$1 and workspace_id=$2`,[input.documentRefId,ctx.workspaceId]))[0]))throw new ApiError(404,'document_not_found','Documento não encontrado neste workspace.');
+    if(input.providerRequestId&&!((await query<any>(`select id from provider_requests where id=$1 and (requester_workspace_id=$2 or provider_workspace_id=$2)`,[input.providerRequestId,ctx.workspaceId]))[0]))throw new ApiError(404,'provider_request_not_found','Solicitação da Rede não encontrada.');
+    const status=input.documentRefId?'contract_ready':'draft';
+    const rows=await query<any>(`insert into business_operations(workspace_id,contact_id,deal_id,provider_request_id,document_ref_id,title,description,amount_minor,due_at,status,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *`,[ctx.workspaceId,input.contactId,input.dealId||null,input.providerRequestId||null,input.documentRefId||null,input.title,input.description,input.amountMinor,input.dueAt||null,status,JSON.stringify({contractEngine:'docwallet',fiscalEngine:'taxagent',collectionMode:'owner_pix',communicationEngine:'smartbots'})]);
+    await auditLog(ctx,'business_operation.created','business_operation',rows[0].id,null,rows[0]);return rows[0];
+  });
+
+  app.post('/v1/business-operations/:id/link-document',async req=>{
+    const ctx=await workspaceContext(req,'workspace.write'),id=uuid.parse((req.params as any).id),input=z.object({documentRefId:uuid}).parse(req.body);
+    const operation=(await query<any>(`select * from business_operations where id=$1 and workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
+    const doc=(await query<any>(`select id,provider,external_ref,title,status,signature_status from document_refs where id=$1 and workspace_id=$2`,[input.documentRefId,ctx.workspaceId]))[0];if(!doc)throw new ApiError(404,'document_not_found','Documento não encontrado neste workspace.');
+    const rows=await query<any>(`update business_operations set document_ref_id=$3,status=case when status='draft' then 'contract_ready' else status end,metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId,input.documentRefId,JSON.stringify({contractProvider:doc.provider,contractExternalRef:doc.external_ref})]);
+    await auditLog(ctx,'business_operation.document_linked','business_operation',id,operation,{documentRefId:doc.id,provider:doc.provider});return rows[0];
+  });
+
+  app.post('/v1/business-operations/:id/prepare-invoice',async req=>{
+    const ctx=await workspaceContext(req,'workspace.write'),id=uuid.parse((req.params as any).id);
+    const input=z.object({environment:z.enum(['test','production']).default('test'),competence:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),customerCityCode:z.string().regex(/^\d{7}$/).optional().nullable(),serviceLocationCityCode:z.string().regex(/^\d{7}$/).optional().nullable(),nationalServiceCode:z.string().trim().max(30).optional().nullable(),nbs:z.string().regex(/^\d{9}$/).optional().nullable(),issTaxation:z.enum(['1','2','3','4']).optional().nullable(),issWithholding:z.enum(['1','2','3']).optional().nullable(),issRate:z.number().min(0).max(9.99).optional().nullable(),finalConsumption:z.enum(['0','1']).optional().nullable(),taxDecisionId:z.string().trim().optional().nullable(),preparedDpsId:z.string().trim().optional().nullable()}).parse(req.body||{});
+    const operation=(await query<any>(`select o.*,c.name contact_name,c.document_number,c.custom_fields from business_operations o join crm_contacts c on c.id=o.contact_id where o.id=$1 and o.workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
+    if(operation.invoice_action_id)throw new ApiError(409,'invoice_already_prepared','Já existe uma emissão fiscal preparada para esta operação.');
+    const taxId=String(operation.document_number||'').replace(/\D/g,'');if(!taxId)throw new ApiError(409,'customer_tax_id_required','Informe CPF/CNPJ do cliente no CRM antes de preparar a nota.');
+    const custom=operation.custom_fields||{};const cityCode=String(input.customerCityCode||custom.cityCode||custom.city_code||custom.ibgeCityCode||'').replace(/\D/g,'');if(cityCode.length!==7)throw new ApiError(409,'customer_city_code_required','Informe o código IBGE de 7 dígitos do município do cliente.');
+    const payload={operationId:id,environment:input.environment,...(input.competence?{competence:input.competence}:{}),...(input.taxDecisionId?{taxDecisionId:input.taxDecisionId}:{}),...(input.preparedDpsId?{preparedDpsId:input.preparedDpsId}:{}),customer:{taxId,name:operation.contact_name,cityCode},service:{description:operation.description,amount:Number(operation.amount_minor)/100,...(input.nationalServiceCode?{nationalServiceCode:input.nationalServiceCode}:{}),...(input.nbs?{nbs:input.nbs}:{}),...(input.serviceLocationCityCode?{serviceLocationCityCode:input.serviceLocationCityCode}:{}),...(input.issTaxation?{issTaxation:input.issTaxation}:{}),...(input.issWithholding?{issWithholding:input.issWithholding}:{}),...(input.issRate!==undefined&&input.issRate!==null?{issRate:input.issRate}:{}),...(input.finalConsumption?{finalConsumption:input.finalConsumption}:{})},lineage:{businessOperationId:id,documentRefId:operation.document_ref_id||null,dealId:operation.deal_id||null,providerRequestId:operation.provider_request_id||null}};
+    const emitted=await emitBusinessEvent(ctx.workspaceId,'invoice.issue','nexoffice.business-operation','business_operation',id,payload,`business-operation:${id}:invoice`);
+    const actionId=(emitted.action as any)?.id;if(!actionId)throw new ApiError(500,'invoice_action_not_created','Não foi possível preparar a aprovação fiscal.');
+    const rows=await query<any>(`update business_operations set invoice_action_id=$3,status='invoice_pending',metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId,actionId,JSON.stringify({invoiceEnvironment:input.environment,invoicePreparedAt:new Date().toISOString()})]);
+    await auditLog(ctx,'business_operation.invoice_prepared','business_operation',id,operation,{actionId,externalEffect:false});return {operation:rows[0],action:emitted.action,externalEffect:false,governance:'human_approval_required'};
+  });
+
+  app.post('/v1/business-operations/:id/prepare-collection',async req=>{
+    const ctx=await workspaceContext(req,'finance.write'),id=uuid.parse((req.params as any).id);
+    const operation=(await query<any>(`select * from business_operations where id=$1 and workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
+    if(operation.ledger_entry_id){const existing=(await query<any>(`select * from ledger_entries where id=$1 and workspace_id=$2`,[operation.ledger_entry_id,ctx.workspaceId]))[0];return {reused:true,receivable:existing,operation};}
+    const result=await transaction(async client=>{
+      const ledger=(await client.query(`insert into ledger_entries(workspace_id,contact_id,direction,category,description,amount_minor,currency,status,due_at,metadata) values($1,$2,'income','service',$3,$4,$5,'open',$6,$7) returning *`,[ctx.workspaceId,operation.contact_id,operation.description,operation.amount_minor,operation.currency,operation.due_at,JSON.stringify({source:'business_operation',businessOperationId:id,documentRefId:operation.document_ref_id||null,fiscalExternalRef:operation.fiscal_external_ref||null})])).rows[0];
+      const updated=(await client.query(`update business_operations set ledger_entry_id=$3,status='collection_ready',updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId,ledger.id])).rows[0];return {ledger,updated};
+    });
+    await auditLog(ctx,'business_operation.collection_prepared','business_operation',id,operation,{ledgerEntryId:result.ledger.id,externalEffect:false});return {reused:false,receivable:result.ledger,operation:result.updated,externalEffect:false,pixPackageEndpoint:`/v1/collections/ledger/${result.ledger.id}/pix-package`};
+  });
+
+  app.post('/v1/business-operations/:id/prepare-communication',async req=>{
+    const ctx=await workspaceContext(req,'command.decide'),id=uuid.parse((req.params as any).id);
+    const operation=(await query<any>(`select o.*,c.name contact_name,c.phone contact_phone,l.id ledger_id,l.status ledger_status from business_operations o join crm_contacts c on c.id=o.contact_id left join ledger_entries l on l.id=o.ledger_entry_id where o.id=$1 and o.workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
+    if(!operation.ledger_id)throw new ApiError(409,'collection_required','Prepare o recebível antes da comunicação.');
+    if(!String(operation.contact_phone||'').replace(/\D/g,''))throw new ApiError(409,'contact_phone_required','Cadastre o telefone do cliente no CRM.');
+    const profile=(await query<any>(`select workspace_id from workspace_payment_profiles where workspace_id=$1`,[ctx.workspaceId]))[0];if(!profile)throw new ApiError(409,'pix_profile_required','Cadastre os dados Pix do negócio antes de preparar a comunicação.');
+    const prepared=await transaction(async client=>{
+      const proposed={channel:'whatsapp',recipient:String(operation.contact_phone),contactName:String(operation.contact_name||'Cliente'),template:'business_operation_collection',businessOperationId:id,ledgerEntryId:operation.ledger_id};
+      const approval=(await client.query(`insert into approval_requests(workspace_id,action_type,title,description,status,requested_by_agent,subject_type,subject_id,proposed_payload) values($1,'message.send',$2,$3,'pending','collections','business_operation',$4,$5) returning id`,[ctx.workspaceId,`Enviar cobrança para ${operation.contact_name||'cliente'}`,`Comunicação de cobrança de ${operation.description}.`,id,JSON.stringify(proposed)])).rows[0];
+      const action=(await client.query(`insert into command_actions(workspace_id,agent_role,title,summary,priority,status,autonomy,approval_id,subject_type,subject_id,primary_action,metadata) values($1,'collections',$2,$3,'high','open','approval_required',$4,'business_operation',$5,$6,$7) returning *`,[ctx.workspaceId,`Cobrança para ${operation.contact_name||'cliente'}`,`${operation.description} · comunicação preparada e aguardando aprovação humana.`,approval.id,id,JSON.stringify({type:'message.send',payload:proposed}),JSON.stringify({source:'business_operation',provider:'smartbots',templateHydratedAtDispatch:true,humanApprovalRequired:true})])).rows[0];
+      await client.query(`update business_operations set status='communication_pending',metadata=metadata||$3::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[id,ctx.workspaceId,JSON.stringify({communicationActionId:action.id})]);return {approval,action};
+    });
+    await auditLog(ctx,'business_operation.communication_prepared','business_operation',id,operation,{actionId:prepared.action.id,approvalId:prepared.approval.id,externalEffect:false});return {...prepared,externalEffect:false,governance:'human_approval_required'};
+  });
+
+  app.post('/v1/business-operations/:id/mark-paid',async req=>{
+    const ctx=await workspaceContext(req,'finance.write'),id=uuid.parse((req.params as any).id);
+    const operation=(await query<any>(`select * from business_operations where id=$1 and workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');if(!operation.ledger_entry_id)throw new ApiError(409,'collection_required','A operação ainda não possui recebível.');
+    await query(`update ledger_entries set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and workspace_id=$2`,[operation.ledger_entry_id,ctx.workspaceId]);
+    const rows=await query<any>(`update business_operations set status='paid',updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId]);await auditLog(ctx,'business_operation.marked_paid','business_operation',id,operation,rows[0]);return rows[0];
+  });
+}
