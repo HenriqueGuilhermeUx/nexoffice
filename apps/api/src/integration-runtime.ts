@@ -64,8 +64,16 @@ export function routeForAction(actionType:string):string|null{
   return null;
 }
 
+export function externalActionGate(topic:string){
+  const globalEnabled=String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false').toLowerCase()==='true';
+  const smartBotsEnabled=String(process.env.NEXOFFICE_SMARTBOTS_EXTERNAL_ACTIONS||'false').toLowerCase()==='true';
+  const enabled=globalEnabled||(topic==='smartbots.message.send'&&smartBotsEnabled);
+  return {enabled,globalEnabled,smartBotsEnabled};
+}
+
 export async function dispatchOutbox(topic:string,payload:any,workspaceId?:string){
-  if(String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false')!=='true')return {ok:true,dryRun:true,topic,payload:{correlationId:payload?.correlationId}};
+  const gate=externalActionGate(topic);
+  if(!gate.enabled)return {ok:true,dryRun:true,topic,payload:{correlationId:payload?.correlationId},gate};
   if(topic==='nextgen.charge.create')return createNextGenCharge(payload,workspaceId);
   if(topic==='docwallet.document.action')return dispatchDocWallet(payload,workspaceId);
   if(topic==='smartbots.message.send')return dispatchSmartBots(payload,workspaceId);
