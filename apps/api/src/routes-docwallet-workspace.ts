@@ -9,24 +9,152 @@ const uuid=z.string().uuid();
 const partyInput=z.object({name:z.string().trim().min(2).max(180),email:z.string().trim().email().max(180).optional().nullable()});
 const signatureInput=z.object({parties:z.array(partyInput).min(1).max(12)}).strict();
 
-function safeBase(value:string){const raw=String(value||'').trim();if(!raw)return null;try{const url=new URL(raw);if(!['https:','http:'].includes(url.protocol))return null;return url.toString().replace(/\/$/,'')}catch{return null}}
-function bridgeConfig(){const base=safeBase(String(process.env.DOCWALLET_BASE_URL||''));const key=String(process.env.DOCWALLET_SERVICE_KEY||process.env.DOCWALLET_API_KEY||'').trim();return{base,key,configured:Boolean(base&&key)}}
-async function docwallet(workspaceId:string,path:string,init:RequestInit={}){const cfg=bridgeConfig();if(!cfg.configured||!cfg.base)throw new ApiError(409,'docwallet_not_configured','Conecte/configure a DocWallet antes de usar esta função.');const headers=new Headers(init.headers||{});headers.set('accept','application/json');headers.set('content-type','application/json');headers.set('x-nexoffice-key',cfg.key);headers.set('x-nexoffice-workspace-id',workspaceId);let response:Response;try{response=await fetch(`${cfg.base}${path}`,{...init,headers,signal:AbortSignal.timeout(12_000)})}catch{throw new ApiError(502,'docwallet_unreachable','DocWallet indisponível neste momento.')}const payload=await response.json().catch(()=>({})) as any;if(!response.ok){const code=String(payload?.code||payload?.error||'docwallet_request_failed');const message=typeof payload?.error==='string'?payload.error:'Não foi possível concluir a operação na DocWallet.';if(response.status===401)throw new ApiError(502,'docwallet_bridge_unauthorized','Bridge DocWallet recusou a credencial de serviço.');if([403,409,503].includes(response.status))throw new ApiError(409,code,message);throw new ApiError(response.status===404?404:502,code,message)}return payload}
+function safeBase(value:string){
+  const raw=String(value||'').trim();
+  if(!raw)return null;
+  try{const url=new URL(raw);if(!['https:','http:'].includes(url.protocol))return null;return url.toString().replace(/\/$/,'')}catch{return null}
+}
+function bridgeConfig(){
+  const base=safeBase(String(process.env.DOCWALLET_BASE_URL||''));
+  const key=String(process.env.DOCWALLET_SERVICE_KEY||process.env.DOCWALLET_API_KEY||'').trim();
+  return{base,key,configured:Boolean(base&&key)};
+}
+async function docwallet(workspaceId:string,path:string,init:RequestInit={}){
+  const cfg=bridgeConfig();
+  if(!cfg.configured||!cfg.base)throw new ApiError(409,'docwallet_not_configured','Conecte/configure a DocWallet antes de usar esta função.');
+  const headers=new Headers(init.headers||{});
+  headers.set('accept','application/json');
+  headers.set('content-type','application/json');
+  headers.set('x-nexoffice-key',cfg.key);
+  headers.set('x-nexoffice-workspace-id',workspaceId);
+  let response:Response;
+  try{response=await fetch(`${cfg.base}${path}`,{...init,headers,signal:AbortSignal.timeout(12_000)})}
+  catch{throw new ApiError(502,'docwallet_unreachable','DocWallet indisponível neste momento.')}
+  const payload=await response.json().catch(()=>({})) as any;
+  if(!response.ok){
+    const code=String(payload?.code||payload?.error||'docwallet_request_failed');
+    const message=typeof payload?.error==='string'?payload.error:'Não foi possível concluir a operação na DocWallet.';
+    if(response.status===401)throw new ApiError(502,'docwallet_bridge_unauthorized','Bridge DocWallet recusou a credencial de serviço.');
+    if([403,409,503].includes(response.status))throw new ApiError(409,code,message);
+    throw new ApiError(response.status===404?404:502,code,message);
+  }
+  return payload;
+}
 
-async function allowance(workspaceId:string,client?:any){const run=client?async(sql:string,args:any[])=>((await client.query(sql,args)).rows):query<any>;const entitlement=(await run(`select tier,monthly_limit,source from docwallet_signature_entitlements where workspace_id=$1`,[workspaceId]))[0]||{tier:'included',monthly_limit:6,source:'nexoffice_default'};const period=(await run(`select date_trunc('month',now())::date::text period_start,(date_trunc('month',now())+interval '1 month')::date::text next_period_start`,[]))[0];const used=Number((await run(`select count(*)::int count from docwallet_signature_usage where workspace_id=$1 and period_start=$2::date`,[workspaceId,period.period_start]))[0]?.count||0);const limit=Number(entitlement.monthly_limit||6);return{tier:String(entitlement.tier||'included'),included:limit,used,remaining:Math.max(limit-used,0),limitReached:used>=limit,specialPlanRequired:used>=limit&&String(entitlement.tier)!=='signatures_plus',periodStart:period.period_start,nextPeriodStart:period.next_period_start,policy:{perSignatureCharge:false,oneDocumentOneUsage:true,cancelledStillCounts:true,workspacesPlanInferred:false,billingActivated:false}}}
+async function allowance(workspaceId:string,client?:any){
+  const run=client?async(sql:string,args:any[])=>((await client.query(sql,args)).rows):query<any>;
+  const entitlement=(await run(`select tier,monthly_limit,source from docwallet_signature_entitlements where workspace_id=$1`,[workspaceId]))[0]||{tier:'included',monthly_limit:6,source:'nexoffice_default'};
+  const period=(await run(`select date_trunc('month',now())::date::text period_start,(date_trunc('month',now())+interval '1 month')::date::text next_period_start`,[]))[0];
+  const used=Number((await run(`select count(*)::int count from docwallet_signature_usage where workspace_id=$1 and period_start=$2::date`,[workspaceId,period.period_start]))[0]?.count||0);
+  const limit=Number(entitlement.monthly_limit||6);
+  return{tier:String(entitlement.tier||'included'),included:limit,used,remaining:Math.max(limit-used,0),limitReached:used>=limit,specialPlanRequired:used>=limit&&String(entitlement.tier)!=='signatures_plus',periodStart:period.period_start,nextPeriodStart:period.next_period_start,policy:{perSignatureCharge:false,oneDocumentOneUsage:true,cancelledStillCounts:true,workspacesPlanInferred:false,billingActivated:false}};
+}
 
-function safeSignature(value:any){return{id:String(value?.id||''),title:String(value?.title||''),status:String(value?.status||'pending'),contentHash:String(value?.contentHash||value?.content_hash||''),finalHash:String(value?.finalHash||value?.final_hash||''),createdAt:value?.createdAt||value?.created_at||null,completedAt:value?.completedAt||value?.completed_at||null,totalParties:Number(value?.totalParties??value?.total_parties??0),signedCount:Number(value?.signedCount??value?.signed_count??0),pendingCount:Number(value?.pendingCount??value?.pending_count??0),progressPercent:Number(value?.progressPercent??value?.progress_percent??0),parties:Array.isArray(value?.parties)?value.parties.map((p:any)=>({id:String(p?.id||''),name:String(p?.name||''),email:String(p?.email||''),status:String(p?.status||'pending'),signedAt:p?.signedAt||p?.signed_at||null,url:String(p?.url||'')})):[]}}
+function safeSignature(value:any){
+  return{id:String(value?.id||''),title:String(value?.title||''),status:String(value?.status||'pending'),contentHash:String(value?.contentHash||value?.content_hash||''),finalHash:String(value?.finalHash||value?.final_hash||''),createdAt:value?.createdAt||value?.created_at||null,completedAt:value?.completedAt||value?.completed_at||null,totalParties:Number(value?.totalParties??value?.total_parties??0),signedCount:Number(value?.signedCount??value?.signed_count??0),pendingCount:Number(value?.pendingCount??value?.pending_count??0),progressPercent:Number(value?.progressPercent??value?.progress_percent??0),parties:Array.isArray(value?.parties)?value.parties.map((p:any)=>({id:String(p?.id||''),name:String(p?.name||''),email:String(p?.email||''),status:String(p?.status||'pending'),signedAt:p?.signedAt||p?.signed_at||null,url:String(p?.url||'')})):[]};
+}
 
 export async function registerDocWalletWorkspaceRoutes(app:FastifyInstance){
-  app.get('/v1/documents/signature-allowance',async req=>{const ctx=await workspaceContext(req,'documents.read');return{...(await allowance(ctx.workspaceId)),provider:'docwallet',externalEffect:false}});
+  app.get('/v1/documents/signature-allowance',async req=>{
+    const ctx=await workspaceContext(req,'documents.read');
+    return{...(await allowance(ctx.workspaceId)),provider:'docwallet',externalEffect:false};
+  });
 
-  app.get('/v1/documents/docwallet-center',async req=>{const ctx=await workspaceContext(req,'documents.read');const [documents,usage,quota]=await Promise.all([query<any>(`select d.id,d.contact_id,d.external_ref,d.title,d.status,d.document_type,d.signature_status,d.metadata,d.created_at,d.updated_at,c.name contact_name from document_refs d left join crm_contacts c on c.id=d.contact_id where d.workspace_id=$1 and d.provider='docwallet' order by d.updated_at desc limit 200`,[ctx.workspaceId]),query<any>(`select u.id,u.document_ref_id,u.business_operation_id,u.external_signature_request_id,u.status,u.period_start,u.created_at,d.title from docwallet_signature_usage u join document_refs d on d.id=u.document_ref_id where u.workspace_id=$1 order by u.created_at desc limit 100`,[ctx.workspaceId]),allowance(ctx.workspaceId)]);return{documents,signatureUsage:usage,allowance:quota,capabilities:{contracts:true,templates:true,signatures:true,intelligence:true,docflow:true,validation:true,certificates:true},privacy:{rawDocumentsStoredInNexOffice:false,rawContractContentStoredInNexOffice:false,sensitiveSignatureEvidenceStoredInNexOffice:false},externalEffect:false}});
+  app.get('/v1/documents/docwallet-center',async req=>{
+    const ctx=await workspaceContext(req,'documents.read');
+    const [documents,usage,quota]=await Promise.all([
+      query<any>(`select d.id,d.contact_id,d.external_ref,d.title,d.status,d.document_type,d.signature_status,d.metadata,d.created_at,d.updated_at,c.name contact_name from document_refs d left join crm_contacts c on c.id=d.contact_id where d.workspace_id=$1 and d.provider='docwallet' order by d.updated_at desc limit 200`,[ctx.workspaceId]),
+      query<any>(`select u.id,u.document_ref_id,u.business_operation_id,u.external_signature_request_id,u.status,u.period_start,u.created_at,d.title from docwallet_signature_usage u join document_refs d on d.id=u.document_ref_id where u.workspace_id=$1 order by u.created_at desc limit 100`,[ctx.workspaceId]),
+      allowance(ctx.workspaceId)
+    ]);
+    return{documents,signatureUsage:usage,allowance:quota,capabilities:{contracts:true,templates:true,signatures:true,intelligence:true,docflow:true,validation:true,certificates:true},privacy:{rawDocumentsStoredInNexOffice:false,rawContractContentStoredInNexOffice:false,sensitiveSignatureEvidenceStoredInNexOffice:false},externalEffect:false};
+  });
 
-  app.post('/v1/documents/:id/signatures',async req=>{const ctx=await workspaceContext(req,'documents.write');const documentId=uuid.parse((req.params as any).id),input=signatureInput.parse(req.body||{});const result=await transaction(async client=>{await client.query(`select pg_advisory_xact_lock(hashtext($1))`,[`docwallet-signature:${ctx.workspaceId}`]);const quota=await allowance(ctx.workspaceId,client);if(quota.limitReached)throw new ApiError(409,'signature_allowance_exhausted','Você usou as assinaturas incluídas deste mês. Assinaturas+ amplia a franquia sem cobrança por assinatura avulsa.');const document=(await client.query(`select d.*,b.id business_operation_id from document_refs d left join business_operations b on b.workspace_id=d.workspace_id and b.document_ref_id=d.id where d.id=$1 and d.workspace_id=$2 and d.provider='docwallet'`,[documentId,ctx.workspaceId])).rows[0];if(!document)throw new ApiError(404,'docwallet_document_not_found','Documento DocWallet não encontrado neste workspace.');const externalDocumentId=String(document.external_ref||'').trim();if(!externalDocumentId)throw new ApiError(409,'docwallet_document_reference_missing','Este documento ainda não possui uma referência DocWallet apta para assinatura.');const existing=(await client.query(`select * from docwallet_signature_usage where workspace_id=$1 and document_ref_id=$2 and status='pending' order by created_at desc limit 1`,[ctx.workspaceId,documentId])).rows[0];if(existing)throw new ApiError(409,'signature_request_already_pending','Este documento já possui uma solicitação de assinatura pendente.');const idempotencyKey=`nexoffice-signature-${documentId}-${randomUUID()}`;const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/documents/${encodeURIComponent(externalDocumentId)}/signature-request`,{method:'POST',headers:{'x-idempotency-key':idempotencyKey},body:JSON.stringify({parties:input.parties})});const signature=safeSignature(payload?.request);if(!signature.id)throw new ApiError(502,'invalid_docwallet_signature_response','DocWallet não retornou a referência de assinatura esperada.');const periodStart=quota.periodStart;const usage=(await client.query(`insert into docwallet_signature_usage(workspace_id,document_ref_id,business_operation_id,external_signature_request_id,status,period_start,requested_by) values($1,$2,$3,$4,$5,$6::date,$7) returning *`,[ctx.workspaceId,documentId,document.business_operation_id||null,signature.id,signature.status==='completed'?'completed':'pending',periodStart,ctx.user.id])).rows[0];await client.query(`update document_refs set signature_status=$3,metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[documentId,ctx.workspaceId,signature.status,JSON.stringify({signatureRequestId:signature.id,signatureProvider:'docwallet',signatureRequestedAt:new Date().toISOString()})]);return{signature,usage,allowance:{...quota,used:quota.used+1,remaining:Math.max(quota.included-quota.used-1,0),limitReached:quota.used+1>=quota.included},privacy:{rawContentReturned:false,sensitiveEvidenceReturned:false},externalEffect:true}});await auditLog(ctx,'document.signature.requested','document_ref',documentId,null,{provider:'docwallet',signatureRequestId:result.signature.id,partyCount:result.signature.totalParties,monthlyUsage:result.allowance.used,monthlyLimit:result.allowance.included,rawContentExposed:false});return result});
+  app.post('/v1/documents/:id/signatures',async req=>{
+    const ctx=await workspaceContext(req,'documents.write');
+    const documentId=uuid.parse((req.params as any).id);
+    const input=signatureInput.parse(req.body||{});
 
-  app.get('/v1/documents/signatures/:signatureId',async req=>{const ctx=await workspaceContext(req,'documents.read');const signatureId=String((req.params as any).signatureId||'').trim();const usage=(await query<any>(`select * from docwallet_signature_usage where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId]))[0];if(!usage)throw new ApiError(404,'signature_not_found','Assinatura não encontrada neste workspace.');const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/signatures/${encodeURIComponent(signatureId)}`);const signature=safeSignature(payload?.request);const nextStatus=signature.status==='completed'?'completed':signature.status==='cancelled'?'cancelled':'pending';await query(`update docwallet_signature_usage set status=$3,updated_at=now() where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId,nextStatus]);await query(`update document_refs set signature_status=$3,metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[usage.document_ref_id,ctx.workspaceId,signature.status,JSON.stringify({signatureFinalHash:signature.finalHash||null,signatureCompletedAt:signature.completedAt||null})]);return{signature,externalEffect:false,privacy:{rawContentReturned:false,sensitiveEvidenceReturned:false}}});
+    const reservation=await transaction(async client=>{
+      await client.query(`select pg_advisory_xact_lock(hashtext($1))`,[`docwallet-signature:${ctx.workspaceId}`]);
+      const document=(await client.query(`select d.*,b.id business_operation_id from document_refs d left join business_operations b on b.workspace_id=d.workspace_id and b.document_ref_id=d.id where d.id=$1 and d.workspace_id=$2 and d.provider='docwallet'`,[documentId,ctx.workspaceId])).rows[0];
+      if(!document)throw new ApiError(404,'docwallet_document_not_found','Documento DocWallet não encontrado neste workspace.');
+      const externalDocumentId=String(document.external_ref||'').trim();
+      if(!externalDocumentId)throw new ApiError(409,'docwallet_document_reference_missing','Este documento ainda não possui uma referência DocWallet apta para assinatura.');
 
-  app.post('/v1/documents/signatures/:signatureId/reminder',async req=>{const ctx=await workspaceContext(req,'documents.write');const signatureId=String((req.params as any).signatureId||'').trim(),input=z.object({partyId:z.string().trim().optional().nullable()}).parse(req.body||{});const usage=(await query<any>(`select id,document_ref_id from docwallet_signature_usage where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId]))[0];if(!usage)throw new ApiError(404,'signature_not_found','Assinatura não encontrada neste workspace.');const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/signatures/${encodeURIComponent(signatureId)}/reminder`,{method:'POST',body:JSON.stringify({partyId:input.partyId||null})});await auditLog(ctx,'document.signature.reminder_prepared','document_ref',usage.document_ref_id,null,{provider:'docwallet',signatureRequestId:signatureId,partyId:payload?.party?.id||null,externalEffect:true});return{party:payload?.party||null,url:String(payload?.url||''),message:String(payload?.message||''),externalEffect:true}});
+      const existing=(await client.query(`select * from docwallet_signature_usage where workspace_id=$1 and document_ref_id=$2 and status in ('processing','pending') order by created_at desc limit 1`,[ctx.workspaceId,documentId])).rows[0];
+      if(existing?.status==='pending')throw new ApiError(409,'signature_request_already_pending','Este documento já possui uma solicitação de assinatura pendente.');
+      const quota=await allowance(ctx.workspaceId,client);
+      if(existing?.status==='processing')return{document,externalDocumentId,usage:existing,quota,reservedNew:false};
+      if(quota.limitReached)throw new ApiError(409,'signature_allowance_exhausted','Você usou as assinaturas incluídas deste mês. Assinaturas+ amplia a franquia sem cobrança por assinatura avulsa.');
 
-  app.post('/v1/documents/signatures/:signatureId/cancel',async req=>{const ctx=await workspaceContext(req,'documents.write');const signatureId=String((req.params as any).signatureId||'').trim();const usage=(await query<any>(`select id,document_ref_id from docwallet_signature_usage where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId]))[0];if(!usage)throw new ApiError(404,'signature_not_found','Assinatura não encontrada neste workspace.');const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/signatures/${encodeURIComponent(signatureId)}/cancel`,{method:'POST',body:'{}'});await query(`update docwallet_signature_usage set status='cancelled',updated_at=now() where id=$1`,[usage.id]);await query(`update document_refs set signature_status='cancelled',updated_at=now() where id=$1 and workspace_id=$2`,[usage.document_ref_id,ctx.workspaceId]);await auditLog(ctx,'document.signature.cancelled','document_ref',usage.document_ref_id,null,{provider:'docwallet',signatureRequestId:signatureId,allowanceRestored:false,externalEffect:true});return{signature:safeSignature(payload?.request),allowanceRestored:false,externalEffect:true}});
+      const idempotencyKey=`nexoffice-signature-${documentId}-${randomUUID()}`;
+      const usage=(await client.query(`insert into docwallet_signature_usage(workspace_id,document_ref_id,business_operation_id,idempotency_key,external_signature_request_id,status,period_start,requested_by) values($1,$2,$3,$4,null,'processing',$5::date,$6) returning *`,[ctx.workspaceId,documentId,document.business_operation_id||null,idempotencyKey,quota.periodStart,ctx.user.id])).rows[0];
+      return{document,externalDocumentId,usage,quota,reservedNew:true};
+    });
+
+    let payload:any;
+    try{
+      payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/documents/${encodeURIComponent(reservation.externalDocumentId)}/signature-request`,{method:'POST',headers:{'x-idempotency-key':reservation.usage.idempotency_key},body:JSON.stringify({parties:input.parties})});
+    }catch(error){
+      if(error instanceof ApiError&&error.statusCode<500&&error.code!=='operation_in_progress'){
+        await query(`delete from docwallet_signature_usage where id=$1 and workspace_id=$2 and status='processing'`,[reservation.usage.id,ctx.workspaceId]);
+      }
+      throw error;
+    }
+
+    const signature=safeSignature(payload?.request);
+    if(!signature.id)throw new ApiError(502,'invalid_docwallet_signature_response','DocWallet não retornou a referência de assinatura esperada.');
+
+    const finalized=await transaction(async client=>{
+      const usage=(await client.query(`update docwallet_signature_usage set external_signature_request_id=$3,status=$4,updated_at=now() where id=$1 and workspace_id=$2 and status='processing' returning *`,[reservation.usage.id,ctx.workspaceId,signature.id,signature.status==='completed'?'completed':'pending'])).rows[0];
+      if(!usage){
+        const recovered=(await client.query(`select * from docwallet_signature_usage where id=$1 and workspace_id=$2`,[reservation.usage.id,ctx.workspaceId])).rows[0];
+        if(!recovered)throw new ApiError(409,'signature_reservation_missing','A reserva de assinatura não pôde ser reconciliada.');
+      }
+      await client.query(`update document_refs set signature_status=$3,metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[documentId,ctx.workspaceId,signature.status,JSON.stringify({signatureRequestId:signature.id,signatureProvider:'docwallet',signatureRequestedAt:new Date().toISOString()})]);
+      const quota=await allowance(ctx.workspaceId,client);
+      return{usage:usage||reservation.usage,quota};
+    });
+
+    const result={signature,usage:finalized.usage,allowance:finalized.quota,privacy:{rawContentReturned:false,sensitiveEvidenceReturned:false},recoveredReservation:!reservation.reservedNew,externalEffect:true};
+    await auditLog(ctx,'document.signature.requested','document_ref',documentId,null,{provider:'docwallet',signatureRequestId:result.signature.id,partyCount:result.signature.totalParties,monthlyUsage:result.allowance.used,monthlyLimit:result.allowance.included,recoveredReservation:result.recoveredReservation,rawContentExposed:false});
+    return result;
+  });
+
+  app.get('/v1/documents/signatures/:signatureId',async req=>{
+    const ctx=await workspaceContext(req,'documents.read');
+    const signatureId=String((req.params as any).signatureId||'').trim();
+    const usage=(await query<any>(`select * from docwallet_signature_usage where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId]))[0];
+    if(!usage)throw new ApiError(404,'signature_not_found','Assinatura não encontrada neste workspace.');
+    const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/signatures/${encodeURIComponent(signatureId)}`);
+    const signature=safeSignature(payload?.request);
+    const nextStatus=signature.status==='completed'?'completed':signature.status==='cancelled'?'cancelled':'pending';
+    await query(`update docwallet_signature_usage set status=$3,updated_at=now() where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId,nextStatus]);
+    await query(`update document_refs set signature_status=$3,metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2`,[usage.document_ref_id,ctx.workspaceId,signature.status,JSON.stringify({signatureFinalHash:signature.finalHash||null,signatureCompletedAt:signature.completedAt||null})]);
+    return{signature,externalEffect:false,privacy:{rawContentReturned:false,sensitiveEvidenceReturned:false}};
+  });
+
+  app.post('/v1/documents/signatures/:signatureId/reminder',async req=>{
+    const ctx=await workspaceContext(req,'documents.write');
+    const signatureId=String((req.params as any).signatureId||'').trim();
+    const input=z.object({partyId:z.string().trim().optional().nullable()}).parse(req.body||{});
+    const usage=(await query<any>(`select id,document_ref_id from docwallet_signature_usage where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId]))[0];
+    if(!usage)throw new ApiError(404,'signature_not_found','Assinatura não encontrada neste workspace.');
+    const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/signatures/${encodeURIComponent(signatureId)}/reminder`,{method:'POST',body:JSON.stringify({partyId:input.partyId||null})});
+    await auditLog(ctx,'document.signature.reminder_prepared','document_ref',usage.document_ref_id,null,{provider:'docwallet',signatureRequestId:signatureId,partyId:payload?.party?.id||null,externalEffect:true});
+    return{party:payload?.party||null,url:String(payload?.url||''),message:String(payload?.message||''),externalEffect:true};
+  });
+
+  app.post('/v1/documents/signatures/:signatureId/cancel',async req=>{
+    const ctx=await workspaceContext(req,'documents.write');
+    const signatureId=String((req.params as any).signatureId||'').trim();
+    const usage=(await query<any>(`select id,document_ref_id from docwallet_signature_usage where workspace_id=$1 and external_signature_request_id=$2`,[ctx.workspaceId,signatureId]))[0];
+    if(!usage)throw new ApiError(404,'signature_not_found','Assinatura não encontrada neste workspace.');
+    const payload=await docwallet(ctx.workspaceId,`/api/internal/nexoffice/signatures/${encodeURIComponent(signatureId)}/cancel`,{method:'POST',body:'{}'});
+    await query(`update docwallet_signature_usage set status='cancelled',updated_at=now() where id=$1`,[usage.id]);
+    await query(`update document_refs set signature_status='cancelled',updated_at=now() where id=$1 and workspace_id=$2`,[usage.document_ref_id,ctx.workspaceId]);
+    await auditLog(ctx,'document.signature.cancelled','document_ref',usage.document_ref_id,null,{provider:'docwallet',signatureRequestId:signatureId,allowanceRestored:false,externalEffect:true});
+    return{signature:safeSignature(payload?.request),allowanceRestored:false,externalEffect:true};
+  });
 }
