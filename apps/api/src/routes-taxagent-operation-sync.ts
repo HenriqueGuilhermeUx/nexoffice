@@ -45,6 +45,11 @@ function nextOperationStatus(current:string,fiscalStatus:string){
   return current;
 }
 
+function invoiceReadPath(externalRef:string){
+  const configured=String(process.env.TAXAGENT_INVOICE_READ_PATH||'/v1/invoices/:id').trim()||'/v1/invoices/:id';
+  return configured.replace(':id',encodeURIComponent(externalRef));
+}
+
 export async function registerTaxAgentOperationSyncRoutes(app:FastifyInstance){
   app.post('/v1/business-operations/:id/sync-invoice',async req=>{
     const ctx=await workspaceContext(req,'workspace.write');
@@ -53,10 +58,11 @@ export async function registerTaxAgentOperationSyncRoutes(app:FastifyInstance){
     if(!operation)throw new ApiError(404,'not_found','Operação Comercial não encontrada.');
     if(!operation.invoice_action_id)throw new ApiError(409,'invoice_not_prepared','Prepare a emissão fiscal antes de sincronizar.');
     const externalRef=await recoverExternalRef(ctx.workspaceId,operation);
-    if(!externalRef)throw new ApiError(409,'invoice_not_dispatched','A emissão ainda não retornou um ID do TaxAgent. Aprove/executa a ação fiscal e tente novamente.');
+    if(!externalRef)throw new ApiError(409,'invoice_not_dispatched','A emissão ainda não retornou um ID do TaxAgent. Aprove e execute a ação fiscal antes de sincronizar.');
     const cfg=await taxAgentConfig(ctx.workspaceId);
+    const path=invoiceReadPath(externalRef);
     let response:Response;
-    try{response=await fetch(`${cfg.base}/invoices/${encodeURIComponent(externalRef)}`,{headers:{accept:'application/json',...providerHeaders(cfg.credential)},signal:AbortSignal.timeout(12_000)})}
+    try{response=await fetch(`${cfg.base}/${path.replace(/^\//,'')}`,{headers:{accept:'application/json',...providerHeaders(cfg.credential)},signal:AbortSignal.timeout(12_000)})}
     catch{throw new ApiError(502,'taxagent_unreachable','TaxAgent indisponível neste momento.');}
     const payload=await response.json().catch(()=>({})) as any;
     if(!response.ok){
