@@ -7,6 +7,7 @@ const lacks=(text,value,label)=>must(!text.includes(value),label||`unexpected ${
 
 const routes=read('apps/api/src/routes-network-structured-outcomes.ts');
 const standalone=read('apps/api/src/routes-standalone.ts');
+const center=read('apps/web/src/NetworkCenter.tsx');
 
 has(routes,"app.post('/v1/network/requests/:id/structured-outcomes'",'structured outcome write endpoint');
 has(routes,"app.get('/v1/network/requests/:id/structured-outcomes'",'requester-private outcome read endpoint');
@@ -39,5 +40,16 @@ lacks(routes,'pix_key','outcomes never access Pix secret');
 lacks(routes,'order by score','outcomes never rank by score');
 lacks(routes,'order by rating','outcomes never rank by rating');
 has(standalone,'registerNetworkStructuredOutcomeRoutes(app)','structured outcome routes registered');
+
+has(center,"/v1/network/requests/${requestId}/structured-outcomes",'work UI writes structured outcome endpoint');
+has(center,"name=\"outcomeType\"",'work UI collects outcome type');
+has(center,"name=\"measurementStatus\"",'work UI collects measurement status');
+has(center,"name=\"impactTag\"",'work UI collects impact tags');
+has(center,'privateMetrics:{}','UI does not invent generic private metric values');
+has(center,'Relato e métricas detalhadas permanecem privados.','UI explains private detail boundary');
+has(center,'amostra mínima de 3 outcomes estruturados','UI explains public sample suppression');
+lacks(center,"name=\"rating\"",'UI never collects rating');
+lacks(center,"name=\"score\"",'UI never collects score');
+lacks(center,'★★★★★','UI never introduces stars');
 
 console.log('NexOffice Network Structured Outcomes V1 contract OK');
