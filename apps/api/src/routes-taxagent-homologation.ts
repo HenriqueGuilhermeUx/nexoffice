@@ -47,7 +47,7 @@ export async function registerTaxAgentHomologationRoutes(app:FastifyInstance){
     }
     const rows=await query<any>(`insert into taxagent_homologation_cases(workspace_id,operation_id,municipality_name,municipality_ibge,provider_hint,municipal_registration_context,integration_path,scenario_label,status,environment,notes,recorded_by)
       values($1,$2,$3,$4,$5,$6,$7,$8,'planned','test',$9,$10)
-      returning id,operation_id,municipality_name,municipality_ibge,provider_hint,municipal_registration_context,integration_path,scenario_label,status,environment,result_code,result_message,safe_references,evidence,notes,created_at,updated_at`,[ctx.workspaceId,input.operationId||null,input.municipalityName,input.municipalityIbge,input.providerHint||null,input.municipalRegistrationContext,input.integrationPath||null,input.scenarioLabel,input.notes||null,ctx.userId]);
+      returning id,operation_id,municipality_name,municipality_ibge,provider_hint,municipal_registration_context,integration_path,scenario_label,status,environment,result_code,result_message,safe_references,evidence,notes,created_at,updated_at`,[ctx.workspaceId,input.operationId||null,input.municipalityName,input.municipalityIbge,input.providerHint||null,input.municipalRegistrationContext,input.integrationPath||null,input.scenarioLabel,input.notes||null,ctx.user.id]);
     await auditLog(ctx,'taxagent.homologation_case.created','taxagent_homologation_case',rows[0].id,null,{municipalityIbge:input.municipalityIbge,municipalRegistrationContext:input.municipalRegistrationContext,environment:'test',executionAvailable:false,externalEffect:false});
     return {case:rows[0],policy:{executionAvailable:false,productionEnabled:false},externalEffect:false};
   });
