@@ -116,6 +116,7 @@ Implemented synchronization:
 - map `authorized` to `invoice_authorized` and rejected/cancelled states to operational attention;
 - surface real fiscal status in the Operação Comercial UI;
 - preserve TaxAgent as fiscal source of truth;
+- webhook-driven status updates implemented through the signed TaxAgent receiver;
 - signed TaxAgent webhook receiver for `invoice.authorized` and `invoice.rejected`;
 - HMAC-SHA256 verification, anti-replay window and persistent event idempotency;
 - webhook setup gate remains `NEXOFFICE_TAXAGENT_WEBHOOK_SETUP=false` by default and has not been activated.
