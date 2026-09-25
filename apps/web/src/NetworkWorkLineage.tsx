@@ -16,7 +16,7 @@ export default function NetworkWorkLineage({request,requester}:{request:RequestS
  const[lineage,setLineage]=useState<Lineage|null>(null),[loading,setLoading]=useState(false),[notice,setNotice]=useState('');
  const[linkedContactId,setLinkedContactId]=useState(request.contact_id||''),[showLinkage,setShowLinkage]=useState(false),[contacts,setContacts]=useState<Contact[]>([]),[operations,setOperations]=useState<ExistingOperation[]>([]);
  const active=['accepted','in_progress','completed'].includes(request.status);
- const canCreate=requester&&active&&Boolean(linkedContactId)&&!lineage?.steps.operation.done;
+ const canCreate=requester&&['accepted','in_progress','completed'].includes(request.status)&&Boolean(linkedContactId)&&!lineage?.steps.operation.done;
  useEffect(()=>{setLinkedContactId(request.contact_id||'')},[request.id,request.contact_id]);
  useEffect(()=>{if(active)void refresh()},[request.id,request.status]);
  async function refresh(){setLoading(true);try{setLineage(await api<Lineage>(`/v1/network/requests/${request.id}/lineage`));setNotice('')}catch(e:any){setNotice(e?.message||'Não foi possível carregar o andamento operacional.')}finally{setLoading(false)}}
