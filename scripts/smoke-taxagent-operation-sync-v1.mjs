@@ -15,10 +15,11 @@ has(sync,"/v1/business-operations/:id/sync-invoice",'operation invoice sync endp
 has(sync,"status='succeeded'",'TaxAgent external ID recovery only from successful agent run');
 has(sync,'run?.output?.payload?.id','TaxAgent accepted invoice ID recovery');
 has(sync,"'/v1/invoices/:id'",'real TaxAgent v1 read contract');
-has(sync,"method",'fetch implementation present');
+has(sync,"fetch(`${cfg.base}/${path.replace(/^\\//,'')}`",'read-only TaxAgent fetch');
 // Sync is intentionally a GET: no method override may turn it into a fiscal write.
 lacks(sync,"method:'POST'",'sync must never POST to TaxAgent');
 lacks(sync,"method:'PATCH'",'sync must never mutate TaxAgent');
+lacks(sync,"method:'DELETE'",'sync must never delete in TaxAgent');
 has(sync,'taxagent_company_mismatch','company isolation guard');
 has(sync,"fiscalStatus==='authorized'",'authorized state mapping');
 has(sync,"return 'invoice_authorized'",'authorized operation state');
