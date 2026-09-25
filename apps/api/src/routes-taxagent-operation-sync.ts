@@ -3,10 +3,20 @@ import {z} from 'zod';
 import {ApiError,workspaceContext} from './auth.js';
 import {auditLog} from './events.js';
 import {syncTaxAgentOperation} from './taxagent-operation-sync.js';
+import {taxAgentFiscalReadiness} from './taxagent-fiscal-readiness.js';
 
 const uuid=z.string().uuid();
 
 export async function registerTaxAgentOperationSyncRoutes(app:FastifyInstance){
+  app.get('/v1/business-operations/:id/fiscal-readiness',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    const id=uuid.parse((req.params as any).id);
+    const query=z.object({environment:z.enum(['test','production']).default('test')}).parse(req.query||{});
+    const result=await taxAgentFiscalReadiness(ctx.workspaceId,id,query.environment);
+    if(!result.ok)throw new ApiError(404,'operation_not_found','Operação não encontrada neste workspace.');
+    return result;
+  });
+
   app.post('/v1/business-operations/:id/sync-invoice',async req=>{
     const ctx=await workspaceContext(req,'workspace.write');
     const id=uuid.parse((req.params as any).id);
