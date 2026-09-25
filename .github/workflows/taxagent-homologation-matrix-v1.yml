@@ -1,0 +1,34 @@
+name: TaxAgent Homologation Matrix V1
+
+on:
+  pull_request:
+    paths:
+      - 'infra/postgres/035_taxagent_homologation_matrix.sql'
+      - 'apps/api/src/routes-taxagent-homologation.ts'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'scripts/smoke-taxagent-homologation-matrix-v1.mjs'
+      - '.github/workflows/taxagent-homologation-matrix-v1.yml'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/postgres/035_taxagent_homologation_matrix.sql'
+      - 'apps/api/src/routes-taxagent-homologation.ts'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'scripts/smoke-taxagent-homologation-matrix-v1.mjs'
+      - '.github/workflows/taxagent-homologation-matrix-v1.yml'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate TaxAgent homologation matrix contract
+        run: node scripts/smoke-taxagent-homologation-matrix-v1.mjs
