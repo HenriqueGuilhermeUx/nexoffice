@@ -15,7 +15,7 @@ async function taxAgentCredential(workspaceId:string){
   return {ok:true as const,companyId,credential};
 }
 
-function authHeaders(credential:string){
+function authHeaders(credential:string):Record<string,string>{
   const custom=String(process.env.TAXAGENT_AUTH_HEADER||'').trim();
   return custom?{[custom]:credential}:{Authorization:`Bearer ${credential}`};
 }
