@@ -2,11 +2,19 @@ import type {FastifyInstance} from 'fastify';
 import {workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {registerComplianceRoutes} from './routes-compliance.js';
+import {registerNetworkRoutes} from './routes-network.js';
+import {registerOwnedPaymentRoutes} from './routes-owned-payments.js';
+import {registerBusinessOperationRoutes} from './routes-business-operations.js';
+import {registerEcosystemRoutes} from './routes-ecosystem.js';
 
 const countFor=async(sql:string,workspaceId:string)=>Number((await query<any>(sql,[workspaceId]))[0]?.count||0);
 
 export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerComplianceRoutes(app);
+  await registerNetworkRoutes(app);
+  await registerOwnedPaymentRoutes(app);
+  await registerBusinessOperationRoutes(app);
+  await registerEcosystemRoutes(app);
 
   app.get('/v1/standalone/readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
