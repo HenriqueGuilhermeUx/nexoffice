@@ -1,0 +1,36 @@
+name: TaxAgent Operation Sync V1
+
+on:
+  pull_request:
+    paths:
+      - '.env.example'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'scripts/smoke-taxagent-operation-sync-v1.mjs'
+      - '.github/workflows/taxagent-operation-sync-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.env.example'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'scripts/smoke-taxagent-operation-sync-v1.mjs'
+      - '.github/workflows/taxagent-operation-sync-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate TaxAgent operation sync contract
+        run: node scripts/smoke-taxagent-operation-sync-v1.mjs
