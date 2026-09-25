@@ -114,7 +114,7 @@ Implemented linkage:
 - no automatic signature, fiscal issuance, collection or communication.
 
 ### D. TaxAgent native fiscal flow
-Status: TaxAgent capability/adapter, approval-first invoice preparation, Commercial Operation status synchronization, signed webhook synchronization and Fiscal Readiness V1 are implemented in dedicated stacked milestones; production webhook/setup and production fiscal execution remain OFF.
+Status: TaxAgent capability/adapter, approval-first invoice preparation, Commercial Operation status synchronization, signed webhook synchronization, Fiscal Readiness V1 and Homologation Matrix V1 are implemented in dedicated stacked milestones; production webhook/setup and production fiscal execution remain OFF.
 
 Goal:
 - TaxAgent is available to the business owner, not only accountants;
@@ -123,7 +123,7 @@ Goal:
 - synchronize TaxAgent authorized/rejected status back to `business_operations`;
 - connect authorized invoice reference to receivable and customer communication.
 
-Implemented synchronization and readiness:
+Implemented synchronization, readiness and homologation preparation:
 - recover the real TaxAgent invoice ID from the executed approval action result;
 - persist only TaxAgent reference/status in the NexOffice lineage;
 - read `GET /invoices/:id` from TaxAgent without reissuing or mutating the fiscal operation;
@@ -140,11 +140,24 @@ Implemented synchronization and readiness:
 - Operação Comercial now starts fiscal preparation with `Checar nota`, shows checks/blockers/warnings, and prepares only `environment='test'` from this UI;
 - a missing customer IBGE code can be supplied during governed preparation while integration/company/credential/tax-document/value remain real blockers;
 - TaxAgent sync normalizes only currently verified safe references (`accessKey` and `providerReference`);
-- NexOffice does not invent DANFSe URL, invoice number or verification code without a verified TaxAgent response contract.
+- NexOffice does not invent DANFSe URL, invoice number or verification code without a verified TaxAgent response contract;
+- Homologation Matrix V1 persists test-only municipality/provider scenarios in `taxagent_homologation_cases`;
+- database constraint fixes homologation cases to `environment='test'`;
+- matrix records municipality/IBGE, optional operation, provider/integration-path hint, scenario, status and descriptive municipal-registration context (`available`, `not_applicable`, `unavailable`, `unknown`);
+- homologation results/evidence are recorded manually after an explicitly authorized test; the matrix itself has `executionAvailable=false`, `manualEvidenceOnly=true`, `productionEnabled=false` and no TaxAgent remote call/issuance endpoint;
+- safe homologation references are strictly limited to `accessKey` and `providerReference`; raw fiscal payloads, credentials and Pix data are excluded from audit/evidence contracts;
+- CI applies migration `035_taxagent_homologation_matrix.sql` in an ephemeral PostgreSQL database and validates the complete operational smoke suite.
+
+Current fiscal boundary:
+- the infrastructure for organizing homologation is ready;
+- no fiscal homologation case has been externally executed by this milestone;
+- external test issuance remains an explicit operational action and is not authorized by ordinary development instructions such as `continue`, `bora` or `manda bala`;
+- production fiscal actions and webhook setup remain OFF.
 
 Next fiscal increment:
+- run real homologation scenarios across representative municipality/provider paths only after explicit authorization for external test issuance;
+- use the Homologation Matrix to record results, blockers and safe evidence from those authorized tests;
 - expose richer authorized invoice metadata such as number/DANFSe links only when the TaxAgent contract formally exposes safe references;
-- run real homologation scenarios across representative municipality/provider paths before enabling production fiscal execution;
 - keep production fiscal actions and webhook setup behind explicit operational authorization.
 
 Accountants in NexOffice Network can additionally use TaxAgent professionally for multiple customers with explicit delegated access.
@@ -249,5 +262,6 @@ Later, only after network liquidity and appropriate infrastructure:
 - Do not merge/deploy merely because the user says `bora`, `continue` or `manda bala`.
 - Production external actions remain OFF unless separately and explicitly authorized.
 - TaxAgent webhook setup remains OFF unless explicitly authorized.
+- External TaxAgent test issuance for homologation is treated as an explicit operational action and requires separate authorization.
 - Do not introduce Nexa operational finance until BaaS infrastructure is contracted, mapped, tested and homologated.
 - Prefer strengthening existing engines and bridges over duplicating domain logic in NexOffice.
