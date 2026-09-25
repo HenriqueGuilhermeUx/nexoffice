@@ -11,6 +11,7 @@ import DigitalTeamConsole from './DigitalTeamConsole';
 import IntegrationSetupCenter from './IntegrationSetupCenter';
 import DocumentIntelligenceCenter from './DocumentIntelligenceCenter';
 import DocWalletConnectBridge from './DocWalletConnectBridge';
+import ContractCreator from './ContractCreator';
 import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import StandaloneSetup from './StandaloneSetup';
 import BillingCenter from './BillingCenter';
@@ -45,5 +46,5 @@ import './business-trajectory.css';
 import './network-center.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
 );
