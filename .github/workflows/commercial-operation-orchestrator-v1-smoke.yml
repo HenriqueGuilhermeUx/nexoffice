@@ -1,0 +1,44 @@
+name: Commercial Operation Orchestrator V1 Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/api/src/routes-owned-payments.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'apps/web/src/business-operation-center.css'
+      - 'apps/web/src/main.tsx'
+      - 'infra/postgres/029_business_operation_lineage.sql'
+      - 'infra/postgres/031_business_operation_communication.sql'
+      - 'docs/NEXOFFICE_ECOSYSTEM_BLUEPRINT.md'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - 'scripts/smoke-commercial-operation-orchestrator-v1.mjs'
+      - '.github/workflows/commercial-operation-orchestrator-v1-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/api/src/routes-owned-payments.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'apps/web/src/business-operation-center.css'
+      - 'apps/web/src/main.tsx'
+      - 'infra/postgres/029_business_operation_lineage.sql'
+      - 'infra/postgres/031_business_operation_communication.sql'
+      - 'docs/NEXOFFICE_ECOSYSTEM_BLUEPRINT.md'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - 'scripts/smoke-commercial-operation-orchestrator-v1.mjs'
+      - '.github/workflows/commercial-operation-orchestrator-v1-smoke.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate Commercial Operation Orchestrator contract
+        run: node scripts/smoke-commercial-operation-orchestrator-v1.mjs
