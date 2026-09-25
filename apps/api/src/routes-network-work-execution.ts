@@ -17,6 +17,20 @@ const createOperationInput=z.object({
 const activeWorkStatuses=['accepted','in_progress','completed'];
 
 export async function registerNetworkWorkExecutionRoutes(app:FastifyInstance){
+  app.patch('/v1/network/requests/:id/contact',async req=>{
+    const ctx=await workspaceContext(req,'workspace.write');
+    const requestId=uuid.parse((req.params as any).id),input=z.object({contactId:uuid}).parse(req.body||{});
+    const before=(await query<any>(`select * from provider_requests where id=$1 and requester_workspace_id=$2`,[requestId,ctx.workspaceId]))[0];
+    if(!before)throw new ApiError(404,'request_not_found','Solicitação da Rede não encontrada neste workspace.');
+    const contact=(await query<any>(`select id,name from crm_contacts where id=$1 and workspace_id=$2`,[input.contactId,ctx.workspaceId]))[0];
+    if(!contact)throw new ApiError(404,'contact_not_found','Contato não encontrado neste workspace.');
+    const operation=(await query<any>(`select id,contact_id from business_operations where workspace_id=$1 and provider_request_id=$2 order by created_at asc limit 1`,[ctx.workspaceId,requestId]))[0]||null;
+    if(operation&&String(operation.contact_id)!==input.contactId)throw new ApiError(409,'operation_contact_mismatch','Este trabalho já está ligado a uma Operação Comercial de outro contato.');
+    const rows=await query<any>(`update provider_requests set contact_id=$3,updated_at=now() where id=$1 and requester_workspace_id=$2 returning *`,[requestId,ctx.workspaceId,input.contactId]);
+    await auditLog(ctx,'network.request.contact_linked','provider_request',requestId,before,{contactId:input.contactId,contactName:contact.name,externalEffect:false});
+    return {request:rows[0],contact:{id:contact.id,name:contact.name},privacy:{providerAccessGranted:false,workspaceMembershipGranted:false},externalEffect:false};
+  });
+
   app.post('/v1/network/requests/:id/operation',async req=>{
     const ctx=await workspaceContext(req,'workspace.write');
     const requestId=uuid.parse((req.params as any).id),input=createOperationInput.parse(req.body||{});
@@ -47,13 +61,14 @@ export async function registerNetworkWorkExecutionRoutes(app:FastifyInstance){
     const before=(await query<any>(`select * from business_operations where id=$1 and workspace_id=$2`,[input.operationId,ctx.workspaceId]))[0];
     if(!before)throw new ApiError(404,'operation_not_found','Operação Comercial não encontrada neste workspace.');
     if(before.provider_request_id&&String(before.provider_request_id)!==requestId)throw new ApiError(409,'operation_already_linked','Esta Operação Comercial já pertence a outro trabalho da Rede.');
+    if(request.contact_id&&String(request.contact_id)!==String(before.contact_id))throw new ApiError(409,'operation_contact_mismatch','A Operação Comercial selecionada pertence a outro contato.');
     const linked=await transaction(async client=>{
       const operation=(await client.query(`update business_operations set provider_request_id=$3,metadata=metadata||$4::jsonb,updated_at=now() where id=$1 and workspace_id=$2 returning *`,[input.operationId,ctx.workspaceId,requestId,JSON.stringify({source:'network_provider_request',networkRequestId:requestId})])).rows[0];
-      if(!request.document_ref_id&&operation.document_ref_id)await client.query(`update provider_requests set document_ref_id=$3,updated_at=now() where id=$1 and requester_workspace_id=$2`,[requestId,ctx.workspaceId,operation.document_ref_id]);
+      await client.query(`update provider_requests set contact_id=coalesce(contact_id,$3),document_ref_id=coalesce(document_ref_id,$4),updated_at=now() where id=$1 and requester_workspace_id=$2`,[requestId,ctx.workspaceId,operation.contact_id,operation.document_ref_id||null]);
       return operation;
     });
-    await auditLog(ctx,'network.request.operation_linked','business_operation',input.operationId,before,{providerRequestId:requestId,externalEffect:false});
-    return {operation:linked,externalEffect:false};
+    await auditLog(ctx,'network.request.operation_linked','business_operation',input.operationId,before,{providerRequestId:requestId,contactInherited:!request.contact_id,externalEffect:false});
+    return {operation:linked,requestContactId:request.contact_id||linked.contact_id,privacy:{providerAccessGranted:false,workspaceMembershipGranted:false},externalEffect:false};
   });
 
   app.get('/v1/network/requests/:id/lineage',async req=>{
