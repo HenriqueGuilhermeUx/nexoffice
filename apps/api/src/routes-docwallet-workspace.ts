@@ -51,7 +51,14 @@ async function allowance(workspaceId:string,client?:any){
 }
 
 function safeSignature(value:any){
-  return{id:String(value?.id||''),title:String(value?.title||''),status:String(value?.status||'pending'),contentHash:String(value?.contentHash||value?.content_hash||''),finalHash:String(value?.finalHash||value?.final_hash||''),createdAt:value?.createdAt||value?.created_at||null,completedAt:value?.completedAt||value?.completed_at||null,totalParties:Number(value?.totalParties??value?.total_parties??0),signedCount:Number(value?.signedCount??value?.signed_count??0),pendingCount:Number(value?.pendingCount??value?.pending_count??0),progressPercent:Number(value?.progressPercent??value?.progress_percent??0),parties:Array.isArray(value?.parties)?value.parties.map((p:any)=>({id:String(p?.id||''),name:String(p?.name||''),email:String(p?.email||''),status:String(p?.status||'pending'),signedAt:p?.signedAt||p?.signed_at||null,url:String(p?.url||'')})):[]};
+  const parties=Array.isArray(value?.parties)?value.parties.map((p:any)=>({id:String(p?.id||''),name:String(p?.name||''),email:String(p?.email||''),status:String(p?.status||'pending'),signedAt:p?.signedAt||p?.signed_at||null,url:String(p?.url||'')})):[];
+  const derivedTotal=parties.length;
+  const derivedSigned=parties.filter((party:any)=>party.status==='signed').length;
+  const totalParties=Number(value?.totalParties??value?.total_parties??derivedTotal);
+  const signedCount=Number(value?.signedCount??value?.signed_count??derivedSigned);
+  const pendingCount=Number(value?.pendingCount??value?.pending_count??Math.max(totalParties-signedCount,0));
+  const progressPercent=Number(value?.progressPercent??value?.progress_percent??(totalParties?Math.round((signedCount/totalParties)*100):0));
+  return{id:String(value?.id||''),title:String(value?.title||''),status:String(value?.status||'pending'),contentHash:String(value?.contentHash||value?.content_hash||''),finalHash:String(value?.finalHash||value?.final_hash||''),createdAt:value?.createdAt||value?.created_at||null,completedAt:value?.completedAt||value?.completed_at||null,totalParties,signedCount,pendingCount,progressPercent,parties};
 }
 
 export async function registerDocWalletWorkspaceRoutes(app:FastifyInstance){
