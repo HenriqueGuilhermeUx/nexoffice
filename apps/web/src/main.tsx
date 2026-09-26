@@ -15,6 +15,8 @@ import DocWalletConnectBridge from './DocWalletConnectBridge';
 import ContractCreator from './ContractCreator';
 import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import StandaloneSetup from './StandaloneSetup';
+import ProductDiscovery from './ProductDiscovery';
+import MarketingDiscoveryBridge from './MarketingDiscoveryBridge';
 import BillingCenter from './BillingCenter';
 import MarketingLanding from './MarketingLanding';
 import BusinessExtensions from './BusinessExtensions';
@@ -35,6 +37,7 @@ import './operations-dock.css';
 import './docwallet-connect.css';
 import './platform-handoff.css';
 import './standalone-setup.css';
+import './product-discovery.css';
 import './billing-center.css';
 import './marketing-landing.css';
 import './business-extensions.css';
@@ -49,5 +52,5 @@ import './business-trajectory.css';
 import './network-center.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><DocumentWorkspaceBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><MarketingDiscoveryBridge/><PlatformHandoffBootstrap/><App/><DocumentWorkspaceBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><ProductDiscovery/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
 );
