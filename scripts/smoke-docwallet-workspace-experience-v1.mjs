@@ -24,6 +24,7 @@ has(route,"app.post('/v1/documents/:id/signatures'",'signature request endpoint'
 has(route,"pg_advisory_xact_lock",'concurrent quota requests serialized');
 has(route,"monthly_limit:6",'default six allowance');
 has(route,'perSignatureCharge:false','no per-signature billing');
+has(route,'modeChangesPrice:false','signature modality does not create per-use pricing');
 has(route,'workspacesPlanInferred:false','no generic plan inference');
 has(route,'billingActivated:false','billing remains off');
 has(route,'signature_allowance_exhausted','quota gate explicit');
@@ -40,7 +41,7 @@ lacks(route,'pix_key','document workspace never reads Pix secrets');
 has(standalone,'registerDocWalletWorkspaceRoutes(app)','workspace routes registered');
 has(ui,'6 documentos/mês incluídos no NexOffice','simple included allowance UX');
 has(ui,'Assinaturas+','expanded signature plan UX');
-has(ui,'Sem cobrança avulsa','no per-use customer pricing');
+has(ui,'A modalidade não muda o consumo da franquia.','no per-use pricing change by signature mode');
 has(ui,'Contratos & modelos','contracts/models visible');
 has(ui,'Assinaturas','signatures visible');
 has(ui,'Inteligência','intelligence visible');
