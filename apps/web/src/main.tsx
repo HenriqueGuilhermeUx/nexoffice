@@ -21,6 +21,7 @@ import BusinessExtensions from './BusinessExtensions';
 import StatementImportCenter from './StatementImportCenter';
 import FinancialIntelligenceCenter from './FinancialIntelligenceCenter';
 import InvestmentDock from './InvestmentDock';
+import KnowledgeSecurityCenter from './KnowledgeSecurityCenter';
 import BusinessHealthCenter from './BusinessHealthCenter';
 import BusinessRadarCenter from './BusinessRadarCenter';
 import BusinessKnowledgeCenter from './BusinessKnowledgeCenter';
@@ -48,5 +49,5 @@ import './business-trajectory.css';
 import './network-center.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><DocumentWorkspaceBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><DocumentWorkspaceBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
 );

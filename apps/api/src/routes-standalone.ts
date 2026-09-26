@@ -18,6 +18,7 @@ import {registerTaxAgentOperationSyncRoutes} from './routes-taxagent-operation-s
 import {registerTaxAgentWebhookRoutes} from './routes-taxagent-webhooks.js';
 import {registerEcosystemRecommendationRoutes} from './routes-ecosystem-recommendations.js';
 import {registerFInsightInvestmentRoutes} from './routes-finsight-investments.js';
+import {registerBackupSecurityRoutes} from './routes-backup-security.js';
 
 const countFor=async(sql:string,workspaceId:string)=>Number((await query<any>(sql,[workspaceId]))[0]?.count||0);
 
@@ -39,6 +40,7 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerTaxAgentWebhookRoutes(app);
   await registerEcosystemRecommendationRoutes(app);
   await registerFInsightInvestmentRoutes(app);
+  await registerBackupSecurityRoutes(app);
 
   app.get('/v1/standalone/readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');

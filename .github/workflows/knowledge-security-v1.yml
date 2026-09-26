@@ -1,0 +1,104 @@
+name: Knowledge and Security V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/business-memory.ts'
+      - 'apps/api/src/routes-business-memory.ts'
+      - 'apps/api/src/routes-backup-security.ts'
+      - 'apps/api/src/business-change-digest.ts'
+      - 'apps/api/src/business-executive-brief.ts'
+      - 'apps/api/src/routes-business-intelligence.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/KnowledgeSecurityCenter.tsx'
+      - 'apps/web/src/knowledge-security.css'
+      - 'apps/web/src/ExecutiveBriefing.tsx'
+      - 'apps/web/src/executive-briefing.css'
+      - 'apps/web/src/main.tsx'
+      - 'infra/postgres/037_knowledge_security_backup.sql'
+      - 'tools/nexoffice-backup-agent.mjs'
+      - 'scripts/smoke-knowledge-security-v1.mjs'
+      - 'scripts/smoke-knowledge-security-runtime.mjs'
+      - '.github/workflows/knowledge-security-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full monorepo
+        run: npm run build
+      - name: Validate local backup agent syntax
+        run: node --check tools/nexoffice-backup-agent.mjs
+      - name: Validate Knowledge and Security contract
+        run: node scripts/smoke-knowledge-security-v1.mjs
+      - name: Guard secret and content boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "RESTIC_PASSWORD" apps/api/src infra/postgres/037_knowledge_security_backup.sql
+          ! grep -R "RESTIC_REPOSITORY" apps/api/src infra/postgres/037_knowledge_security_backup.sql
+          ! grep -R "OPENAI_API_KEY\|ANTHROPIC_API_KEY" apps/api/src/business-memory.ts apps/api/src/routes-business-memory.ts
+          grep -q "remoteExecution:false" apps/api/src/routes-backup-security.ts
+          grep -q "rawDocumentsUsed:false" apps/api/src/business-memory.ts
+
+  runtime:
+    needs: verify
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_PASSWORD: nexoffice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nexoffice
+      DATABASE_SSL: "false"
+      PORT: "4000"
+      ALLOWED_ORIGINS: "*"
+      WEB_APP_URL: http://localhost:5173
+      NEXOFFICE_EXTERNAL_ACTIONS: "false"
+      NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full monorepo
+        run: npm run build
+      - name: Apply all migrations including 037
+        run: npm run db:migrate
+      - name: Start API
+        run: |
+          node apps/api/dist/server.js > /tmp/knowledge-security-api.log 2>&1 &
+          echo $! > /tmp/knowledge-security-api.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/knowledge-security-api.log
+          exit 1
+      - name: Runtime smoke
+        run: node scripts/smoke-knowledge-security-runtime.mjs
+      - name: API logs on failure
+        if: failure()
+        run: cat /tmp/knowledge-security-api.log || true

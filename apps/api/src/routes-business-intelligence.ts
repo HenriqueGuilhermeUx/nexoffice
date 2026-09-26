@@ -10,6 +10,7 @@ import {getAnonymousBusinessBenchmark} from './business-benchmark.js';
 import {getBusinessKnowledge} from './business-knowledge.js';
 import {registerIntelligenceLearningRoutes} from './routes-intelligence-learning.js';
 import {registerFounderCockpitRoutes} from './routes-founder-cockpit.js';
+import {registerBusinessMemoryRoutes} from './routes-business-memory.js';
 
 const profileSchema=z.object({
   sector:z.string().trim().min(2).max(80).optional(),subsector:z.string().trim().max(120).nullable().optional(),revenueModel:z.string().trim().max(80).optional(),
@@ -41,6 +42,7 @@ export async function registerBusinessIntelligenceRoutes(app:FastifyInstance){
     await auditLog(ctx,'intelligence.priority.task_created','task',task.id,null,{taskId:task.id,actionId:action.id,signalId:priority.signalId||null},{externalEffect:false});return{task,action,existing:false};
   });
   app.post('/v1/intelligence/metrics',async req=>{const ctx=await workspaceContext(req,'workspace.read');const input=metricSchema.parse(req.body||{});const metric=await recordIntelligenceMetric(ctx.workspaceId,input);await auditLog(ctx,'intelligence.metric.recorded','workspace',ctx.workspaceId,null,{metricKey:input.metricKey,source:input.source,quality:input.quality},{externalEffect:false});return metric});
+  await registerBusinessMemoryRoutes(app);
   await registerIntelligenceLearningRoutes(app);
   await registerFounderCockpitRoutes(app);
 }
