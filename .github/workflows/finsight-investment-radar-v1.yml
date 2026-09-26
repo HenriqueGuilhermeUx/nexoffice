@@ -26,8 +26,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Build API and web
-        run: npm run build -w @nexoffice/api && npm run build -w @nexoffice/web
+      - name: Build monorepo in canonical order
+        run: npm run build
       - name: Contract smoke
         run: node scripts/smoke-finsight-investment-radar-v1.mjs
       - name: Secret and hard-boundary guard
