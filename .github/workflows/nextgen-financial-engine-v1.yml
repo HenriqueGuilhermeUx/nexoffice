@@ -6,6 +6,10 @@ on:
       - 'apps/api/src/nextgen-financial-adapter.ts'
       - 'apps/api/src/routes-financial-engine.ts'
       - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/FinancialEngineCollectionsCenter.tsx'
+      - 'apps/web/src/FinancialEngineCollectionsBridge.tsx'
+      - 'apps/web/src/financial-engine-collections.css'
+      - 'apps/web/src/main.tsx'
       - 'infra/postgres/039_nextgen_financial_engine.sql'
       - 'scripts/smoke-nextgen-financial-engine-v1.mjs'
       - '.github/workflows/nextgen-financial-engine-v1.yml'
@@ -36,7 +40,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ! grep -R "WOOVI_APP_ID\|WOOVI_API_KEY" apps/api/src/nextgen-financial-adapter.ts apps/api/src/routes-financial-engine.ts
+          ! grep -R "WOOVI_APP_ID\|WOOVI_API_KEY" apps/api/src/nextgen-financial-adapter.ts apps/api/src/routes-financial-engine.ts apps/web/src/FinancialEngineCollectionsCenter.tsx
           ! grep -E "USDC|PAXG|USDY|createTransfer" apps/api/src/routes-financial-engine.ts
+          ! grep -i "nextgen" apps/web/src/FinancialEngineCollectionsCenter.tsx
           grep -q "NEXTGEN_FINANCIAL_ACTIONS_ENABLED||'false'" apps/api/src/nextgen-financial-adapter.ts
           grep -q "humanConfirmed:z.literal(true)" apps/api/src/routes-financial-engine.ts
