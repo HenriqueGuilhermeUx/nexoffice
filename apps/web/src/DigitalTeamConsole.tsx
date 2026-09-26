@@ -3,7 +3,8 @@ import {api,post,session} from './api';
 import './digital-team-console.css';
 
 type Role='secretary'|'service'|'crm'|'erp'|'collections'|'controller'|'documents'|'growth';
-type Message={role:'user'|'assistant';content:string};
+type AssistantAction={label:string;target:string};
+type Message={role:'user'|'assistant';content:string;actions?:AssistantAction[];facts?:any};
 type ConversationState={conversationId:string;messages:Message[]};
 type Brief={workspace:{id:string;name:string;vertical?:string};priorities:Array<{level:string;title:string;detail:string;target:string}>};
 type AgentTool={id:string;label:string;provider:string;source:string;availability:string;usableNow:boolean;effect:string};
@@ -39,10 +40,19 @@ export default function DigitalTeamConsole(){
   useEffect(()=>{if(!authenticated||!active){setBrief(null);setCapabilityGraph(null);return}void loadBrief()},[sessionKey,active]);
   async function loadBrief(){try{setBrief(await api<Brief>('/v1/assistant/brief'))}catch{}try{setCapabilityGraph(await api<CapabilityGraph>('/v1/capabilities'))}catch{setCapabilityGraph(null)}}
 
-  async function send(message=text){const clean=message.trim();if(!clean||busy)return;setBusy(true);setError('');const before=threads[role]||{conversationId:'',messages:[]};setThreads(current=>({...current,[role]:{...before,messages:[...before.messages,{role:'user',content:clean}]}}));setText('');try{const result=await post<any>('/v1/assistant/chat',{message:clean,conversationId:before.conversationId||null,agentRole:role});setThreads(current=>{const latest=current[role]||{conversationId:'',messages:[]};return {...current,[role]:{conversationId:result.conversationId,messages:[...latest.messages,{role:'assistant',content:result.message.content}]}}})}catch(e:any){setError(e?.message||'Não consegui consultar este especialista agora.')}finally{setBusy(false)}}
+  async function send(message=text){const clean=message.trim();if(!clean||busy)return;setBusy(true);setError('');const before=threads[role]||{conversationId:'',messages:[]};setThreads(current=>({...current,[role]:{...before,messages:[...before.messages,{role:'user',content:clean}]}}));setText('');try{const result=await post<any>('/v1/assistant/chat',{message:clean,conversationId:before.conversationId||null,agentRole:role});setThreads(current=>{const latest=current[role]||{conversationId:'',messages:[]};return {...current,[role]:{conversationId:result.conversationId,messages:[...latest.messages,{role:'assistant',content:result.message.content,actions:Array.isArray(result.actions)?result.actions:[],facts:result.facts||null}]}}})}catch(e:any){setError(e?.message||'Não consegui consultar este especialista agora.')}finally{setBusy(false)}}
   async function askIntelligence(mode:'today'|'week'){
     if(busy)return;setBusy(true);setError('');const label=mode==='today'?'Quais são as 3 prioridades de hoje?':'Como foi minha semana?';const before=threads[role]||{conversationId:'',messages:[]};setThreads(current=>({...current,[role]:{...before,messages:[...before.messages,{role:'user',content:label}]}}));
     try{const result=await post<any>('/v1/intelligence/advisor',{mode,agentRole:role});setThreads(current=>{const latest=current[role]||{conversationId:'',messages:[]};return {...current,[role]:{...latest,messages:[...latest.messages,{role:'assistant',content:result.text}]}}})}catch(e:any){setError(e?.message||'Não consegui ler a inteligência do negócio agora.')}finally{setBusy(false)}
+  }
+  function followAction(action:AssistantAction,facts:any){
+    if(action.target==='documents'&&facts?.signatureIntent){
+      const candidates=Array.isArray(facts?.candidates)?facts.candidates:[];
+      const only=candidates.length===1?candidates[0]:null;
+      const mode=facts.signatureIntent.mode==='icp_brasil'?'icp_brasil':'electronic';
+      sessionStorage.setItem('nexoffice.document.signatureIntent',JSON.stringify({source:'maya',mode,suggestedDocumentId:only?.id||null,suggestedDocumentTitle:only?.title||null,createdAt:new Date().toISOString(),humanConfirmationRequired:true,externalEffect:false}));
+    }
+    window.dispatchEvent(new CustomEvent('nexoffice:navigate',{detail:{view:action.target,source:'digital-team'}}));
   }
   function submit(e:FormEvent){e.preventDefault();void send()}
   if(!authenticated||!active)return null;
@@ -53,7 +63,7 @@ export default function DigitalTeamConsole(){
     <div className="digitalTeamAgentIntro"><div className="digitalTeamAvatar">{agent.name[0]}</div><div><b>{agent.name} · {agent.title}</b><p>{agent.scope}</p></div></div>
     <div className="digitalTeamIntelligence"><small>INTELIGÊNCIA DO NEGÓCIO</small><button onClick={()=>void askIntelligence('today')} disabled={busy}>3 prioridades de hoje</button><button onClick={()=>void askIntelligence('week')} disabled={busy}>Resumo da semana</button></div>
     {tools.length>0&&<div className="digitalTeamTools"><small>FERRAMENTAS DESTA IA</small><div>{tools.map(tool=><span key={tool.id} className={tool.availability==='ready'?'ready':'guarded'} title={`${tool.source} · ${tool.availability}`}><b>{tool.label}</b><em>{toolState(tool)}</em></span>)}</div></div>}
-    <div className="digitalTeamThread">{thread.messages.length?thread.messages.map((message,index)=><div key={index} className={`digitalTeamMessage ${message.role}`}><small>{message.role==='user'?'Você':`${agent.name} · ${agent.title}`}</small><p>{message.content}</p></div>):<div className="digitalTeamEmpty"><p>Converse diretamente com {agent.name}. Ela/ele usa o contexto real do workspace e agora também pode consultar o Radar de Hoje e o Resumo da Semana. Ações externas continuam sujeitas às políticas de governança.</p><button onClick={()=>void send(agent.initial)}>{agent.initial}</button></div>}</div>
+    <div className="digitalTeamThread">{thread.messages.length?thread.messages.map((message,index)=><div key={index} className={`digitalTeamMessage ${message.role}`}><small>{message.role==='user'?'Você':`${agent.name} · ${agent.title}`}</small><p>{message.content}</p>{message.role==='assistant'&&message.actions?.length?<div className="digitalTeamMessageActions">{message.actions.map((action,actionIndex)=><button key={`${action.target}-${actionIndex}`} onClick={()=>followAction(action,message.facts)}>{action.label}</button>)}</div>:null}</div>):<div className="digitalTeamEmpty"><p>Converse diretamente com {agent.name}. Ela/ele usa o contexto real do workspace e agora também pode consultar o Radar de Hoje e o Resumo da Semana. Ações externas continuam sujeitas às políticas de governança.</p><button onClick={()=>void send(agent.initial)}>{agent.initial}</button></div>}</div>
     {error&&<div className="digitalTeamError">{error}</div>}
     <form className="digitalTeamComposer" onSubmit={submit}><textarea value={text} onChange={e=>setText(e.target.value)} placeholder={`Pergunte para ${agent.name}…`} rows={2}/><button disabled={busy||!text.trim()}>{busy?'…':'Enviar'}</button></form>
     <div className="digitalTeamFoot"><span>Contexto compartilhado</span><span>Radar + histórico</span><span>Humano no controle</span></div>
