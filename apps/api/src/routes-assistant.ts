@@ -34,7 +34,7 @@ export async function registerAssistantRoutes(app:FastifyInstance){
     priorities.push(...buildOperationalPriorities(vertical,operationalSignals));
     priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
     const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':vertical==='condo'?'Como está a operação dos condomínios no SindCopilot?':vertical==='commerce'?'Como está minha operação de commerce?':null;
-    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Como está minha prospecção B2B?','Como está meu radar de mercado?','Quais conteúdos a Maya já preparou?'].filter(Boolean)};
+    return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Quero assinar um contrato com certificado digital ICP-Brasil','Como está minha prospecção B2B?','Como está meu radar de mercado?','Quais conteúdos a Maya já preparou?'].filter(Boolean)};
   });
 
   app.get('/v1/assistant/conversations',async req=>{
@@ -72,6 +72,16 @@ export async function registerAssistantRoutes(app:FastifyInstance){
 async function answer(workspaceId:string,message:string,forcedRole:string|null){
   const text=normalize(message);const actions:Array<{label:string;target:string}> = [];
   const vertical=await getWorkspaceVertical(workspaceId);
+  const signatureIntent=detectSignatureIntent(text);
+  if(signatureIntent){
+    const documents=await query<any>(`select id,title,document_type,status,signature_status,updated_at from document_refs where workspace_id=$1 and provider='docwallet' order by updated_at desc limit 8`,[workspaceId]);
+    const available=documents.filter((item:any)=>!item.signature_status||['not_requested','cancelled','completed','signed'].includes(String(item.signature_status)));
+    const modeLabel=signatureIntent.mode==='icp_brasil'?'ICP-Brasil com certificado digital':'eletrônica DocWallet';
+    const candidates=available.slice(0,5).map((item:any)=>({id:item.id,title:item.title,documentType:item.document_type||null,status:item.status,signatureStatus:item.signature_status||'not_requested'}));
+    const candidateLine=candidates.length===1?` Encontrei “${candidates[0].title}” como documento disponível.`:candidates.length>1?` Encontrei ${candidates.length} documentos recentes disponíveis; escolha qual deles deseja assinar na área Documentos.`:' Ainda não encontrei um documento DocWallet disponível para iniciar esse fluxo.';
+    actions.push({label:'Abrir Documentos e confirmar',target:'documents'});
+    return {agentRole:forcedRole||'documents',text:`Entendi que você quer uma assinatura ${modeLabel}.${candidateLine} Eu apenas preparei o caminho: nenhuma solicitação foi criada, nenhuma assinatura foi consumida da franquia e nenhum provedor externo foi acionado. A modalidade, o documento e os signatários precisam ser confirmados na tela Documentos.`,facts:{signatureIntent:{mode:signatureIntent.mode,requestedByConversation:true,humanConfirmationRequired:true,externalEffect:false,requestCreated:false,allowanceConsumed:false,providerCalled:false,documentAutoSelected:false},candidates},actions};
+  }
 
   if(vertical==='legal'&&match(text,['nexjud','operacao juridica','operacao legal','juridic','movimentacao juridica','movimentacoes juridicas','carteira juridica'])){
     const signals=await getOperationalSignals(workspaceId,'nexjud');
@@ -206,6 +216,14 @@ async function getWorkspaceVertical(workspaceId:string){const rows=await query<a
 async function getOperationalSignals(workspaceId:string,sourceProduct?:string):Promise<OperationalSignal[]>{
   const rows=await query<any>(`select id,source_product,signal_type,period_start,period_end,metrics,dimensions,created_at from workspace_operational_signals where workspace_id=$1 and ($2::text is null or source_product=$2) order by period_end desc,created_at desc limit 30`,[workspaceId,sourceProduct||null]);
   return rows.map(safeOperationalSignal);
+}
+function detectSignatureIntent(text:string):{mode:'electronic'|'icp_brasil'}|null{
+  const action=match(text,['assinar','assine','assinatura','enviar para assinatura','mandar para assinatura','coletar assinatura','colher assinatura']);
+  const documentContext=match(text,['documento','documentos','contrato','contratos','proposta','propostas','pdf','arquivo','arquivos']);
+  const icp=match(text,['icp-brasil','icp brasil','certificado digital','certificacao digital','a1','a3','pades']);
+  const electronic=match(text,['assinatura eletronica','eletronica docwallet','aceite eletronico']);
+  if(!(action&&(documentContext||icp||electronic)))return null;
+  return{mode:icp?'icp_brasil':'electronic'};
 }
 function priorityRank(level:string){return level==='high'?0:1}
 function normalize(value:string){return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
