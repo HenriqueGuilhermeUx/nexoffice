@@ -1,0 +1,42 @@
+name: NextGen Financial Engine V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/nextgen-financial-adapter.ts'
+      - 'apps/api/src/routes-financial-engine.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'infra/postgres/039_nextgen_financial_engine.sql'
+      - 'scripts/smoke-nextgen-financial-engine-v1.mjs'
+      - '.github/workflows/nextgen-financial-engine-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXTGEN_FINANCIAL_ACTIONS_ENABLED: 'false'
+      NEXTGEN_FINANCIAL_BASE_URL: ''
+      NEXTGEN_FINANCIAL_SERVICE_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Financial engine contract smoke
+        run: node scripts/smoke-nextgen-financial-engine-v1.mjs
+      - name: Provider and external-effect guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "WOOVI_APP_ID\|WOOVI_API_KEY" apps/api/src/nextgen-financial-adapter.ts apps/api/src/routes-financial-engine.ts
+          ! grep -E "USDC|PAXG|USDY|createTransfer" apps/api/src/routes-financial-engine.ts
+          grep -q "NEXTGEN_FINANCIAL_ACTIONS_ENABLED||'false'" apps/api/src/nextgen-financial-adapter.ts
+          grep -q "humanConfirmed:z.literal(true)" apps/api/src/routes-financial-engine.ts
