@@ -1,0 +1,40 @@
+name: DocWallet ICP Signature Experience V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-docwallet-workspace.ts'
+      - 'apps/web/src/DocumentWorkspaceCenter.tsx'
+      - 'apps/web/src/document-workspace-center.css'
+      - 'infra/postgres/038_docwallet_signature_modes.sql'
+      - 'scripts/smoke-docwallet-icp-signature-experience-v1.mjs'
+      - '.github/workflows/docwallet-icp-signature-experience-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate DocWallet ICP signature experience contract
+        run: node scripts/smoke-docwallet-icp-signature-experience-v1.mjs
+      - name: Hard privacy and external-effect guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "ICP_SIGNATURE_API_KEY" apps/web/src apps/api/src/routes-docwallet-workspace.ts
+          ! grep -R "core.pki.rest" apps/web/src apps/api/src/routes-docwallet-workspace.ts
+          grep -q "NEXOFFICE_EXTERNAL_ACTIONS" apps/api/src/routes-docwallet-workspace.ts
+          grep -q "DOCWALLET_ICP_SIGNATURE_ENABLED" apps/api/src/routes-docwallet-workspace.ts
+          grep -q "human_confirmation_required" apps/api/src/routes-docwallet-workspace.ts
+          grep -q "providerRedirectReturned:false" apps/api/src/routes-docwallet-workspace.ts
