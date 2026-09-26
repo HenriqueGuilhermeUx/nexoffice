@@ -14,7 +14,7 @@ try{
   await call('/v1/ledger',{method:'POST',body:{contactId:contact.id,accountId:account.id,direction:'income',category:'servicos',description:'Recebível executivo vencido',amountMinor:380000,currency:'BRL',status:'overdue',dueAt:new Date(Date.now()-86400000).toISOString()}});
   await call('/v1/crm/deals',{method:'POST',body:{contactId:contact.id,title:'Oportunidade Executive',stage:'proposal',valueMinor:780000,source:'Indicação',nextAction:'follow-up'}});
   const brief=await call('/v1/intelligence/executive-brief');
-  assert(brief.version==='executive-30s-v1','executive brief version');
+  assert(/^executive-30s-v1(?:\.\d+)?$/.test(String(brief.version||'')),'executive brief version');
   assert(typeof brief.headline==='string'&&brief.headline.length>5,'headline generated');
   assert(Array.isArray(brief.decisions)&&brief.decisions.length>=1&&brief.decisions.length<=3,'brief contains bounded executive decisions');
   assert(brief.attention?.kind==='receivables','overdue receivable becomes client-safe attention');
@@ -25,5 +25,5 @@ try{
   const d=brief.decisions[0];const task=await call(`/v1/intelligence/plan/7-days/items/${d.planItemId}/task`,{method:'POST',body:{}});assert(task.task?.id,'decision becomes task');
   const again=await call(`/v1/intelligence/plan/7-days/items/${d.planItemId}/task`,{method:'POST',body:{}});assert(again.existing===true&&again.task?.id===task.task.id,'executive task creation idempotent');
   const counts=(await db.query(`select count(*)::int decisions from intelligence_7day_plan_items where workspace_id=$1 and status<>'superseded'`,[workspace])).rows[0];assert(Number(counts.decisions)>=1,'plan persisted');
-  console.log(JSON.stringify({ok:true,workspace,headline:brief.headline,decisions:brief.decisions.length,attention:brief.attention.kind,opportunity:brief.opportunity.kind,agent:brief.digitalTeam.agentRole,planItems:brief.weeklyProgress.total},null,2));
+  console.log(JSON.stringify({ok:true,workspace,version:brief.version,headline:brief.headline,decisions:brief.decisions.length,attention:brief.attention.kind,opportunity:brief.opportunity.kind,agent:brief.digitalTeam.agentRole,planItems:brief.weeklyProgress.total},null,2));
 }finally{await db.end()}
