@@ -1,0 +1,30 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const route=fs.readFileSync('apps/api/src/routes-finsight-investments.ts','utf8');
+const standalone=fs.readFileSync('apps/api/src/routes-standalone.ts','utf8');
+const center=fs.readFileSync('apps/web/src/InvestmentCenter.tsx','utf8');
+const dock=fs.readFileSync('apps/web/src/InvestmentDock.tsx','utf8');
+const main=fs.readFileSync('apps/web/src/main.tsx','utf8');
+
+for(const path of ['/v1/investments/health','/v1/investments/radar','/v1/investments/assets/:symbol','/v1/investments/macro','/v1/investments/news','/v1/investments/calculate'])assert.ok(route.includes(path),`missing route ${path}`);
+assert.ok(route.includes("workspaceContext(req,'finance.read')"),'workspace-scoped finance.read permission required');
+assert.ok(route.includes('FINSIGHT_BASE_URL'),'F-Insight URL must be server-side');
+assert.ok(route.includes('FINSIGHT_SERVICE_KEY'),'F-Insight service key must be server-side');
+assert.ok(route.includes("headers.set('x-nexoffice-key',cfg.key)"),'service credential header missing');
+assert.ok(route.includes("headers.set('x-nexoffice-workspace-id',workspaceId)"),'workspace propagation missing');
+assert.ok(route.includes('AbortSignal.timeout(10_000)'),'provider timeout missing');
+assert.ok(route.includes('requiredPolicy(payload)'),'policy validation missing');
+for(const contract of ['policy.recommendation===false','policy.execution===false','policy.ranking===false','policy.buySellSignal===false','policy.portfolioAdvice===false','policy.advisorClientData===false'])assert.ok(route.includes(contract),`missing policy guard ${contract}`);
+for(const forbidden of ['/signals','/orders','/execute','portfolio/advice','advisor/clients','quant'])assert.ok(!route.includes(`app.get('${forbidden}`)&&!route.includes(`app.post('${forbidden}`),`forbidden investment surface ${forbidden}`);
+assert.ok(route.includes('externalEffect:false'),'routes must declare no external effect');
+assert.ok(standalone.includes("registerFInsightInvestmentRoutes(app)"),'investment routes not registered');
+assert.ok(center.includes('Este módulo não recomenda compra ou venda e não executa investimentos.'),'UI safety copy missing');
+assert.ok(center.includes('O NexOffice não inventa cotação'),'fake-live guard copy missing');
+assert.ok(center.includes('Nenhum fallback numérico é exibido'),'macro fallback guard copy missing');
+assert.ok(center.includes('O módulo não substitui falha de provider por manchetes de demonstração.'),'news fallback guard copy missing');
+assert.ok(center.includes("post<CalculationResponse>('/v1/investments/calculate'"),'calculator must call NexOffice backend');
+assert.ok(!center.includes('FINSIGHT_SERVICE_KEY'),'service key must never reach web');
+assert.ok(dock.includes('Investimentos & Mercados'),'investment launcher missing');
+assert.ok(main.includes('<InvestmentDock/>'),'investment dock not mounted');
+console.log(JSON.stringify({ok:true,module:'F-Insight Investment Radar V1',recommendation:false,execution:false,ranking:false,workspaceScoped:true,serverSideCredential:true,externalEffect:false}));
