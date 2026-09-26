@@ -4,12 +4,14 @@ import {api,post,session} from './api';
 import './executive-briefing.css';
 
 type Decision={id:string;title:string;detail:string;benefit:string;target:string;status:string;planItemId:string;taskId?:string|null;dueAt?:string|null;priority:number};
+type ChangeItem={kind:'operation'|'document'|'backup';title:string;detail:string;occurredAt:string;target:string};
 type Brief={
   generatedAt:string;version:string;headline:string;subheadline:string;
   health:{score:number|null;delta:number|null;status:string;summary?:string|null};
   decisions:Decision[];
   attention?:{kind:string;title:string;detail:string;target:string}|null;
   opportunity?:{kind:string;title:string;detail:string;target:string}|null;
+  whatChanged:{windowHours:number;count:number;summary:string;items:ChangeItem[];privacy:{rawDocumentsIncluded:boolean;eventPayloadsIncluded:boolean;backupContentsIncluded:boolean}};
   weeklyProgress:{done:number;total:number;pct:number;summary?:string|null};
   digitalTeam:{name:string;agentRole:string;title:string;prompt:string};
   recentResults:Array<{title:string;status:string;summary?:string|null}>;
@@ -18,6 +20,7 @@ type Brief={
 type Me={user:{name:string}};
 
 function daypart(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite'}
+const when=(value:string)=>new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
 
 export default function ExecutiveBriefing(){
   const [host,setHost]=useState<HTMLElement|null>(null);const [active,setActive]=useState(false);const [data,setData]=useState<Brief|null>(null);const [name,setName]=useState('');const [loading,setLoading]=useState(false);const [busyId,setBusyId]=useState('');const [answer,setAnswer]=useState('');const [teamBusy,setTeamBusy]=useState(false);const [error,setError]=useState('');
@@ -35,6 +38,7 @@ export default function ExecutiveBriefing(){
     <header className="executiveHero"><div><small>COMANDO DO DIA · 30 SEGUNDOS</small><h1>{daypart()}{firstName?`, ${firstName}`:''}.</h1><h2>{data.headline}</h2><p>{data.subheadline}</p></div><div className="executiveHealth"><small>SAÚDE DO NEGÓCIO</small><b>{data.health.score??'…'}</b><span>{data.health.delta===null?'Base em formação':`${Number(data.health.delta)>0?'+':''}${data.health.delta} desde a referência`}</span><button onClick={()=>void load()} disabled={loading}>{loading?'Atualizando…':'Atualizar'}</button></div></header>
     {error&&<div className="executiveError">{error}</div>}
     <div className="executiveDecisions"><div className="executiveSectionTitle"><div><small>SUAS DECISÕES</small><h3>O que merece você agora</h3></div><span>{data.decisions.length}/3</span></div>{data.decisions.length?<div className="decisionGrid">{data.decisions.map((d,i)=><article key={d.id} className="decisionCard"><span className="decisionIndex">{i+1}</span><div><b>{d.title}</b><p>{d.detail}</p><small>{d.benefit}</small></div><button disabled={Boolean(d.taskId)||busyId===d.id} onClick={()=>void track(d)}>{d.taskId?'Já acompanhando':busyId===d.id?'Criando…':'Acompanhar'}</button></article>)}</div>:<div className="executiveEmpty">Sem nova decisão crítica agora. O plano semanal continua sendo acompanhado.</div>}</div>
+    <section className="executiveChanges"><div className="executiveSectionTitle"><div><small>O QUE MUDOU · {data.whatChanged.windowHours}H</small><h3>{data.whatChanged.summary}</h3></div><span>{data.whatChanged.count}</span></div>{data.whatChanged.items.length?<div className="executiveChangeGrid">{data.whatChanged.items.slice(0,5).map((item,index)=><article key={`${item.kind}-${index}`} className={item.kind}><span>{item.kind==='document'?'▤':item.kind==='backup'?'⛨':'↻'}</span><div><b>{item.title}</b><p>{item.detail}</p><small>{when(item.occurredAt)}</small></div></article>)}</div>:<div className="executiveEmpty">Nada relevante mudou nas últimas {data.whatChanged.windowHours} horas.</div>}<small className="executiveChangesPrivacy">Sem conteúdo bruto de documentos, payloads de eventos ou arquivos de backup.</small></section>
     <div className="executiveSignals"><article className="attention"><small>PONTO DE ATENÇÃO</small><b>{data.attention?.title||'Sem alerta relevante novo'}</b><p>{data.attention?.detail||'Continue acompanhando a rotina; o NexOffice não encontrou uma pressão operacional clara neste momento.'}</p></article><article className="opportunity"><small>OPORTUNIDADE</small><b>{data.opportunity?.title||'Consolide a operação atual'}</b><p>{data.opportunity?.detail||'O melhor ganho agora é continuar registrando a operação para aumentar a qualidade da leitura.'}</p></article><article className="team"><small>EQUIPE DIGITAL · {data.digitalTeam.name.toUpperCase()}</small><b>{data.digitalTeam.title}</b><p>{data.digitalTeam.prompt}</p><button onClick={()=>void askTeam()} disabled={teamBusy}>{teamBusy?'Analisando…':`Perguntar para ${data.digitalTeam.name}`}</button>{answer&&<div className="teamAnswer">{answer}</div>}</article></div>
     <footer className="executiveProgress"><div><b>{data.weeklyProgress.pct}%</b><span>do Plano de 7 dias concluído</span></div><div className="progressTrack"><span style={{width:`${Math.min(100,Math.max(0,data.weeklyProgress.pct))}%`}}/></div><p>{data.weeklyProgress.summary||'O NexOffice acompanha as prioridades desta semana.'}</p></footer>
   </section>,host);
