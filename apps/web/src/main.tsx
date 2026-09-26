@@ -8,6 +8,7 @@ import ExecutiveBriefing from './ExecutiveBriefing';
 import FounderCockpit from './FounderCockpit';
 import ActivationJourneyTracker from './ActivationJourneyTracker';
 import DigitalTeamConsole from './DigitalTeamConsole';
+import AssistantNavigationBridge from './AssistantNavigationBridge';
 import IntegrationSetupCenter from './IntegrationSetupCenter';
 import DocumentIntelligenceCenter from './DocumentIntelligenceCenter';
 import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
@@ -52,5 +53,5 @@ import './business-trajectory.css';
 import './network-center.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><MarketingDiscoveryBridge/><PlatformHandoffBootstrap/><App/><DocumentWorkspaceBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><ProductDiscovery/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><MarketingDiscoveryBridge/><PlatformHandoffBootstrap/><App/><AssistantNavigationBridge/><DocumentWorkspaceBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><ProductDiscovery/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
 );
