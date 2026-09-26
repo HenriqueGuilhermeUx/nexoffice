@@ -28,24 +28,24 @@ create index if not exists financial_provider_operations_status_idx on financial
 comment on table financial_provider_operations is 'Sanitized provider-operation state only. NexOffice ledger remains source of truth; provider credentials never persist here.';
 comment on column financial_provider_operations.receipt is 'May contain Pix BR Code/payment link/status. Must never contain provider API credentials or unrelated raw provider payload.';
 
--- Financial external actions always start approval-first. A later product decision may
--- change a workspace policy explicitly, but the default is never automatic.
+-- Financial external actions always start approval-first. Prefix payment.charge keeps
+-- charge and recurring-Pix decisions together in the existing Command Center Pix area.
 insert into autonomy_policies(workspace_id,action_type,mode)
 select id,'payment.charge.create','approval_required'::autonomy_mode from workspaces
 on conflict(workspace_id,action_type) do nothing;
 insert into autonomy_policies(workspace_id,action_type,mode)
-select id,'payment.recurring.create','approval_required'::autonomy_mode from workspaces
+select id,'payment.charge.recurring.create','approval_required'::autonomy_mode from workspaces
 on conflict(workspace_id,action_type) do nothing;
 insert into autonomy_policies(workspace_id,action_type,mode)
-select id,'payment.recurring.cancel','approval_required'::autonomy_mode from workspaces
+select id,'payment.charge.recurring.cancel','approval_required'::autonomy_mode from workspaces
 on conflict(workspace_id,action_type) do nothing;
 
 create or replace function seed_workspace_financial_engine_policies() returns trigger language plpgsql as $$
 begin
   insert into autonomy_policies(workspace_id,action_type,mode) values
     (new.id,'payment.charge.create','approval_required'),
-    (new.id,'payment.recurring.create','approval_required'),
-    (new.id,'payment.recurring.cancel','approval_required')
+    (new.id,'payment.charge.recurring.create','approval_required'),
+    (new.id,'payment.charge.recurring.cancel','approval_required')
   on conflict(workspace_id,action_type) do nothing;
   return new;
 end $$;
