@@ -1,0 +1,42 @@
+name: F-Insight Investment Radar V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-finsight-investments.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/InvestmentCenter.tsx'
+      - 'apps/web/src/InvestmentDock.tsx'
+      - 'apps/web/src/investment-center.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-finsight-investment-radar-v1.mjs'
+      - '.github/workflows/finsight-investment-radar-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build API and web
+        run: npm run build -w @nexoffice/api && npm run build -w @nexoffice/web
+      - name: Contract smoke
+        run: node scripts/smoke-finsight-investment-radar-v1.mjs
+      - name: Secret and hard-boundary guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "FINSIGHT_SERVICE_KEY" apps/web/src
+          ! grep -R "x-nexoffice-key" apps/web/src
+          grep -q "recommendation===false" apps/api/src/routes-finsight-investments.ts
+          grep -q "execution===false" apps/api/src/routes-finsight-investments.ts
+          grep -q "ranking===false" apps/api/src/routes-finsight-investments.ts
+          grep -q "externalEffect:false" apps/api/src/routes-finsight-investments.ts
