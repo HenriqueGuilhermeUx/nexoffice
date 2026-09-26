@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext,ApiError} from './auth.js';
 import {query} from './db.js';
 import {auditLog,emitBusinessEvent} from './events.js';
+import {registerBusinessEvidenceRoutes} from './routes-business-evidence.js';
 
 const SecretRef=z.string().trim().regex(/^[A-Z][A-Z0-9_]{2,100}$/,'Use apenas o nome de uma variável server-side, nunca a API key.');
 const Customer=z.object({taxId:z.string().trim().min(5).max(32),name:z.string().trim().min(1).max(200),cityCode:z.string().regex(/^\d{7}$/)});
@@ -66,4 +67,6 @@ export async function registerFiscalRoutes(app:FastifyInstance){
     await auditLog(ctx,'fiscal.invoice.prepared','workspace',ctx.workspaceId,null,{environment:payload.environment,companyId:payload.companyId,amount:input.service.amount},{externalEffect:false,approvalRequired:true});
     return {...emitted,prepared:true,externalEffect:false};
   });
+
+  await registerBusinessEvidenceRoutes(app);
 }
