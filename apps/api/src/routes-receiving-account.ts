@@ -12,6 +12,7 @@ const setupInput=z.object({
   payoutPolicy:z.enum(['manual','daily']).default('daily'),
   humanConfirmed:z.literal(true)
 }).strict();
+const changeKeyInput=setupInput;
 const testInput=z.object({amountMinor:z.number().int().min(100).max(5000).default(100),humanConfirmed:z.literal(true)}).strict();
 const withdrawInput=z.object({valueMinor:z.number().int().positive().optional(),humanConfirmed:z.literal(true)}).strict();
 
@@ -34,6 +35,13 @@ export async function registerReceivingAccountRoutes(app:FastifyInstance){
     const result=await nextgenFinancialRequest<any>(ctx.workspaceId,'/receiving-account/setup',{method:'POST',body:JSON.stringify({legalName:input.legalName,taxId:input.taxId,pixKeyType:input.pixKeyType,pixKey:input.pixKey,payoutPolicy:input.payoutPolicy,humanApproved:true})});
     await auditLog(ctx,'collections.receiving_account.configured','workspace',ctx.workspaceId,null,{pixKeyType:input.pixKeyType,payoutPolicy:input.payoutPolicy,pixKeyMasked:result?.account?.pixKeyMasked||null,providerStatus:result?.account?.providerStatus||null,externalEffect:true});
     return{account:result?.account||null,payoutPolicy:result?.payoutPolicy||input.payoutPolicy,externalEffect:true};
+  });
+
+  app.post('/v1/collections/receiving-account/change-key',async req=>{
+    const ctx=await workspaceContext(req,'finance.write');requireConfigured();requireActions();const input=changeKeyInput.parse(req.body||{});
+    const result=await nextgenFinancialRequest<any>(ctx.workspaceId,'/receiving-account/change-key',{method:'POST',body:JSON.stringify({legalName:input.legalName,taxId:input.taxId,pixKeyType:input.pixKeyType,pixKey:input.pixKey,payoutPolicy:input.payoutPolicy,humanApproved:true})});
+    await auditLog(ctx,'collections.receiving_account.pix_key_changed','workspace',ctx.workspaceId,null,{pixKeyType:input.pixKeyType,payoutPolicy:input.payoutPolicy,pixKeyMasked:result?.account?.pixKeyMasked||null,oldSubaccountCleanupPending:Boolean(result?.oldSubaccountCleanupPending),externalEffect:Boolean(result?.externalEffect)});
+    return{account:result?.account||null,changed:Boolean(result?.changed),oldSubaccountCleanupPending:Boolean(result?.oldSubaccountCleanupPending),externalEffect:Boolean(result?.externalEffect)};
   });
 
   app.post('/v1/collections/receiving-account/refresh',async req=>{
