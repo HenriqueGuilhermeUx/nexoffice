@@ -29,7 +29,7 @@ export async function nextgenFinancialRequest<T=any>(workspaceId:string,path:str
   headers.set('x-nexoffice-workspace-id',workspaceId);
   if(idempotencyKey)headers.set('idempotency-key',idempotencyKey);
   let response:Response;
-  try{response=await fetch(`${base}/internal/nexoffice${providerPath(path)}`,{...init,headers,signal:AbortSignal.timeout(12_000)})}
+  try{response=await fetch(`${base}/v1/internal/nexoffice${providerPath(path)}`,{...init,headers,signal:AbortSignal.timeout(12_000)})}
   catch{throw new ApiError(502,'nextgen_financial_unreachable','O serviço de cobrança Pix está indisponível neste momento.');}
   const payload=await response.json().catch(()=>({})) as any;
   if(!response.ok){
