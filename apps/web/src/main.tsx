@@ -36,6 +36,7 @@ import NetworkCenter from './NetworkCenter';
 import BusinessOperationCenter from './BusinessOperationCenter';
 import ShellUXEnhancements from './ShellUXEnhancements';
 import HomeV2 from './HomeV2';
+import OfficeView from './OfficeView';
 import {PublicLegalFooter,PublicLegalPage} from './PublicLegal';
 import './styles.css';
 import './operations-dock.css';
@@ -57,5 +58,5 @@ import './business-trajectory.css';
 import './network-center.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><MarketingDiscoveryBridge/><PlatformHandoffBootstrap/><App/><ShellUXEnhancements/><HomeV2/><AssistantNavigationBridge/><DocumentWorkspaceBridge/><FinancialEngineCollectionsBridge/><ReceivingAccountOnboardingBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><ProductDiscovery/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode><MarketingLanding/><MarketingDiscoveryBridge/><PlatformHandoffBootstrap/><App/><ShellUXEnhancements/><HomeV2/><OfficeView/><AssistantNavigationBridge/><DocumentWorkspaceBridge/><FinancialEngineCollectionsBridge/><ReceivingAccountOnboardingBridge/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><ProductDiscovery/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><DocWalletConnectBridge/><ContractCreator/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><InvestmentDock/><KnowledgeSecurityCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><NetworkCenter/><BusinessOperationCenter/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
 );
