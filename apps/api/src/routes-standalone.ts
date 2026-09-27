@@ -20,6 +20,7 @@ import {registerEcosystemRecommendationRoutes} from './routes-ecosystem-recommen
 import {registerFInsightInvestmentRoutes} from './routes-finsight-investments.js';
 import {registerBackupSecurityRoutes} from './routes-backup-security.js';
 import {registerFinancialEngineRoutes} from './routes-financial-engine.js';
+import {registerReceivingAccountRoutes} from './routes-receiving-account.js';
 
 const countFor=async(sql:string,workspaceId:string)=>Number((await query<any>(sql,[workspaceId]))[0]?.count||0);
 
@@ -43,6 +44,7 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerFInsightInvestmentRoutes(app);
   await registerBackupSecurityRoutes(app);
   await registerFinancialEngineRoutes(app);
+  await registerReceivingAccountRoutes(app);
 
   app.get('/v1/standalone/readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
