@@ -14,6 +14,10 @@ function providerPath(path:string){
   if(reconcile)return `/receiving-account/charges/${reconcile[1]}/reconcile`;
   return path;
 }
+function safeProviderReason(value:unknown){
+  const raw=String(value??'').replace(/\u0000/g,'').trim().slice(0,320);
+  return raw.replace(/[\w.+-]+@[\w.-]+/g,'***@***').replace(/\b\d{7,}\b/g,'***');
+}
 
 export function nextgenFinancialConfigured(){return Boolean(baseUrl()&&serviceKey())}
 export function nextgenFinancialActionsEnabled(){return String(process.env.NEXTGEN_FINANCIAL_ACTIONS_ENABLED||'false').toLowerCase()==='true'}
@@ -34,7 +38,9 @@ export async function nextgenFinancialRequest<T=any>(workspaceId:string,path:str
   const payload=await response.json().catch(()=>({})) as any;
   if(!response.ok){
     const code=String(payload?.error||payload?.code||'nextgen_financial_request_failed');
-    const message=code==='human_approval_required'?'A operação financeira exige aprovação humana.':code==='financial_actions_disabled'||code==='receiving_account_actions_disabled'?'As ações financeiras ainda não estão habilitadas neste ambiente.':code==='receiving_account_not_ready'||code==='receiving_account_not_found'?'Configure e valide a chave Pix de recebimento desta empresa antes de gerar cobranças automáticas.':code.includes('uncertain')?'O provider devolveu resultado incerto. A operação foi bloqueada para reconciliação antes de qualquer nova tentativa.':'Não foi possível concluir a operação financeira.';
+    const providerReason=safeProviderReason(payload?.providerReason);
+    const baseMessage=code==='human_approval_required'?'A operação financeira exige aprovação humana.':code==='financial_actions_disabled'||code==='receiving_account_actions_disabled'?'As ações financeiras ainda não estão habilitadas neste ambiente.':code==='receiving_account_not_ready'||code==='receiving_account_not_found'?'Configure e valide a chave Pix de recebimento desta empresa antes de gerar cobranças automáticas.':code==='receiving_account_balance_must_be_zero_before_pix_key_change'?'A chave Pix só pode ser trocada quando a conta de recebimento estiver com saldo zero.':code.includes('uncertain')?'O provider devolveu resultado incerto. A operação foi bloqueada para reconciliação antes de qualquer nova tentativa.':'Não foi possível concluir a operação financeira.';
+    const message=providerReason?`${baseMessage} Motivo do provider: ${providerReason}`:baseMessage;
     throw new ApiError(response.status===401?502:response.status>=500?502:response.status,code,message);
   }
   return payload as T;
