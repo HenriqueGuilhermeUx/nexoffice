@@ -1,0 +1,36 @@
+name: Receiving Payout Policies V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-receiving-account.ts'
+      - 'apps/web/src/ReceivingAccountOnboardingBridge.tsx'
+      - 'scripts/smoke-receiving-payout-policies-v1.mjs'
+      - '.github/workflows/receiving-payout-policies-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate receiving payout policy contract
+        run: node scripts/smoke-receiving-payout-policies-v1.mjs
+      - name: Guard provider secrets and automatic effects
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -q "WOOVI_APP_ID" apps/web/src/ReceivingAccountOnboardingBridge.tsx apps/api/src/routes-receiving-account.ts
+          grep -q "humanConfirmed:z.literal(true)" apps/api/src/routes-receiving-account.ts
+          grep -q "NEXTGEN_PAYOUT_ACTIONS_ENABLED" apps/api/src/routes-receiving-account.ts
+          grep -q "Receber agora" apps/web/src/ReceivingAccountOnboardingBridge.tsx
