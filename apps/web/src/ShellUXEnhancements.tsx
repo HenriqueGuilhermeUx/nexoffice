@@ -5,9 +5,10 @@ import './shell-ux-enhancements.css';
 
 type Destination={label:string;description:string;match:string;icon:string};
 const destinations:Destination[]=[
-  {label:'Hoje',description:'Central de Comando, prioridades e decisões.',match:'Central de Comando',icon:'◈'},
+  {label:'Hoje',description:'Prioridades, decisões e resumo do negócio.',match:'Central de Comando',icon:'◈'},
   {label:'Clientes',description:'CRM, contatos e oportunidades.',match:'CRM',icon:'◎'},
   {label:'Financeiro',description:'Receitas, cobranças, Pix e conciliação.',match:'Financeiro',icon:'▤'},
+  {label:'Pix',description:'Configurar recebimento, gerar cobrança e acompanhar repasses.',match:'Financeiro',icon:'$'},
   {label:'Documentos',description:'Contratos, assinaturas e inteligência documental.',match:'Documentos',icon:'▱'},
   {label:'Operação',description:'Agenda, tarefas e execução diária.',match:'Agenda & Tarefas',icon:'◷'},
   {label:'Crescimento',description:'Marketing, campanhas e oportunidades.',match:'Marketing',icon:'↗'},
@@ -30,17 +31,24 @@ function clickNav(match:string){
 function ensurePixSlot(){
   const content=document.querySelector<HTMLElement>('.content');
   const title=document.querySelector<HTMLElement>('.topbar h1')?.textContent||'';
-  if(!content||!title.toLowerCase().includes('financeiro'))return null;
+  if(!content)return null;
+  if(!title.toLowerCase().includes('financeiro')){
+    content.querySelectorAll('.financePixSlot').forEach(x=>x.remove());
+    return null;
+  }
   let slot=content.querySelector<HTMLElement>('.financePixSlot');
   if(!slot){slot=document.createElement('div');slot.className='financePixSlot';content.prepend(slot)}
   return slot;
 }
 function cleanLegacyFloaters(){
   document.body.classList.add('nexoCleanShell');
-  const exact=['Conhecimento & Segurança','Investimentos & Mercados','Visão financeira','Módulos','Radar de Hoje','Saúde do Negócio','Trajetória'];
+  const exact=['Conhecimento & Segurança','Investimentos & Mercados','Visão financeira','Módulos','Radar de Hoje','Saúde do Negócio','Trajetória','Extrato','Copiloto'];
   document.querySelectorAll<HTMLElement>('button,a').forEach(el=>{
     const text=(el.textContent||'').trim();
-    if(exact.some(label=>text===label||text.includes(label))&&!el.closest('.nexoSearchOverlay,.nexoAiArea'))el.classList.add('nexoLegacyFloater');
+    const isSidebar=Boolean(el.closest('.sidebar'));
+    const isOfficial=Boolean(el.closest('.nexoSearchOverlay,.nexoAiArea,.homeV2,.officeView'));
+    if(!isSidebar&&!isOfficial&&exact.some(label=>text===label||text.includes(label)))el.classList.add('nexoLegacyFloater');
+    if(!isSidebar&&!isOfficial&&text==='Marketing')el.classList.add('nexoLegacyFloater');
   });
   const navButtons=[...document.querySelectorAll<HTMLButtonElement>('.sidebar nav button')];
   const keep=['Central de Comando','CRM','Financeiro','Agenda & Tarefas','Documentos','Equipe Digital','Marketing','Integrações','Empresa & Acessos'];
@@ -68,14 +76,14 @@ export default function ShellUXEnhancements(){
       if(wantsPix&&session.token()){
         const title=document.querySelector('.topbar h1')?.textContent||'';
         if(!title.toLowerCase().includes('financeiro'))clickNav('Financeiro');
-        const slot=ensurePixSlot();if(slot&&!pixHandled){pixHandled=true;setTimeout(()=>slot.scrollIntoView({behavior:'smooth',block:'start'}),200)}
+        const slot=ensurePixSlot();if(slot&&!pixHandled){pixHandled=true;setTimeout(()=>slot.scrollIntoView({behavior:'smooth',block:'start'}),250)}
       } else ensurePixSlot();
     };
     sync();const obs=new MutationObserver(sync);obs.observe(document.documentElement,{subtree:true,childList:true});const id=window.setInterval(sync,1200);
     const keys=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setOpen(true)}if(e.key==='Escape')setOpen(false)};window.addEventListener('keydown',keys);
     return()=>{obs.disconnect();window.clearInterval(id);window.removeEventListener('keydown',keys);document.body.classList.remove('nexoCleanShell')}
   },[]);
-  const go=(d:Destination)=>{clickNav(d.match);setOpen(false);setQuery('');setTimeout(()=>ensurePixSlot(),80)};
+  const go=(d:Destination)=>{clickNav(d.match);setOpen(false);setQuery('');setTimeout(()=>{const slot=ensurePixSlot();if(d.label==='Pix')slot?.scrollIntoView({behavior:'smooth',block:'start'})},100)};
   return <>
     {topbar&&createPortal(<button className="nexoGlobalSearch" onClick={()=>setOpen(true)}><span>⌕</span><span>Buscar clientes, cobranças, documentos, telas…</span><kbd>Ctrl K</kbd></button>,topbar)}
     {sidebar&&createPortal(<section className="nexoAiArea"><div className="nexoAiTitle"><span>✦</span><b>Assistentes IA</b></div><button className="nexoMaya" onClick={()=>clickNav('Equipe Digital')}><span className="nexoAvatar">M</span><span><b>Maya</b><small>IA operacional · coordena o NexOffice</small></span><em>→</em></button><div className="nexoAiMini">{assistants.slice(1).map(a=><button key={a.name} onClick={()=>clickNav(a.match)} title={a.description}><b>{a.name}</b><small>{a.role}</small></button>)}</div></section>,sidebar)}
