@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import ShellUXEnhancements from './ShellUXEnhancements';
 import HomeV2 from './HomeV2';
+import OfficeView from './OfficeView';
 import AssistantNavigationBridge from './AssistantNavigationBridge';
 import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
 import FinancialEngineCollectionsBridge from './FinancialEngineCollectionsBridge';
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App/>
     <ShellUXEnhancements/>
     <HomeV2/>
+    <OfficeView/>
     <AssistantNavigationBridge/>
     <DocumentWorkspaceBridge/>
     <FinancialEngineCollectionsBridge/>
