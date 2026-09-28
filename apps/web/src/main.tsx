@@ -17,6 +17,7 @@ import {PublicLegalFooter,PublicLegalPage} from './PublicLegal';
 import './styles.css';
 import './platform-handoff.css';
 import './marketing-landing.css';
+import './marketing-readiness.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
