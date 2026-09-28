@@ -6,6 +6,7 @@ import HomeV2 from './HomeV2';
 import OfficeView from './OfficeView';
 import AssistantNavigationBridge from './AssistantNavigationBridge';
 import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
+import ContractCreator from './ContractCreator';
 import FinancialEngineCollectionsBridge from './FinancialEngineCollectionsBridge';
 import ReceivingAccountOnboardingBridge from './ReceivingAccountOnboardingBridge';
 import MarketingLanding from './MarketingLanding';
@@ -27,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <OfficeView/>
     <AssistantNavigationBridge/>
     <DocumentWorkspaceBridge/>
+    <ContractCreator/>
     <FinancialEngineCollectionsBridge/>
     <ReceivingAccountOnboardingBridge/>
     <PublicLegalFooter/>
