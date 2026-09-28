@@ -46,16 +46,18 @@ export async function getExecutiveBrief(workspaceId:string){
 
   const done=(c.plan?.items||[]).filter((x:any)=>x.status==='done').length;
   const total=(c.plan?.items||[]).length;
+  const decisionWord=decisions.length===1?'decisão':'decisões';
+  const decisionVerb=decisions.length===1?'merece':'merecem';
   const headline=decisions.length
-    ?`${decisions.length} decisão${decisions.length===1?'':'ões'} merece${decisions.length===1?'':'m'} sua atenção hoje.`
+    ?`${decisions.length} ${decisionWord} ${decisionVerb} sua atenção hoje.`
     :attention?.title?'Há um ponto que merece sua atenção hoje.':'Sua operação está sem urgências críticas agora.';
   const team=pickTeam(c);
 
   return{
     generatedAt:new Date().toISOString(),
-    version:'executive-30s-v1.1',
+    version:'executive-30s-v1.2',
     headline,
-    subheadline:'Veja o que exige decisão, o que mudou, um ponto de atenção e a melhor oportunidade em menos de 30 segundos.',
+    subheadline:'Veja o que exige decisão, o que mudou, o principal ponto de atenção e a melhor oportunidade — tudo em menos de 30 segundos.',
     health:c.health,
     money:c.money,
     sales:c.sales,
