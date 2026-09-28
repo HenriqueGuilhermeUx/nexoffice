@@ -5,6 +5,7 @@ import ShellUXEnhancements from './ShellUXEnhancements';
 import HomeV2 from './HomeV2';
 import OfficeView from './OfficeView';
 import AssistantNavigationBridge from './AssistantNavigationBridge';
+import AssistantsWorkspace from './AssistantsWorkspace';
 import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
 import ContractCreator from './ContractCreator';
 import FinancialEngineCollectionsBridge from './FinancialEngineCollectionsBridge';
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <HomeV2/>
     <OfficeView/>
     <AssistantNavigationBridge/>
+    <AssistantsWorkspace/>
     <DocumentWorkspaceBridge/>
     <ContractCreator/>
     <FinancialEngineCollectionsBridge/>
