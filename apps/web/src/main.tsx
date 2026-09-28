@@ -9,6 +9,7 @@ import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
 import ContractCreator from './ContractCreator';
 import FinancialEngineCollectionsBridge from './FinancialEngineCollectionsBridge';
 import ReceivingAccountOnboardingBridge from './ReceivingAccountOnboardingBridge';
+import FiscalWorkspaceBridge from './FiscalWorkspaceBridge';
 import LaunchReadinessCenter from './LaunchReadinessCenter';
 import MarketingLanding from './MarketingLanding';
 import MarketingDiscoveryBridge from './MarketingDiscoveryBridge';
@@ -33,6 +34,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ContractCreator/>
     <FinancialEngineCollectionsBridge/>
     <ReceivingAccountOnboardingBridge/>
+    <FiscalWorkspaceBridge/>
     <LaunchReadinessCenter/>
     <PublicLegalFooter/>
     <PublicLegalPage/>
