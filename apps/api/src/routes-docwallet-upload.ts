@@ -57,7 +57,9 @@ export async function registerDocWalletUploadRoutes(app:FastifyInstance){
     }
 
     const form=new FormData();
-    form.append('file',new Blob([buffer],{type:mimetype}),filename);
+    const fileBuffer=new ArrayBuffer(buffer.length);
+    new Uint8Array(fileBuffer).set(buffer);
+    form.append('file',new Blob([fileBuffer],{type:mimetype}),filename);
     form.append('name',title);
     form.append('type',type);
     form.append('category',category);
