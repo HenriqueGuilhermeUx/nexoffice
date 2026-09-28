@@ -20,12 +20,21 @@ const Service=z.object({
   taxClassification:z.string().trim().max(120).optional()
 });
 
+function credentialConfigured(secretRef?:string|null){
+  const ref=String(secretRef||'').trim();
+  const workspaceKey=ref?String(process.env[ref]||'').trim():'';
+  const fallback=String(process.env.TAXAGENT_API_KEY||'').trim();
+  return Boolean(workspaceKey||fallback);
+}
+
 export async function registerFiscalRoutes(app:FastifyInstance){
   app.get('/v1/integrations/taxagent',async req=>{
     const ctx=await workspaceContext(req,'integrations.read');
     const row=(await query<any>(`select provider,status,external_account_ref,capabilities,config,secret_ref,connected_at,last_health_at,last_health_status,last_error,updated_at from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[ctx.workspaceId]))[0]||null;
     if(!row)return {provider:'taxagent',status:'disconnected',companyId:null,environment:'test',secretConfigured:false};
-    return {...row,companyId:row.external_account_ref||null,environment:row.config?.environment||'test',secretConfigured:Boolean(row.secret_ref)};
+    const secretConfigured=credentialConfigured(row.secret_ref);
+    const {secret_ref:_secretRef,...safe}=row;
+    return {...safe,companyId:row.external_account_ref||null,environment:row.config?.environment||'test',secretConfigured};
   });
 
   app.put('/v1/integrations/taxagent',async req=>{
@@ -35,22 +44,25 @@ export async function registerFiscalRoutes(app:FastifyInstance){
     const before=(await query<any>(`select * from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[ctx.workspaceId]))[0]||null;
     const rows=await query<any>(`insert into integrations(workspace_id,provider,status,external_account_ref,capabilities,config,secret_ref,connected_at) values($1,'taxagent','configured',$2,$3,$4,$5,now()) on conflict(workspace_id,provider) do update set status='configured',external_account_ref=excluded.external_account_ref,capabilities=excluded.capabilities,config=excluded.config,secret_ref=excluded.secret_ref,connected_at=coalesce(integrations.connected_at,now()),last_error=null,updated_at=now() returning *`,[ctx.workspaceId,input.companyId,['nfse','tax_engine','readiness','fiscal_ledger','idempotency'],JSON.stringify({environment:input.environment,requiresHumanApproval:true}),input.secretRef]);
     await auditLog(ctx,'integration.taxagent.configured','integration',rows[0].id,before,{provider:'taxagent',companyId:input.companyId,environment:input.environment,secretRef:input.secretRef},{secretValueStored:false});
-    return {provider:'taxagent',status:rows[0].status,companyId:rows[0].external_account_ref,environment:rows[0].config?.environment||input.environment,secretConfigured:Boolean(rows[0].secret_ref)};
+    return {provider:'taxagent',status:rows[0].status,companyId:rows[0].external_account_ref,environment:rows[0].config?.environment||input.environment,secretConfigured:credentialConfigured(rows[0].secret_ref)};
   });
 
   app.get('/v1/fiscal/status',async req=>{
     const ctx=await workspaceContext(req,'finance.read');
-    const [integration,actions]=await Promise.all([
-      query<any>(`select status,external_account_ref company_id,config,secret_ref is not null secret_configured,last_health_status,last_error,updated_at from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[ctx.workspaceId]),
+    const [integrationRows,actions]=await Promise.all([
+      query<any>(`select status,external_account_ref company_id,config,secret_ref,last_health_status,last_error,updated_at from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[ctx.workspaceId]),
       query<any>(`select id,title,summary,status,autonomy,approval_id,created_at,updated_at,metadata from command_actions where workspace_id=$1 and primary_action->>'type'='invoice.issue' order by created_at desc limit 50`,[ctx.workspaceId])
     ]);
-    return {integration:integration[0]||null,recentActions:actions};
+    const row=integrationRows[0]||null;
+    const integration=row?{status:row.status,company_id:row.company_id,config:row.config,secret_configured:credentialConfigured(row.secret_ref),last_health_status:row.last_health_status,last_error:row.last_error,updated_at:row.updated_at}:null;
+    return {integration,recentActions:actions};
   });
 
   app.post('/v1/fiscal/invoices/prepare',async req=>{
     const ctx=await workspaceContext(req,'finance.write');
     const mapping=(await query<any>(`select external_account_ref,config,secret_ref from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[ctx.workspaceId]))[0];
     if(!mapping?.external_account_ref)throw new ApiError(409,'taxagent_not_connected','Configure a Company do TaxAgent para este workspace antes de preparar a emissão.');
+    if(!credentialConfigured(mapping.secret_ref))throw new ApiError(409,'taxagent_credential_not_configured','A credencial fiscal server-side deste workspace ainda não está disponível.');
     const input=z.object({competence:z.string().date().optional(),taxDecisionId:z.string().trim().optional(),preparedDpsId:z.string().trim().optional(),customer:Customer,service:Service}).parse(req.body);
     const payload={
       companyId:String(mapping.external_account_ref),
@@ -60,7 +72,7 @@ export async function registerFiscalRoutes(app:FastifyInstance){
       preparedDpsId:input.preparedDpsId||null,
       customer:input.customer,
       service:input.service,
-      secretRefConfigured:Boolean(mapping.secret_ref)
+      secretRefConfigured:true
     };
     const emitted=await emitBusinessEvent(ctx.workspaceId,'invoice.issue','nexoffice.fiscal','workspace',ctx.workspaceId,payload);
     await auditLog(ctx,'fiscal.invoice.prepared','workspace',ctx.workspaceId,null,{environment:payload.environment,companyId:payload.companyId,amount:input.service.amount},{externalEffect:false,approvalRequired:true});
