@@ -12,27 +12,48 @@ type Area={id:string;attention:number};
 type Overview={areas:Area[];pendingApprovals:number};
 type Founder={health?:{score:number|null;summary?:string|null};money?:{overdueMinor:number;overdueCount:number};sales?:{pipelineMinor:number;openDeals:number};operations?:{overdueTasks:number;appointmentsToday:number}};
 
+type Assistant={name:string;initial:string;role:string;power:string;target:string};
+
 const money=(minor:any=0)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(Number(minor||0)/100);
-const assistants=[
-  {name:'Maya',initial:'M',role:'Coordenação',target:'Equipe Digital'},
-  {name:'Theo',initial:'T',role:'Financeiro',target:'Financeiro'},
-  {name:'Dora',initial:'D',role:'Documentos',target:'Documentos'},
-  {name:'Clara',initial:'C',role:'Clientes',target:'CRM'},
-  {name:'Nico',initial:'N',role:'Operações',target:'Agenda & Tarefas'},
-  {name:'Sofia',initial:'S',role:'Recepção',target:'Agenda & Tarefas'}
+const assistants:Assistant[]=[
+  {name:'Maya',initial:'M',role:'Coordenação',power:'Cruza o contexto da empresa, organiza prioridades e coordena os demais especialistas.',target:'Assistentes IA'},
+  {name:'Theo',initial:'T',role:'Financeiro',power:'Acompanha caixa, cobranças, Pix, vencimentos e sinais que pedem ação financeira.',target:'Financeiro'},
+  {name:'Dora',initial:'D',role:'Documentos',power:'Entende contratos e documentos, encontra obrigações, prazos e pontos que merecem atenção.',target:'Documentos'},
+  {name:'Clara',initial:'C',role:'Clientes & CRM',power:'Organiza clientes, oportunidades e follow-ups para não deixar receita escapar.',target:'Clientes'},
+  {name:'Nico',initial:'N',role:'Operações',power:'Enxerga tarefas, gargalos e execução diária para manter o trabalho andando.',target:'Operação'},
+  {name:'Sofia',initial:'S',role:'Recepção',power:'Cuida da entrada do trabalho, agenda, compromissos e encaminhamentos do dia.',target:'Operação'}
 ];
 
+const navAliases:Record<string,string[]>={
+  'Hoje':['Hoje','Central de Comando'],
+  'Clientes':['Clientes','CRM'],
+  'Financeiro':['Financeiro'],
+  'Documentos':['Documentos'],
+  'Operação':['Operação','Agenda & Tarefas'],
+  'Crescimento':['Crescimento','Marketing'],
+  'Assistentes IA':['Assistentes IA','Equipe Digital'],
+  'Integrações':['Integrações'],
+  'Configurações':['Configurações','Empresa & Acessos']
+};
+
 function clickNav(match:string){
+  const aliases=navAliases[match]||[match];
   const buttons=[...document.querySelectorAll<HTMLButtonElement>('.sidebar nav button')];
-  buttons.find(b=>(b.textContent||'').toLowerCase().includes(match.toLowerCase()))?.click();
+  const button=buttons.find(b=>aliases.some(alias=>(b.textContent||'').toLowerCase().includes(alias.toLowerCase())));
+  button?.click();
+}
+
+function capitalizedFirstName(value:string){
+  const first=value.trim().split(/\s+/)[0]||'';
+  return first?first.charAt(0).toLocaleUpperCase('pt-BR')+first.slice(1):'';
 }
 
 export default function HomeV2(){
-  const[host,setHost]=useState<HTMLElement|null>(null),[active,setActive]=useState(false),[dashboard,setDashboard]=useState<Dashboard|null>(null),[overview,setOverview]=useState<Overview|null>(null),[founder,setFounder]=useState<Founder|null>(null),[loading,setLoading]=useState(false);
+  const[host,setHost]=useState<HTMLElement|null>(null),[active,setActive]=useState(false),[dashboard,setDashboard]=useState<Dashboard|null>(null),[overview,setOverview]=useState<Overview|null>(null),[founder,setFounder]=useState<Founder|null>(null),[loading,setLoading]=useState(false),[name,setName]=useState('');
   const[sessionKey,setSessionKey]=useState(()=>`${session.token()}|${session.workspace()}`);
-  useEffect(()=>{const sync=()=>{const selected=document.querySelector<HTMLButtonElement>('.sidebar nav button.active');const on=Boolean(selected?.textContent?.includes('Central de Comando'));setActive(on);setSessionKey(`${session.token()}|${session.workspace()}`);const content=document.querySelector<HTMLElement>('.content');if(content){let mount=document.getElementById('nexo-home-v2-mount');if(!mount){mount=document.createElement('div');mount.id='nexo-home-v2-mount';content.prepend(mount)}setHost(mount)}document.body.classList.toggle('nexoHomeV2Active',on)};sync();const o=new MutationObserver(sync);o.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});const t=window.setInterval(sync,900);return()=>{o.disconnect();clearInterval(t);document.body.classList.remove('nexoHomeV2Active')}},[]);
+  useEffect(()=>{const sync=()=>{const selected=document.querySelector<HTMLButtonElement>('.sidebar nav button.active');const text=selected?.textContent||'';const on=text.includes('Central de Comando')||text.includes('Hoje');setActive(Boolean(on));setSessionKey(`${session.token()}|${session.workspace()}`);const content=document.querySelector<HTMLElement>('.content');if(content){let mount=document.getElementById('nexo-home-v2-mount');if(!mount){mount=document.createElement('div');mount.id='nexo-home-v2-mount';content.prepend(mount)}setHost(mount)}document.body.classList.toggle('nexoHomeV2Active',Boolean(on))};sync();const o=new MutationObserver(sync);o.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});const t=window.setInterval(sync,900);return()=>{o.disconnect();clearInterval(t);document.body.classList.remove('nexoHomeV2Active')}},[]);
   useEffect(()=>{if(active&&session.token()&&session.workspace())void load()},[active,sessionKey]);
-  async function load(){setLoading(true);try{const[d,o,f]=await Promise.all([api<Dashboard>('/v1/dashboard').catch(()=>null),api<Overview>('/v1/command/overview').catch(()=>null),api<Founder>('/v1/intelligence/founder-cockpit').catch(()=>null)]);setDashboard(d);setOverview(o);setFounder(f)}finally{setLoading(false)}}
+  async function load(){setLoading(true);try{const[d,o,f,me]=await Promise.all([api<Dashboard>('/v1/dashboard').catch(()=>null),api<Overview>('/v1/command/overview').catch(()=>null),api<Founder>('/v1/intelligence/founder-cockpit').catch(()=>null),api<any>('/v1/auth/me').catch(()=>null)]);setDashboard(d);setOverview(o);setFounder(f);setName(String(me?.user?.name||''))}finally{setLoading(false)}}
   if(!active||!host)return null;
   const area=(id:string)=>overview?.areas?.find(x=>x.id===id);
   const overdue=Number(founder?.money?.overdueCount??dashboard?.finance?.overdue_count??0);
@@ -41,32 +62,33 @@ export default function HomeV2(){
   const docs=Number(area('documents')?.attention||0);
   const attention=approvals+overdue+tasks+docs;
   const score=founder?.health?.score;
+  const firstName=capitalizedFirstName(name);
 
   return createPortal(<section className="homeV3">
     <section className="homeMayaHero">
-      <div className="homeMayaIdentity"><span className="homeMayaAvatar">M</span><div><small>MAYA · SUA COORDENADORA</small><h2>{attention?`${attention} item${attention===1?'':'s'} merecem sua atenção hoje.`:'Tudo sob controle por enquanto.'}</h2><p>{founder?.health?.summary||'Eu organizo clientes, financeiro, documentos e operação para você decidir o que importa.'}</p></div></div>
-      <div className="homeMayaActions"><button className="primary" onClick={()=>clickNav('Equipe Digital')}>Conversar com Maya</button><button onClick={()=>clickNav('Equipe Digital')}>Chamar reunião</button><button className="icon" onClick={()=>void load()} disabled={loading} title="Atualizar">{loading?'…':'↻'}</button></div>
+      <div className="homeMayaIdentity"><span className="homeMayaAvatar">M</span><div><small>COMANDO DO DIA · MAYA</small>{firstName&&<p className="homeGreeting">Olá, {firstName}.</p>}<h2>{attention?`${attention} item${attention===1?'':'s'} merecem sua atenção hoje.`:'Tudo sob controle por enquanto.'}</h2><p>{founder?.health?.summary||'Eu cruzo clientes, financeiro, documentos e operação para mostrar o que realmente merece sua decisão.'}</p></div></div>
+      <div className="homeMayaActions"><button className="primary" onClick={()=>clickNav('Assistentes IA')}>Conversar com Maya</button><button onClick={()=>clickNav('Assistentes IA')}>Reunir equipe</button><button className="icon" onClick={()=>void load()} disabled={loading} title="Atualizar">{loading?'…':'↻'}</button></div>
     </section>
 
     <section className="homePulse" aria-label="Resumo do negócio">
       <button onClick={()=>clickNav('Financeiro')}><span>A receber</span><b>{money(dashboard?.finance?.receivable_minor)}</b><small>{overdue?`${overdue} vencida${overdue===1?'':'s'}`:'sem vencidos'}</small></button>
-      <button onClick={()=>clickNav('CRM')}><span>Pipeline</span><b>{money(founder?.sales?.pipelineMinor??dashboard?.crm?.open_pipeline_minor)}</b><small>{founder?.sales?.openDeals??dashboard?.crm?.open_deals??0} oportunidades</small></button>
-      <button onClick={()=>clickNav('Agenda & Tarefas')}><span>Hoje</span><b>{founder?.operations?.appointmentsToday??dashboard?.appointments?.today_appointments??0}</b><small>compromissos</small></button>
-      <button onClick={()=>clickNav('Equipe Digital')}><span>Saúde</span><b>{score==null?'—':score}</b><small>{score==null?'base em formação':'de 100'}</small></button>
+      <button onClick={()=>clickNav('Clientes')}><span>Pipeline</span><b>{money(founder?.sales?.pipelineMinor??dashboard?.crm?.open_pipeline_minor)}</b><small>{founder?.sales?.openDeals??dashboard?.crm?.open_deals??0} oportunidades</small></button>
+      <button onClick={()=>clickNav('Operação')}><span>Hoje</span><b>{founder?.operations?.appointmentsToday??dashboard?.appointments?.today_appointments??0}</b><small>compromissos</small></button>
+      <button onClick={()=>clickNav('Assistentes IA')}><span>Saúde</span><b>{score==null?'—':score}</b><small>{score==null?'base em formação':'de 100'}</small></button>
     </section>
 
     <section className="homeTeamSection">
-      <header><div><small>EQUIPE DIGITAL</small><h3>Seis especialistas. Uma empresa.</h3></div><button onClick={()=>clickNav('Equipe Digital')}>Ver equipe →</button></header>
-      <div className="homeTeamStrip">{assistants.map((a,i)=><button key={a.name} className={i===0?'lead':''} onClick={()=>clickNav(a.target)}><span className="agentDot">{a.initial}</span><span><b>{a.name}</b><small>{a.role}</small></span><em>→</em></button>)}</div>
+      <header><div><small>SUA EQUIPE DE IA</small><h3>Seis especialistas que trabalham sobre o contexto real da empresa.</h3><p>Cada Agent tem uma responsabilidade clara. Maya coordena; os especialistas aprofundam e executam o trabalho da sua área.</p></div><button onClick={()=>clickNav('Assistentes IA')}>Abrir central dos Agents →</button></header>
+      <div className="homeTeamGrid">{assistants.map((a,i)=><button key={a.name} className={i===0?'lead':''} onClick={()=>clickNav(a.target)}><div className="agentHead"><span className="agentDot">{a.initial}</span><span><b>{a.name}</b><small>{a.role}</small></span><em>→</em></div><p>{a.power}</p><span className="agentAction">Abrir {a.role}</span></button>)}</div>
     </section>
 
     <section className="homeAreasSection">
-      <header><small>ÁREAS</small><h3>Entre direto no trabalho.</h3></header>
+      <header><div><small>ÁREAS</small><h3>Entre direto no trabalho.</h3></div></header>
       <div className="homeAreas">
-        <button onClick={()=>clickNav('CRM')}><span>Clientes</span><small>CRM · oportunidades · follow-up</small><em>→</em></button>
+        <button onClick={()=>clickNav('Clientes')}><span>Clientes</span><small>CRM · oportunidades · follow-up</small><em>→</em></button>
         <button onClick={()=>clickNav('Financeiro')}><span>Financeiro</span><small>Pix · cobranças · caixa · conciliação</small><em>→</em></button>
         <button onClick={()=>clickNav('Documentos')}><span>Documentos</span><small>Contratos · assinaturas · inteligência</small><em>→</em></button>
-        <button onClick={()=>clickNav('Marketing')}><span>Crescimento</span><small>Marketing · campanhas · oportunidades</small><em>→</em></button>
+        <button onClick={()=>clickNav('Crescimento')}><span>Crescimento</span><small>Marketing · campanhas · oportunidades</small><em>→</em></button>
       </div>
     </section>
   </section>,host);
