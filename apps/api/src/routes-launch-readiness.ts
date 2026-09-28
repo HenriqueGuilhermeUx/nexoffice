@@ -5,9 +5,23 @@ import {nextgenFinancialActionsEnabled,nextgenFinancialConfigured} from './nextg
 
 type ReadinessStatus='ready'|'needs_setup'|'needs_configuration'|'degraded';
 type Item={id:string;label:string;description:string;status:ReadinessStatus;customerReady:boolean;requiredForLaunch:boolean;detail:string;actionLabel?:string};
+type Probe={ok:boolean;status:number|null;body:any|null};
 
 const configured=(...names:string[])=>names.every(name=>Boolean(String(process.env[name]||'').trim()));
 const integrationHealthy=(row:any)=>!row||!['error','disconnected'].includes(String(row.last_health_status||row.status||'').toLowerCase());
+const base=(value:string)=>String(value||'').replace(/\/+$/,'');
+
+async function probeJson(baseUrl:string,path:string,headers:Record<string,string>={}):Promise<Probe>{
+  if(!baseUrl)return{ok:false,status:null,body:null};
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const response=await fetch(`${base(baseUrl)}${path}`,{method:'GET',headers,signal:controller.signal});
+    const body=await response.json().catch(()=>null);
+    return{ok:response.ok,status:response.status,body};
+  }catch{return{ok:false,status:null,body:null}}
+  finally{clearTimeout(timer)}
+}
 
 export async function registerLaunchReadinessRoutes(app:FastifyInstance){
   app.get('/v1/launch-readiness',async req=>{
@@ -22,48 +36,63 @@ export async function registerLaunchReadinessRoutes(app:FastifyInstance){
     ]);
 
     const byProvider=Object.fromEntries(integrations.map((row:any)=>[String(row.provider),row]));
-    const taxagent=byProvider.taxagent,smartbots=byProvider.smartbots,docwallet=byProvider.docwallet,modo=byProvider.modo,staff=byProvider.staff,nextgen=byProvider.nextgen;
+    const taxagent=byProvider.taxagent,smartbots=byProvider.smartbots,modo=byProvider.modo,nextgen=byProvider.nextgen;
     const settings=receiving[0]?.settings||{};
     const receivingState=settings?.receivingAccount||settings?.receiving_account||null;
     const pixAccountReady=Boolean(receivingState?.configured||receivingState?.status==='active'||receivingState?.status==='ready');
     const paymentDataProtected=configured('NEXOFFICE_PAYMENT_DATA_KEY');
 
-    const docwalletConfigured=configured('DOCWALLET_BASE_URL')&&Boolean(String(process.env.DOCWALLET_SERVICE_KEY||process.env.DOCWALLET_API_KEY||'').trim());
-    const docwalletReady=docwalletConfigured&&integrationHealthy(docwallet);
+    const docwalletKey=String(process.env.DOCWALLET_SERVICE_KEY||process.env.DOCWALLET_API_KEY||'').trim();
+    const docwalletConfigured=Boolean(String(process.env.DOCWALLET_BASE_URL||'').trim()&&docwalletKey);
     const modoConfigured=configured('MODO_BASE_URL','MODO_API_KEY');
-    const modoReady=modoConfigured&&integrationHealthy(modo);
+    const smartbotsConfigured=configured('SMARTBOTS_BASE_URL','SMARTBOTS_API_KEY');
+    const staffConfigured=String(process.env.NEXOFFICE_STAFF_BRIDGE_ENABLED||'false')==='true'&&configured('STAFF_BASE_URL','STAFF_API_KEY');
     const taxBaseConfigured=configured('TAXAGENT_BASE_URL');
     const taxGlobalCredential=Boolean(String(process.env.TAXAGENT_API_KEY||'').trim());
     const taxWorkspaceSecretRef=String(taxagent?.secret_ref||'').trim();
     const taxWorkspaceCredential=Boolean(taxWorkspaceSecretRef&&String(process.env[taxWorkspaceSecretRef]||'').trim());
     const taxCredentialAvailable=taxGlobalCredential||taxWorkspaceCredential;
-    const taxEngineConfigured=taxBaseConfigured&&taxCredentialAvailable;
-    const taxWorkspaceLinked=Boolean(taxagent?.external_account_ref&&taxWorkspaceSecretRef);
-    const taxWorkspaceReady=Boolean(taxWorkspaceLinked&&taxCredentialAvailable&&integrationHealthy(taxagent));
-    const smartbotsConfigured=configured('SMARTBOTS_BASE_URL','SMARTBOTS_API_KEY');
-    const smartbotsReady=smartbotsConfigured&&Boolean(smartbots?.external_account_ref)&&integrationHealthy(smartbots);
-    const staffConfigured=String(process.env.NEXOFFICE_STAFF_BRIDGE_ENABLED||'false')==='true'&&configured('STAFF_BASE_URL','STAFF_API_KEY');
-    const staffReady=staffConfigured&&integrationHealthy(staff);
+    const taxWorkspaceLinked=Boolean(taxagent?.external_account_ref);
     const finsightConfigured=configured('FINSIGHT_BASE_URL','FINSIGHT_SERVICE_KEY');
+
+    const [docProbe,modoProbe,staffProbe,smartbotsProbe,taxProbe]=await Promise.all([
+      docwalletConfigured?probeJson(String(process.env.DOCWALLET_BASE_URL),'/api/internal/nexoffice/signature-modes',{'X-NexOffice-Key':docwalletKey,'X-NexOffice-Workspace-Id':ctx.workspaceId}):Promise.resolve({ok:false,status:null,body:null}),
+      modoConfigured?probeJson(String(process.env.MODO_BASE_URL),'/api/v1/internal/nexoffice/health',{'X-NexOffice-Key':String(process.env.MODO_API_KEY),'X-NexOffice-Workspace-Id':ctx.workspaceId}):Promise.resolve({ok:false,status:null,body:null}),
+      staffConfigured?probeJson(String(process.env.STAFF_BASE_URL),'/.netlify/functions/nexoffice-assistant',{Authorization:`Bearer ${String(process.env.STAFF_API_KEY)}`,'X-NexOffice-Workspace-Id':ctx.workspaceId}):Promise.resolve({ok:false,status:null,body:null}),
+      smartbotsConfigured?probeJson(String(process.env.SMARTBOTS_BASE_URL),'/api/internal/nexoffice/health',{'X-NexOffice-Key':String(process.env.SMARTBOTS_API_KEY),'X-NexOffice-Workspace-Id':ctx.workspaceId}):Promise.resolve({ok:false,status:null,body:null}),
+      taxBaseConfigured?probeJson(String(process.env.TAXAGENT_BASE_URL),'/v1/health',taxCredentialAvailable?{Authorization:`Bearer ${String(process.env.TAXAGENT_API_KEY||process.env[taxWorkspaceSecretRef]||'')}`}:{ }):Promise.resolve({ok:false,status:null,body:null})
+    ]);
+
+    const docwalletReady=Boolean(docwalletConfigured&&docProbe.ok);
+    const remoteModes=Array.isArray(docProbe.body?.modes)?docProbe.body.modes:[];
+    const icpLocalEnabled=String(process.env.DOCWALLET_ICP_SIGNATURE_ENABLED||'false')==='true'&&String(process.env.NEXOFFICE_EXTERNAL_ACTIONS||'false')==='true';
+    const icpRemoteAvailable=remoteModes.some((mode:any)=>String(mode?.id)==='icp_brasil'&&mode?.available===true);
+    const icpReady=Boolean(docwalletReady&&icpLocalEnabled&&icpRemoteAvailable);
+    const modoReady=Boolean(modoConfigured&&modoProbe.ok&&integrationHealthy(modo));
+    const staffReady=Boolean(staffConfigured&&staffProbe.ok);
+    const smartbotsReady=Boolean(smartbotsConfigured&&smartbotsProbe.ok&&smartbots?.external_account_ref&&integrationHealthy(smartbots));
+    const taxEngineConfigured=Boolean(taxBaseConfigured&&taxCredentialAvailable&&taxProbe.ok);
+    const taxWorkspaceReady=Boolean(taxEngineConfigured&&taxWorkspaceLinked&&integrationHealthy(taxagent));
     const nextgenReady=nextgenFinancialConfigured()&&integrationHealthy(nextgen);
     const paymentReady=Boolean(nextgenReady&&paymentDataProtected&&pixAccountReady&&nextgenFinancialActionsEnabled());
 
     const items:Item[]=[
       {id:'crm',label:'Clientes e CRM',description:'Clientes, contatos, oportunidades e pipeline.',status:'ready',customerReady:true,requiredForLaunch:true,detail:`${Number(crm[0]?.contacts||0)} contato(s) · ${Number(crm[0]?.deals||0)} oportunidade(s)`},
       {id:'operations',label:'Operação e tarefas',description:'Agenda, tarefas, prioridades e execução do dia a dia.',status:'ready',customerReady:true,requiredForLaunch:true,detail:`${Number(ops[0]?.tasks||0)} tarefa(s) registradas`},
-      {id:'finance',label:'Gestão financeira',description:'Caixa, lançamentos, conciliação e inteligência financeira.',status:'ready',customerReady:true,requiredForLaunch:true,detail:`${Number(finance[0]?.entries||0)} lançamento(s) no ledger`},
-      {id:'payments',label:'Cobrança e Pix',description:'Cobranças Pix, conta de recebimento e conciliação via motor financeiro.',status:!nextgenReady?'needs_configuration':!paymentDataProtected?'needs_configuration':pixAccountReady&&nextgenFinancialActionsEnabled()?'ready':'needs_setup',customerReady:paymentReady,requiredForLaunch:true,detail:!nextgenReady?'Motor financeiro não conectado ou degradado no homolog.':!paymentDataProtected?'Proteção dos dados de pagamento ainda não foi configurada neste ambiente.':!pixAccountReady?'Motor conectado; falta concluir/confirmar a conta Pix do workspace.':!nextgenFinancialActionsEnabled()?'Conta pronta; ações financeiras continuam protegidas/desabilitadas.':'Cobrança Pix operacional e dados sensíveis protegidos.',actionLabel:'Abrir Financeiro'},
-      {id:'documents',label:'Documentos e assinaturas',description:'Contratos, upload, assinatura eletrônica, ICP-Brasil e inteligência documental.',status:docwalletReady?'ready':docwalletConfigured?'degraded':'needs_configuration',customerReady:docwalletReady,requiredForLaunch:true,detail:docwalletReady?`${Number(docRefs[0]?.count||0)} documento(s) vinculados; bridge DocWallet saudável.`:docwalletConfigured?'DocWallet configurada, mas o health/vínculo do workspace precisa ser validado.':'Bridge DocWallet ainda não está completo neste ambiente.',actionLabel:'Abrir Documentos'},
-      {id:'fiscal',label:'Fiscal e notas',description:'Preparação e emissão fiscal governada pelo TaxAgent.',status:!taxBaseConfigured?'needs_configuration':!taxCredentialAvailable?'needs_configuration':taxWorkspaceReady?'ready':'needs_setup',customerReady:Boolean(taxEngineConfigured&&taxWorkspaceReady),requiredForLaunch:true,detail:!taxBaseConfigured?'Motor TaxAgent não está conectado ao homolog.':!taxCredentialAvailable?'Credencial fiscal server-side ainda não está disponível neste ambiente/workspace.':!taxWorkspaceLinked?'TaxAgent conectado; falta vincular a Company e a referência segura deste workspace.':!taxWorkspaceReady?'TaxAgent vinculado, mas o health fiscal precisa ser validado.':'TaxAgent vinculado e pronto para fluxo governado.',actionLabel:'Configurar Fiscal'},
-      {id:'marketing',label:'Marketing e crescimento',description:'Conteúdo, campanhas, mídia, prospecção e inteligência via MODO.',status:modoReady?'ready':modoConfigured?'degraded':'needs_configuration',customerReady:modoReady,requiredForLaunch:true,detail:modoReady?'Bridge MODO saudável; publicação continua sujeita a aprovação humana e conta de mídia autorizada.':modoConfigured?'MODO configurado, mas o health do bridge precisa ser restabelecido.':'Bridge MODO ainda não está conectado ao homolog.',actionLabel:'Abrir Crescimento'},
-      {id:'ai',label:'IA operacional',description:'Maya, Theo, Dora, Clara, Nico e Sofia usando o contexto real da empresa.',status:staffReady?'ready':'needs_setup',customerReady:true,requiredForLaunch:true,detail:staffReady?'Staff Business avançado conectado aos Agents.':'Agents nativos disponíveis; engine Staff avançada ainda não está conectada.',actionLabel:'Abrir Assistentes IA'},
-      {id:'communication',label:'Atendimento e WhatsApp',description:'Atendimento, qualificação e follow-up via SmartBots.',status:smartbotsReady?'ready':smartbotsConfigured?'needs_setup':'needs_configuration',customerReady:smartbotsReady,requiredForLaunch:false,detail:smartbotsReady?'SmartBots vinculado e saudável para este workspace.':smartbotsConfigured?'Motor conectado; workspace ainda precisa provisionar/validar o bot.':'Bridge SmartBots não configurado.'},
-      {id:'investments',label:'Inteligência de mercado financeiro',description:'Radar e cálculos informativos via F-Insight, sem recomendação ou execução.',status:finsightConfigured?'ready':'needs_configuration',customerReady:finsightConfigured,requiredForLaunch:false,detail:finsightConfigured?'Bridge F-Insight configurado em modo informativo.':'F-Insight ainda não está conectado neste ambiente.'}
+      {id:'finance',label:'Gestão financeira',description:'Caixa, lançamentos, conciliação e visão financeira.',status:'ready',customerReady:true,requiredForLaunch:true,detail:`${Number(finance[0]?.entries||0)} lançamento(s) no financeiro`},
+      {id:'payments',label:'Cobrança e Pix',description:'Criar cobranças, acompanhar pagamentos e conciliar recebimentos.',status:!nextgenReady?'needs_configuration':!paymentDataProtected?'needs_configuration':paymentReady?'ready':'needs_setup',customerReady:paymentReady,requiredForLaunch:true,detail:!nextgenReady?'A conexão financeira precisa ser restabelecida.':!paymentDataProtected?'A proteção dos dados de pagamento precisa ser concluída.':!pixAccountReady?'A conexão está ativa; falta confirmar a conta Pix desta empresa.':!nextgenFinancialActionsEnabled()?'A conta está pronta; falta habilitar as ações governadas no homolog.':'Cobrança Pix pronta para teste real com aprovação humana.',actionLabel:'Abrir Financeiro'},
+      {id:'documents',label:'Documentos e assinaturas',description:'Contratos, upload, assinatura eletrônica e inteligência documental.',status:docwalletReady?'ready':docwalletConfigured?'degraded':'needs_configuration',customerReady:docwalletReady,requiredForLaunch:true,detail:docwalletReady?`${Number(docRefs[0]?.count||0)} documento(s) vinculado(s); serviço documental respondeu ao teste.`:docwalletConfigured?'A conexão documental está configurada, mas não respondeu ao teste agora.':'A conexão de Documentos ainda precisa ser concluída.',actionLabel:'Abrir Documentos'},
+      {id:'icp',label:'Assinatura ICP-Brasil',description:'Assinatura digital com certificado ICP-Brasil para documentos que exigem esse nível de identidade.',status:icpReady?'ready':docwalletReady?'needs_configuration':'needs_setup',customerReady:icpReady,requiredForLaunch:true,detail:icpReady?'ICP-Brasil disponível no fluxo de assinatura do homolog.':docwalletReady?'Documentos funcionam, mas o provedor ICP-Brasil ainda não está disponível para este ambiente.':'Primeiro é necessário restabelecer Documentos e Assinaturas.',actionLabel:'Abrir Documentos'},
+      {id:'fiscal',label:'Fiscal e notas',description:'Preparar, revisar e emitir notas fiscais com aprovação.',status:!taxBaseConfigured||!taxCredentialAvailable?'needs_configuration':!taxProbe.ok?'degraded':taxWorkspaceReady?'ready':'needs_setup',customerReady:taxWorkspaceReady,requiredForLaunch:true,detail:!taxBaseConfigured?'A conexão fiscal ainda precisa ser configurada.':!taxCredentialAvailable?'A credencial fiscal segura ainda não está disponível.':!taxProbe.ok?'O serviço fiscal não respondeu ao teste agora.':!taxWorkspaceLinked?'A conexão fiscal está ativa; falta vincular a empresa fiscal deste workspace.':'Fiscal conectado e pronto para o smoke governado.',actionLabel:'Abrir Financeiro'},
+      {id:'marketing',label:'Marketing e crescimento',description:'Campanhas, conteúdo, criativos, mídia, leads e aprendizado.',status:modoReady?'ready':modoConfigured?'degraded':'needs_configuration',customerReady:modoReady,requiredForLaunch:true,detail:modoReady?'Marketing respondeu ao teste e está pronto para criação/revisão governada.':modoConfigured?'A conexão de Marketing está configurada, mas não respondeu ao teste agora.':'A conexão de Marketing ainda precisa ser concluída.',actionLabel:'Abrir Crescimento'},
+      {id:'ai',label:'Equipe de IA',description:'Maya, Theo, Dora, Clara, Nico e Sofia trabalhando com o contexto da empresa.',status:staffReady?'ready':staffConfigured?'degraded':'needs_configuration',customerReady:staffReady,requiredForLaunch:true,detail:staffReady?'Equipe avançada de IA respondeu ao teste de conexão.':staffConfigured?'A equipe avançada está configurada, mas não respondeu ao teste agora.':'A conexão da equipe avançada de IA ainda precisa ser concluída.',actionLabel:'Abrir Assistentes IA'},
+      {id:'communication',label:'Bot, atendimento e WhatsApp',description:'Bot da empresa, qualificação, CRM e follow-up por canais de atendimento.',status:smartbotsReady?'ready':smartbotsConfigured&&smartbotsProbe.ok?'needs_setup':smartbotsConfigured?'degraded':'needs_configuration',customerReady:smartbotsReady,requiredForLaunch:true,detail:smartbotsReady?'Bot vinculado ao workspace e conexão de atendimento saudável.':smartbotsConfigured&&smartbotsProbe.ok?'A conexão de atendimento funciona; falta provisionar/vincular o Bot desta empresa.':smartbotsConfigured?'A conexão de atendimento está configurada, mas não respondeu ao teste agora.':'A conexão de Bot e atendimento ainda precisa ser concluída.',actionLabel:'Configurar Bot'},
+      {id:'investments',label:'Inteligência de mercado financeiro',description:'Radar e cálculos informativos, sem recomendação ou execução automática.',status:finsightConfigured?'ready':'needs_configuration',customerReady:finsightConfigured,requiredForLaunch:false,detail:finsightConfigured?'Inteligência financeira opcional configurada.':'Integração opcional; não bloqueia o Commercial V1.'}
     ];
 
     const required=items.filter(item=>item.requiredForLaunch);
     const readyRequired=required.filter(item=>item.customerReady).length;
     const launchReady=readyRequired===required.length;
-    return{workspace:{id:ctx.workspaceId,name:ctx.workspaceName},launchReady,score:Math.round((readyRequired/required.length)*100),readyRequired,totalRequired:required.length,items,principles:{singleWorkspace:true,humanApprovalForExternalEffects:true,noRawProviderSecretsInBrowser:true,externalActionsGoverned:true,paymentDataEncryptedAtRest:paymentDataProtected},generatedAt:new Date().toISOString()};
+    return{workspace:{id:ctx.workspaceId,name:ctx.workspaceName},launchReady,score:Math.round((readyRequired/required.length)*100),readyRequired,totalRequired:required.length,items,principles:{singleWorkspace:true,humanApprovalForExternalEffects:true,noRawProviderSecretsInBrowser:true,externalActionsGoverned:true,paymentDataEncryptedAtRest:paymentDataProtected,remoteHealthRequired:true},generatedAt:new Date().toISOString()};
   });
 }
