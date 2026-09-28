@@ -15,12 +15,12 @@ export default function LaunchReadinessCenter(){
   const[active,setActive]=useState(false),[host,setHost]=useState<Element|null>(null),[data,setData]=useState<Readiness|null>(null),[busy,setBusy]=useState(false),[actionBusy,setActionBusy]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('');
   useEffect(()=>{const sync=()=>{const selected=document.querySelector<HTMLButtonElement>('.sidebar nav button.active');const on=Boolean(selected?.textContent?.includes('Integrações'));setActive(on);setHost(on?document.querySelector('.content'):null)};sync();const timer=setInterval(sync,350);return()=>clearInterval(timer)},[]);
   useEffect(()=>{if(active)void load()},[active]);
-  async function load(){setBusy(true);setError('');try{setData(await api<Readiness>('/v1/launch-readiness'))}catch(e:any){setError(e?.message||'Não foi possível verificar a prontidão da plataforma.')}finally{setBusy(false)}}
+  async function load(){setBusy(true);setError('');try{setData(await api<Readiness>('/v1/launch-readiness'))}catch{setError('Não foi possível verificar a prontidão agora. Tente novamente em instantes.')}finally{setBusy(false)}}
   async function act(item:Item){
     setError('');setNotice('');
     if(item.id==='fiscal'){
       setActionBusy('fiscal');
-      try{await post('/v1/integrations/taxagent/activate',{});setNotice('Fiscal conectado. A emissão continua protegida por revisão e aprovação.');await load()}catch(e:any){setError(e?.message||'Não foi possível conectar o Fiscal agora.')}finally{setActionBusy('')}
+      try{await post('/v1/integrations/taxagent/activate',{});setNotice('Fiscal conectado. A emissão continua protegida por revisão e aprovação.');await load()}catch{setError('Não foi possível conectar o Fiscal agora. Tente novamente em instantes.')}finally{setActionBusy('')}
       return;
     }
     if(item.id==='communication'){
@@ -30,7 +30,7 @@ export default function LaunchReadinessCenter(){
         const result=await post<any>('/v1/integrations/smartbots/activate',{});
         if(result?.handoffUrl){if(popup)popup.location.href=result.handoffUrl;else window.location.href=result.handoffUrl}else if(popup)popup.close();
         setNotice('Bot preparado e vinculado à empresa. Se houver onboarding pendente, conclua na nova aba.');await load();
-      }catch(e:any){if(popup)popup.close();setError(e?.message||'Não foi possível ativar o Bot agora.')}finally{setActionBusy('')}
+      }catch{if(popup)popup.close();setError('Não foi possível ativar o Bot agora. Tente novamente em instantes.')}finally{setActionBusy('')}
       return;
     }
     openArea(item.id);
