@@ -14,6 +14,7 @@ import {registerBusinessOperationRoutes} from './routes-business-operations.js';
 import {registerEcosystemRoutes} from './routes-ecosystem.js';
 import {registerDocWalletContractRoutes} from './routes-docwallet-contracts.js';
 import {registerDocWalletWorkspaceRoutes} from './routes-docwallet-workspace.js';
+import {registerDocWalletUploadRoutes} from './routes-docwallet-upload.js';
 import {registerTaxAgentOperationSyncRoutes} from './routes-taxagent-operation-sync.js';
 import {registerTaxAgentWebhookRoutes} from './routes-taxagent-webhooks.js';
 import {registerEcosystemRecommendationRoutes} from './routes-ecosystem-recommendations.js';
@@ -38,6 +39,7 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerEcosystemRoutes(app);
   await registerDocWalletContractRoutes(app);
   await registerDocWalletWorkspaceRoutes(app);
+  await registerDocWalletUploadRoutes(app);
   await registerTaxAgentOperationSyncRoutes(app);
   await registerTaxAgentWebhookRoutes(app);
   await registerEcosystemRecommendationRoutes(app);
