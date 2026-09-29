@@ -15,7 +15,7 @@ assert.ok(adapter.includes("if(path==='/charges')return '/receiving-account/char
 assert.ok(adapter.includes("/receiving-account/charges/${reconcile[1]}/reconcile"),'charge reconciliation must stay on subaccount path');
 assert.ok(!routes.includes('WOOVI_APP_ID')&&!routes.includes('WOOVI_API_KEY'),'NexOffice must not own Woovi credentials');
 assert.ok(standalone.includes('registerReceivingAccountRoutes(app)'),'receiving account routes must be registered');
-for(const copy of ['Recebimento Pix','Onde sua empresa vai receber.','Saque diário para a chave cadastrada','Criar cobrança teste R$ 1','O dinheiro não fica no NexOffice.'])assert.ok(ui.includes(copy),`missing onboarding copy: ${copy}`);
+for(const copy of ['CONTA DE RECEBIMENTO PIX','Esta é a conta que recebe as cobranças dos clientes','Repasse:','Validar com teste R$ 1','Dados já confirmados ficam vinculados ao workspace'])assert.ok(ui.includes(copy),`missing onboarding copy: ${copy}`);
 assert.ok(ui.includes("humanConfirmed:true"),'setup/test action must carry explicit confirmation');
 assert.ok(ui.includes("amountMinor:100"),'test charge must default to R$1.00');
 assert.ok(ui.includes("pixKeyMasked"),'UI must only render masked stored key');

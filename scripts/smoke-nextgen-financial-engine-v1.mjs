@@ -36,15 +36,15 @@ assert.ok(standalone.includes('registerFinancialEngineRoutes(app)'),'financial e
 assert.ok(adapter.includes("headers.set('x-nexoffice-key',key)"),'server-to-server credential header missing');
 assert.ok(adapter.includes("headers.set('x-nexoffice-workspace-id',workspaceId)"),'workspace propagation missing');
 
-for(const copy of ['Pix conectado ao seu financeiro','Preparar Pix','Revisar e aprovar','Gerar Pix','Copiar Pix','Atualizar pagamento','Pix recorrente','Preparar Pix recorrente'])assert.ok(ui.includes(copy),`missing practical UX: ${copy}`);
+for(const copy of ['Cobranças Pix conectadas','Preparar Pix','Revisar e aprovar','Gerar Pix','Copiar Pix','Atualizar pagamento','Pix recorrente','Preparar Pix recorrente'])assert.ok(ui.includes(copy),`missing practical UX: ${copy}`);
 assert.ok(ui.includes("post(`/v1/collections/actions/${action.id}/execute-charge`,{humanConfirmed:true})"),'UI final charge confirmation missing');
 assert.ok(ui.includes("post(`/v1/collections/actions/${action.id}/execute-recurring`,{humanConfirmed:true})"),'UI final recurring confirmation missing');
 assert.ok(ui.includes("post(`/v1/collections/actions/${action.id}/execute-recurring-cancel`,{humanConfirmed:true})"),'UI recurring cancel confirmation missing');
 assert.ok(ui.includes("window.confirm('Gerar esta cobrança Pix agora?"),'charge confirmation dialog missing');
-assert.ok(ui.includes('O provider financeiro permanece invisível'),'provider invisibility copy missing');
+assert.ok(ui.includes('A infraestrutura financeira trabalha por trás da experiência.'),'provider invisibility copy missing');
 assert.ok(!ui.toLowerCase().includes('nextgen'),'NextGen brand must remain invisible in end-user collections UX');
 assert.ok(!ui.includes('WOOVI_APP_ID')&&!ui.includes('WOOVI_API_KEY'),'provider credentials leaked into web');
-assert.ok(bridge.includes("active?.textContent?.includes('Cobrança')"),'financial center must mount inside existing Cobrança area');
+assert.ok(bridge.includes("selected?.textContent?.includes('Financeiro')")||bridge.includes("title.includes('Financeiro')"),'financial center must mount inside the existing Financeiro area');
 assert.ok(main.includes('<FinancialEngineCollectionsBridge/>'),'financial collections bridge not mounted');
 
 console.log(JSON.stringify({ok:true,module:'NexOffice Financial Engine V1',providerInvisible:true,ledgerSourceOfTruth:true,approvalRequired:true,humanConfirmationRequired:true,actionsDefaultOff:true,pixOut:false,investmentAutomation:false,openFinanceDeferred:true,practicalUx:true}));

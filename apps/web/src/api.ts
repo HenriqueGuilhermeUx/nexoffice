@@ -13,14 +13,26 @@ export const session={
   clear:()=>{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)}
 };
 
+async function parseResponse<T>(r:Response):Promise<T>{
+  const body=await r.json().catch(()=>({}));
+  if(!r.ok){const e=new Error(body?.message||body?.error||`HTTP ${r.status}`) as Error&{status?:number;code?:string};e.status=r.status;e.code=body?.error;throw e}
+  return body as T;
+}
+
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
   const headers=new Headers(init.headers||{});headers.set('content-type','application/json');
   const token=session.token();if(token)headers.set('authorization',`Bearer ${token}`);
   const workspace=session.workspace();if(workspace)headers.set('x-workspace-id',workspace);
   const r=await fetch(`${API}${path}`,{...init,headers});
-  const body=await r.json().catch(()=>({}));
-  if(!r.ok){const e=new Error(body?.message||body?.error||`HTTP ${r.status}`) as Error&{status?:number;code?:string};e.status=r.status;e.code=body?.error;throw e}
-  return body as T;
+  return parseResponse<T>(r);
+}
+
+export async function upload<T=any>(path:string,form:FormData):Promise<T>{
+  const headers=new Headers();
+  const token=session.token();if(token)headers.set('authorization',`Bearer ${token}`);
+  const workspace=session.workspace();if(workspace)headers.set('x-workspace-id',workspace);
+  const r=await fetch(`${API}${path}`,{method:'POST',headers,body:form});
+  return parseResponse<T>(r);
 }
 
 export const post=<T=any>(path:string,body:unknown)=>api<T>(path,{method:'POST',body:JSON.stringify(body)});
