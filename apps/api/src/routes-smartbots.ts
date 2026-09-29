@@ -5,7 +5,7 @@ import {query} from './db.js';
 import {auditLog} from './events.js';
 import {bindSmartBotsWorkspace,probeProvider,smartBotsAddonRequest} from './integration-runtime.js';
 
-const SMARTBOTS_CAPABILITIES=['whatsapp','service','qualification','follow-up','human_approval','workspace_binding','idempotent_dispatch'];
+const SMARTBOTS_CAPABILITIES=['whatsapp','service','qualification','follow-up','human_approval','workspace_binding','idempotent_dispatch','scheduling','availability','booking'];
 const PARTNER_PRICE_MINOR=7900;
 const REGULAR_PRICE_MINOR=14900;
 const TRIAL_DAYS=7;
@@ -65,14 +65,14 @@ async function upsertEntitlement(workspaceId:string){
   const now=new Date();const existingEnd=existing?.valid_until?new Date(existing.valid_until).getTime():0;
   const validUntil=existing?.valid_until||new Date(now.getTime()+TRIAL_DAYS*DAY).toISOString();
   const status=existingEnd>Date.now()||!existing?'trial':'active';
-  const metadata={...asObject(existing?.metadata),product:'smartbots',partner:'nexoffice',priceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,currency:'BRL',billingOwner:'smartbots',trialDays:TRIAL_DAYS};
+  const metadata={...asObject(existing?.metadata),product:'smartbots',partner:'nexoffice',priceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,currency:'BRL',billingOwner:'smartbots',trialDays:TRIAL_DAYS,schedulingIncluded:true};
   return (await query<any>(`insert into entitlements(workspace_id,capability,status,source,valid_from,valid_until,metadata,updated_at)
     values($1,'addon.smartbots',$2,'nexoffice',now(),$3,$4,now())
     on conflict(workspace_id,capability,source) do update set status=excluded.status,valid_until=coalesce(entitlements.valid_until,excluded.valid_until),metadata=excluded.metadata,updated_at=now()
     returning *`,[workspaceId,status,validUntil,JSON.stringify(metadata)]))[0];
 }
 async function saveIntegration(workspaceId:string,botId:string,remote:any){
-  const config={botId,partner:'nexoffice',partnerPriceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,workspaceBindingVerified:true,firstOutboundRequiresHumanApproval:true};
+  const config={botId,partner:'nexoffice',partnerPriceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,workspaceBindingVerified:true,firstOutboundRequiresHumanApproval:true,schedulingIncluded:true};
   return (await query<any>(`insert into integrations(workspace_id,provider,status,external_account_ref,capabilities,config,connected_at,last_error)
     values($1,'smartbots','connected',$2,$3,$4,now(),null)
     on conflict(workspace_id,provider) do update set status='connected',external_account_ref=excluded.external_account_ref,capabilities=excluded.capabilities,config=excluded.config,connected_at=coalesce(integrations.connected_at,now()),last_error=null,updated_at=now()
@@ -93,8 +93,8 @@ async function startOrHandoff(ctx:any){
   const remote=(result as any).payload as any;
   const botId=String(remote?.botId||'').trim();if(!botId)throw new ApiError(502,'smartbots_addon_invalid_response','SmartBots não retornou o vínculo do workspace.');
   const [entitlement,integration]=await Promise.all([upsertEntitlement(ctx.workspaceId),saveIntegration(ctx.workspaceId,botId,remote)]);
-  await auditLog(ctx,'integration.smartbots.addon_activated','integration',integration.id,before,{provider:'smartbots',botId,entitlementStatus:entitlement.status},{partner:'nexoffice',priceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true});
-  return {...remote,entitlement:{status:entitlement.status,validUntil:entitlement.valid_until},offer:{partnerAmountCents:PARTNER_PRICE_MINOR,regularAmountCents:REGULAR_PRICE_MINOR,trialDays:TRIAL_DAYS}};
+  await auditLog(ctx,'integration.smartbots.addon_activated','integration',integration.id,before,{provider:'smartbots',botId,entitlementStatus:entitlement.status},{partner:'nexoffice',priceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true,schedulingIncluded:true});
+  return {...remote,entitlement:{status:entitlement.status,validUntil:entitlement.valid_until},offer:{partnerAmountCents:PARTNER_PRICE_MINOR,regularAmountCents:REGULAR_PRICE_MINOR,trialDays:TRIAL_DAYS},capabilities:SMARTBOTS_CAPABILITIES,scheduling:{included:true,engine:'smartbots-scheduling-core-v1'}};
 }
 
 export async function registerSmartBotsRoutes(app:FastifyInstance){
@@ -113,6 +113,8 @@ export async function registerSmartBotsRoutes(app:FastifyInstance){
       whatsapp:remote?.whatsapp||{connected:false,phone:null,autoReply:false,messageWebhookActive:false},
       entitlement:local.entitlement?{status:local.entitlement.status,validFrom:local.entitlement.valid_from,validUntil:local.entitlement.valid_until}:null,
       offer:{partnerAmountCents:PARTNER_PRICE_MINOR,regularAmountCents:REGULAR_PRICE_MINOR,trialDays:TRIAL_DAYS},
+      capabilities:local.integration?.capabilities||SMARTBOTS_CAPABILITIES,
+      scheduling:{included:true,engine:'smartbots-scheduling-core-v1'},
       health:{lastHealthAt:local.integration?.last_health_at||null,lastHealthStatus:local.integration?.last_health_status||null,lastError:local.integration?.last_error||null}
     };
   });
@@ -133,9 +135,9 @@ export async function registerSmartBotsRoutes(app:FastifyInstance){
     const binding=await bindSmartBotsWorkspace(ctx.workspaceId,input.botId,input.clientToken);
     if(!binding.ok){const error:any=new Error(String(binding.error||'smartbots_binding_failed'));error.code='smartbots_binding_failed';error.statusCode=Number((binding as any).httpStatus||502);error.payload=(binding as any).payload||null;throw error}
     const before=(await query<any>(`select * from integrations where workspace_id=$1 and provider='smartbots' limit 1`,[ctx.workspaceId]))[0]||null;
-    const rows=await query<any>(`insert into integrations(workspace_id,provider,status,external_account_ref,capabilities,config,connected_at,last_error) values($1,'smartbots','connected',$2,$3,$4,now(),null) on conflict(workspace_id,provider) do update set status='connected',external_account_ref=excluded.external_account_ref,capabilities=excluded.capabilities,config=excluded.config,connected_at=coalesce(integrations.connected_at,now()),last_error=null,updated_at=now() returning *`,[ctx.workspaceId,input.botId,SMARTBOTS_CAPABILITIES,JSON.stringify({botId:input.botId,firstOutboundRequiresHumanApproval:true,workspaceBindingVerified:true,manualBinding:true})]);
-    await auditLog(ctx,'integration.smartbots.connected','integration',rows[0].id,before,{provider:'smartbots',botId:input.botId},{secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true,firstOutboundRequiresHumanApproval:true,manualBinding:true});
+    const rows=await query<any>(`insert into integrations(workspace_id,provider,status,external_account_ref,capabilities,config,connected_at,last_error) values($1,'smartbots','connected',$2,$3,$4,now(),null) on conflict(workspace_id,provider) do update set status='connected',external_account_ref=excluded.external_account_ref,capabilities=excluded.capabilities,config=excluded.config,connected_at=coalesce(integrations.connected_at,now()),last_error=null,updated_at=now() returning *`,[ctx.workspaceId,input.botId,SMARTBOTS_CAPABILITIES,JSON.stringify({botId:input.botId,firstOutboundRequiresHumanApproval:true,workspaceBindingVerified:true,manualBinding:true,schedulingIncluded:true})]);
+    await auditLog(ctx,'integration.smartbots.connected','integration',rows[0].id,before,{provider:'smartbots',botId:input.botId},{secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true,firstOutboundRequiresHumanApproval:true,manualBinding:true,schedulingIncluded:true});
     const health=await probeProvider(ctx.workspaceId,'smartbots');
-    return {provider:'smartbots',status:health.ok?'connected':health.status,botId:rows[0].external_account_ref,capabilities:rows[0].capabilities,workspaceBindingVerified:true,health};
+    return {provider:'smartbots',status:health.ok?'connected':health.status,botId:rows[0].external_account_ref,capabilities:rows[0].capabilities,workspaceBindingVerified:true,scheduling:{included:true,engine:'smartbots-scheduling-core-v1'},health};
   });
 }
