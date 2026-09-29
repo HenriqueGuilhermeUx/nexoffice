@@ -44,7 +44,7 @@ assert.ok(ui.includes("window.confirm('Gerar esta cobrança Pix agora?"),'charge
 assert.ok(ui.includes('A infraestrutura financeira trabalha por trás da experiência.'),'provider invisibility copy missing');
 assert.ok(!ui.toLowerCase().includes('nextgen'),'NextGen brand must remain invisible in end-user collections UX');
 assert.ok(!ui.includes('WOOVI_APP_ID')&&!ui.includes('WOOVI_API_KEY'),'provider credentials leaked into web');
-assert.ok(bridge.includes("active?.textContent?.includes('Cobrança')"),'financial center must mount inside existing Cobrança area');
+assert.ok(bridge.includes("selected?.textContent?.includes('Financeiro')")||bridge.includes("title.includes('Financeiro')"),'financial center must mount inside the existing Financeiro area');
 assert.ok(main.includes('<FinancialEngineCollectionsBridge/>'),'financial collections bridge not mounted');
 
 console.log(JSON.stringify({ok:true,module:'NexOffice Financial Engine V1',providerInvisible:true,ledgerSourceOfTruth:true,approvalRequired:true,humanConfirmationRequired:true,actionsDefaultOff:true,pixOut:false,investmentAutomation:false,openFinanceDeferred:true,practicalUx:true}));
