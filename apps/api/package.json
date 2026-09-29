@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/server.js",
   "dependencies": {
+    "@fastify/multipart": "^9.2.1",
     "@nexoffice/domain": "0.1.0",
     "@nexoffice/integrations": "0.1.0",
     "dotenv": "^16.6.1",

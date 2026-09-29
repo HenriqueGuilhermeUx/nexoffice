@@ -17,6 +17,7 @@ function mainSubscriptionEligible(row:BillingRow|null){
   if(!row)return false;
   const status=String(row.status||'').toLowerCase();const now=Date.now();
   if(status==='active'||status==='exempt')return true;
+  if(status==='trialing'&&row.trial_ends_at&&new Date(row.trial_ends_at).getTime()>now)return true;
   if(status==='cancelled'&&row.current_period_ends_at&&new Date(row.current_period_ends_at).getTime()>now)return true;
   if(status==='past_due'){
     const meta=asObject(row.metadata);const pastDueAt=meta.pastDueAt?new Date(String(meta.pastDueAt)).getTime():0;
@@ -29,27 +30,51 @@ async function billingEligibility(workspaceId:string){
   return {eligible:mainSubscriptionEligible(row),billing:row};
 }
 function websiteFromMetadata(metadata:Record<string,any>){
-  const candidates=[metadata.website,metadata.site,metadata.url,metadata?.brand?.website,metadata?.marketing?.website,metadata?.commercial?.website];
+  const digital=asObject(metadata.digital);
+  const candidates=[digital.website,metadata.website,metadata.site,metadata.url,metadata?.brand?.website,metadata?.marketing?.website,metadata?.commercial?.website];
   return String(candidates.find(v=>typeof v==='string'&&v.trim())||'').trim().slice(0,500);
 }
 async function businessPayload(ctx:any){
   const profile=(await query<any>(`select * from business_profiles where workspace_id=$1 limit 1`,[ctx.workspaceId]))[0]||{};
   const metadata=asObject(profile.metadata);
+  const identity=asObject(metadata.identity),digital=asObject(metadata.digital),contact=asObject(metadata.contact),registry=asObject(metadata.registry),offer=asObject(metadata.offer),commercial=asObject(metadata.commercial),finance=asObject(metadata.finance),fiscal=asObject(metadata.fiscal),operations=asObject(metadata.operations),marketing=asObject(metadata.marketing),brand=asObject(metadata.brand),onboarding=asObject(metadata.onboarding);
+  const offerings=Array.isArray(offer.mainOfferings)?offer.mainOfferings.filter(Boolean).slice(0,12):[];
+  const businessName=String(identity.businessName||profile.trade_name||ctx.workspaceName||'').trim();
   const summary=[
-    profile.sector?`Setor: ${profile.sector}`:'',profile.subsector?`Subsetor: ${profile.subsector}`:'',profile.revenue_model?`Modelo de receita: ${profile.revenue_model}`:'',
-    profile.primary_sales_channel?`Canal comercial principal: ${profile.primary_sales_channel}`:'',profile.seasonality?`Sazonalidade: ${profile.seasonality}`:'',
-    profile.main_dependency?`Dependência principal: ${profile.main_dependency}`:'',profile.notes?`Notas: ${profile.notes}`:''
+    businessName?`Negócio: ${businessName}`:'',
+    offer.description?`Descrição: ${offer.description}`:'',
+    offerings.length?`Produtos e serviços: ${offerings.join(', ')}`:'',
+    registry.mainActivity?`Atividade: ${registry.mainActivity}`:profile.sector?`Setor: ${profile.sector}`:'',
+    registry.secondaryActivity?`Atividade secundária: ${registry.secondaryActivity}`:profile.subsector?`Subsetor: ${profile.subsector}`:'',
+    offer.audienceType?`Público: ${offer.audienceType}`:'',
+    commercial.primaryGoal?`Objetivo: ${commercial.primaryGoal}`:'',
+    Array.isArray(commercial.salesChannels)&&commercial.salesChannels.length?`Canais de venda: ${commercial.salesChannels.join(', ')}`:profile.primary_sales_channel?`Canal comercial principal: ${profile.primary_sales_channel}`:'',
+    Array.isArray(commercial.leadSources)&&commercial.leadSources.length?`Origem de clientes: ${commercial.leadSources.join(', ')}`:'',
+    finance.revenueBand?`Faixa de faturamento: ${finance.revenueBand}`:'',
+    Array.isArray(finance.paymentMethods)&&finance.paymentMethods.length?`Meios de pagamento: ${finance.paymentMethods.join(', ')}`:'',
+    fiscal.invoiceUsage?`Uso de nota fiscal: ${fiscal.invoiceUsage}`:'',
+    operations.teamSizeBand?`Tamanho da equipe: ${operations.teamSizeBand}`:'',
+    operations.biggestBottleneck?`Principal gargalo: ${operations.biggestBottleneck}`:profile.main_dependency?`Dependência principal: ${profile.main_dependency}`:'',
+    contact.whatsapp?`WhatsApp informado: ${contact.whatsapp}`:'',
+    profile.seasonality?`Sazonalidade: ${profile.seasonality}`:'',
+    profile.notes?`Notas: ${profile.notes}`:''
   ].filter(Boolean).join('\n');
   return {
-    companyName:ctx.workspaceName,
+    companyName:businessName||ctx.workspaceName,
     ownerName:ctx.user.name,
     ownerEmail:ctx.user.email,
     website:websiteFromMetadata(metadata),
     businessSummary:summary.slice(0,12000),
     businessProfile:{
-      sector:profile.sector||null,subsector:profile.subsector||null,revenue_model:profile.revenue_model||null,primary_sales_channel:profile.primary_sales_channel||null,
-      seasonality:profile.seasonality||null,main_dependency:profile.main_dependency||null,notes:profile.notes||null,
-      metadata:{marketing:asObject(metadata.marketing),commercial:asObject(metadata.commercial),brand:asObject(metadata.brand)}
+      sector:registry.mainActivity||profile.sector||null,
+      subsector:registry.secondaryActivity||profile.subsector||null,
+      revenue_model:profile.revenue_model||null,
+      primary_sales_channel:profile.primary_sales_channel||commercial.salesChannels?.[0]||null,
+      seasonality:profile.seasonality||null,
+      main_dependency:profile.main_dependency||operations.biggestBottleneck||null,
+      notes:profile.notes||null,
+      completeness_pct:Number(profile.completeness_pct||0),
+      metadata:{identity,digital,contact,registry,offer,commercial,finance,fiscal,operations,marketing,brand,onboarding}
     }
   };
 }
@@ -84,14 +109,14 @@ async function remoteStatus(workspaceId:string){
 }
 async function startOrHandoff(ctx:any){
   const eligibility=await billingEligibility(ctx.workspaceId);
-  if(!eligibility.eligible)throw new ApiError(402,'nexoffice_subscription_required','O benefício SmartBots de R$ 79/mês é exclusivo para assinantes NexOffice ativos.');
+  if(!eligibility.eligible)throw new ApiError(402,'nexoffice_subscription_required','Ative ou inicie o período de teste do NexOffice para habilitar o Bot do negócio.');
   const before=await localState(ctx.workspaceId);
   const payload=await businessPayload(ctx);
   const existingBotId=String(before.integration?.external_account_ref||before.integration?.config?.botId||'').trim();
   const result=await smartBotsAddonRequest(ctx.workspaceId,'start',{eligible:true,existingBotId:existingBotId||undefined,...payload});
   if(!result.ok){const error:any=new Error(String((result as any).error||'smartbots_addon_start_failed'));error.code='smartbots_addon_start_failed';error.statusCode=Number((result as any).httpStatus||502);error.payload=(result as any).payload||null;throw error}
   const remote=(result as any).payload as any;
-  const botId=String(remote?.botId||'').trim();if(!botId)throw new ApiError(502,'smartbots_addon_invalid_response','SmartBots não retornou o vínculo do workspace.');
+  const botId=String(remote?.botId||'').trim();if(!botId)throw new ApiError(502,'smartbots_addon_invalid_response','O atendimento não retornou o vínculo do Bot deste negócio.');
   const [entitlement,integration]=await Promise.all([upsertEntitlement(ctx.workspaceId),saveIntegration(ctx.workspaceId,botId,remote)]);
   await auditLog(ctx,'integration.smartbots.addon_activated','integration',integration.id,before,{provider:'smartbots',botId,entitlementStatus:entitlement.status},{partner:'nexoffice',priceMinor:PARTNER_PRICE_MINOR,regularPriceMinor:REGULAR_PRICE_MINOR,secretStored:false,clientTokenPersisted:false,workspaceBindingVerified:true});
   return {...remote,entitlement:{status:entitlement.status,validUntil:entitlement.valid_until},offer:{partnerAmountCents:PARTNER_PRICE_MINOR,regularAmountCents:REGULAR_PRICE_MINOR,trialDays:TRIAL_DAYS}};

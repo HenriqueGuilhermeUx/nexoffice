@@ -14,12 +14,15 @@ import {registerBusinessOperationRoutes} from './routes-business-operations.js';
 import {registerEcosystemRoutes} from './routes-ecosystem.js';
 import {registerDocWalletContractRoutes} from './routes-docwallet-contracts.js';
 import {registerDocWalletWorkspaceRoutes} from './routes-docwallet-workspace.js';
+import {registerDocWalletUploadRoutes} from './routes-docwallet-upload.js';
 import {registerTaxAgentOperationSyncRoutes} from './routes-taxagent-operation-sync.js';
 import {registerTaxAgentWebhookRoutes} from './routes-taxagent-webhooks.js';
 import {registerEcosystemRecommendationRoutes} from './routes-ecosystem-recommendations.js';
 import {registerFInsightInvestmentRoutes} from './routes-finsight-investments.js';
 import {registerBackupSecurityRoutes} from './routes-backup-security.js';
 import {registerFinancialEngineRoutes} from './routes-financial-engine.js';
+import {registerReceivingAccountRoutes} from './routes-receiving-account.js';
+import {registerLaunchReadinessRoutes} from './routes-launch-readiness.js';
 
 const countFor=async(sql:string,workspaceId:string)=>Number((await query<any>(sql,[workspaceId]))[0]?.count||0);
 
@@ -37,12 +40,15 @@ export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerEcosystemRoutes(app);
   await registerDocWalletContractRoutes(app);
   await registerDocWalletWorkspaceRoutes(app);
+  await registerDocWalletUploadRoutes(app);
   await registerTaxAgentOperationSyncRoutes(app);
   await registerTaxAgentWebhookRoutes(app);
   await registerEcosystemRecommendationRoutes(app);
   await registerFInsightInvestmentRoutes(app);
   await registerBackupSecurityRoutes(app);
   await registerFinancialEngineRoutes(app);
+  await registerReceivingAccountRoutes(app);
+  await registerLaunchReadinessRoutes(app);
 
   app.get('/v1/standalone/readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
