@@ -100,7 +100,7 @@ export async function registerFiscalRoutes(app:FastifyInstance){
     const input=z.object({companyId:z.string().trim().min(3).max(160),environment:z.enum(['test','production']).default('test'),secretRef:SecretRef}).parse(req.body);
     if(/^ta_(test|live)_/i.test(input.secretRef))throw new ApiError(400,'secret_value_not_allowed','Informe somente o nome da variável server-side, nunca a API key do TaxAgent.');
     const row=await saveFiscalIntegration(ctx,input.companyId,input.environment,input.secretRef);
-    return {provider:'taxagent',status:row.status,companyId:row.external_account_ref,environment:row.config?.environment||input.environment,secretConfigured:credentialConfigured(row.secret_ref)};
+    return {provider:'taxagent',status:row.status,companyId:row.external_account_ref,environment:row.config?.environment||input.environment,secretConfigured:Boolean(row.secret_ref)};
   });
 
   app.get('/v1/fiscal/status',async req=>{
