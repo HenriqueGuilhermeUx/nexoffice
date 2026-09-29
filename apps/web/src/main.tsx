@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ProductDiscovery from './ProductDiscovery';
+import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
 import HomeV2 from './HomeV2';
 import OfficeView from './OfficeView';
@@ -28,6 +30,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <MarketingDiscoveryBridge/>
     <PlatformHandoffBootstrap/>
     <App/>
+    <ProductDiscovery/>
+    <StandaloneSetup/>
     <ShellUXEnhancements/>
     <HomeV2/>
     <OfficeView/>
