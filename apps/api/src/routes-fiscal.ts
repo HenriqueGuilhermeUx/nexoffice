@@ -118,7 +118,6 @@ export async function registerFiscalRoutes(app:FastifyInstance){
     const ctx=await workspaceContext(req,'finance.write');
     const mapping=(await query<any>(`select external_account_ref,config,secret_ref from integrations where workspace_id=$1 and provider='taxagent' limit 1`,[ctx.workspaceId]))[0];
     if(!mapping?.external_account_ref)throw new ApiError(409,'taxagent_not_connected','Conecte o Fiscal desta empresa antes de preparar a emissão.');
-    if(!credentialConfigured(mapping.secret_ref))throw new ApiError(409,'taxagent_credential_not_configured','A conexão fiscal segura deste workspace ainda não está disponível.');
     const input=z.object({competence:z.string().date().optional(),taxDecisionId:z.string().trim().optional(),preparedDpsId:z.string().trim().optional(),customer:Customer,service:Service}).parse(req.body);
     const payload={
       companyId:String(mapping.external_account_ref),
@@ -128,10 +127,10 @@ export async function registerFiscalRoutes(app:FastifyInstance){
       preparedDpsId:input.preparedDpsId||null,
       customer:input.customer,
       service:input.service,
-      secretRefConfigured:true
+      credentialConfigured:credentialConfigured(mapping.secret_ref)
     };
     const emitted=await emitBusinessEvent(ctx.workspaceId,'invoice.issue','nexoffice.fiscal','workspace',ctx.workspaceId,payload);
-    await auditLog(ctx,'fiscal.invoice.prepared','workspace',ctx.workspaceId,null,{environment:payload.environment,companyId:payload.companyId,amount:input.service.amount},{externalEffect:false,approvalRequired:true});
-    return {...emitted,prepared:true,externalEffect:false};
+    await auditLog(ctx,'fiscal.invoice.prepared','workspace',ctx.workspaceId,null,{environment:payload.environment,companyId:payload.companyId,amount:input.service.amount,credentialConfigured:payload.credentialConfigured},{externalEffect:false,approvalRequired:true});
+    return {...emitted,prepared:true,externalEffect:false,credentialConfigured:payload.credentialConfigured};
   });
 }
