@@ -11,6 +11,7 @@ import AssistantsWorkspace from './AssistantsWorkspace';
 import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
 import ContractCreator from './ContractCreator';
 import BusinessOperationCenter from './BusinessOperationCenter';
+import NetworkCenter from './NetworkCenter';
 import FinancialEngineCollectionsBridge from './FinancialEngineCollectionsBridge';
 import ReceivingAccountOnboardingBridge from './ReceivingAccountOnboardingBridge';
 import FiscalWorkspaceBridge from './FiscalWorkspaceBridge';
@@ -40,6 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <DocumentWorkspaceBridge/>
     <ContractCreator/>
     <BusinessOperationCenter/>
+    <NetworkCenter/>
     <FinancialEngineCollectionsBridge/>
     <ReceivingAccountOnboardingBridge/>
     <FiscalWorkspaceBridge/>
