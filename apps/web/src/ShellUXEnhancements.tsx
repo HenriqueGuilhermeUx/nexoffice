@@ -15,7 +15,7 @@ const destinations:Destination[]=[
   {label:'Crescimento',description:'Marketing, campanhas e oportunidades.',match:'Crescimento',icon:'↗'},
   {label:'Assistentes IA',description:'Maya e especialistas do NexOffice.',match:'Assistentes IA',icon:'✦'},
   {label:'Integrações',description:'Conectores e serviços externos.',match:'Integrações',icon:'⇄'},
-  {label:'Configurações',description:'Empresa, acessos e preferências.',match:'Configurações',icon:'⚙'}
+  {label:'Configurações',description:'Negócio, acessos e preferências.',match:'Configurações',icon:'⚙'}
 ];
 
 const navAliases:Record<string,string[]>={
