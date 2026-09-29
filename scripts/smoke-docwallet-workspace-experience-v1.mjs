@@ -45,9 +45,9 @@ has(ui,'A modalidade não muda o consumo da franquia.','no per-use pricing chang
 has(ui,'Contratos & modelos','contracts/models visible');
 has(ui,'Assinaturas','signatures visible');
 has(ui,'Inteligência','intelligence visible');
-has(ui,'DocFlow','DocFlow visible');
+has(ui,'Fluxos documentais','document workflow visible');
 has(ui,'Validação & certificados','verification/certificates visible');
-has(ui,'O conteúdo não passa pelo NexOffice','raw content boundary visible');
+has(ui,'O conteúdo bruto permanece em armazenamento documental seguro.','raw content boundary visible');
 has(bridge,'createPortal(<DocumentWorkspaceCenter/>','new center mounted into documents view');
 has(main,'<DocumentWorkspaceBridge/>','document workspace bridge installed');
 lacks(ui,'API keys','technical API keys hidden from end-user UX');
