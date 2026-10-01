@@ -1,0 +1,36 @@
+name: Network Capability Eligibility V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/network-provider-capabilities.ts'
+      - 'apps/api/src/routes-network-capabilities.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-capabilities.css'
+      - 'scripts/smoke-network-capability-eligibility-v1.mjs'
+      - '.github/workflows/network-capability-eligibility-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/network-provider-capabilities.ts'
+      - 'apps/api/src/routes-network-capabilities.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-capabilities.css'
+      - 'scripts/smoke-network-capability-eligibility-v1.mjs'
+      - '.github/workflows/network-capability-eligibility-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate Network capability eligibility contract
+        run: node scripts/smoke-network-capability-eligibility-v1.mjs

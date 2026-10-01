@@ -1,0 +1,36 @@
+name: Contextual Ecosystem Recommendations V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-ecosystem-recommendations.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/CommandCenterOverview.tsx'
+      - 'apps/web/src/command-center-overview.css'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - 'scripts/smoke-contextual-ecosystem-recommendations-v1.mjs'
+      - '.github/workflows/contextual-ecosystem-recommendations-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/routes-ecosystem-recommendations.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/CommandCenterOverview.tsx'
+      - 'apps/web/src/command-center-overview.css'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - 'scripts/smoke-contextual-ecosystem-recommendations-v1.mjs'
+      - '.github/workflows/contextual-ecosystem-recommendations-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate contextual ecosystem recommendation contract
+        run: node scripts/smoke-contextual-ecosystem-recommendations-v1.mjs

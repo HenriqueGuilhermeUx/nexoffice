@@ -1,0 +1,46 @@
+name: Receiving Account Onboarding V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/nextgen-financial-adapter.ts'
+      - 'apps/api/src/routes-receiving-account.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/ReceivingAccountOnboardingBridge.tsx'
+      - 'apps/web/src/receiving-account-onboarding.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-receiving-account-onboarding-v1.mjs'
+      - '.github/workflows/receiving-account-onboarding-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXTGEN_RECEIVING_ACCOUNT_ACTIONS_ENABLED: 'false'
+      NEXTGEN_FINANCIAL_ACTIONS_ENABLED: 'false'
+      NEXTGEN_FINANCIAL_BASE_URL: ''
+      NEXTGEN_FINANCIAL_SERVICE_KEY: ''
+      NEXTGEN_FINANCIAL_RECEIVING_MODE: subaccount
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate receiving account onboarding contract
+        run: node scripts/smoke-receiving-account-onboarding-v1.mjs
+      - name: Guard provider secrets and external effects
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "WOOVI_APP_ID\|WOOVI_API_KEY" apps/api/src/routes-receiving-account.ts apps/web/src/ReceivingAccountOnboardingBridge.tsx
+          grep -q "NEXTGEN_FINANCIAL_RECEIVING_MODE||'subaccount'" apps/api/src/nextgen-financial-adapter.ts
+          grep -q "humanConfirmed:z.literal(true)" apps/api/src/routes-receiving-account.ts
+          grep -q "amountMinor:100" apps/web/src/ReceivingAccountOnboardingBridge.tsx

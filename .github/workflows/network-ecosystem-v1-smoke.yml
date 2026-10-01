@@ -1,0 +1,36 @@
+name: Network Ecosystem V1 Smoke
+
+on:
+  pull_request:
+    paths:
+      - '.env.example'
+      - 'apps/api/src/payment-data-crypto.ts'
+      - 'apps/api/src/routes-network.ts'
+      - 'apps/api/src/routes-owned-payments.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/api/src/routes-ecosystem.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-center.css'
+      - 'apps/web/src/main.tsx'
+      - 'infra/postgres/028_network_and_owned_payments.sql'
+      - 'infra/postgres/029_business_operation_lineage.sql'
+      - 'infra/postgres/030_ecosystem_offers.sql'
+      - 'scripts/smoke-network-ecosystem-v1.mjs'
+      - 'docs/NEXOFFICE_ECOSYSTEM_BLUEPRINT.md'
+      - '.github/workflows/network-ecosystem-v1-smoke.yml'
+
+jobs:
+  network-ecosystem-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Build NexOffice workspaces
+        run: npm run build
+      - name: Validate Network, payment privacy and ecosystem boundaries
+        run: node scripts/smoke-network-ecosystem-v1.mjs

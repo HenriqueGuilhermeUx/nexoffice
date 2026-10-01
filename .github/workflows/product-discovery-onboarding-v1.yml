@@ -1,0 +1,30 @@
+name: Product Discovery Onboarding V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/src/ProductDiscovery.tsx'
+      - 'apps/web/src/MarketingDiscoveryBridge.tsx'
+      - 'apps/web/src/product-discovery.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-product-discovery-onboarding-v1.mjs'
+      - '.github/workflows/product-discovery-onboarding-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full monorepo
+        run: npm run build
+      - name: Validate discovery contract
+        run: node scripts/smoke-product-discovery-onboarding-v1.mjs

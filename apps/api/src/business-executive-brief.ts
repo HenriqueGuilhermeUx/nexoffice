@@ -1,5 +1,6 @@
 import {getFounderCockpit} from './business-founder-cockpit.js';
 import {getComplianceOperationalSnapshot} from './business-compliance.js';
+import {getBusinessChangeDigest} from './business-change-digest.js';
 
 type ExecutiveDecision={
   id:string;
@@ -25,7 +26,7 @@ function pickTeam(c:any){
 }
 
 export async function getExecutiveBrief(workspaceId:string){
-  const [c,compliance]=await Promise.all([getFounderCockpit(workspaceId),getComplianceOperationalSnapshot(workspaceId)]) as [any,Awaited<ReturnType<typeof getComplianceOperationalSnapshot>>];
+  const [c,compliance,whatChanged]=await Promise.all([getFounderCockpit(workspaceId),getComplianceOperationalSnapshot(workspaceId),getBusinessChangeDigest(workspaceId,24)]) as [any,Awaited<ReturnType<typeof getComplianceOperationalSnapshot>>,Awaited<ReturnType<typeof getBusinessChangeDigest>>];
   const activeItems=(c.plan?.items||[]).filter((x:any)=>!['done','cancelled','superseded'].includes(String(x.status)));
   const decisions:ExecutiveDecision[]=activeItems.slice(0,3).map((x:any)=>({
     id:String(x.id),title:String(x.title),detail:String(x.rationale||''),benefit:String(x.benefit||''),target:String(x.action_target||'task'),status:String(x.status||'suggested'),planItemId:String(x.id),taskId:x.task_id||null,dueAt:x.due_at||null,priority:Number(x.priority||0)
@@ -45,16 +46,18 @@ export async function getExecutiveBrief(workspaceId:string){
 
   const done=(c.plan?.items||[]).filter((x:any)=>x.status==='done').length;
   const total=(c.plan?.items||[]).length;
+  const decisionWord=decisions.length===1?'decisão':'decisões';
+  const decisionVerb=decisions.length===1?'merece':'merecem';
   const headline=decisions.length
-    ?`${decisions.length} decisão${decisions.length===1?'':'ões'} merece${decisions.length===1?'':'m'} sua atenção hoje.`
+    ?`${decisions.length} ${decisionWord} ${decisionVerb} sua atenção hoje.`
     :attention?.title?'Há um ponto que merece sua atenção hoje.':'Sua operação está sem urgências críticas agora.';
   const team=pickTeam(c);
 
   return{
     generatedAt:new Date().toISOString(),
-    version:'executive-30s-v1',
+    version:'executive-30s-v1.2',
     headline,
-    subheadline:'Veja o que exige decisão, um ponto de atenção e a melhor oportunidade em menos de 30 segundos.',
+    subheadline:'Veja o que exige decisão, o que mudou, o principal ponto de atenção e a melhor oportunidade — tudo em menos de 30 segundos.',
     health:c.health,
     money:c.money,
     sales:c.sales,
@@ -63,9 +66,10 @@ export async function getExecutiveBrief(workspaceId:string){
     decisions,
     attention,
     opportunity,
+    whatChanged,
     weeklyProgress:{done,total,pct:total?Math.round(done/total*100):0,summary:c.plan?.plan?.summary||null},
     digitalTeam:team,
     recentResults:(c.results||[]).slice(0,2),
-    note:'Leitura executiva baseada na operação registrada no NexOffice. Compliance aparece apenas por status agregado; dados sensíveis permanecem no produto especializado. Comparações antes/depois não provam causalidade e índices internos de risco não são expostos ao cliente.'
+    note:'Leitura executiva baseada na operação registrada no NexOffice. O bloco O que mudou usa somente metadados operacionais, referências documentais e status de backup; não inclui conteúdo bruto de documentos ou arquivos de backup. Compliance aparece apenas por status agregado; dados sensíveis permanecem no produto especializado. Comparações antes/depois não provam causalidade e índices internos de risco não são expostos ao cliente.'
   };
 }

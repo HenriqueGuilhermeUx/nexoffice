@@ -1,0 +1,40 @@
+name: DocWallet to Commercial Operation V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-docwallet-contracts.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/web/src/ContractCreator.tsx'
+      - 'apps/web/src/contract-creator.css'
+      - 'apps/web/src/main.tsx'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - 'scripts/smoke-docwallet-to-commercial-operation-v1.mjs'
+      - '.github/workflows/docwallet-to-commercial-operation-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/routes-docwallet-contracts.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/web/src/ContractCreator.tsx'
+      - 'apps/web/src/contract-creator.css'
+      - 'apps/web/src/main.tsx'
+      - 'docs/NEXOFFICE_EXECUTION_PLAN.md'
+      - 'scripts/smoke-docwallet-to-commercial-operation-v1.mjs'
+      - '.github/workflows/docwallet-to-commercial-operation-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate DocWallet to Commercial Operation contract
+        run: node scripts/smoke-docwallet-to-commercial-operation-v1.mjs

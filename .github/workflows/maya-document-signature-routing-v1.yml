@@ -1,0 +1,37 @@
+name: Maya Document Signature Routing V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-assistant.ts'
+      - 'scripts/smoke-maya-document-signature-routing-v1.mjs'
+      - '.github/workflows/maya-document-signature-routing-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate prepare-only signature routing
+        run: node scripts/smoke-maya-document-signature-routing-v1.mjs
+      - name: Guard against action or credential leakage
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -q "DOCWALLET_SERVICE_KEY" apps/api/src/routes-assistant.ts
+          ! grep -q "ICP_SIGNATURE_API_KEY" apps/api/src/routes-assistant.ts
+          ! grep -q "/v1/documents/signatures/" apps/api/src/routes-assistant.ts
+          grep -q "requestCreated:false" apps/api/src/routes-assistant.ts
+          grep -q "allowanceConsumed:false" apps/api/src/routes-assistant.ts
+          grep -q "providerCalled:false" apps/api/src/routes-assistant.ts

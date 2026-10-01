@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
+import multipart from '@fastify/multipart';
 import {db} from './db.js';
 import {runMigrations} from './migrations.js';
 import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
@@ -14,6 +15,7 @@ import {registerOpsRoutes} from './routes-ops.js';
 import {registerFinanceRoutes} from './routes-finance.js';
 import {registerFinancialIntelligenceRoutes} from './routes-financial-intelligence.js';
 import {registerBusinessIntelligenceRoutes} from './routes-business-intelligence.js';
+import {registerBusinessOnboardingRoutes} from './routes-business-onboarding.js';
 import {registerTemporalIntelligenceRoutes} from './routes-temporal-intelligence.js';
 import {registerAdminIntelligenceRoutes} from './routes-admin-intelligence.js';
 import {registerAdminBenchmarkRoutes} from './routes-admin-benchmark.js';
@@ -29,7 +31,6 @@ import {registerStatementImportRoutes} from './routes-statement-import.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
-import {registerFiscalGovernanceRoutes} from './routes-fiscal-governance.js';
 import {registerVerticalRoutes} from './routes-vertical.js';
 import {registerFlexibleRoutes} from './routes-flexible.js';
 import {registerMarketingRoutes} from './routes-marketing.js';
@@ -47,7 +48,8 @@ import {ensureWooviBillingWebhooks,registerBillingRoutes} from './routes-billing
 
 if(String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true')await runMigrations();
 
-const app=Fastify({logger:true});
+const app=Fastify({logger:true,bodyLimit:30*1024*1024});
+await app.register(multipart,{limits:{files:1,fileSize:25*1024*1024}});
 const port=Number(process.env.PORT||4000);
 const allowedOrigins=String(process.env.ALLOWED_ORIGINS||'*').split(',').map(x=>x.trim()).filter(Boolean);
 
@@ -72,7 +74,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.34.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.36.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -80,6 +82,7 @@ await registerOpsRoutes(app);
 await registerFinanceRoutes(app);
 await registerFinancialIntelligenceRoutes(app);
 await registerBusinessIntelligenceRoutes(app);
+await registerBusinessOnboardingRoutes(app);
 await registerTemporalIntelligenceRoutes(app);
 await registerAdminIntelligenceRoutes(app);
 await registerAdminBenchmarkRoutes(app);
@@ -92,7 +95,6 @@ await registerAssistantRoutes(app);
 await registerStaffRoutes(app);
 await registerSmartBotsRoutes(app);
 await registerFiscalRoutes(app);
-await registerFiscalGovernanceRoutes(app);
 await registerFlexibleRoutes(app);
 await registerVerticalRoutes(app);
 await registerMarketingRoutes(app);

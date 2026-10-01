@@ -1,0 +1,38 @@
+name: TaxAgent Commercial Sync V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/taxagent-operation-sync.ts'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'infra/postgres/029_business_operation_lineage.sql'
+      - 'scripts/smoke-taxagent-commercial-sync-v1.mjs'
+      - '.github/workflows/taxagent-commercial-sync-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/taxagent-operation-sync.ts'
+      - 'apps/api/src/routes-taxagent-operation-sync.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/api/src/routes-business-operations.ts'
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'infra/postgres/029_business_operation_lineage.sql'
+      - 'scripts/smoke-taxagent-commercial-sync-v1.mjs'
+      - '.github/workflows/taxagent-commercial-sync-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate TaxAgent commercial synchronization contract
+        run: node scripts/smoke-taxagent-commercial-sync-v1.mjs

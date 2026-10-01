@@ -1,0 +1,36 @@
+name: Network Provider Trust V1
+
+on:
+  pull_request:
+    paths:
+      - 'infra/postgres/033_provider_public_trust.sql'
+      - 'apps/api/src/routes-network-trust.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-center.css'
+      - 'scripts/smoke-network-provider-trust-v1.mjs'
+      - '.github/workflows/network-provider-trust-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/postgres/033_provider_public_trust.sql'
+      - 'apps/api/src/routes-network-trust.ts'
+      - 'apps/api/src/routes-standalone.ts'
+      - 'apps/web/src/NetworkCenter.tsx'
+      - 'apps/web/src/network-center.css'
+      - 'scripts/smoke-network-provider-trust-v1.mjs'
+      - '.github/workflows/network-provider-trust-v1.yml'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate provider evidence privacy contract
+        run: node scripts/smoke-network-provider-trust-v1.mjs
