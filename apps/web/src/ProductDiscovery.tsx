@@ -1,97 +1,115 @@
-import {useEffect,useLayoutEffect,useMemo,useState} from 'react';
-import {api,session} from './api';
+import {useEffect,useState} from 'react';
+import {api,post,put,session} from './api';
 import './product-discovery.css';
 
-type Readiness={workspace:{id:string;name:string};completionPct:number;operationalReady:boolean;metrics:{contacts:number;deals:number;tasks:number;ledgerEntries:number;members:number;connectedIntegrations:number}};
-type CapabilityGraph={summary:{total:number;ready:number;approvalRequired:number;planned:number};capabilities:Array<{id:string;label:string;provider:string;availability:string;usableNow:boolean}>};
-type BackupState={agents:Array<{id:string;status:string;lastSeenAt?:string|null}>;profiles:Array<{id:string;status:string;lastBackupAt?:string|null;verificationStatus?:string|null}>};
-type InvestmentHealth={configured:boolean;provider:string;capabilities?:string[]};
-type CapabilityState='active'|'available'|'connect'|'planned';
-type Tile={id:string;icon:string;title:string;description:string;state:CapabilityState;detail:string};
+type Source={kind:string;url?:string;status:string;label:string;fetchedAt:string};
+type Discovered={businessName?:string;legalName?:string;tradeName?:string;sector?:string;subsector?:string;city?:string;state?:string;email?:string;phone?:string;description?:string;websiteTitle?:string;productsOrServices?:string[];socialLinks?:string[];headings?:string[];registryStatus?:string;cnpj?:string};
+type OnboardingState={profile:any;onboarding:any;completed:boolean;workspace?:{id:string;name:string}};
+type Enrichment={discovered:Discovered;sources:Source[];needsConfirmation:string[];suggestions:any[];existingProfile:any};
+type Form={businessName:string;cnpj:string;website:string;instagram:string;whatsapp:string;otherLink:string};
+type Answers={businessType:string;audienceType:string;leadSources:string[];salesChannels:string[];revenueBand:string;ticketBand:string;paymentMethods:string[];invoiceUsage:string;teamSize:string;bottleneck:string;goal:string};
 
-const tour=[
-  {k:'command',eyebrow:'01 · CENTRAL DE COMANDO',title:'Este é o seu negócio agora.',text:'O NexOffice reúne prioridades, riscos, tarefas, cobranças, documentos e decisões para você não precisar descobrir onde procurar.',chips:['O que aconteceu','O que atrasou','Onde existe risco','Qual é a próxima ação']},
-  {k:'team',eyebrow:'02 · EQUIPE DIGITAL',title:'Você ganhou uma equipe que compartilha contexto.',text:'Sofia organiza. Clara acompanha oportunidades. Theo olha recebíveis. Dora cuida de documentos. Maya conecta capacidades e crescimento.',chips:['Sofia · Secretária','Clara · CRM','Theo · Financeiro','Dora · Documentos','Maya · Orquestração']},
-  {k:'knowledge',eyebrow:'03 · MEMÓRIA EMPRESARIAL',title:'Pergunte à sua própria empresa.',text:'O NexOffice consulta memória operacional e inteligência estruturada sem inventar resposta quando não encontra evidência suficiente.',chips:['O que mudou hoje?','Quem preciso cobrar?','Qual oportunidade está parada?','Que documento exige atenção?']},
-  {k:'lineage',eyebrow:'04 · OPERAÇÃO CONECTADA',title:'O trabalho deixa de quebrar entre sistemas.',text:'Cliente, venda, contrato, trabalho, fiscal, cobrança, pagamento e resultado podem continuar ligados numa mesma linha operacional.',chips:['CRM','DocWallet','TaxAgent','Cobrança','Network']},
-  {k:'memory',eyebrow:'05 · QUANTO MAIS USA, MAIS CONTEXTO EXISTE',title:'O NexOffice começa a lembrar junto com você.',text:'Briefing, inteligência, documentos, mudanças, backup e integrações transformam uso diário em contexto operacional útil.',chips:['Briefing','O que mudou?','Backup','Inteligência','Integrações']}
-];
+const initialForm:Form={businessName:'',cnpj:'',website:'',instagram:'',whatsapp:'',otherLink:''};
+const initialAnswers:Answers={businessType:'',audienceType:'',leadSources:[],salesChannels:[],revenueBand:'',ticketBand:'',paymentMethods:[],invoiceUsage:'',teamSize:'',bottleneck:'',goal:''};
+const navAliases:Record<string,string[]>={'Hoje':['Hoje','Central de Comando'],'Clientes':['Clientes','CRM'],'Financeiro':['Financeiro'],'Documentos':['Documentos'],'Operação':['Operação','Agenda & Tarefas'],'Crescimento':['Crescimento','Marketing'],'Assistentes IA':['Assistentes IA','Equipe Digital'],'Integrações':['Integrações']};
+const choiceData={
+  businessType:[['services','Serviços'],['products','Produtos'],['both','Produtos + serviços']],
+  audienceType:[['people','Pessoas'],['businesses','Empresas'],['both','Pessoas + empresas']],
+  leadSources:[['referral','Indicação'],['instagram','Instagram'],['google','Google'],['website','Site'],['whatsapp','WhatsApp'],['sales','Equipe comercial'],['store','Loja física'],['marketplace','Marketplace']],
+  salesChannels:[['whatsapp','WhatsApp'],['website','Site / e-commerce'],['sales','Vendedor'],['store','Loja física'],['meeting','Reunião / proposta']],
+  revenueBand:[['under10','Até R$ 10 mil'],['10-50','R$ 10–50 mil'],['50-200','R$ 50–200 mil'],['200-500','R$ 200–500 mil'],['500plus','Mais de R$ 500 mil'],['skip','Prefiro não informar']],
+  ticketBand:[['under100','Até R$ 100'],['100-500','R$ 100–500'],['500-2k','R$ 500–2 mil'],['2k-10k','R$ 2–10 mil'],['10kplus','Mais de R$ 10 mil'],['unknown','Não sei']],
+  paymentMethods:[['pix','Pix'],['card','Cartão'],['boleto','Boleto'],['cash','Dinheiro'],['transfer','Transferência'],['installments','Parcelado'],['recurring','Recorrente']],
+  invoiceUsage:[['always','Sim, normalmente'],['sometimes','Às vezes'],['no','Não']],
+  teamSize:[['solo','Só eu'],['2-5','2–5 pessoas'],['6-20','6–20'],['21-50','21–50'],['50plus','50+']],
+  bottleneck:[['service','Atendimento'],['sales','Vendas'],['collections','Cobrança'],['finance','Financeiro'],['agenda','Agenda / rotina'],['documents','Documentos'],['marketing','Marketing'],['team','Equipe']],
+  goal:[['sell','Vender mais'],['leads','Gerar mais leads'],['organize','Organizar o negócio'],['cash','Receber melhor'],['late','Reduzir inadimplência'],['marketing','Melhorar marketing'],['service','Automatizar atendimento']]
+} as const;
 
-function stateLabel(state:CapabilityState){return state==='active'?'Ativo':state==='available'?'Disponível':state==='connect'?'Conectar':'Em evolução'}
+function navigate(target:string){const aliases=navAliases[target]||[target];const buttons=[...document.querySelectorAll<HTMLButtonElement>('.sidebar nav button')];buttons.find(b=>aliases.some(a=>(b.textContent||'').toLowerCase().includes(a.toLowerCase())))?.click()}
+function toggle(list:string[],value:string){return list.includes(value)?list.filter(x=>x!==value):[...list,value]}
+function labels(items:readonly (readonly [string,string])[],values:string[]){return values.map(v=>items.find(([id])=>id===v)?.[1]||v)}
+function singleLabel(items:readonly (readonly [string,string])[],value:string){return items.find(([id])=>id===value)?.[1]||value}
+function Choice({items,value,onChange,multi=false}:{items:readonly (readonly [string,string])[];value:string|string[];onChange:(v:any)=>void;multi?:boolean}){const selected=Array.isArray(value)?value:[value];return <div className="businessChoices">{items.map(([id,label])=><button type="button" key={id} className={selected.includes(id)?'selected':''} onClick={()=>onChange(multi?toggle(selected,id):id)}>{label}</button>)}</div>}
 
 export default function ProductDiscovery(){
-  const workspaceId=session.workspace();
-  const authenticated=Boolean(session.token()&&workspaceId);
-  const completedKey=workspaceId?`nexoffice.discovery.completed.${workspaceId}`:'';
-  const setupDismissedKey=workspaceId?`nexoffice.setup.dismissed.${workspaceId}`:'';
-  const [readiness,setReadiness]=useState<Readiness|null>(null),[graph,setGraph]=useState<CapabilityGraph|null>(null),[backup,setBackup]=useState<BackupState|null>(null),[investment,setInvestment]=useState<InvestmentHealth|null>(null);
-  const [open,setOpen]=useState(false),[mode,setMode]=useState<'tour'|'map'>('tour'),[step,setStep]=useState(0),[busy,setBusy]=useState(false);
-  const completed=authenticated&&completedKey?localStorage.getItem(completedKey)==='1':false;
+  const workspaceId=session.workspace(),authenticated=Boolean(session.token()&&workspaceId);
+  const[open,setOpen]=useState(false),[step,setStep]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[completed,setCompleted]=useState(false);
+  const[form,setForm]=useState<Form>(initialForm),[enrichment,setEnrichment]=useState<Enrichment|null>(null),[answers,setAnswers]=useState<Answers>(initialAnswers);
+  const[reviewName,setReviewName]=useState(''),[reviewDescription,setReviewDescription]=useState(''),[reviewOfferings,setReviewOfferings]=useState('');
 
-  useLayoutEffect(()=>{
-    if(!authenticated||!workspaceId)return;
-    if(!completed&&setupDismissedKey)localStorage.setItem(setupDismissedKey,'1');
-  },[authenticated,workspaceId,completed,setupDismissedKey]);
-
-  useEffect(()=>{
-    if(!authenticated)return;
-    void load();
-    if(!completed)setOpen(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[authenticated,workspaceId]);
-
-  async function load(){setBusy(true);try{
-    const [r,g,b,i]=await Promise.all([
-      api<Readiness>('/v1/standalone/readiness').catch(()=>null),
-      api<CapabilityGraph>('/v1/capabilities').catch(()=>null),
-      api<BackupState>('/v1/security/backups').catch(()=>null),
-      api<InvestmentHealth>('/v1/investments/health').catch(()=>null)
-    ]);setReadiness(r);setGraph(g);setBackup(b);setInvestment(i);
-  }finally{setBusy(false)}}
-
-  const tiles=useMemo<Tile[]>(()=>{
-    const metrics=readiness?.metrics;
-    const graphReady=(provider:string)=>Boolean(graph?.capabilities.some(item=>item.provider===provider&&item.usableNow));
-    const docwallet=graphReady('docwallet');
-    const taxagent=graphReady('taxagent');
-    const modo=graphReady('modo');
-    const backupActive=Boolean(backup?.profiles?.some(item=>item.status==='active'));
-    return [
-      {id:'command',icon:'⌁',title:'Central de Comando',description:'Prioridades, riscos, decisões e operação num lugar só.',state:'active',detail:'Nativo do NexOffice'},
-      {id:'team',icon:'✦',title:'Equipe Digital',description:'Especialistas por função trabalhando sobre o mesmo contexto.',state:'active',detail:'Sofia, Clara, Theo, Dora e Maya'},
-      {id:'crm',icon:'◎',title:'CRM & Operação',description:'Clientes, oportunidades, tarefas e continuidade comercial.',state:(metrics?.contacts||0)>0?'active':'available',detail:(metrics?.contacts||0)>0?`${metrics?.contacts} contato(s) na base`:'Pronto para usar'},
-      {id:'finance',icon:'◫',title:'Financeiro & Cobranças',description:'Recebíveis, despesas, conciliação e inteligência financeira.',state:(metrics?.ledgerEntries||0)>0?'active':'available',detail:(metrics?.ledgerEntries||0)>0?'Já recebendo dados':'Pronto para usar'},
-      {id:'knowledge',icon:'?',title:'Pergunte à empresa',description:'Memória operacional com evidências e limites de confiança.',state:'active',detail:'Sem LLM externo no V1'},
-      {id:'documents',icon:'▤',title:'DocWallet',description:'Contratos, assinaturas, inteligência e processos documentais.',state:docwallet?'active':'connect',detail:docwallet?'Bridge disponível':'Conectar DocWallet'},
-      {id:'investments',icon:'↗',title:'Investimentos & Mercados',description:'Radar, macro, notícias e calculadoras via F-Insight.',state:investment?.configured?'active':'connect',detail:investment?.configured?'F-Insight conectado':'Conectar bridge F-Insight'},
-      {id:'fiscal',icon:'#',title:'Fiscal',description:'Readiness, emissão e lineage fiscal via TaxAgent.',state:taxagent?'active':'connect',detail:taxagent?'TaxAgent disponível':'Conectar TaxAgent'},
-      {id:'marketing',icon:'⚡',title:'Marketing & Growth',description:'Conteúdo, inteligência de mercado e prospecção via MODO.',state:modo?'active':'connect',detail:modo?'MODO disponível':'Conectar MODO'},
-      {id:'network',icon:'◇',title:'Rede de Profissionais',description:'Encontrar, contratar e acompanhar trabalho especializado.',state:'available',detail:'Network NexOffice'},
-      {id:'backup',icon:'⛨',title:'Backup Empresarial',description:'Restic local com storage do próprio cliente e verificação.',state:backupActive?'active':'available',detail:backupActive?'Backup ativo':'Configuração opcional'},
-      {id:'compliance',icon:'✓',title:'Compliance & Segurança',description:'Permissões, governança, trilhas e fronteiras de dados.',state:'active',detail:'Nativo do workspace'}
-    ];
-  },[readiness,graph,backup,investment]);
-
-  function finish(){if(!workspaceId)return;localStorage.setItem(completedKey,'1');localStorage.removeItem(setupDismissedKey);localStorage.setItem(`nexoffice.setup.reopen.${workspaceId}`,'1');setOpen(false);window.location.reload()}
+  useEffect(()=>{if(!authenticated)return;void load()},[authenticated,workspaceId]);
+  async function load(){try{
+    const state=await api<OnboardingState>('/v1/onboarding/business');
+    const meta=state.profile?.metadata||{},identity=meta.identity||{},digital=meta.digital||{},contact=meta.contact||{},registry=meta.registry||{},offer=meta.offer||{},commercial=meta.commercial||{},finance=meta.finance||{},fiscal=meta.fiscal||{},operations=meta.operations||{},discovery=meta.discovery||{},onboarding=meta.onboarding||{};
+    const businessName=String(identity.businessName||state.workspace?.name||'');
+    const savedOfferings=Array.isArray(offer.mainOfferings)?offer.mainOfferings.map(String).filter(Boolean):[];
+    const savedSocial=Array.isArray(digital.discoveredSocialLinks)?digital.discoveredSocialLinks.map(String).filter(Boolean):[];
+    setCompleted(Boolean(state.completed));
+    setForm({businessName,cnpj:String(identity.cnpj||''),website:String(digital.website||''),instagram:String(digital.instagram||''),whatsapp:String(contact.whatsapp||''),otherLink:String((digital.otherLinks||[])[0]||'')});
+    setReviewName(businessName);setReviewDescription(String(offer.description||state.profile?.notes||''));setReviewOfferings(savedOfferings.join('\n'));
+    setAnswers({
+      businessType:String(offer.businessType||''),audienceType:String(offer.audienceType||''),
+      leadSources:Array.isArray(commercial.leadSources)?commercial.leadSources.map(String):[],salesChannels:Array.isArray(commercial.salesChannels)?commercial.salesChannels.map(String):[],
+      revenueBand:String(finance.revenueBand||''),ticketBand:String(commercial.ticketBand||''),paymentMethods:Array.isArray(finance.paymentMethods)?finance.paymentMethods.map(String):[],
+      invoiceUsage:String(fiscal.invoiceUsage||''),teamSize:String(operations.teamSizeBand||''),bottleneck:String(operations.biggestBottleneck||state.profile?.main_dependency||''),goal:String(commercial.primaryGoal||onboarding.primaryGoal||'')
+    });
+    if(state.completed||Object.keys(meta).length)setEnrichment({discovered:{businessName,legalName:String(identity.legalName||'')||undefined,tradeName:String(identity.tradeName||'')||undefined,sector:String(registry.mainActivity||state.profile?.sector||'')||undefined,subsector:String(registry.secondaryActivity||state.profile?.subsector||'')||undefined,city:String(registry.city||'')||undefined,state:String(registry.state||'')||undefined,email:String(contact.email||'')||undefined,phone:String(contact.phone||contact.whatsapp||'')||undefined,description:String(offer.description||'')||undefined,productsOrServices:savedOfferings,socialLinks:savedSocial,registryStatus:String(registry.status||'')||undefined,cnpj:String(identity.cnpj||'')||undefined},sources:Array.isArray(discovery.sources)?discovery.sources:[],needsConfirmation:Array.isArray(discovery.needsConfirmation)?discovery.needsConfirmation:[],suggestions:[],existingProfile:state.profile});
+    if(!state.completed)setOpen(true);
+  }catch{setOpen(true)}}
+  async function discover(){setBusy(true);setError('');try{const instagram=form.instagram.trim()?(form.instagram.includes('://')||form.instagram.includes('instagram.com')?form.instagram:`https://instagram.com/${form.instagram.replace(/^@/,'')}`):'';const result=await post<Enrichment>('/v1/onboarding/business/enrich',{businessName:form.businessName,cnpj:form.cnpj,website:form.website||null,instagram:instagram||null,whatsapp:form.whatsapp,socialUrls:form.otherLink?[form.otherLink]:[]});setEnrichment(result);const d=result.discovered;setReviewName(d.businessName||form.businessName);setReviewDescription(d.description||reviewDescription||'');setReviewOfferings((d.productsOrServices?.length?d.productsOrServices:reviewOfferings.split('\n')).slice(0,8).join('\n'));setStep(1)}catch(e:any){setError(e?.message||'Não consegui pesquisar seu negócio agora. Você pode continuar preenchendo manualmente.')}finally{setBusy(false)}}
+  function nextFromReview(){setStep(2)}
+  async function finishProfile(){setBusy(true);setError('');try{const d=enrichment?.discovered||{},offerings=reviewOfferings.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,12);const instagram=form.instagram.trim()?(form.instagram.includes('://')||form.instagram.includes('instagram.com')?form.instagram:`https://instagram.com/${form.instagram.replace(/^@/,'')}`):'';const metadata={
+    identity:{businessName:reviewName||form.businessName,cnpj:form.cnpj||null,hasCnpj:Boolean(form.cnpj),legalName:d.legalName||null,tradeName:d.tradeName||null},
+    digital:{website:form.website||null,instagram:instagram||null,otherLinks:form.otherLink?[form.otherLink]:[],discoveredSocialLinks:d.socialLinks||[]},
+    contact:{whatsapp:form.whatsapp||null,phone:d.phone||null,email:d.email||null},
+    registry:{mainActivity:d.sector||null,secondaryActivity:d.subsector||null,city:d.city||null,state:d.state||null,status:d.registryStatus||null},
+    offer:{description:reviewDescription||null,mainOfferings:offerings,audienceType:answers.audienceType||null,businessType:answers.businessType||null},
+    commercial:{leadSources:answers.leadSources,salesChannels:answers.salesChannels,ticketBand:answers.ticketBand||null,primaryGoal:answers.goal||null},
+    finance:{revenueBand:answers.revenueBand||null,paymentMethods:answers.paymentMethods},
+    fiscal:{invoiceUsage:answers.invoiceUsage||null},
+    operations:{teamSizeBand:answers.teamSize||null,biggestBottleneck:answers.bottleneck||null},
+    discovery:{sources:enrichment?.sources||[],needsConfirmation:enrichment?.needsConfirmation||[],lastEnrichedAt:new Date().toISOString(),provenance:{cnpj:form.cnpj?'client_reported':null,website:form.website?'client_reported':null,instagram:form.instagram?'client_reported':null,registry:form.cnpj?'public_registry':null,publicDescription:reviewDescription?'public_source_confirmed':null,mainOfferings:offerings.length?'confirmed_by_client':null}},
+    onboarding:{version:'business-v1',primaryGoal:answers.goal||null}
+  };
+  await put('/v1/onboarding/business/confirm',{sector:d.sector||undefined,subsector:d.subsector||undefined,revenueModel:answers.paymentMethods.includes('recurring')?'recurring':'mixed',sellsProducts:['products','both'].includes(answers.businessType),sellsServices:['services','both'].includes(answers.businessType),recurringRevenue:answers.paymentMethods.includes('recurring'),primarySalesChannel:answers.salesChannels[0]||null,mainDependency:answers.bottleneck||null,notes:reviewDescription||null,metadata,complete:true});setCompleted(true);setStep(3)}catch(e:any){setError(e?.message||'Não consegui salvar o perfil do seu negócio.')}finally{setBusy(false)}}
+  function launch(id:string){const business=reviewName||form.businessName||'meu negócio',offerings=reviewOfferings.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,4).join(', '),goal=singleLabel(choiceData.goal,answers.goal);setOpen(false);sessionStorage.removeItem('nexoffice.quickAction');if(id==='bot'||id==='bot-crm'||id==='campaign'){
+    const role=id==='bot'?'secretary':id==='bot-crm'?'crm':'growth';const prompt=id==='bot'?`Quero criar um Bot para ${business}. Você já conhece o perfil do meu negócio${offerings?`, incluindo: ${offerings}`:''}. Meu objetivo principal é ${goal||'melhorar o atendimento'}. Use o que já sabe e me pergunte apenas o que faltar para colocar o Bot no ar.`:id==='bot-crm'?`Quero colocar Bot + CRM no ar para ${business}. Use o perfil do negócio, nossos canais, oferta e objetivo já cadastrados e estruture captação, qualificação, CRM e follow-up.`:`Quero preparar marketing para ${business}. Use o perfil, ofertas, público, canais e objetivo já confirmados no onboarding para sugerir a primeira campanha e conteúdos.`;sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id,label:id==='bot'?'Criar meu Bot':id==='bot-crm'?'Bot + CRM':'Preparar marketing',role,prompt,createdAt:new Date().toISOString()}));navigate('Assistentes IA');return}
+    if(id==='charge'){sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id:'charge',label:'Criar cobrança',target:'Financeiro',createdAt:new Date().toISOString()}));navigate('Financeiro');return}if(id==='fiscal'){sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id:'invoice',label:'Emitir nota fiscal',target:'Financeiro',createdAt:new Date().toISOString()}));navigate('Financeiro');return}if(id==='day'){navigate('Operação');return}navigate('Hoje')}
   if(!authenticated)return null;
-  const current=tour[step];
-
+  const d=enrichment?.discovered||{},offerings=reviewOfferings.split('\n').filter(Boolean),hasDigital=Boolean(form.website||form.instagram||d.socialLinks?.length||enrichment?.sources?.some(s=>s.status==='ok'&&(s.kind==='public_search'||s.kind==='website'||s.kind==='social')));
+  const prepared=[
+    form.whatsapp&&{id:'bot',title:'Criar seu Bot',text:'Atendimento e captação já usando o contexto do seu negócio.'},
+    form.whatsapp&&{id:'bot-crm',title:'Bot + CRM',text:'Transformar conversas em contatos e oportunidades acompanháveis.'},
+    hasDigital&&{id:'campaign',title:'Preparar marketing',text:'Conteúdo e campanha partindo da sua oferta e presença digital.'},
+    {id:'charge',title:'Organizar cobranças',text:`Acompanhar recebimentos${answers.paymentMethods.length?` por ${labels(choiceData.paymentMethods,answers.paymentMethods).slice(0,3).join(', ')}`:''}.`},
+    answers.invoiceUsage&&answers.invoiceUsage!=='no'&&{id:'fiscal',title:'Configurar notas',text:'Preparar o fiscal para emitir com revisão e aprovação.'},
+    {id:'day',title:'Organizar sua rotina',text:'Agenda, tarefas e prioridades com o mesmo contexto.'}
+  ].filter(Boolean) as Array<{id:string;title:string;text:string}>;
   return <>
-    <button className="productDiscoveryFab" onClick={()=>{setMode('map');setOpen(true);void load()}}>✨ <span>Descobrir o NexOffice</span></button>
-    {open&&<div className="productDiscoveryOverlay" onMouseDown={e=>{if(e.target===e.currentTarget&&completed)setOpen(false)}}>
-      <section className="productDiscoveryShell">
-        <header><div><small>NEXOFFICE · DESCOBERTA</small><h2>{mode==='tour'?'Conheça seu NexOffice':'Mapa de Capacidades'}</h2><p>{readiness?.workspace?.name||'Seu workspace'} · {busy?'atualizando…':mode==='tour'?`${step+1} de ${tour.length}`:`${tiles.filter(t=>t.state==='active').length} capacidades ativas`}</p></div>{completed&&<button onClick={()=>setOpen(false)}>×</button>}</header>
-        {mode==='tour'?<div className="productTour">
-          <div className="productTourProgress">{tour.map((item,index)=><i key={item.k} className={index<=step?'active':''}/>)}</div>
-          <div className="productTourCard"><p>{current.eyebrow}</p><h3>{current.title}</h3><span>{current.text}</span><div>{current.chips.map(item=><b key={item}>{item}</b>)}</div></div>
-          <footer><button className="secondary" disabled={step===0} onClick={()=>setStep(v=>Math.max(0,v-1))}>← Voltar</button><button className="secondary" onClick={()=>setMode('map')}>Ver mapa completo</button>{step<tour.length-1?<button className="primary" onClick={()=>setStep(v=>v+1)}>Continuar →</button>:<button className="primary" onClick={finish}>Agora vamos configurar →</button>}</footer>
-        </div>:<div className="productCapabilityMap">
-          <div className="productMapIntro"><div><p>SEU NEXOFFICE</p><h3>Você não precisa ativar tudo de uma vez.</h3><span>O núcleo já funciona sozinho. As capacidades especializadas aparecem conforme fazem sentido para sua empresa.</span></div><div className="productMapStats"><b>{tiles.filter(t=>t.state==='active').length}</b><span>ativas agora</span><b>{tiles.filter(t=>t.state==='available').length}</b><span>prontas para usar</span></div></div>
-          <div className="productMapGrid">{tiles.map(tile=><article key={tile.id} className={tile.state}><div><i>{tile.icon}</i><em>{stateLabel(tile.state)}</em></div><h4>{tile.title}</h4><p>{tile.description}</p><small>{tile.detail}</small></article>)}</div>
-          <div className="productMapLegend"><span><i className="active"/>Ativo</span><span><i className="available"/>Disponível</span><span><i className="connect"/>Precisa conectar</span><span><i className="planned"/>Em evolução</span></div>
-          <footer>{!completed&&<button className="secondary" onClick={()=>setMode('tour')}>← Voltar ao tour</button>}<button className="primary" onClick={()=>completed?setOpen(false):finish()}>{completed?'Fechar mapa':'Configurar meu NexOffice →'}</button></footer>
-        </div>}
-      </section>
-    </div>}
-  </>;
+    <button className="productDiscoveryFab" onClick={()=>{setStep(completed?3:0);setOpen(true)}}><span>✦</span> Perfil do Negócio</button>
+    {open&&<div className="productDiscoveryOverlay" onMouseDown={e=>{if(e.target===e.currentTarget&&completed)setOpen(false)}}><section className="businessOnboarding">
+      <header className="businessOnboardingHeader"><div><small>NEXOFFICE · SEU NEGÓCIO</small><h2>{step===0?'Vamos conhecer seu negócio.':step===1?'Olha o que encontrei.':step===2?'Só falta o que ninguém consegue adivinhar.':'Seu NexOffice já pode começar ajudando.'}</h2><p>{step===0?'Você dá algumas pistas. Eu pesquiso o que for público e depois peço só o que faltar.':step===1?'Nada inferido vira verdade sem sua confirmação. Corrija o que precisar.':step===2?'Respostas rápidas para adaptar financeiro, CRM, Bot, fiscal, marketing e sua equipe de IA.':'Com esse contexto, seus assistentes e áreas já começam sabendo como seu negócio funciona.'}</p></div>{completed&&<button className="close" onClick={()=>setOpen(false)}>×</button>}</header>
+      <div className="businessProgress">{[0,1,2,3].map(i=><i key={i} className={i<=step?'active':''}/>)}</div>
+      {step===0&&<div className="businessStep"><div className="businessPromise"><b>Pouco para preencher. Muito para descobrir.</b><span>CNPJ é opcional. Site também. Profissionais, creators, autônomos e negócios informais entram normalmente.</span></div><div className="businessFormGrid">
+        <label><span>Como seu negócio é conhecido?</span><input value={form.businessName} onChange={e=>setForm({...form,businessName:e.target.value})} placeholder="Nome, marca ou seu próprio nome"/></label>
+        <label><span>CNPJ <em>opcional</em></span><input value={form.cnpj} onChange={e=>setForm({...form,cnpj:e.target.value})} placeholder="Se tiver, eu consulto a atividade pública"/></label>
+        <label><span>Site <em>opcional</em></span><input value={form.website} onChange={e=>setForm({...form,website:e.target.value})} placeholder="seunegocio.com.br"/></label>
+        <label><span>Instagram <em>opcional</em></span><input value={form.instagram} onChange={e=>setForm({...form,instagram:e.target.value})} placeholder="@perfil ou URL"/></label>
+        <label><span>WhatsApp / telefone</span><input value={form.whatsapp} onChange={e=>setForm({...form,whatsapp:e.target.value})} placeholder="Canal principal de contato"/></label>
+        <label><span>Outro link público <em>opcional</em></span><input value={form.otherLink} onChange={e=>setForm({...form,otherLink:e.target.value})} placeholder="LinkedIn, TikTok, YouTube, X…"/></label>
+      </div><div className="businessPrivacy"><span>✓</span><p>Eu uso apenas fontes públicas e o que você informar. Não publico nada, não enviarei mensagens e vou pedir confirmação antes de assumir inferências.</p></div><footer><span/><button className="primary" onClick={()=>void discover()} disabled={busy||!form.businessName.trim()}>{busy?'Conhecendo seu negócio…':'Conhecer meu negócio →'}</button></footer></div>}
+      {step===1&&<div className="businessStep"><div className="sourceStrip">{enrichment?.sources?.length?enrichment.sources.map((s,i)=><span key={`${s.kind}-${i}`} className={s.status==='ok'?'ok':'muted'}>{s.status==='ok'?'✓':'○'} {s.label}</span>):<span className="muted">Você não informou fontes públicas; vamos montar o perfil com suas respostas.</span>}</div><div className="discoveryGrid">
+        <label><span>Nome do negócio</span><input value={reviewName} onChange={e=>setReviewName(e.target.value)}/><small>{d.legalName&&d.legalName!==reviewName?`Cadastro público: ${d.legalName}`:'Confirme como quer ser chamado dentro do NexOffice.'}</small></label>
+        <div className="discoveryFacts"><span>ATIVIDADE / LOCAL</span><b>{d.sector||'Ainda não identificado'}</b><small>{[d.city,d.state].filter(Boolean).join(' · ')||'Você pode seguir sem CNPJ.'}</small>{d.registryStatus&&<em>{d.registryStatus}</em>}</div>
+        <label className="wide"><span>Como você descreve seu negócio?</span><textarea rows={3} value={reviewDescription} onChange={e=>setReviewDescription(e.target.value)} placeholder="Em uma frase: o que você faz e para quem?"/><small>{d.description?'Encontrei esta descrição em uma fonte pública. Ajuste se quiser.':'Não consegui extrair uma descrição confiável. Conte em uma frase.'}</small></label>
+        <label className="wide"><span>Produtos e serviços que encontrei <em>um por linha</em></span><textarea rows={6} value={reviewOfferings} onChange={e=>setReviewOfferings(e.target.value)} placeholder="Ex.: Consultoria\nPlano mensal\nCurso online"/><small>{offerings.length?`${offerings.length} sinal(is) encontrados. Apague menus ou textos que não sejam uma oferta real.`:'Não encontrei ofertas com segurança. Adicione as principais.'}</small></label>
+      </div>{d.socialLinks?.length?<div className="foundLinks"><b>Também encontrei</b>{d.socialLinks.slice(0,6).map(url=><span key={url}>{url.replace(/^https?:\/\/(www\.)?/,'').slice(0,70)}</span>)}</div>:null}<footer><button className="secondary" onClick={()=>setStep(0)}>← Corrigir pistas</button><button className="primary" onClick={nextFromReview}>Está certo. Continuar →</button></footer></div>}
+      {step===2&&<div className="businessStep businessQuestions"><Question title="O que você vende?" hint="Isso muda CRM, financeiro, fiscal e o tipo de Bot."><Choice items={choiceData.businessType} value={answers.businessType} onChange={v=>setAnswers({...answers,businessType:v})}/></Question><Question title="Quem normalmente compra de você?"><Choice items={choiceData.audienceType} value={answers.audienceType} onChange={v=>setAnswers({...answers,audienceType:v})}/></Question><Question title="Como novos clientes chegam hoje?" hint="Pode marcar vários."><Choice multi items={choiceData.leadSources} value={answers.leadSources} onChange={v=>setAnswers({...answers,leadSources:v})}/></Question><Question title="Como você vende?" hint="Pode marcar vários."><Choice multi items={choiceData.salesChannels} value={answers.salesChannels} onChange={v=>setAnswers({...answers,salesChannels:v})}/></Question><Question title="Faturamento mensal aproximado" hint="Faixas são suficientes; isso ajuda o financeiro a falar sua língua."><Choice items={choiceData.revenueBand} value={answers.revenueBand} onChange={v=>setAnswers({...answers,revenueBand:v})}/></Question><Question title="Ticket médio aproximado"><Choice items={choiceData.ticketBand} value={answers.ticketBand} onChange={v=>setAnswers({...answers,ticketBand:v})}/></Question><Question title="Como seus clientes pagam?" hint="Pode marcar vários."><Choice multi items={choiceData.paymentMethods} value={answers.paymentMethods} onChange={v=>setAnswers({...answers,paymentMethods:v})}/></Question><Question title="Você costuma emitir nota fiscal?"><Choice items={choiceData.invoiceUsage} value={answers.invoiceUsage} onChange={v=>setAnswers({...answers,invoiceUsage:v})}/></Question><Question title="Quantas pessoas tocam o negócio?"><Choice items={choiceData.teamSize} value={answers.teamSize} onChange={v=>setAnswers({...answers,teamSize:v})}/></Question><Question title="O que mais toma seu tempo hoje?"><Choice items={choiceData.bottleneck} value={answers.bottleneck} onChange={v=>setAnswers({...answers,bottleneck:v})}/></Question><Question title="Se o NexOffice ajudar muito em uma coisa nos próximos 90 dias…"><Choice items={choiceData.goal} value={answers.goal} onChange={v=>setAnswers({...answers,goal:v})}/></Question><footer><button className="secondary" onClick={()=>setStep(1)}>← Voltar</button><button className="primary" disabled={busy||!answers.businessType||!answers.goal} onClick={()=>void finishProfile()}>{busy?'Preparando seu NexOffice…':'Preparar meu NexOffice →'}</button></footer></div>}
+      {step===3&&<div className="businessStep businessReady"><div className="businessReadyHero"><span>✓</span><div><small>PERFIL DO NEGÓCIO PRONTO</small><h3>{reviewName||form.businessName||'Seu negócio'} já tem contexto dentro do NexOffice.</h3><p>Agora Bot, CRM, financeiro, fiscal, marketing e seus assistentes podem partir do que você confirmou — sem ficar perguntando tudo de novo.</p></div></div><div className="preparedGrid">{prepared.map(card=><button key={card.id} onClick={()=>launch(card.id)}><span>→</span><b>{card.title}</b><small>{card.text}</small></button>)}</div><div className="knownSummary"><b>O NexOffice já sabe</b><span>{offerings.length?`${offerings.length} oferta(s) principal(is)`:'sua proposta básica'}</span><span>{answers.audienceType?`quem compra: ${singleLabel(choiceData.audienceType,answers.audienceType)}`:'seu público será refinado com o uso'}</span><span>{answers.paymentMethods.length?`como recebe: ${labels(choiceData.paymentMethods,answers.paymentMethods).join(', ')}`:'formas de recebimento a completar'}</span><span>{answers.goal?`objetivo: ${singleLabel(choiceData.goal,answers.goal)}`:'objetivo a completar'}</span></div><footer><button className="secondary" onClick={()=>setStep(0)}>Revisar perfil</button><button className="primary" onClick={()=>{setOpen(false);navigate('Hoje')}}>Ir para meu NexOffice →</button></footer></div>}
+      {error&&<div className="businessError">{error}</div>}
+    </section></div>}
+  </>
 }
+
+function Question({title,hint,children}:{title:string;hint?:string;children:any}){return <section className="businessQuestion"><div><b>{title}</b>{hint&&<small>{hint}</small>}</div>{children}</section>}

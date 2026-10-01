@@ -1,0 +1,78 @@
+.nexoLegacyFloater{display:none!important}
+.nexoCleanShell [class*="Launcher"],.nexoCleanShell [class*="launcher"],.nexoCleanShell .opsLauncher,.nexoCleanShell .investmentLauncher,.nexoCleanShell .compliance-dock-launcher{display:none!important}
+
+.nexoCleanShell .shell{grid-template-columns:224px minmax(0,1fr)}
+.nexoCleanShell .sidebar{padding:18px 12px;border-right:1px solid rgba(135,164,198,.12);background:linear-gradient(180deg,#091522 0%,#07111f 62%,#06101d 100%);overflow-y:auto;overflow-x:hidden}
+.nexoCleanShell .brand{padding:4px 8px 20px;gap:11px}
+.nexoCleanShell .brandMark{width:34px;height:34px;border-radius:11px}
+.nexoCleanShell .brand strong{font-size:16px;letter-spacing:-.02em}
+.nexoCleanShell .brand small{font-size:9px;max-width:135px;line-height:1.25}
+.nexoCleanShell .sidebar nav{gap:3px;padding-bottom:10px}
+.nexoCleanShell .sidebar nav button{min-height:40px;padding:9px 11px;border-radius:10px;color:#879ab1;font-size:13px;font-weight:650;gap:10px;transition:background .15s ease,color .15s ease,transform .15s ease}
+.nexoCleanShell .sidebar nav button span{width:18px;text-align:center;color:#647b94}
+.nexoCleanShell .sidebar nav button:hover{background:rgba(255,255,255,.045);color:#dce7f4;transform:translateX(1px)}
+.nexoCleanShell .sidebar nav button.active{background:linear-gradient(90deg,rgba(74,214,193,.12),rgba(83,123,255,.055));box-shadow:inset 2px 0 #56d8c3;color:#f2f7fb}
+.nexoCleanShell .sidebar nav button.active span{color:#67dfcb}
+.nexoCleanShell .sideFoot{padding:10px 9px;color:#526981;font-size:10px}
+
+.nexoCleanShell .topbar{min-height:70px;padding:14px 28px;border-bottom:1px solid rgba(133,162,198,.11);background:rgba(7,17,31,.86);gap:12px}
+.nexoCleanShell .topbar>div:first-child{min-width:118px}
+.nexoCleanShell .topbar>div:first-child .eyebrow,.nexoCleanShell .topbar>div:first-child>p:last-child{display:none!important}
+.nexoCleanShell .topbar h1{font-size:20px;margin:0;white-space:nowrap}
+.nexoCleanShell .topActions{order:2;gap:8px}
+.nexoCleanShell .topActions select{height:40px;padding:8px 10px;border-radius:11px;background:#0b1929;border-color:#213650;font-size:12px;max-width:170px}
+.nexoCleanShell .userChip{min-width:90px}
+.nexoCleanShell .userChip b{font-size:12px}
+.nexoCleanShell .userChip small{font-size:10px}
+.nexoCleanShell .topActions .ghost{height:38px;padding:7px 10px;border-radius:10px;font-size:11px;color:#8da0b8}
+.nexoCleanShell .content{padding:24px 30px 52px;overflow-x:hidden}
+
+.nexoGlobalSearch{order:1;flex:1;min-width:240px;max-width:640px;margin:0 auto;height:42px;border:1px solid rgba(145,170,205,.16);border-radius:12px;background:rgba(255,255,255,.035);color:#8195ad;display:flex;align-items:center;gap:10px;padding:0 12px;cursor:pointer;text-align:left;box-shadow:inset 0 1px rgba(255,255,255,.02)}
+.nexoGlobalSearch:hover{border-color:rgba(77,226,202,.36);background:rgba(255,255,255,.055);color:#aabbd0}
+.nexoGlobalSearch>span:first-child{font-size:17px;color:#67dcca}
+.nexoGlobalSearch>span:nth-child(2){flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.nexoGlobalSearch kbd,.nexoSearchPanel kbd{font:700 10px/1 system-ui;padding:5px 7px;border-radius:7px;background:#102035;border:1px solid #243b57;color:#7f94ad}
+
+.nexoSearchOverlay{position:fixed;inset:0;z-index:99999;background:rgba(3,10,20,.72);backdrop-filter:blur(10px);display:grid;place-items:start center;padding-top:12vh}
+.nexoSearchPanel{width:min(680px,calc(100vw - 32px));border:1px solid #233a54;background:#091624;border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.5);overflow:hidden;color:#dce8f6}
+.nexoSearchPanel header{display:flex;align-items:center;gap:12px;padding:15px 16px;border-bottom:1px solid #1b3047}
+.nexoSearchPanel header>span{color:#68dfcc}
+.nexoSearchPanel input{flex:1;background:transparent;border:0;outline:0;font-size:16px;color:#fff}
+.nexoSearchResults{padding:8px;max-height:54vh;overflow:auto}
+.nexoSearchResults>button{width:100%;display:flex;align-items:center;gap:12px;padding:11px 12px;background:transparent;border:0;color:#d9e6f5;border-radius:11px;text-align:left;cursor:pointer}
+.nexoSearchResults>button:hover{background:#0f2134}
+.nexoSearchIcon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#10263a;color:#62e2cf}
+.nexoSearchResults button>span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:2px}
+.nexoSearchResults b{font-size:13px}.nexoSearchResults small{font-size:10px;color:#7e93ac}.nexoSearchResults em{font-style:normal;color:#566d86}
+.nexoSearchResults p{padding:22px;color:#8398b2}
+.nexoSearchPanel footer{padding:10px 14px;border-top:1px solid #1b3047;color:#5f758e;font-size:10px}
+
+.financePixSlot{scroll-margin-top:20px;margin:0 0 18px;padding:0;position:relative;z-index:1}
+.financePixSlot:empty{display:none}
+.financePixSlot .financeReceivingCard{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;border:1px solid rgba(71,224,197,.24);background:linear-gradient(135deg,rgba(56,207,182,.075),rgba(60,125,255,.045));border-radius:15px;padding:14px 16px;position:relative!important;inset:auto!important;transform:none!important;width:auto!important;max-width:none!important;margin:0!important;box-shadow:none!important}
+.financePixSlot .financeReceivingCard h3{margin:0 0 3px;font-size:15px}.financePixSlot .financeReceivingCard p{margin:0;color:#8197b1;font-size:11px}.financePixSlot .financeReceivingCard>button{white-space:nowrap}
+
+.nexoProBanner{position:relative!important}.nexoProClose{position:absolute!important;right:8px!important;top:6px!important;width:28px!important;height:28px!important;padding:0!important;border:0!important;border-radius:50%!important;background:rgba(0,0,0,.08)!important;color:#263546!important;font-size:18px!important;line-height:1!important;z-index:3!important}
+
+@media(max-width:1100px) and (min-width:761px){
+  .nexoCleanShell .shell{grid-template-columns:84px minmax(0,1fr)}
+  .nexoCleanShell .brand>div:last-child{display:none}
+  .nexoCleanShell .brand{justify-content:center}
+  .nexoCleanShell .sidebar nav button{justify-content:center;font-size:0;padding:10px}
+  .nexoCleanShell .sidebar nav button span{font-size:16px;width:auto}
+  .nexoCleanShell .sideFoot{font-size:0;justify-content:center}
+  .nexoGlobalSearch{max-width:none;margin:0 6px}
+  .nexoCleanShell .userChip{display:none}
+}
+
+@media(max-width:760px){
+  .nexoCleanShell .topbar{padding:14px 16px;flex-wrap:wrap;position:sticky;top:0}
+  .nexoCleanShell .topbar>div:first-child{min-width:auto}
+  .nexoCleanShell .topbar h1{font-size:18px}
+  .nexoGlobalSearch{order:3;max-width:none;width:100%;margin:0;height:40px}
+  .nexoCleanShell .topActions{margin-left:auto}
+  .nexoCleanShell .topActions select{max-width:120px}
+  .nexoCleanShell .content{padding:16px 16px 92px}
+  .financePixSlot .financeReceivingCard{grid-template-columns:auto 1fr}
+  .financePixSlot .financeReceivingCard>button{grid-column:1/-1;width:100%}
+}
