@@ -1,0 +1,27 @@
+name: TaxAgent Homologation Console V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/src/BusinessOperationCenter.tsx'
+      - 'apps/web/src/FiscalHomologationConsole.tsx'
+      - 'apps/web/src/fiscal-homologation-console.css'
+      - 'apps/api/src/routes-taxagent-homologation.ts'
+      - 'infra/postgres/035_taxagent_homologation_matrix.sql'
+      - 'scripts/smoke-taxagent-homologation-console-v1.mjs'
+      - '.github/workflows/taxagent-homologation-console-v1.yml'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate TaxAgent homologation console contract
+        run: node scripts/smoke-taxagent-homologation-console-v1.mjs

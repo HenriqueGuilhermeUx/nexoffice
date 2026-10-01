@@ -1,0 +1,32 @@
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8');
+const must=(v,l)=>{if(!v)throw new Error(`TaxAgent homologation console contract failed: ${l}`)};
+const has=(t,v,l)=>must(t.includes(v),l||`missing ${v}`);
+const lacks=(t,v,l)=>must(!t.includes(v),l||`unexpected ${v}`);
+const consoleUi=read('apps/web/src/FiscalHomologationConsole.tsx');
+const operationUi=read('apps/web/src/BusinessOperationCenter.tsx');
+const css=read('apps/web/src/fiscal-homologation-console.css');
+
+has(operationUi,"import FiscalHomologationConsole from './FiscalHomologationConsole'",'commercial operation imports homologation console');
+has(operationUi,'Homologação fiscal','homologation console is exposed from commercial operations');
+has(operationUi,'<FiscalHomologationConsole','homologation console is rendered natively');
+
+has(consoleUi,"api<MatrixResponse>('/v1/fiscal/homologation/cases')",'console reads homologation matrix');
+has(consoleUi,"post('/v1/fiscal/homologation/cases'",'console can create manual homologation cases');
+has(consoleUi,"patch(`/v1/fiscal/homologation/cases/${resultCase.id}/result`",'console can record manual results');
+has(consoleUi,'executionAvailable=false','console displays execution disabled policy');
+has(consoleUi,'productionEnabled=false','console displays production disabled policy');
+has(consoleUi,'manualEvidenceOnly=true','console displays manual evidence policy');
+has(consoleUi,'Adicionar um caso não prepara nem emite nota.','case creation explicitly has no fiscal effect');
+has(consoleUi,'Ele não executa TaxAgent.','manual result explicitly has no TaxAgent execution');
+has(consoleUi,'IM não aplicável','console supports non-applicable municipal registration context');
+has(consoleUi,'Access key segura','safe fiscal references are explicitly narrow');
+lacks(consoleUi,'prepare-invoice','console never prepares an invoice');
+lacks(consoleUi,'sync-invoice','console never synchronizes or executes invoice flow');
+lacks(consoleUi,'NEXOFFICE_EXTERNAL_ACTIONS','console never controls production external-action gate');
+lacks(consoleUi,'pixKey','console never reads or displays Pix secrets');
+lacks(consoleUi,'credential','console never reads TaxAgent credentials');
+lacks(consoleUi,'workspace_members','console never grants workspace access');
+has(css,'.fhcPolicy','console safety policy is visually distinct');
+has(css,'.fhcStatus.passed','console exposes homologation result status styling');
+console.log('NexOffice TaxAgent Homologation Console V1 contract OK');

@@ -1,0 +1,41 @@
+name: Maya Document Handoff V1
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/src/DigitalTeamConsole.tsx'
+      - 'apps/web/src/AssistantNavigationBridge.tsx'
+      - 'apps/web/src/DocumentWorkspaceCenter.tsx'
+      - 'apps/web/src/document-workspace-center.css'
+      - 'apps/web/src/digital-team-console.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/smoke-maya-document-handoff-v1.mjs'
+      - '.github/workflows/maya-document-handoff-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build full NexOffice workspace
+        run: npm run build
+      - name: Validate Maya to Documents handoff contract
+        run: node scripts/smoke-maya-document-handoff-v1.mjs
+      - name: Guard against signature side effects in handoff layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -q "/v1/documents/.*/signatures" apps/web/src/DigitalTeamConsole.tsx
+          ! grep -q "DOCWALLET_SERVICE_KEY" apps/web/src/DigitalTeamConsole.tsx apps/web/src/AssistantNavigationBridge.tsx
+          grep -q "humanConfirmationRequired:true" apps/web/src/DigitalTeamConsole.tsx
+          grep -q "externalEffect:false" apps/web/src/DigitalTeamConsole.tsx
+          grep -q "ainda não foi selecionado nem enviado" apps/web/src/DocumentWorkspaceCenter.tsx

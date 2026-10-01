@@ -1,47 +1,59 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import OperationsDock from './OperationsDock';
-import FiscalCenterV2Portal from './FiscalCenterV2Portal';
-import DailyOpsPulse from './DailyOpsPulse';
-import CommandCenterOverview from './CommandCenterOverview';
-import ExecutiveBriefing from './ExecutiveBriefing';
-import FounderCockpit from './FounderCockpit';
-import ActivationJourneyTracker from './ActivationJourneyTracker';
-import DigitalTeamConsole from './DigitalTeamConsole';
-import IntegrationSetupCenter from './IntegrationSetupCenter';
-import DocumentIntelligenceCenter from './DocumentIntelligenceCenter';
-import DocWalletConnectBridge from './DocWalletConnectBridge';
-import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
+import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
-import BillingCenter from './BillingCenter';
-import MarketingLanding from './MarketingLanding';
-import BusinessExtensions from './BusinessExtensions';
-import StatementImportCenter from './StatementImportCenter';
-import FinancialIntelligenceCenter from './FinancialIntelligenceCenter';
-import BusinessHealthCenter from './BusinessHealthCenter';
-import BusinessRadarCenter from './BusinessRadarCenter';
+import ShellUXEnhancements from './ShellUXEnhancements';
+import HomeV2 from './HomeV2';
+import OfficeView from './OfficeView';
+import AssistantNavigationBridge from './AssistantNavigationBridge';
+import AssistantsWorkspace from './AssistantsWorkspace';
 import BusinessKnowledgeCenter from './BusinessKnowledgeCenter';
-import BusinessTrajectoryCenter from './BusinessTrajectoryCenter';
-import ComplianceDock from './ComplianceDock';
+import KnowledgeSecurityCenter from './KnowledgeSecurityCenter';
+import InvestmentDock from './InvestmentDock';
+import DocumentWorkspaceBridge from './DocumentWorkspaceBridge';
+import ContractCreator from './ContractCreator';
+import BusinessOperationCenter from './BusinessOperationCenter';
+import NetworkCenter from './NetworkCenter';
+import FinancialEngineCollectionsBridge from './FinancialEngineCollectionsBridge';
+import ReceivingAccountOnboardingBridge from './ReceivingAccountOnboardingBridge';
+import FiscalWorkspaceBridge from './FiscalWorkspaceBridge';
+import LaunchReadinessCenter from './LaunchReadinessCenter';
+import MarketingLanding from './MarketingLanding';
+import MarketingDiscoveryBridge from './MarketingDiscoveryBridge';
+import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import {PublicLegalFooter,PublicLegalPage} from './PublicLegal';
 import './styles.css';
-import './operations-dock.css';
-import './docwallet-connect.css';
-import './platform-handoff.css';
-import './standalone-setup.css';
-import './billing-center.css';
-import './marketing-landing.css';
-import './business-extensions.css';
-import './statement-import.css';
-import './financial-intelligence.css';
-import './business-health.css';
-import './business-radar.css';
-import './business-benchmark.css';
-import './business-knowledge.css';
 import './intelligent-activation.css';
-import './business-trajectory.css';
+import './platform-handoff.css';
+import './marketing-landing.css';
+import './marketing-readiness.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><MarketingLanding/><PlatformHandoffBootstrap/><App/><ExecutiveBriefing/><FounderCockpit/><ActivationJourneyTracker/><StandaloneSetup/><BillingCenter/><CommandCenterOverview/><DigitalTeamConsole/><IntegrationSetupCenter/><DocumentIntelligenceCenter/><DailyOpsPulse/><OperationsDock/><FiscalCenterV2Portal/><DocWalletConnectBridge/><BusinessExtensions/><StatementImportCenter/><FinancialIntelligenceCenter/><BusinessHealthCenter/><BusinessRadarCenter/><BusinessKnowledgeCenter/><BusinessTrajectoryCenter/><ComplianceDock/><PublicLegalFooter/><PublicLegalPage/></React.StrictMode>
+  <React.StrictMode>
+    <MarketingLanding/>
+    <MarketingDiscoveryBridge/>
+    <PlatformHandoffBootstrap/>
+    <App/>
+    <ProductDiscovery/>
+    <StandaloneSetup/>
+    <ShellUXEnhancements/>
+    <HomeV2/>
+    <OfficeView/>
+    <AssistantNavigationBridge/>
+    <AssistantsWorkspace/>
+    <BusinessKnowledgeCenter/>
+    <KnowledgeSecurityCenter/>
+    <InvestmentDock/>
+    <DocumentWorkspaceBridge/>
+    <ContractCreator/>
+    <BusinessOperationCenter/>
+    <NetworkCenter/>
+    <FinancialEngineCollectionsBridge/>
+    <ReceivingAccountOnboardingBridge/>
+    <FiscalWorkspaceBridge/>
+    <LaunchReadinessCenter/>
+    <PublicLegalFooter/>
+    <PublicLegalPage/>
+  </React.StrictMode>
 );

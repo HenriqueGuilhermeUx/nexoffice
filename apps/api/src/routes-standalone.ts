@@ -2,11 +2,53 @@ import type {FastifyInstance} from 'fastify';
 import {workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {registerComplianceRoutes} from './routes-compliance.js';
+import {registerNetworkRoutes} from './routes-network.js';
+import {registerNetworkTrustRoutes} from './routes-network-trust.js';
+import {registerNetworkCapabilityRoutes} from './routes-network-capabilities.js';
+import {registerNetworkStructuredOutcomeRoutes} from './routes-network-structured-outcomes.js';
+import {registerNetworkDelegationRoutes} from './routes-network-delegations.js';
+import {registerNetworkWorkExecutionRoutes} from './routes-network-work-execution.js';
+import {registerNetworkProviderMatchingRoutes} from './routes-network-provider-matching.js';
+import {registerOwnedPaymentRoutes} from './routes-owned-payments.js';
+import {registerBusinessOperationRoutes} from './routes-business-operations.js';
+import {registerEcosystemRoutes} from './routes-ecosystem.js';
+import {registerDocWalletContractRoutes} from './routes-docwallet-contracts.js';
+import {registerDocWalletWorkspaceRoutes} from './routes-docwallet-workspace.js';
+import {registerDocWalletUploadRoutes} from './routes-docwallet-upload.js';
+import {registerTaxAgentOperationSyncRoutes} from './routes-taxagent-operation-sync.js';
+import {registerTaxAgentWebhookRoutes} from './routes-taxagent-webhooks.js';
+import {registerEcosystemRecommendationRoutes} from './routes-ecosystem-recommendations.js';
+import {registerFInsightInvestmentRoutes} from './routes-finsight-investments.js';
+import {registerBackupSecurityRoutes} from './routes-backup-security.js';
+import {registerFinancialEngineRoutes} from './routes-financial-engine.js';
+import {registerReceivingAccountRoutes} from './routes-receiving-account.js';
+import {registerLaunchReadinessRoutes} from './routes-launch-readiness.js';
 
 const countFor=async(sql:string,workspaceId:string)=>Number((await query<any>(sql,[workspaceId]))[0]?.count||0);
 
 export async function registerStandaloneRoutes(app:FastifyInstance){
   await registerComplianceRoutes(app);
+  await registerNetworkRoutes(app);
+  await registerNetworkTrustRoutes(app);
+  await registerNetworkCapabilityRoutes(app);
+  await registerNetworkStructuredOutcomeRoutes(app);
+  await registerNetworkDelegationRoutes(app);
+  await registerNetworkWorkExecutionRoutes(app);
+  await registerNetworkProviderMatchingRoutes(app);
+  await registerOwnedPaymentRoutes(app);
+  await registerBusinessOperationRoutes(app);
+  await registerEcosystemRoutes(app);
+  await registerDocWalletContractRoutes(app);
+  await registerDocWalletWorkspaceRoutes(app);
+  await registerDocWalletUploadRoutes(app);
+  await registerTaxAgentOperationSyncRoutes(app);
+  await registerTaxAgentWebhookRoutes(app);
+  await registerEcosystemRecommendationRoutes(app);
+  await registerFInsightInvestmentRoutes(app);
+  await registerBackupSecurityRoutes(app);
+  await registerFinancialEngineRoutes(app);
+  await registerReceivingAccountRoutes(app);
+  await registerLaunchReadinessRoutes(app);
 
   app.get('/v1/standalone/readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
