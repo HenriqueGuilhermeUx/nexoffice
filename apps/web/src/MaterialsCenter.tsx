@@ -121,7 +121,7 @@ export default function MaterialsCenter(){
       else if(quick?.id==='presentation')setKind('presentation');
       if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
     }catch{}
-    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[])]).then(([p,d,cx,dx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[])});
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[]),api<SavedMaterial[]>('/v1/materials').catch(()=>[])]).then(([p,d,cx,dx,mx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[]);setServerRecent(mx||[])});
     try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
@@ -149,7 +149,7 @@ ${selectedClient?`Cliente do CRM:
 - Organização: ${clean(selectedClient.company_name)}
 - E-mail: ${clean(selectedClient.email)}
 - Telefone: ${clean(selectedClient.phone)}
-- Oportunidades relacionadas: ${relatedDeals.length?relatedDeals.map(d=>`${clean(d.title)} | etapa ${clean(d.stage)} | ${money(d.value_minor)}${d.next_action?` | próximo passo: ${clean(d.next_action)}`:''}`).join('; '):'nenhuma registrada'}
+- Oportunidades relacionadas: ${relatedDeals.length?relatedDeals.map(d=>`${clean(d.title)} | etapa ${clean(d.stage)} | ${money(d.value_minor)}${d.next_action?` | próximo passo: ${clean(d.next_action)}`:''}`).join('; '):'nenhuma registrada'}\n${selectedDeal?`- Oportunidade escolhida para este material: ${clean(selectedDeal.title)} | etapa ${clean(selectedDeal.stage)} | ${money(selectedDeal.value_minor)}${selectedDeal.next_action?` | próximo passo: ${clean(selectedDeal.next_action)}`:''}`:''}
 `:''}
 Responda SOMENTE JSON válido, sem markdown, neste formato:
 {"title":"...","subtitle":"...","slides":[{"kicker":"...","title":"...","subtitle":"...","bullets":["..."],"cta":"..."}]}
