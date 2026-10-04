@@ -109,7 +109,7 @@ export async function registerMaterialsRoutes(app:FastifyInstance){
 
   app.get('/v1/public/materials/:token',async req=>{
     const token=uuid.parse((req.params as any).token);
-    const row=(await query<any>(`select m.kind,m.theme,m.title,m.subtitle,m.content,m.published_at,m.updated_at,w.name workspace_name
+    const row=(await query<any>(`select m.kind,m.theme,m.title,m.subtitle,m.content,m.metadata,m.published_at,m.updated_at,w.name workspace_name
       from materials m join workspaces w on w.id=m.workspace_id
       where m.public_token=$1 and m.status='published' limit 1`,[token]))[0];
     if(!row)throw new ApiError(404,'not_found','Apresentação não encontrada ou não está publicada.');
