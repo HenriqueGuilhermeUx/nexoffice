@@ -8,6 +8,9 @@ type Slide={kicker?:string;title:string;subtitle?:string;bullets?:string[];cta?:
 type Draft={title:string;subtitle?:string;slides:Slide[];generatedBy?:string};
 type OnboardingPayload={workspace?:{id:string;name:string};profile?:any;onboarding?:any};
 type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};
+type Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};
+type Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};
+type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;draft:Draft};
 
 const kindMeta:Record<MaterialKind,{label:string;description:string;slides:number;prompt:string}> = {
   presentation:{label:'Apresentação',description:'Deck para reunião, venda, parceria ou demonstração.',slides:7,prompt:'uma apresentação comercial'},
@@ -104,8 +107,10 @@ export default function MaterialsCenter(){
   const[kind,setKind]=useState<MaterialKind>('presentation');const[theme,setTheme]=useState<ThemeKey>('executive');const[profile,setProfile]=useState<OnboardingPayload|null>(null);const[dashboard,setDashboard]=useState<Dashboard|null>(null);
   const[title,setTitle]=useState('');const[audience,setAudience]=useState('');const[objective,setObjective]=useState('');const[context,setContext]=useState('');const[value,setValue]=useState('');const[cta,setCta]=useState('');
   const[draft,setDraft]=useState<Draft|null>(null);const[current,setCurrent]=useState(0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[notice,setNotice]=useState('');
+  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);
   const businessName=clean(profile?.profile?.metadata?.identity?.businessName||profile?.profile?.metadata?.identity?.tradeName||profile?.workspace?.name||'Seu negócio');
-  const palette=palettes[theme];
+  const basePalette=palettes[theme];const palette={...basePalette,accent:brandAccent||basePalette.accent};
+  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,5):[];
   useEffect(()=>{
     try{
       const quick=JSON.parse(sessionStorage.getItem('nexoffice.quickAction')||'null');
@@ -114,13 +119,14 @@ export default function MaterialsCenter(){
       else if(quick?.id==='presentation')setKind('presentation');
       if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
     }catch{}
-    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null)]).then(([p,d])=>{if(p)setProfile(p);if(d)setDashboard(d)});
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[])]).then(([p,d,cx,dx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[])});
+    try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
 
   async function generate(){
     setBusy(true);setError('');setNotice('');
-    const meta=kindMeta[kind],baseArgs={businessName,title:title.trim(),audience:audience.trim(),objective:objective.trim(),context:context.trim(),value:value.trim(),cta:cta.trim()};
+    const meta=kindMeta[kind],clientAudience=selectedClient?clean(selectedClient.company_name||selectedClient.name):'',baseArgs={businessName,title:title.trim(),audience:audience.trim()||clientAudience,objective:objective.trim(),context:context.trim(),value:value.trim(),cta:cta.trim()};
     try{
       const business=businessSummary(profile);
       const prompt=`Você é Maya, responsável por transformar o contexto do Negócio em materiais profissionais para o cliente apresentar a clientes, parceiros ou equipe.
@@ -136,7 +142,13 @@ Pedido:
 - Contexto adicional: ${baseArgs.context||'nenhum'}
 - Investimento/condição: ${baseArgs.value||'não informado'}
 - CTA: ${baseArgs.cta||'defina um próximo passo neutro'}
-
+${selectedClient?`Cliente do CRM:
+- Nome: ${clean(selectedClient.name)}
+- Organização: ${clean(selectedClient.company_name)}
+- E-mail: ${clean(selectedClient.email)}
+- Telefone: ${clean(selectedClient.phone)}
+- Oportunidades relacionadas: ${relatedDeals.length?relatedDeals.map(d=>`${clean(d.title)} | etapa ${clean(d.stage)} | ${money(d.value_minor)}${d.next_action?` | próximo passo: ${clean(d.next_action)}`:''}`).join('; '):'nenhuma registrada'}
+`:''}
 Responda SOMENTE JSON válido, sem markdown, neste formato:
 {"title":"...","subtitle":"...","slides":[{"kicker":"...","title":"...","subtitle":"...","bullets":["..."],"cta":"..."}]}
 Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não usar campos vazios desnecessários; o último slide deve indicar próximo passo.`;
@@ -154,7 +166,26 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   }
 
   function saveLocal(next:Draft,k:MaterialKind,t:ThemeKey){
-    try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');const item={id:Date.now(),kind:k,theme:t,draft:next};localStorage.setItem(key,JSON.stringify([item,...(Array.isArray(list)?list:[])].slice(0,12)))}catch{}
+    try{
+      const key=`nexoffice.materials.${session.workspace()||'local'}`;
+      const list=JSON.parse(localStorage.getItem(key)||'[]');
+      const item:RecentMaterial={id:Date.now(),kind:k,theme:t,accent:brandAccent||undefined,clientId:clientId||undefined,draft:next};
+      const updated=[item,...(Array.isArray(list)?list:[])].slice(0,12);
+      localStorage.setItem(key,JSON.stringify(updated));
+      setRecent(updated.slice(0,8));
+    }catch{}
+  }
+
+  function reopen(item:RecentMaterial){
+    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDraft(item.draft);setCurrent(0);
+    setNotice('Material recente reaberto. Você pode exportar ou gerar uma nova versão.');
+  }
+
+  function onLogo(file?:File){
+    if(!file){setLogoData('');return}
+    const reader=new FileReader();
+    reader.onload=()=>setLogoData(String(reader.result||''));
+    reader.readAsDataURL(file);
   }
 
   async function exportPptx(){
@@ -165,6 +196,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
         const slide:any=pptx.addSlide();slide.background={color:palette.bg.replace('#','')};
         slide.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.16,h:7.5,fill:{color:palette.accent.replace('#','')},line:{color:palette.accent.replace('#','')}});
         slide.addText((s.kicker||kindMeta[kind].label).toUpperCase(),{x:0.72,y:0.55,w:4.8,h:0.28,fontFace:'Aptos',fontSize:10,bold:true,charSpacing:1.5,color:palette.accent.replace('#',''),margin:0});
+        if(logoData)slide.addImage({data:logoData,x:11.35,y:0.4,w:1.15,h:0.62});
         slide.addText(s.title,{x:0.72,y:1.05,w:11.7,h:1.25,fontFace:'Aptos Display',fontSize:28,bold:true,color:palette.text.replace('#',''),breakLine:false,margin:0.02,valign:'mid',fit:'shrink'});
         if(s.subtitle)slide.addText(s.subtitle,{x:0.75,y:2.32,w:10.9,h:0.75,fontFace:'Aptos',fontSize:15,color:palette.muted.replace('#',''),margin:0.02,fit:'shrink'});
         const bullets=s.bullets||[];if(bullets.length)slide.addText(bullets.map(b=>({text:b,options:{bullet:{indent:18},hanging:4,breakLine:true}})),{x:0.95,y:s.subtitle?3.18:2.55,w:10.8,h:2.8,fontFace:'Aptos',fontSize:18,color:palette.text.replace('#',''),breakLine:true,margin:0.03,paraSpaceAfterPt:14,valign:'top',fit:'shrink'});
@@ -178,7 +210,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     }catch(e:any){setError(e?.message||'Não foi possível gerar o PowerPoint.')}finally{setBusy(false)}
   }
 
-  function exportPng(){
+  async function exportPng(){
     if(!draft)return;const s=draft.slides[current]||draft.slides[0];const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=900;const ctx=canvas.getContext('2d');if(!ctx)return;
     ctx.fillStyle=palette.bg;ctx.fillRect(0,0,1600,900);ctx.fillStyle=palette.accent;ctx.fillRect(0,0,20,900);
     ctx.fillStyle=palette.accent;ctx.font='700 24px Arial';ctx.fillText((s.kicker||kindMeta[kind].label).toUpperCase(),90,105);
@@ -186,14 +218,15 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     if(s.subtitle){ctx.fillStyle=palette.muted;ctx.font='32px Arial';y=drawWrapped(ctx,s.subtitle,90,y+20,1320,42,3)}
     if(s.bullets?.length){ctx.fillStyle=palette.text;ctx.font='32px Arial';y+=40;for(const b of s.bullets.slice(0,5)){ctx.fillStyle=palette.accent;ctx.fillText('•',95,y);ctx.fillStyle=palette.text;y=drawWrapped(ctx,b,135,y,1270,42,2)+18}}
     if(s.cta){ctx.fillStyle=palette.soft;ctx.fillRect(90,760,1030,74);ctx.fillStyle=palette.text;ctx.font='700 24px Arial';drawWrapped(ctx,s.cta,120,808,960,30,2)}
+    if(logoData){try{const img=await loadImage(logoData);const ratio=Math.min(220/img.width,90/img.height);ctx.drawImage(img,1510-img.width*ratio,70,img.width*ratio,img.height*ratio)}catch{}}
     ctx.fillStyle=palette.muted;ctx.font='20px Arial';ctx.textAlign='right';ctx.fillText(businessName,1510,845);ctx.textAlign='left';
     const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=`${slug(draft.title)}-${String(current+1).padStart(2,'0')}.png`;a.click();setNotice('Imagem PNG gerada.');
   }
 
   function printPdf(){
     if(!draft)return;const w=window.open('','_blank');if(!w){setError('O navegador bloqueou a janela de exportação. Libere pop-ups e tente novamente.');return}
-    const cards=draft.slides.map((s,idx)=>`<section class="slide"><small>${htmlEscape((s.kicker||kindMeta[kind].label).toUpperCase())}</small><h1>${htmlEscape(s.title)}</h1>${s.subtitle?`<h2>${htmlEscape(s.subtitle)}</h2>`:''}${s.bullets?.length?`<ul>${s.bullets.map(b=>`<li>${htmlEscape(b)}</li>`).join('')}</ul>`:''}${s.cta?`<div class="cta">${htmlEscape(s.cta)}</div>`:''}<footer>${htmlEscape(businessName)} <span>${idx+1}</span></footer></section>`).join('');
-    w.document.write(`<!doctype html><html><head><title>${htmlEscape(draft.title)}</title><style>@page{size:13.333in 7.5in;margin:0}*{box-sizing:border-box}body{margin:0;background:#111;font-family:Arial,sans-serif}.slide{page-break-after:always;width:13.333in;height:7.5in;padding:.65in .8in;background:${palette.bg};color:${palette.text};position:relative;border-left:10px solid ${palette.accent}}small{color:${palette.accent};font-weight:700;letter-spacing:2px}h1{font-size:34pt;line-height:1.05;margin:.35in 0 .18in;max-width:11in}h2{font-size:17pt;color:${palette.muted};font-weight:400;max-width:10.5in}ul{font-size:20pt;line-height:1.35;max-width:10.5in;margin-top:.45in}li{margin:.12in 0}.cta{position:absolute;left:.8in;bottom:.65in;max-width:8.4in;padding:.16in .24in;background:${palette.soft};font-weight:700}footer{position:absolute;bottom:.2in;right:.35in;color:${palette.muted};font-size:9pt}footer span{color:${palette.accent};margin-left:.2in}@media print{body{background:none}}</style></head><body>${cards}<script>setTimeout(()=>window.print(),350)<\/script></body></html>`);w.document.close();
+    const cards=draft.slides.map((s,idx)=>`<section class="slide">${logoData?`<img class="brandLogo" src="${htmlEscape(logoData)}"/>`:''}<small>${htmlEscape((s.kicker||kindMeta[kind].label).toUpperCase())}</small><h1>${htmlEscape(s.title)}</h1>${s.subtitle?`<h2>${htmlEscape(s.subtitle)}</h2>`:''}${s.bullets?.length?`<ul>${s.bullets.map(b=>`<li>${htmlEscape(b)}</li>`).join('')}</ul>`:''}${s.cta?`<div class="cta">${htmlEscape(s.cta)}</div>`:''}<footer>${htmlEscape(businessName)} <span>${idx+1}</span></footer></section>`).join('');
+    w.document.write(`<!doctype html><html><head><title>${htmlEscape(draft.title)}</title><style>@page{size:13.333in 7.5in;margin:0}*{box-sizing:border-box}body{margin:0;background:#111;font-family:Arial,sans-serif}.slide{page-break-after:always;width:13.333in;height:7.5in;padding:.65in .8in;background:${palette.bg};color:${palette.text};position:relative;border-left:10px solid ${palette.accent}}small{color:${palette.accent};font-weight:700;letter-spacing:2px}h1{font-size:34pt;line-height:1.05;margin:.35in 0 .18in;max-width:11in}h2{font-size:17pt;color:${palette.muted};font-weight:400;max-width:10.5in}ul{font-size:20pt;line-height:1.35;max-width:10.5in;margin-top:.45in}li{margin:.12in 0}.cta{position:absolute;left:.8in;bottom:.65in;max-width:8.4in;padding:.16in .24in;background:${palette.soft};font-weight:700}.brandLogo{position:absolute;right:.55in;top:.4in;max-width:1.2in;max-height:.62in;object-fit:contain}footer{position:absolute;bottom:.2in;right:.35in;color:${palette.muted};font-size:9pt}footer span{color:${palette.accent};margin-left:.2in}@media print{body{background:none}}</style></head><body>${cards}<script>setTimeout(()=>window.print(),350)<\/script></body></html>`);w.document.close();
   }
 
   const slide=draft?.slides[current];
@@ -203,18 +236,23 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     <div className="materialsLayout"><aside className="materialsComposer">
       <div className="materialsSection"><label>O que você quer criar?</label><div className="materialsKinds">{(Object.keys(kindMeta) as MaterialKind[]).map(k=><button key={k} className={kind===k?'active':''} onClick={()=>{setKind(k);setDraft(null)}}><b>{kindMeta[k].label}</b><small>{kindMeta[k].description}</small></button>)}</div></div>
       <div className="materialsSection"><label>Estilo</label><div className="themeRow">{(Object.keys(palettes) as ThemeKey[]).map(t=><button key={t} className={theme===t?'active':''} onClick={()=>setTheme(t)}>{t==='executive'?'Executivo':t==='bold'?'Impacto':'Claro'}</button>)}</div></div>
+      <div className="materialsBrand"><label><span>Cor da marca</span><input type="color" value={brandAccent||basePalette.accent} onChange={e=>setBrandAccent(e.target.value)}/></label><label><span>Logo / imagem opcional</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>onLogo(e.target.files?.[0])}/></label></div>
+      {contacts.length>0&&<div className="materialsClient"><label><span>Cliente do CRM (opcional)</span><select value={clientId} onChange={e=>{const id=e.target.value;setClientId(id);const selected=contacts.find(x=>x.id===id);if(selected&&!audience.trim())setAudience(clean(selected.company_name||selected.name))}}><option value="">Sem cliente vinculado</option>{contacts.map(x=><option key={x.id} value={x.id}>{x.name}{x.company_name?` · ${x.company_name}`:''}</option>)}</select></label>{selectedClient&&<small>{relatedDeals.length?`${relatedDeals.length} oportunidade(s) relacionada(s) serão usadas como contexto.`:'Cliente selecionado; nenhuma oportunidade aberta foi encontrada para ele.'}</small>}</div>}
       <div className="materialsFields"><label><span>Título, oferta ou assunto</span><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Gestão de tráfego para Clínica X"/></label><label><span>Para quem?</span><input value={audience} onChange={e=>setAudience(e.target.value)} placeholder="Ex.: diretoria da Clínica X"/></label><label><span>O que você quer conseguir?</span><textarea value={objective} onChange={e=>setObjective(e.target.value)} placeholder="Ex.: apresentar a proposta e mostrar por que faz sentido agora"/></label><label><span>Informações que não podem faltar</span><textarea value={context} onChange={e=>setContext(e.target.value)} placeholder="Cole briefing, entregas, resultados, detalhes do cliente ou contexto da reunião"/></label><div className="materialsTwo"><label><span>Valor / condição</span><input value={value} onChange={e=>setValue(e.target.value)} placeholder="Ex.: R$ 2.500/mês"/></label><label><span>Próximo passo</span><input value={cta} onChange={e=>setCta(e.target.value)} placeholder="Ex.: aprovar proposta até sexta"/></label></div></div>
       <div className="materialsContext"><span>DNA DO NEGÓCIO</span><b>{businessName}</b><small>{profile?.profile?.sector?clean(profile.profile.sector):'Perfil sendo enriquecido pelo NexOffice'}</small></div>
       <button className="materialsGenerate" onClick={generate} disabled={busy||!ready}>{busy?'Preparando…':draft?'Gerar nova versão':'Criar material'}</button>
       <p className="materialsGuardrail">A IA usa o contexto do seu Negócio, mas não deve inventar métricas, cases ou resultados. Revise sempre antes de compartilhar.</p>
+      {recent.length>0&&<div className="materialsRecent"><span>RECENTES</span>{recent.slice(0,4).map(item=><button key={item.id} onClick={()=>reopen(item)}><small>{kindMeta[item.kind].label}</small><b>{item.draft.title}</b></button>)}</div>}
     </aside>
     <main className="materialsPreview">{draft&&slide?<><div className="materialsPreviewHead"><div><small>{draft.generatedBy||'NexOffice'}</small><b>{draft.title}</b></div><div><button onClick={()=>setCurrent(Math.max(0,current-1))} disabled={current===0}>←</button><span>{current+1}/{draft.slides.length}</span><button onClick={()=>setCurrent(Math.min(draft.slides.length-1,current+1))} disabled={current===draft.slides.length-1}>→</button></div></div>
-      <article className="materialSlide" style={{background:palette.bg,color:palette.text,borderLeftColor:palette.accent}}><small style={{color:palette.accent}}>{(slide.kicker||kindMeta[kind].label).toUpperCase()}</small><h3>{slide.title}</h3>{slide.subtitle&&<p className="slideSubtitle" style={{color:palette.muted}}>{slide.subtitle}</p>}{slide.bullets?.length?<ul>{slide.bullets.map((b,i)=><li key={i}>{b}</li>)}</ul>:null}{slide.cta&&<div className="slideCta" style={{background:palette.soft}}>{slide.cta}</div>}<footer style={{color:palette.muted}}><span>{businessName}</span><em style={{color:palette.accent}}>{String(current+1).padStart(2,'0')}</em></footer></article>
+      <article className="materialSlide" style={{background:palette.bg,color:palette.text,borderLeftColor:palette.accent}}>{logoData&&<img className="materialBrandLogo" src={logoData} alt="Logo do negócio"/>}<small style={{color:palette.accent}}>{(slide.kicker||kindMeta[kind].label).toUpperCase()}</small><h3>{slide.title}</h3>{slide.subtitle&&<p className="slideSubtitle" style={{color:palette.muted}}>{slide.subtitle}</p>}{slide.bullets?.length?<ul>{slide.bullets.map((b,i)=><li key={i}>{b}</li>)}</ul>:null}{slide.cta&&<div className="slideCta" style={{background:palette.soft}}>{slide.cta}</div>}<footer style={{color:palette.muted}}><span>{businessName}</span><em style={{color:palette.accent}}>{String(current+1).padStart(2,'0')}</em></footer></article>
       <div className="materialsExport"><button onClick={exportPptx} disabled={busy}>PowerPoint editável</button><button onClick={printPdf}>Salvar como PDF</button><button onClick={exportPng}>Baixar slide em PNG</button><button onClick={()=>window.open('https://pdffacil.netlify.app','_blank','noopener,noreferrer')}>Ajustar no PDF Fácil ↗</button></div>
       <div className="materialsThumbnails">{draft.slides.map((s,i)=><button key={i} className={i===current?'active':''} onClick={()=>setCurrent(i)}><span>{String(i+1).padStart(2,'0')}</span><b>{s.title}</b></button>)}</div>
     </>:<div className="materialsEmpty"><div>▦</div><h3>Conte o que você precisa apresentar.</h3><p>O NexOffice usa o Perfil do Negócio como ponto de partida e monta um material que você pode revisar, exportar para PowerPoint, PDF ou PNG.</p><div><span>Apresentação</span><span>Proposta</span><span>Relatório</span><span>Resumo visual</span><span>Imagem</span></div></div>}</main></div>
   </section>
 }
+
+function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src})}
 
 function drawWrapped(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,maxWidth:number,lineHeight:number,maxLines:number){
   const words=clean(text).split(' ');let line='',lines=0;
