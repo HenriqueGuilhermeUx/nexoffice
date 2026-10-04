@@ -203,6 +203,23 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     }catch(e:any){setError(e?.message||'Não foi possível publicar o link.')}finally{setBusy(false)}
   }
 
+  async function unpublishMaterial(){
+    if(!savedId||!shareUrl)return;
+    setBusy(true);setError('');
+    try{
+      await post<any>(`/v1/materials/${encodeURIComponent(savedId)}/unpublish`,{});
+      setShareUrl('');
+      setNotice('Link público desativado. O endereço antigo não abre mais esta apresentação.');
+      const list=await api<SavedMaterial[]>('/v1/materials').catch(()=>[]);setServerRecent(list||[]);
+    }catch(e:any){setError(e?.message||'Não foi possível desativar o link.')}finally{setBusy(false)}
+  }
+
+  function shareOnWhatsApp(){
+    if(!shareUrl)return;
+    const msg=`${draft?.title||'Apresentação'} — ${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank','noopener,noreferrer');
+  }
+
   function saveLocal(next:Draft,k:MaterialKind,t:ThemeKey){
     try{
       const key=`nexoffice.materials.${session.workspace()||'local'}`;
@@ -285,7 +302,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     </aside>
     <main className="materialsPreview">{draft&&slide?<><div className="materialsPreviewHead"><div><small>{draft.generatedBy||'NexOffice'}</small><b>{draft.title}</b></div><div><button onClick={()=>setCurrent(Math.max(0,current-1))} disabled={current===0}>←</button><span>{current+1}/{draft.slides.length}</span><button onClick={()=>setCurrent(Math.min(draft.slides.length-1,current+1))} disabled={current===draft.slides.length-1}>→</button></div></div>
       <article className="materialSlide" style={{background:palette.bg,color:palette.text,borderLeftColor:palette.accent}}>{logoData&&<img className="materialBrandLogo" src={logoData} alt="Logo do negócio"/>}<small style={{color:palette.accent}}>{(slide.kicker||kindMeta[kind].label).toUpperCase()}</small><h3>{slide.title}</h3>{slide.subtitle&&<p className="slideSubtitle" style={{color:palette.muted}}>{slide.subtitle}</p>}{slide.bullets?.length?<ul>{slide.bullets.map((b,i)=><li key={i}>{b}</li>)}</ul>:null}{slide.cta&&<div className="slideCta" style={{background:palette.soft}}>{slide.cta}</div>}<footer style={{color:palette.muted}}><span>{businessName}</span><em style={{color:palette.accent}}>{String(current+1).padStart(2,'0')}</em></footer></article>
-      <div className="materialsExport"><button className="materialsShare" onClick={()=>void publishMaterial()} disabled={busy}>{shareUrl?'Atualizar link público':'Criar link para apresentar'}</button>{shareUrl&&<button onClick={()=>window.open(shareUrl,'_blank','noopener,noreferrer')}>Abrir apresentação ↗</button>}<button onClick={exportPptx} disabled={busy}>PowerPoint editável</button><button onClick={printPdf}>Salvar como PDF</button><button onClick={exportPng}>Baixar slide em PNG</button><button onClick={()=>window.open('/pdffacil/','_blank','noopener,noreferrer')}>Ajustar no PDF Fácil ↗</button></div>{shareUrl&&<div className="materialsShareUrl"><span>LINK PÚBLICO</span><input readOnly value={shareUrl}/><button onClick={async()=>{await navigator.clipboard?.writeText(shareUrl).catch(()=>null);setNotice('Link copiado.')}}>Copiar</button></div>}
+      <div className="materialsExport"><button className="materialsShare" onClick={()=>void publishMaterial()} disabled={busy}>{shareUrl?'Atualizar link público':'Criar link para apresentar'}</button>{shareUrl&&<button onClick={()=>window.open(shareUrl,'_blank','noopener,noreferrer')}>Abrir apresentação ↗</button>}<button onClick={exportPptx} disabled={busy}>PowerPoint editável</button><button onClick={printPdf}>Salvar como PDF</button><button onClick={exportPng}>Baixar slide em PNG</button><button onClick={()=>window.open('/pdffacil/','_blank','noopener,noreferrer')}>Ajustar no PDF Fácil ↗</button></div>{shareUrl&&<div className="materialsShareUrl"><span>LINK PÚBLICO</span><input readOnly value={shareUrl}/><div className="materialsShareActions"><button onClick={async()=>{await navigator.clipboard?.writeText(shareUrl).catch(()=>null);setNotice('Link copiado.')}}>Copiar</button><button onClick={shareOnWhatsApp}>WhatsApp</button><button className="danger" onClick={()=>void unpublishMaterial()} disabled={busy}>Desativar link</button></div></div>}
       <div className="materialsThumbnails">{draft.slides.map((s,i)=><button key={i} className={i===current?'active':''} onClick={()=>setCurrent(i)}><span>{String(i+1).padStart(2,'0')}</span><b>{s.title}</b></button>)}</div>
     </>:<div className="materialsEmpty"><div>▦</div><h3>Conte o que você precisa apresentar.</h3><p>O NexOffice usa o Perfil do Negócio como ponto de partida e monta um material que você pode revisar, exportar para PowerPoint, PDF ou PNG.</p><div><span>Apresentação</span><span>Proposta</span><span>Relatório</span><span>Resumo visual</span><span>Imagem</span></div></div>}</main></div>
   </section>
