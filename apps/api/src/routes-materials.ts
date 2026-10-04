@@ -89,7 +89,7 @@ export async function registerMaterialsRoutes(app:FastifyInstance){
     const row=(await query<any>(`update materials set status='published',published_at=coalesce(published_at,now()),updated_at=now()
       where id=$1 and workspace_id=$2 returning id,public_token,status,published_at`,[id,ctx.workspaceId]))[0];
     if(!row)throw new ApiError(404,'not_found','Material não encontrado.');
-    return {...row,path:`/material/${row.public_token}`};
+    return {...row,path:`/?material=${row.public_token}`};
   });
 
   app.post('/v1/materials/:id/unpublish',async req=>{
