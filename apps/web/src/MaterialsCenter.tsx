@@ -120,7 +120,7 @@ export default function MaterialsCenter(){
 
   async function generate(){
     setBusy(true);setError('');setNotice('');
-    const meta=kindMeta[kind],baseArgs={businessName,title:title.trim(),audience:audience.trim(),objective:objective.trim(),context:context.trim(),value:value.trim(),cta:cta.trim()};
+    const meta=kindMeta[kind],clientAudience=selectedClient?clean(selectedClient.company_name||selectedClient.name):'',baseArgs={businessName,title:title.trim(),audience:audience.trim()||clientAudience,objective:objective.trim(),context:context.trim(),value:value.trim(),cta:cta.trim()};
     try{
       const business=businessSummary(profile);
       const prompt=`Você é Maya, responsável por transformar o contexto do Negócio em materiais profissionais para o cliente apresentar a clientes, parceiros ou equipe.
