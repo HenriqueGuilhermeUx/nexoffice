@@ -7,7 +7,7 @@ type ThemeKey='executive'|'bold'|'light';
 type Slide={kicker?:string;title:string;subtitle?:string;bullets?:string[];cta?:string};
 type Draft={title:string;subtitle?:string;slides:Slide[];generatedBy?:string};
 type OnboardingPayload={workspace?:{id:string;name:string};profile?:any;onboarding?:any};
-type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};
+type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};\ntype Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};\ntype Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};\ntype RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;draft:Draft};
 
 const kindMeta:Record<MaterialKind,{label:string;description:string;slides:number;prompt:string}> = {
   presentation:{label:'Apresentação',description:'Deck para reunião, venda, parceria ou demonstração.',slides:7,prompt:'uma apresentação comercial'},
@@ -114,7 +114,7 @@ export default function MaterialsCenter(){
       else if(quick?.id==='presentation')setKind('presentation');
       if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
     }catch{}
-    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null)]).then(([p,d])=>{if(p)setProfile(p);if(d)setDashboard(d)});
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[])]).then(([p,d,cx,dx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[])});\n    try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
 
