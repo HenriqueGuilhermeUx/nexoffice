@@ -7,7 +7,10 @@ type ThemeKey='executive'|'bold'|'light';
 type Slide={kicker?:string;title:string;subtitle?:string;bullets?:string[];cta?:string};
 type Draft={title:string;subtitle?:string;slides:Slide[];generatedBy?:string};
 type OnboardingPayload={workspace?:{id:string;name:string};profile?:any;onboarding?:any};
-type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};\ntype Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};\ntype Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};\ntype RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;draft:Draft};
+type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};
+type Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};
+type Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};
+type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;draft:Draft};
 
 const kindMeta:Record<MaterialKind,{label:string;description:string;slides:number;prompt:string}> = {
   presentation:{label:'Apresentação',description:'Deck para reunião, venda, parceria ou demonstração.',slides:7,prompt:'uma apresentação comercial'},
@@ -104,8 +107,10 @@ export default function MaterialsCenter(){
   const[kind,setKind]=useState<MaterialKind>('presentation');const[theme,setTheme]=useState<ThemeKey>('executive');const[profile,setProfile]=useState<OnboardingPayload|null>(null);const[dashboard,setDashboard]=useState<Dashboard|null>(null);
   const[title,setTitle]=useState('');const[audience,setAudience]=useState('');const[objective,setObjective]=useState('');const[context,setContext]=useState('');const[value,setValue]=useState('');const[cta,setCta]=useState('');
   const[draft,setDraft]=useState<Draft|null>(null);const[current,setCurrent]=useState(0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[notice,setNotice]=useState('');
+  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);
   const businessName=clean(profile?.profile?.metadata?.identity?.businessName||profile?.profile?.metadata?.identity?.tradeName||profile?.workspace?.name||'Seu negócio');
-  const palette=palettes[theme];
+  const basePalette=palettes[theme];const palette={...basePalette,accent:brandAccent||basePalette.accent};
+  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,5):[];
   useEffect(()=>{
     try{
       const quick=JSON.parse(sessionStorage.getItem('nexoffice.quickAction')||'null');
@@ -114,7 +119,8 @@ export default function MaterialsCenter(){
       else if(quick?.id==='presentation')setKind('presentation');
       if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
     }catch{}
-    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[])]).then(([p,d,cx,dx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[])});\n    try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[])]).then(([p,d,cx,dx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[])});
+    try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
 
@@ -136,7 +142,13 @@ Pedido:
 - Contexto adicional: ${baseArgs.context||'nenhum'}
 - Investimento/condição: ${baseArgs.value||'não informado'}
 - CTA: ${baseArgs.cta||'defina um próximo passo neutro'}
-
+${selectedClient?`Cliente do CRM:
+- Nome: ${clean(selectedClient.name)}
+- Organização: ${clean(selectedClient.company_name)}
+- E-mail: ${clean(selectedClient.email)}
+- Telefone: ${clean(selectedClient.phone)}
+- Oportunidades relacionadas: ${relatedDeals.length?relatedDeals.map(d=>`${clean(d.title)} | etapa ${clean(d.stage)} | ${money(d.value_minor)}${d.next_action?` | próximo passo: ${clean(d.next_action)}`:''}`).join('; '):'nenhuma registrada'}
+`:''}
 Responda SOMENTE JSON válido, sem markdown, neste formato:
 {"title":"...","subtitle":"...","slides":[{"kicker":"...","title":"...","subtitle":"...","bullets":["..."],"cta":"..."}]}
 Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não usar campos vazios desnecessários; o último slide deve indicar próximo passo.`;
@@ -154,7 +166,26 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   }
 
   function saveLocal(next:Draft,k:MaterialKind,t:ThemeKey){
-    try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');const item={id:Date.now(),kind:k,theme:t,draft:next};localStorage.setItem(key,JSON.stringify([item,...(Array.isArray(list)?list:[])].slice(0,12)))}catch{}
+    try{
+      const key=`nexoffice.materials.${session.workspace()||'local'}`;
+      const list=JSON.parse(localStorage.getItem(key)||'[]');
+      const item:RecentMaterial={id:Date.now(),kind:k,theme:t,accent:brandAccent||undefined,clientId:clientId||undefined,draft:next};
+      const updated=[item,...(Array.isArray(list)?list:[])].slice(0,12);
+      localStorage.setItem(key,JSON.stringify(updated));
+      setRecent(updated.slice(0,8));
+    }catch{}
+  }
+
+  function reopen(item:RecentMaterial){
+    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDraft(item.draft);setCurrent(0);
+    setNotice('Material recente reaberto. Você pode exportar ou gerar uma nova versão.');
+  }
+
+  function onLogo(file?:File){
+    if(!file){setLogoData('');return}
+    const reader=new FileReader();
+    reader.onload=()=>setLogoData(String(reader.result||''));
+    reader.readAsDataURL(file);
   }
 
   async function exportPptx(){
@@ -164,7 +195,8 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
       draft.slides.forEach((s,idx)=>{
         const slide:any=pptx.addSlide();slide.background={color:palette.bg.replace('#','')};
         slide.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.16,h:7.5,fill:{color:palette.accent.replace('#','')},line:{color:palette.accent.replace('#','')}});
-        slide.addText((s.kicker||kindMeta[kind].label).toUpperCase(),{x:0.72,y:0.55,w:4.8,h:0.28,fontFace:'Aptos',fontSize:10,bold:true,charSpacing:1.5,color:palette.accent.replace('#',''),margin:0});\n        if(logoData)slide.addImage({data:logoData,x:11.35,y:0.4,w:1.15,h:0.62,transparency:0});
+        slide.addText((s.kicker||kindMeta[kind].label).toUpperCase(),{x:0.72,y:0.55,w:4.8,h:0.28,fontFace:'Aptos',fontSize:10,bold:true,charSpacing:1.5,color:palette.accent.replace('#',''),margin:0});
+        if(logoData)slide.addImage({data:logoData,x:11.35,y:0.4,w:1.15,h:0.62});
         slide.addText(s.title,{x:0.72,y:1.05,w:11.7,h:1.25,fontFace:'Aptos Display',fontSize:28,bold:true,color:palette.text.replace('#',''),breakLine:false,margin:0.02,valign:'mid',fit:'shrink'});
         if(s.subtitle)slide.addText(s.subtitle,{x:0.75,y:2.32,w:10.9,h:0.75,fontFace:'Aptos',fontSize:15,color:palette.muted.replace('#',''),margin:0.02,fit:'shrink'});
         const bullets=s.bullets||[];if(bullets.length)slide.addText(bullets.map(b=>({text:b,options:{bullet:{indent:18},hanging:4,breakLine:true}})),{x:0.95,y:s.subtitle?3.18:2.55,w:10.8,h:2.8,fontFace:'Aptos',fontSize:18,color:palette.text.replace('#',''),breakLine:true,margin:0.03,paraSpaceAfterPt:14,valign:'top',fit:'shrink'});
@@ -186,6 +218,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     if(s.subtitle){ctx.fillStyle=palette.muted;ctx.font='32px Arial';y=drawWrapped(ctx,s.subtitle,90,y+20,1320,42,3)}
     if(s.bullets?.length){ctx.fillStyle=palette.text;ctx.font='32px Arial';y+=40;for(const b of s.bullets.slice(0,5)){ctx.fillStyle=palette.accent;ctx.fillText('•',95,y);ctx.fillStyle=palette.text;y=drawWrapped(ctx,b,135,y,1270,42,2)+18}}
     if(s.cta){ctx.fillStyle=palette.soft;ctx.fillRect(90,760,1030,74);ctx.fillStyle=palette.text;ctx.font='700 24px Arial';drawWrapped(ctx,s.cta,120,808,960,30,2)}
+    if(logoData){try{const img=await loadImage(logoData);const ratio=Math.min(220/img.width,90/img.height);ctx.drawImage(img,1510-img.width*ratio,70,img.width*ratio,img.height*ratio)}catch{}}
     ctx.fillStyle=palette.muted;ctx.font='20px Arial';ctx.textAlign='right';ctx.fillText(businessName,1510,845);ctx.textAlign='left';
     const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=`${slug(draft.title)}-${String(current+1).padStart(2,'0')}.png`;a.click();setNotice('Imagem PNG gerada.');
   }
@@ -219,7 +252,9 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   </section>
 }
 
-function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src})}\n\nfunction drawWrapped(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,maxWidth:number,lineHeight:number,maxLines:number){
+function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src})}
+
+function drawWrapped(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,maxWidth:number,lineHeight:number,maxLines:number){
   const words=clean(text).split(' ');let line='',lines=0;
   for(let i=0;i<words.length;i++){const test=line?line+' '+words[i]:words[i];if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,y);y+=lineHeight;lines++;line=words[i];if(lines>=maxLines)return y}else line=test}
   if(line&&lines<maxLines){ctx.fillText(line,x,y);y+=lineHeight}return y;
