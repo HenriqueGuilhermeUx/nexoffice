@@ -10,7 +10,9 @@ type OnboardingPayload={workspace?:{id:string;name:string};profile?:any;onboardi
 type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};
 type Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};
 type Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};
-type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;draft:Draft};
+type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;dealId?:string;draft:Draft};
+type SavedMaterial={id:string;status:string;public_token?:string;title:string;kind:MaterialKind;theme:ThemeKey;contact_name?:string;deal_title?:string;updated_at:string};
+type ShareResponse={id:string;public_token:string;status:string;published_at:string;path:string};
 
 const kindMeta:Record<MaterialKind,{label:string;description:string;slides:number;prompt:string}> = {
   presentation:{label:'Apresentação',description:'Deck para reunião, venda, parceria ou demonstração.',slides:7,prompt:'uma apresentação comercial'},
@@ -107,10 +109,10 @@ export default function MaterialsCenter(){
   const[kind,setKind]=useState<MaterialKind>('presentation');const[theme,setTheme]=useState<ThemeKey>('executive');const[profile,setProfile]=useState<OnboardingPayload|null>(null);const[dashboard,setDashboard]=useState<Dashboard|null>(null);
   const[title,setTitle]=useState('');const[audience,setAudience]=useState('');const[objective,setObjective]=useState('');const[context,setContext]=useState('');const[value,setValue]=useState('');const[cta,setCta]=useState('');
   const[draft,setDraft]=useState<Draft|null>(null);const[current,setCurrent]=useState(0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[notice,setNotice]=useState('');
-  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);
+  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[dealId,setDealId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);const[savedId,setSavedId]=useState('');const[shareUrl,setShareUrl]=useState('');const[serverRecent,setServerRecent]=useState<SavedMaterial[]>([]);
   const businessName=clean(profile?.profile?.metadata?.identity?.businessName||profile?.profile?.metadata?.identity?.tradeName||profile?.workspace?.name||'Seu negócio');
   const basePalette=palettes[theme];const palette={...basePalette,accent:brandAccent||basePalette.accent};
-  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,5):[];
+  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,8):[];const selectedDeal=deals.find(x=>x.id===dealId)||null;
   useEffect(()=>{
     try{
       const quick=JSON.parse(sessionStorage.getItem('nexoffice.quickAction')||'null');
@@ -119,7 +121,7 @@ export default function MaterialsCenter(){
       else if(quick?.id==='presentation')setKind('presentation');
       if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
     }catch{}
-    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[])]).then(([p,d,cx,dx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[])});
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[]),api<SavedMaterial[]>('/v1/materials').catch(()=>[])]).then(([p,d,cx,dx,mx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[]);setServerRecent(mx||[])});
     try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
@@ -147,29 +149,65 @@ ${selectedClient?`Cliente do CRM:
 - Organização: ${clean(selectedClient.company_name)}
 - E-mail: ${clean(selectedClient.email)}
 - Telefone: ${clean(selectedClient.phone)}
-- Oportunidades relacionadas: ${relatedDeals.length?relatedDeals.map(d=>`${clean(d.title)} | etapa ${clean(d.stage)} | ${money(d.value_minor)}${d.next_action?` | próximo passo: ${clean(d.next_action)}`:''}`).join('; '):'nenhuma registrada'}
+- Oportunidades relacionadas: ${relatedDeals.length?relatedDeals.map(d=>`${clean(d.title)} | etapa ${clean(d.stage)} | ${money(d.value_minor)}${d.next_action?` | próximo passo: ${clean(d.next_action)}`:''}`).join('; '):'nenhuma registrada'}\n${selectedDeal?`- Oportunidade escolhida para este material: ${clean(selectedDeal.title)} | etapa ${clean(selectedDeal.stage)} | ${money(selectedDeal.value_minor)}${selectedDeal.next_action?` | próximo passo: ${clean(selectedDeal.next_action)}`:''}`:''}
 `:''}
 Responda SOMENTE JSON válido, sem markdown, neste formato:
 {"title":"...","subtitle":"...","slides":[{"kicker":"...","title":"...","subtitle":"...","bullets":["..."],"cta":"..."}]}
 Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não usar campos vazios desnecessários; o último slide deve indicar próximo passo.`;
       const response=await post<any>('/v1/assistant/staff',{message:prompt,agentRole:'growth'});
       const parsed=extractJson(String(response?.message?.content||''));
-      const next=parsed||fallbackDraft(kind,baseArgs,dashboard);
-      setDraft({...next,slides:next.slides.slice(0,Math.max(meta.slides,1))});setCurrent(0);
+      const next=parsed||fallbackDraft(kind,baseArgs,dashboard);const finalized={...next,slides:next.slides.slice(0,Math.max(meta.slides,1))};
+      setDraft(finalized);setCurrent(0);setShareUrl('');setSavedId('');
       setNotice(parsed?'Conteúdo preparado com o DNA do Negócio. Revise antes de enviar.':'A IA não devolveu estrutura válida; preparei um rascunho seguro para você continuar.');
-      saveLocal({...next,slides:next.slides.slice(0,Math.max(meta.slides,1))},kind,theme);
+      saveLocal(finalized,kind,theme);void persistMaterial(finalized);
     }catch(e:any){
-      const next=fallbackDraft(kind,baseArgs,dashboard);setDraft(next);setCurrent(0);saveLocal(next,kind,theme);
+      const next=fallbackDraft(kind,baseArgs,dashboard);setDraft(next);setCurrent(0);setShareUrl('');setSavedId('');saveLocal(next,kind,theme);void persistMaterial(next);
       setNotice('Preparei um rascunho local para você não ficar parado. A equipe de IA pode ser usada novamente quando estiver disponível.');
       if(e?.message)setError('A geração avançada não respondeu desta vez; o rascunho local continua utilizável.');
     }finally{setBusy(false)}
+  }
+
+  async function persistMaterial(next:Draft){
+    try{
+      const saved=await post<any>('/v1/materials',{
+        kind,theme,title:next.title,subtitle:next.subtitle||null,content:next,contactId:clientId||null,dealId:dealId||null,
+        metadata:{brandAccent:brandAccent||null,createdFrom:'materials-studio-v2',businessName}
+      });
+      setSavedId(String(saved.id||''));
+      const list=await api<SavedMaterial[]>('/v1/materials').catch(()=>[]);
+      setServerRecent(list||[]);
+      return String(saved.id||'');
+    }catch{return ''}
+  }
+
+  async function openSaved(id:string){
+    setBusy(true);setError('');
+    try{
+      const row=await api<any>(`/v1/materials/${encodeURIComponent(id)}`);
+      setKind(row.kind);setTheme(row.theme);setDraft(row.content);setCurrent(0);setSavedId(row.id);setClientId(row.contact_id||'');setDealId(row.deal_id||'');
+      setBrandAccent(clean(row.metadata?.brandAccent));setShareUrl(row.status==='published'&&row.public_token?`${location.origin}/?material=${row.public_token}`:'');
+      setNotice('Material do workspace aberto.');
+    }catch(e:any){setError(e?.message||'Não foi possível abrir o material.')}finally{setBusy(false)}
+  }
+
+  async function publishMaterial(){
+    if(!draft)return;setBusy(true);setError('');
+    try{
+      let id=savedId;if(!id)id=await persistMaterial(draft);
+      if(!id)throw new Error('Não foi possível salvar o material antes de publicar.');
+      const published=await post<ShareResponse>(`/v1/materials/${encodeURIComponent(id)}/publish`,{});
+      const url=`${location.origin}${published.path}`;setShareUrl(url);
+      await navigator.clipboard?.writeText(url).catch(()=>null);
+      setNotice('Link público criado e copiado. Só quem tiver o link consegue abrir esta apresentação.');
+      const list=await api<SavedMaterial[]>('/v1/materials').catch(()=>[]);setServerRecent(list||[]);
+    }catch(e:any){setError(e?.message||'Não foi possível publicar o link.')}finally{setBusy(false)}
   }
 
   function saveLocal(next:Draft,k:MaterialKind,t:ThemeKey){
     try{
       const key=`nexoffice.materials.${session.workspace()||'local'}`;
       const list=JSON.parse(localStorage.getItem(key)||'[]');
-      const item:RecentMaterial={id:Date.now(),kind:k,theme:t,accent:brandAccent||undefined,clientId:clientId||undefined,draft:next};
+      const item:RecentMaterial={id:Date.now(),kind:k,theme:t,accent:brandAccent||undefined,clientId:clientId||undefined,dealId:dealId||undefined,draft:next};
       const updated=[item,...(Array.isArray(list)?list:[])].slice(0,12);
       localStorage.setItem(key,JSON.stringify(updated));
       setRecent(updated.slice(0,8));
@@ -177,7 +215,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   }
 
   function reopen(item:RecentMaterial){
-    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDraft(item.draft);setCurrent(0);
+    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDealId(item.dealId||'');setDraft(item.draft);setCurrent(0);setSavedId('');setShareUrl('');
     setNotice('Material recente reaberto. Você pode exportar ou gerar uma nova versão.');
   }
 
@@ -237,16 +275,17 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
       <div className="materialsSection"><label>O que você quer criar?</label><div className="materialsKinds">{(Object.keys(kindMeta) as MaterialKind[]).map(k=><button key={k} className={kind===k?'active':''} onClick={()=>{setKind(k);setDraft(null)}}><b>{kindMeta[k].label}</b><small>{kindMeta[k].description}</small></button>)}</div></div>
       <div className="materialsSection"><label>Estilo</label><div className="themeRow">{(Object.keys(palettes) as ThemeKey[]).map(t=><button key={t} className={theme===t?'active':''} onClick={()=>setTheme(t)}>{t==='executive'?'Executivo':t==='bold'?'Impacto':'Claro'}</button>)}</div></div>
       <div className="materialsBrand"><label><span>Cor da marca</span><input type="color" value={brandAccent||basePalette.accent} onChange={e=>setBrandAccent(e.target.value)}/></label><label><span>Logo / imagem opcional</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>onLogo(e.target.files?.[0])}/></label></div>
-      {contacts.length>0&&<div className="materialsClient"><label><span>Cliente do CRM (opcional)</span><select value={clientId} onChange={e=>{const id=e.target.value;setClientId(id);const selected=contacts.find(x=>x.id===id);if(selected&&!audience.trim())setAudience(clean(selected.company_name||selected.name))}}><option value="">Sem cliente vinculado</option>{contacts.map(x=><option key={x.id} value={x.id}>{x.name}{x.company_name?` · ${x.company_name}`:''}</option>)}</select></label>{selectedClient&&<small>{relatedDeals.length?`${relatedDeals.length} oportunidade(s) relacionada(s) serão usadas como contexto.`:'Cliente selecionado; nenhuma oportunidade aberta foi encontrada para ele.'}</small>}</div>}
+      {contacts.length>0&&<div className="materialsClient"><label><span>Cliente do CRM (opcional)</span><select value={clientId} onChange={e=>{const id=e.target.value;setClientId(id);setDealId('');const selected=contacts.find(x=>x.id===id);if(selected&&!audience.trim())setAudience(clean(selected.company_name||selected.name))}}><option value="">Sem cliente vinculado</option>{contacts.map(x=><option key={x.id} value={x.id}>{x.name}{x.company_name?` · ${x.company_name}`:''}</option>)}</select></label>{selectedClient&&<><small>{relatedDeals.length?`${relatedDeals.length} oportunidade(s) relacionada(s) encontradas.`:'Cliente selecionado; nenhuma oportunidade foi encontrada para ele.'}</small>{relatedDeals.length>0&&<label><span>Oportunidade específica (opcional)</span><select value={dealId} onChange={e=>{const id=e.target.value;setDealId(id);const d=deals.find(x=>x.id===id);if(d&&!title.trim())setTitle(clean(d.title));if(d&&!value.trim()&&Number(d.value_minor)>0)setValue(money(d.value_minor))}}><option value="">Usar contexto geral do cliente</option>{relatedDeals.map(d=><option key={d.id} value={d.id}>{d.title} · {money(d.value_minor)}</option>)}</select></label>}</>}</div>}
       <div className="materialsFields"><label><span>Título, oferta ou assunto</span><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Gestão de tráfego para Clínica X"/></label><label><span>Para quem?</span><input value={audience} onChange={e=>setAudience(e.target.value)} placeholder="Ex.: diretoria da Clínica X"/></label><label><span>O que você quer conseguir?</span><textarea value={objective} onChange={e=>setObjective(e.target.value)} placeholder="Ex.: apresentar a proposta e mostrar por que faz sentido agora"/></label><label><span>Informações que não podem faltar</span><textarea value={context} onChange={e=>setContext(e.target.value)} placeholder="Cole briefing, entregas, resultados, detalhes do cliente ou contexto da reunião"/></label><div className="materialsTwo"><label><span>Valor / condição</span><input value={value} onChange={e=>setValue(e.target.value)} placeholder="Ex.: R$ 2.500/mês"/></label><label><span>Próximo passo</span><input value={cta} onChange={e=>setCta(e.target.value)} placeholder="Ex.: aprovar proposta até sexta"/></label></div></div>
       <div className="materialsContext"><span>DNA DO NEGÓCIO</span><b>{businessName}</b><small>{profile?.profile?.sector?clean(profile.profile.sector):'Perfil sendo enriquecido pelo NexOffice'}</small></div>
       <button className="materialsGenerate" onClick={generate} disabled={busy||!ready}>{busy?'Preparando…':draft?'Gerar nova versão':'Criar material'}</button>
       <p className="materialsGuardrail">A IA usa o contexto do seu Negócio, mas não deve inventar métricas, cases ou resultados. Revise sempre antes de compartilhar.</p>
-      {recent.length>0&&<div className="materialsRecent"><span>RECENTES</span>{recent.slice(0,4).map(item=><button key={item.id} onClick={()=>reopen(item)}><small>{kindMeta[item.kind].label}</small><b>{item.draft.title}</b></button>)}</div>}
+      {serverRecent.length>0&&<div className="materialsRecent materialsWorkspaceRecent"><span>SALVOS NO WORKSPACE</span>{serverRecent.slice(0,4).map(item=><button key={item.id} onClick={()=>void openSaved(item.id)}><small>{kindMeta[item.kind]?.label||item.kind}{item.status==='published'?' · link ativo':''}</small><b>{item.title}</b>{(item.contact_name||item.deal_title)&&<em>{item.contact_name||item.deal_title}</em>}</button>)}</div>}
+      {recent.length>0&&<div className="materialsRecent"><span>RECENTES NESTE NAVEGADOR</span>{recent.slice(0,4).map(item=><button key={item.id} onClick={()=>reopen(item)}><small>{kindMeta[item.kind].label}</small><b>{item.draft.title}</b></button>)}</div>}
     </aside>
     <main className="materialsPreview">{draft&&slide?<><div className="materialsPreviewHead"><div><small>{draft.generatedBy||'NexOffice'}</small><b>{draft.title}</b></div><div><button onClick={()=>setCurrent(Math.max(0,current-1))} disabled={current===0}>←</button><span>{current+1}/{draft.slides.length}</span><button onClick={()=>setCurrent(Math.min(draft.slides.length-1,current+1))} disabled={current===draft.slides.length-1}>→</button></div></div>
       <article className="materialSlide" style={{background:palette.bg,color:palette.text,borderLeftColor:palette.accent}}>{logoData&&<img className="materialBrandLogo" src={logoData} alt="Logo do negócio"/>}<small style={{color:palette.accent}}>{(slide.kicker||kindMeta[kind].label).toUpperCase()}</small><h3>{slide.title}</h3>{slide.subtitle&&<p className="slideSubtitle" style={{color:palette.muted}}>{slide.subtitle}</p>}{slide.bullets?.length?<ul>{slide.bullets.map((b,i)=><li key={i}>{b}</li>)}</ul>:null}{slide.cta&&<div className="slideCta" style={{background:palette.soft}}>{slide.cta}</div>}<footer style={{color:palette.muted}}><span>{businessName}</span><em style={{color:palette.accent}}>{String(current+1).padStart(2,'0')}</em></footer></article>
-      <div className="materialsExport"><button onClick={exportPptx} disabled={busy}>PowerPoint editável</button><button onClick={printPdf}>Salvar como PDF</button><button onClick={exportPng}>Baixar slide em PNG</button><button onClick={()=>window.open('https://pdffacil.netlify.app','_blank','noopener,noreferrer')}>Ajustar no PDF Fácil ↗</button></div>
+      <div className="materialsExport"><button className="materialsShare" onClick={()=>void publishMaterial()} disabled={busy}>{shareUrl?'Atualizar link público':'Criar link para apresentar'}</button>{shareUrl&&<button onClick={()=>window.open(shareUrl,'_blank','noopener,noreferrer')}>Abrir apresentação ↗</button>}<button onClick={exportPptx} disabled={busy}>PowerPoint editável</button><button onClick={printPdf}>Salvar como PDF</button><button onClick={exportPng}>Baixar slide em PNG</button><button onClick={()=>window.open('https://pdffacil.netlify.app','_blank','noopener,noreferrer')}>Ajustar no PDF Fácil ↗</button></div>{shareUrl&&<div className="materialsShareUrl"><span>LINK PÚBLICO</span><input readOnly value={shareUrl}/><button onClick={async()=>{await navigator.clipboard?.writeText(shareUrl).catch(()=>null);setNotice('Link copiado.')}}>Copiar</button></div>}
       <div className="materialsThumbnails">{draft.slides.map((s,i)=><button key={i} className={i===current?'active':''} onClick={()=>setCurrent(i)}><span>{String(i+1).padStart(2,'0')}</span><b>{s.title}</b></button>)}</div>
     </>:<div className="materialsEmpty"><div>▦</div><h3>Conte o que você precisa apresentar.</h3><p>O NexOffice usa o Perfil do Negócio como ponto de partida e monta um material que você pode revisar, exportar para PowerPoint, PDF ou PNG.</p><div><span>Apresentação</span><span>Proposta</span><span>Relatório</span><span>Resumo visual</span><span>Imagem</span></div></div>}</main></div>
   </section>

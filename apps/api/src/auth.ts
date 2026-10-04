@@ -40,9 +40,9 @@ const ROLE_PERMISSIONS: Record<string,string[]> = {
   admin: ['*'],
   member: [
     'workspace.read','crm.read','crm.write','agenda.read','agenda.write','finance.read','finance.write',
-    'command.read','command.decide','documents.read','documents.write','usage.read','integrations.read'
+    'command.read','command.decide','documents.read','documents.write','materials.read','materials.write','usage.read','integrations.read'
   ],
-  viewer: ['workspace.read','crm.read','agenda.read','finance.read','command.read','documents.read','usage.read','integrations.read']
+  viewer: ['workspace.read','crm.read','agenda.read','finance.read','command.read','documents.read','materials.read','usage.read','integrations.read']
 };
 
 export function hasPermission(role: string, extra: string[], permission: string): boolean {

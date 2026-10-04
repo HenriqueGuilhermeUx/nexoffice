@@ -23,37 +23,44 @@ import MarketingLanding from './MarketingLanding';
 import MarketingDiscoveryBridge from './MarketingDiscoveryBridge';
 import PlatformHandoffBootstrap from './PlatformHandoffBootstrap';
 import {PublicLegalFooter,PublicLegalPage} from './PublicLegal';
+import PublicMaterialView from './PublicMaterialView';
 import './styles.css';
 import './intelligent-activation.css';
 import './platform-handoff.css';
 import './marketing-landing.css';
 import './marketing-readiness.css';
 
+const pathMaterial=location.pathname.match(/^\/material\/([0-9a-f-]{36})$/i)?.[1]||'';
+const queryMaterial=new URLSearchParams(location.search).get('material')||'';
+const publicMaterialToken=/^[0-9a-f-]{36}$/i.test(pathMaterial||queryMaterial)?(pathMaterial||queryMaterial):'';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <MarketingLanding/>
-    <MarketingDiscoveryBridge/>
-    <PlatformHandoffBootstrap/>
-    <App/>
-    <ProductDiscovery/>
-    <StandaloneSetup/>
-    <ShellUXEnhancements/>
-    <HomeV2/>
-    <OfficeView/>
-    <AssistantNavigationBridge/>
-    <AssistantsWorkspace/>
-    <BusinessKnowledgeCenter/>
-    <KnowledgeSecurityCenter/>
-    <InvestmentDock/>
-    <DocumentWorkspaceBridge/>
-    <ContractCreator/>
-    <BusinessOperationCenter/>
-    <NetworkCenter/>
-    <FinancialEngineCollectionsBridge/>
-    <ReceivingAccountOnboardingBridge/>
-    <FiscalWorkspaceBridge/>
-    <LaunchReadinessCenter/>
-    <PublicLegalFooter/>
-    <PublicLegalPage/>
+    {publicMaterialToken?<PublicMaterialView token={publicMaterialToken}/>:<>
+      <MarketingLanding/>
+      <MarketingDiscoveryBridge/>
+      <PlatformHandoffBootstrap/>
+      <App/>
+      <ProductDiscovery/>
+      <StandaloneSetup/>
+      <ShellUXEnhancements/>
+      <HomeV2/>
+      <OfficeView/>
+      <AssistantNavigationBridge/>
+      <AssistantsWorkspace/>
+      <BusinessKnowledgeCenter/>
+      <KnowledgeSecurityCenter/>
+      <InvestmentDock/>
+      <DocumentWorkspaceBridge/>
+      <ContractCreator/>
+      <BusinessOperationCenter/>
+      <NetworkCenter/>
+      <FinancialEngineCollectionsBridge/>
+      <ReceivingAccountOnboardingBridge/>
+      <FiscalWorkspaceBridge/>
+      <LaunchReadinessCenter/>
+      <PublicLegalFooter/>
+      <PublicLegalPage/>
+    </>}
   </React.StrictMode>
 );
