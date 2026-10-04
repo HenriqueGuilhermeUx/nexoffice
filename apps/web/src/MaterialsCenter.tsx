@@ -156,22 +156,58 @@ Responda SOMENTE JSON válido, sem markdown, neste formato:
 Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não usar campos vazios desnecessários; o último slide deve indicar próximo passo.`;
       const response=await post<any>('/v1/assistant/staff',{message:prompt,agentRole:'growth'});
       const parsed=extractJson(String(response?.message?.content||''));
-      const next=parsed||fallbackDraft(kind,baseArgs,dashboard);
-      setDraft({...next,slides:next.slides.slice(0,Math.max(meta.slides,1))});setCurrent(0);
+      const next=parsed||fallbackDraft(kind,baseArgs,dashboard);const finalized={...next,slides:next.slides.slice(0,Math.max(meta.slides,1))};
+      setDraft(finalized);setCurrent(0);setShareUrl('');setSavedId('');
       setNotice(parsed?'Conteúdo preparado com o DNA do Negócio. Revise antes de enviar.':'A IA não devolveu estrutura válida; preparei um rascunho seguro para você continuar.');
-      saveLocal({...next,slides:next.slides.slice(0,Math.max(meta.slides,1))},kind,theme);
+      saveLocal(finalized,kind,theme);void persistMaterial(finalized);
     }catch(e:any){
-      const next=fallbackDraft(kind,baseArgs,dashboard);setDraft(next);setCurrent(0);saveLocal(next,kind,theme);
+      const next=fallbackDraft(kind,baseArgs,dashboard);setDraft(next);setCurrent(0);setShareUrl('');setSavedId('');saveLocal(next,kind,theme);void persistMaterial(next);
       setNotice('Preparei um rascunho local para você não ficar parado. A equipe de IA pode ser usada novamente quando estiver disponível.');
       if(e?.message)setError('A geração avançada não respondeu desta vez; o rascunho local continua utilizável.');
     }finally{setBusy(false)}
+  }
+
+  async function persistMaterial(next:Draft){
+    try{
+      const saved=await post<any>('/v1/materials',{
+        kind,theme,title:next.title,subtitle:next.subtitle||null,content:next,contactId:clientId||null,dealId:dealId||null,
+        metadata:{brandAccent:brandAccent||null,createdFrom:'materials-studio-v2',businessName}
+      });
+      setSavedId(String(saved.id||''));
+      const list=await api<SavedMaterial[]>('/v1/materials').catch(()=>[]);
+      setServerRecent(list||[]);
+      return String(saved.id||'');
+    }catch{return ''}
+  }
+
+  async function openSaved(id:string){
+    setBusy(true);setError('');
+    try{
+      const row=await api<any>(`/v1/materials/${encodeURIComponent(id)}`);
+      setKind(row.kind);setTheme(row.theme);setDraft(row.content);setCurrent(0);setSavedId(row.id);setClientId(row.contact_id||'');setDealId(row.deal_id||'');
+      setBrandAccent(clean(row.metadata?.brandAccent));setShareUrl(row.status==='published'&&row.public_token?`${location.origin}/material/${row.public_token}`:'');
+      setNotice('Material do workspace aberto.');
+    }catch(e:any){setError(e?.message||'Não foi possível abrir o material.')}finally{setBusy(false)}
+  }
+
+  async function publishMaterial(){
+    if(!draft)return;setBusy(true);setError('');
+    try{
+      let id=savedId;if(!id)id=await persistMaterial(draft);
+      if(!id)throw new Error('Não foi possível salvar o material antes de publicar.');
+      const published=await post<ShareResponse>(`/v1/materials/${encodeURIComponent(id)}/publish`,{});
+      const url=`${location.origin}${published.path}`;setShareUrl(url);
+      await navigator.clipboard?.writeText(url).catch(()=>null);
+      setNotice('Link público criado e copiado. Só quem tiver o link consegue abrir esta apresentação.');
+      const list=await api<SavedMaterial[]>('/v1/materials').catch(()=>[]);setServerRecent(list||[]);
+    }catch(e:any){setError(e?.message||'Não foi possível publicar o link.')}finally{setBusy(false)}
   }
 
   function saveLocal(next:Draft,k:MaterialKind,t:ThemeKey){
     try{
       const key=`nexoffice.materials.${session.workspace()||'local'}`;
       const list=JSON.parse(localStorage.getItem(key)||'[]');
-      const item:RecentMaterial={id:Date.now(),kind:k,theme:t,accent:brandAccent||undefined,clientId:clientId||undefined,draft:next};
+      const item:RecentMaterial={id:Date.now(),kind:k,theme:t,accent:brandAccent||undefined,clientId:clientId||undefined,dealId:dealId||undefined,draft:next};
       const updated=[item,...(Array.isArray(list)?list:[])].slice(0,12);
       localStorage.setItem(key,JSON.stringify(updated));
       setRecent(updated.slice(0,8));
@@ -179,7 +215,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   }
 
   function reopen(item:RecentMaterial){
-    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDraft(item.draft);setCurrent(0);
+    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDealId(item.dealId||'');setDraft(item.draft);setCurrent(0);setSavedId('');setShareUrl('');
     setNotice('Material recente reaberto. Você pode exportar ou gerar uma nova versão.');
   }
 
