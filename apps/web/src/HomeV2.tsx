@@ -24,7 +24,10 @@ const quickActions:QuickAction[]=[
   {id:'invoice',title:'Emitir uma nota fiscal',description:'Cliente, serviço e valor → revisar → aprovar → emitir.',target:'Financeiro',icon:'#'},
   {id:'document',title:'Criar contrato ou enviar para assinatura',description:'Contrato novo ou documento pronto para assinatura.',target:'Documentos',icon:'▱'},
   {id:'money',title:'Entender meu dinheiro',description:'Caixa, recebíveis, atrasados, despesas e resultado.',target:'Financeiro',icon:'◈'},
-  {id:'team',title:'Perguntar para minha equipe de IA',description:'Use Maya, Theo, Dora, Clara, Nico e Sofia com o contexto da empresa.',target:'Assistentes IA',icon:'M',role:'growth',prompt:'Faça uma leitura do meu negócio agora e me diga o que merece minha atenção, o que mudou e qual é a melhor próxima ação.'}
+  {id:'team',title:'Perguntar para minha equipe de IA',description:'Use Maya, Theo, Dora, Clara, Nico e Sofia com o contexto da empresa.',target:'Assistentes IA',icon:'M',role:'growth',prompt:'Faça uma leitura do meu negócio agora e me diga o que merece minha atenção, o que mudou e qual é a melhor próxima ação.'},
+  {id:'presentation',title:'Criar uma apresentação',description:'Monte slides profissionais usando o contexto do seu Negócio.',target:'Materiais',icon:'▦',featured:true},
+  {id:'proposal-material',title:'Criar uma proposta profissional',description:'Transforme oferta, escopo e valor em uma proposta pronta para apresentar.',target:'Materiais',icon:'□'},
+  {id:'visual-material',title:'Criar imagem ou resumo visual',description:'Gere uma peça rápida para WhatsApp, reunião ou cliente.',target:'Materiais',icon:'◇'}
 ];
 const assistants:Assistant[]=[
   {name:'Maya',initial:'M',role:'Coordenação',power:'Cruza o contexto da empresa, organiza prioridades e coordena os demais especialistas.',target:'Assistentes IA'},
@@ -34,7 +37,7 @@ const assistants:Assistant[]=[
   {name:'Nico',initial:'N',role:'Operações',power:'Enxerga tarefas, gargalos e execução diária para manter o trabalho andando.',target:'Operação'},
   {name:'Sofia',initial:'S',role:'Recepção',power:'Cuida da entrada do trabalho, agenda, compromissos e encaminhamentos do dia.',target:'Operação'}
 ];
-const navAliases:Record<string,string[]>={'Hoje':['Hoje','Central de Comando'],'Clientes':['Clientes','CRM'],'Financeiro':['Financeiro'],'Documentos':['Documentos'],'Operação':['Operação','Agenda & Tarefas'],'Crescimento':['Crescimento','Marketing'],'Assistentes IA':['Assistentes IA','Equipe Digital'],'Integrações':['Integrações'],'Configurações':['Configurações','Empresa & Acessos']};
+const navAliases:Record<string,string[]>={'Hoje':['Hoje','Central de Comando'],'Clientes':['Clientes','CRM'],'Financeiro':['Financeiro'],'Documentos':['Documentos'],'Materiais':['Materiais'],'Operação':['Operação','Agenda & Tarefas'],'Crescimento':['Crescimento','Marketing'],'Assistentes IA':['Assistentes IA','Equipe Digital'],'Integrações':['Integrações'],'Configurações':['Configurações','Empresa & Acessos']};
 function clickNav(match:string){const aliases=navAliases[match]||[match];const buttons=[...document.querySelectorAll<HTMLButtonElement>('.sidebar nav button')];buttons.find(b=>aliases.some(alias=>(b.textContent||'').toLowerCase().includes(alias.toLowerCase())))?.click()}
 function launch(action:QuickAction){sessionStorage.removeItem('nexoffice.quickAction');if(action.role&&action.prompt){sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id:action.id,label:action.title,role:action.role,prompt:action.prompt,createdAt:new Date().toISOString()}))}else if(['charge','invoice'].includes(action.id)){sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id:action.id,label:action.title,target:action.target,createdAt:new Date().toISOString()}))}clickNav(action.target)}
 function capitalizedFirstName(value:string){const first=value.trim().split(/\s+/)[0]||'';return first?first.charAt(0).toLocaleUpperCase('pt-BR')+first.slice(1):''}
