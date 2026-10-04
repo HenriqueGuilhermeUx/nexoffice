@@ -86,7 +86,7 @@ export async function registerMaterialsRoutes(app:FastifyInstance){
 
   app.post('/v1/materials/:id/publish',async req=>{
     const ctx=await workspaceContext(req,'materials.write'),id=uuid.parse((req.params as any).id);
-    const row=(await query<any>(`update materials set status='published',published_at=coalesce(published_at,now()),updated_at=now()
+    const row=(await query<any>(`update materials set status='published',public_token=case when status='published' then public_token else gen_random_uuid() end,published_at=case when status='published' then coalesce(published_at,now()) else now() end,updated_at=now()
       where id=$1 and workspace_id=$2 returning id,public_token,status,published_at`,[id,ctx.workspaceId]))[0];
     if(!row)throw new ApiError(404,'not_found','Material não encontrado.');
     return {...row,path:`/?material=${row.public_token}`};
@@ -107,7 +107,9 @@ export async function registerMaterialsRoutes(app:FastifyInstance){
     return {ok:true,id};
   });
 
-  app.get('/v1/public/materials/:token',async req=>{
+  app.get('/v1/public/materials/:token',async (req,reply)=>{
+    reply.header('cache-control','no-store, max-age=0');
+    reply.header('pragma','no-cache');
     const token=uuid.parse((req.params as any).token);
     const row=(await query<any>(`select m.kind,m.theme,m.title,m.subtitle,m.content,m.metadata,m.published_at,m.updated_at,w.name workspace_name
       from materials m join workspaces w on w.id=m.workspace_id
