@@ -106,7 +106,16 @@ export default function MaterialsCenter(){
   const[draft,setDraft]=useState<Draft|null>(null);const[current,setCurrent]=useState(0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[notice,setNotice]=useState('');
   const businessName=clean(profile?.profile?.metadata?.identity?.businessName||profile?.profile?.metadata?.identity?.tradeName||profile?.workspace?.name||'Seu negócio');
   const palette=palettes[theme];
-  useEffect(()=>{void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null)]).then(([p,d])=>{if(p)setProfile(p);if(d)setDashboard(d)})},[]);
+  useEffect(()=>{
+    try{
+      const quick=JSON.parse(sessionStorage.getItem('nexoffice.quickAction')||'null');
+      if(quick?.id==='proposal-material')setKind('proposal');
+      else if(quick?.id==='visual-material')setKind('image');
+      else if(quick?.id==='presentation')setKind('presentation');
+      if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
+    }catch{}
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null)]).then(([p,d])=>{if(p)setProfile(p);if(d)setDashboard(d)});
+  },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
 
   async function generate(){
@@ -159,7 +168,10 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
         slide.addText(s.title,{x:0.72,y:1.05,w:11.7,h:1.25,fontFace:'Aptos Display',fontSize:28,bold:true,color:palette.text.replace('#',''),breakLine:false,margin:0.02,valign:'mid',fit:'shrink'});
         if(s.subtitle)slide.addText(s.subtitle,{x:0.75,y:2.32,w:10.9,h:0.75,fontFace:'Aptos',fontSize:15,color:palette.muted.replace('#',''),margin:0.02,fit:'shrink'});
         const bullets=s.bullets||[];if(bullets.length)slide.addText(bullets.map(b=>({text:b,options:{bullet:{indent:18},hanging:4,breakLine:true}})),{x:0.95,y:s.subtitle?3.18:2.55,w:10.8,h:2.8,fontFace:'Aptos',fontSize:18,color:palette.text.replace('#',''),breakLine:true,margin:0.03,paraSpaceAfterPt:14,valign:'top',fit:'shrink'});
-        if(s.cta)slide.addShape(pptx.ShapeType.roundRect,{x:0.75,y:6.18,w:7.8,h:0.58,rectRadius:0.08,fill:{color:palette.soft.replace('#','')},line:{color:palette.accent.replace('#',''),transparency:55}}),slide.addText(s.cta,{x:1.02,y:6.33,w:7.25,h:0.2,fontFace:'Aptos',fontSize:12,bold:true,color:palette.text.replace('#',''),margin:0});
+        if(s.cta){
+          slide.addShape(pptx.ShapeType.roundRect,{x:0.75,y:6.18,w:7.8,h:0.58,rectRadius:0.08,fill:{color:palette.soft.replace('#','')},line:{color:palette.accent.replace('#',''),transparency:55}});
+          slide.addText(s.cta,{x:1.02,y:6.33,w:7.25,h:0.2,fontFace:'Aptos',fontSize:12,bold:true,color:palette.text.replace('#',''),margin:0});
+        }
         slide.addText(businessName,{x:10.0,y:7.06,w:2.45,h:0.18,fontFace:'Aptos',fontSize:8,color:palette.muted.replace('#',''),align:'right',margin:0});slide.addText(String(idx+1).padStart(2,'0'),{x:12.48,y:7.04,w:0.35,h:0.18,fontFace:'Aptos',fontSize:8,color:palette.accent.replace('#',''),align:'right',margin:0});
       });
       await pptx.writeFile({fileName:`${slug(draft.title)}.pptx`,compression:true});setNotice('PowerPoint editável gerado.');
