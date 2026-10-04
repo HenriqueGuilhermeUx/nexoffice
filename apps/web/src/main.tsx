@@ -30,11 +30,13 @@ import './platform-handoff.css';
 import './marketing-landing.css';
 import './marketing-readiness.css';
 
-const publicMaterialMatch=location.pathname.match(/^\/material\/([0-9a-f-]{36})$/i);
+const pathMaterial=location.pathname.match(/^\/material\/([0-9a-f-]{36})$/i)?.[1]||'';
+const queryMaterial=new URLSearchParams(location.search).get('material')||'';
+const publicMaterialToken=/^[0-9a-f-]{36}$/i.test(pathMaterial||queryMaterial)?(pathMaterial||queryMaterial):'';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {publicMaterialMatch?<PublicMaterialView token={publicMaterialMatch[1]}/>:<>
+    {publicMaterialToken?<PublicMaterialView token={publicMaterialToken}/>:<>
       <MarketingLanding/>
       <MarketingDiscoveryBridge/>
       <PlatformHandoffBootstrap/>
