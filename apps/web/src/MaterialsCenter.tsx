@@ -185,7 +185,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     try{
       const row=await api<any>(`/v1/materials/${encodeURIComponent(id)}`);
       setKind(row.kind);setTheme(row.theme);setDraft(row.content);setCurrent(0);setSavedId(row.id);setClientId(row.contact_id||'');setDealId(row.deal_id||'');
-      setBrandAccent(clean(row.metadata?.brandAccent));setShareUrl(row.status==='published'&&row.public_token?`${location.origin}/material/${row.public_token}`:'');
+      setBrandAccent(clean(row.metadata?.brandAccent));setShareUrl(row.status==='published'&&row.public_token?`${location.origin}/?material=${row.public_token}`:'');
       setNotice('Material do workspace aberto.');
     }catch(e:any){setError(e?.message||'Não foi possível abrir o material.')}finally{setBusy(false)}
   }
