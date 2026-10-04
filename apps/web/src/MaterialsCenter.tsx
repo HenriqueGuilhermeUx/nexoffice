@@ -10,7 +10,9 @@ type OnboardingPayload={workspace?:{id:string;name:string};profile?:any;onboardi
 type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};
 type Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};
 type Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};
-type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;draft:Draft};
+type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;dealId?:string;draft:Draft};
+type SavedMaterial={id:string;status:string;public_token?:string;title:string;kind:MaterialKind;theme:ThemeKey;contact_name?:string;deal_title?:string;updated_at:string};
+type ShareResponse={id:string;public_token:string;status:string;published_at:string;path:string};
 
 const kindMeta:Record<MaterialKind,{label:string;description:string;slides:number;prompt:string}> = {
   presentation:{label:'Apresentação',description:'Deck para reunião, venda, parceria ou demonstração.',slides:7,prompt:'uma apresentação comercial'},
@@ -107,10 +109,10 @@ export default function MaterialsCenter(){
   const[kind,setKind]=useState<MaterialKind>('presentation');const[theme,setTheme]=useState<ThemeKey>('executive');const[profile,setProfile]=useState<OnboardingPayload|null>(null);const[dashboard,setDashboard]=useState<Dashboard|null>(null);
   const[title,setTitle]=useState('');const[audience,setAudience]=useState('');const[objective,setObjective]=useState('');const[context,setContext]=useState('');const[value,setValue]=useState('');const[cta,setCta]=useState('');
   const[draft,setDraft]=useState<Draft|null>(null);const[current,setCurrent]=useState(0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[notice,setNotice]=useState('');
-  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);
+  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[dealId,setDealId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);const[savedId,setSavedId]=useState('');const[shareUrl,setShareUrl]=useState('');const[serverRecent,setServerRecent]=useState<SavedMaterial[]>([]);
   const businessName=clean(profile?.profile?.metadata?.identity?.businessName||profile?.profile?.metadata?.identity?.tradeName||profile?.workspace?.name||'Seu negócio');
   const basePalette=palettes[theme];const palette={...basePalette,accent:brandAccent||basePalette.accent};
-  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,5):[];
+  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,8):[];const selectedDeal=deals.find(x=>x.id===dealId)||null;
   useEffect(()=>{
     try{
       const quick=JSON.parse(sessionStorage.getItem('nexoffice.quickAction')||'null');
