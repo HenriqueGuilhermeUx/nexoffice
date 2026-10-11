@@ -1,0 +1,36 @@
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const must=(v,m)=>{if(!v)throw new Error('Maya Playbooks V2 contract failed: '+m)};
+const has=(t,v,m)=>must(t.includes(v),m||('missing '+v));
+const lacks=(t,v,m)=>must(!t.includes(v),m||('unexpected '+v));
+
+const routes=read('apps/api/src/routes-maya-playbooks.ts');
+const playbooks=read('apps/api/src/routes-playbooks.ts');
+const server=read('apps/api/src/server.ts');
+const panel=read('apps/web/src/SmartPlaybooksPanel.tsx');
+
+has(routes,"'/v1/playbooks/maya'",'Maya orchestration endpoint');
+has(routes,"mode:z.enum(['execute_safe','preview'])",'preview and safe execution modes');
+has(routes,"step.execution_mode!=='safe_internal'",'Maya must stop outside safe_internal');
+has(routes,"externalActionsAutomatic:false",'external actions remain manual');
+has(routes,"fiscalAutomatic:false",'fiscal action remains manual');
+has(routes,"supplierCommunicationAutomatic:false",'supplier communication remains manual');
+has(routes,"customerCommunicationAutomatic:false",'customer communication remains manual');
+has(routes,"startPlaybookRun(ctx,candidate.templateKey",'Maya reuses canonical playbook starter');
+has(routes,"playbook.maya_safe_step",'safe-step audit trail');
+has(routes,"playbook.maya_orchestrated",'orchestration audit trail');
+has(playbooks,'export async function startPlaybookRun','shared playbook starter exported');
+has(playbooks,"source='smart_playbooks_v1'",'manual starter preserves source');
+has(server,'registerMayaPlaybookRoutes','server registers Maya route');
+has(server,"version:'0.43.0'",'API version bumped');
+has(panel,'MAYA · ORQUESTRADORA','Maya UI identity');
+has(panel,'Diga o objetivo. Eu organizo o trabalho seguro','Maya orchestration promise');
+has(panel,"'/v1/playbooks/maya'",'UI calls Maya endpoint');
+has(panel,'Maya, cuida dos clientes em risco','risk prompt');
+has(panel,'Maya, organiza as vendas paradas','stalled sales prompt');
+has(panel,'Maya, cuida do que precisa ser reposto','stock prompt');
+has(panel,'Maya, resolve as prioridades do negócio','all priorities prompt');
+has(panel,'A Maya executa apenas etapas internas classificadas como seguras.','human-control footer');
+lacks(routes,'message.send(', 'Maya route must not call direct message send');
+lacks(routes,'fiscal.issue(', 'Maya route must not call direct fiscal issue');
+console.log('NexOffice Maya Playbooks V2 contract OK');
