@@ -48,7 +48,7 @@ has(reconUi,'A conciliação altera o estado financeiro interno','reconciliation
 lacks(inventory,'message.send','inventory must not send supplier messages');
 has(landing,'Seu negócio não precisa de mais uma tela.','public home positioning');
 has(landing,'Da oportunidade ao dinheiro recebido.','public quote-to-cash story');
-has(landing,'CONCILIAÇÃO','public reconciliation possibility');
+has(landing,'Conciliação vem explicada.','public reconciliation possibility');
 has(landing,'ESTOQUE','public optional inventory possibility');
 has(landing,'AUTONOMIA COM GOVERNANÇA','public governance positioning');
 has(landing,'Ações sensíveis continuam sob seu controle','public human-control promise');
