@@ -128,7 +128,18 @@ export async function registerBusinessOperationRoutes(app:FastifyInstance){
   app.post('/v1/business-operations/:id/mark-paid',async req=>{
     const ctx=await workspaceContext(req,'finance.write'),id=uuid.parse((req.params as any).id);
     const operation=(await query<any>(`select * from business_operations where id=$1 and workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');if(!operation.ledger_entry_id)throw new ApiError(409,'collection_required','A operação ainda não possui recebível.');
-    await query(`update ledger_entries set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and workspace_id=$2`,[operation.ledger_entry_id,ctx.workspaceId]);
-    const rows=await query<any>(`update business_operations set status='paid',updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId]);await auditLog(ctx,'business_operation.marked_paid','business_operation',id,operation,rows[0]);return rows[0];
+    const updated=await transaction(async client=>{
+      await client.query(`update ledger_entries set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and workspace_id=$2`,[operation.ledger_entry_id,ctx.workspaceId]);
+      const row=(await client.query<any>(`update business_operations set status='paid',updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId])).rows[0];
+      if(operation.catalog_item_id){
+        const item=(await client.query<any>(`select id,kind,track_inventory,cost_minor from business_catalog_items where id=$1 and workspace_id=$2`,[operation.catalog_item_id,ctx.workspaceId])).rows[0];
+        if(item?.kind==='product'&&item?.track_inventory){
+          const already=(await client.query<any>(`select id from inventory_movements where workspace_id=$1 and reference_type='business_operation' and reference_id=$2 and movement_type='sale' limit 1`,[ctx.workspaceId,id])).rows[0];
+          if(!already)await client.query(`insert into inventory_movements(workspace_id,catalog_item_id,movement_type,quantity,unit_cost_minor,reference_type,reference_id,note,created_by,metadata) values($1,$2,'sale',$3,$4,'business_operation',$5,$6,$7,$8)`,[ctx.workspaceId,operation.catalog_item_id,Number(operation.quantity||1),operation.unit_cost_minor??item.cost_minor,id,'Saída registrada após pagamento da operação',ctx.user.id,JSON.stringify({source:'business_operation_paid',externalEffect:false})]);
+        }
+      }
+      return row;
+    });
+    await auditLog(ctx,'business_operation.marked_paid','business_operation',id,operation,updated);return updated;
   });
 }
