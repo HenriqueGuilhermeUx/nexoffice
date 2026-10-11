@@ -29,7 +29,7 @@ has(panel,'Maya, cuida dos clientes em risco','risk prompt');
 has(panel,'Maya, organiza as vendas paradas','stalled sales prompt');
 has(panel,'Maya, cuida do que precisa ser reposto','stock prompt');
 has(panel,'Maya, resolve as prioridades do negócio','all priorities prompt');
-has(panel,'A Maya executa apenas etapas internas classificadas como seguras.','human-control footer');
+has(panel,'Ações externas, fiscais, financeiras ou de comunicação não atravessam a trava humana.','human-control footer');
 lacks(routes,'message.send(', 'Maya route must not call direct message send');
 lacks(routes,'fiscal.issue(', 'Maya route must not call direct fiscal issue');
 console.log('NexOffice Maya Playbooks V2 contract OK');
