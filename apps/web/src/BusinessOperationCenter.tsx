@@ -24,6 +24,25 @@ export default function BusinessOperationCenter(){
   const authenticated=Boolean(session.token()&&session.workspace());
   useEffect(()=>{const timer=setInterval(()=>{const selected=document.querySelector<HTMLButtonElement>('.sidebar nav button.active');const text=selected?.textContent||'';setActive(text.includes('CRM')||text.includes('Financeiro'))},400);return()=>clearInterval(timer)},[]);
   useEffect(()=>{if(authenticated&&active)void load()},[authenticated,active,session.workspace()]);
+  useEffect(()=>{
+    const handler=async(event:Event)=>{
+      const detail=(event as CustomEvent<{action?:string;catalogItemId?:string}>).detail||{};
+      setActive(true);setOpen(true);setError('');setNotice('');
+      if(detail.action==='catalog'){setShowCatalog(true);setShowNew(false);return}
+      if(detail.action==='use-catalog'&&detail.catalogItemId){
+        try{
+          const items=await api<CatalogItem[]>('/v1/catalog/items');
+          const item=items.find(x=>x.id===detail.catalogItemId);
+          if(item){setSelectedCatalog(item);setSelectedQuantity(1);setShowCatalog(false);setShowNew(true)}
+          else{setShowCatalog(true);setNotice('Abra a oferta no catálogo para revisar os dados antes de usar.')}
+        }catch(e:any){setError(e?.message||'Não foi possível abrir a oferta do catálogo.')}
+        return;
+      }
+      if(detail.action==='new'){setShowNew(true);setShowCatalog(false)}
+    };
+    window.addEventListener('nexoffice:business-operations',handler as EventListener);
+    return()=>window.removeEventListener('nexoffice:business-operations',handler as EventListener);
+  },[]);
   async function load(){setError('');try{const [ops,c,d,p]=await Promise.all([api<Operation[]>('/v1/business-operations'),api<Contact[]>('/v1/crm/contacts'),api<Deal[]>('/v1/crm/deals'),api<PaymentProfile>('/v1/collections/payment-profile')]);setOperations(ops);setContacts(c);setDeals(d);setProfile(p)}catch(e:any){setError(e?.message||'Não foi possível carregar as operações comerciais.')}}
   const openValue=useMemo(()=>operations.filter(o=>!['paid','closed','cancelled'].includes(o.status)).reduce((s,o)=>s+Number(o.amount_minor||0),0),[operations]);
   async function run(key:string,fn:()=>Promise<any>,success:string){setBusy(key);setError('');setNotice('');try{await fn();setNotice(success);await load()}catch(e:any){setError(e?.message||'Não foi possível concluir a ação.')}finally{setBusy('')}}
