@@ -30,7 +30,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
     const [contacts,activities,ledger,recurring,deals,operations,appointments,catalog,documents,docUpcoming]=await Promise.all([
       query<any>('select id,name,email,phone,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 500',[ctx.workspaceId]),
       query<any>("select contact_id,max(occurred_at) last_activity_at,count(*) filter(where occurred_at>=now()-interval '90 days')::int interactions_90 from crm_activities where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
-      query<any>("select contact_id,count(*) filter(where direction='income' and status='paid')::int paid_count,max(paid_at) filter(where direction='income' and status='paid') last_paid_at,count(*) filter(where direction='income' and status in ('open','overdue') and due_at<now())::int overdue_count,coalesce(sum(amount_minor) filter(where direction='income' and status in ('open','overdue') and due_at<now()),0)::bigint overdue_minor from ledger_entries where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
+      query<any>("select contact_id,count(*) filter(where direction='income')::int income_count,count(*) filter(where direction='income' and status='paid')::int paid_count,max(paid_at) filter(where direction='income' and status='paid') last_paid_at,count(*) filter(where direction='income' and status in ('open','overdue') and due_at<now())::int overdue_count,coalesce(sum(amount_minor) filter(where direction='income' and status in ('open','overdue') and due_at<now()),0)::bigint overdue_minor from ledger_entries where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
       query<any>("select contact_id,count(*) filter(where active and direction='income')::int active_rules,min(next_run_at) filter(where active and direction='income') next_cycle_at,min(ends_at) filter(where active and direction='income' and ends_at is not null and ends_at>=now()) recurrence_ends_at,min(next_run_at) filter(where active and direction='income' and frequency='yearly' and next_run_at>=now()) yearly_renewal_at from recurring_rules where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
       query<any>("select contact_id,count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint open_pipeline_minor,count(*) filter(where stage='won')::int won_deals,count(*) filter(where stage='lost' and updated_at>=now()-interval '90 days')::int lost_90,max(updated_at) filter(where stage='won') last_won_at from crm_deals where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
       query<any>("select contact_id,count(*)::int operation_count,max(created_at) last_operation_at,array_remove(array_agg(distinct catalog_item_id),null) catalog_item_ids from business_operations where workspace_id=$1 and contact_id is not null and status<>'cancelled' group by contact_id",[ctx.workspaceId]),
@@ -55,8 +55,8 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
 
     for(const contact of contacts){
       const id=String(contact.id),a=activityBy.get(id)||{},l=ledgerBy.get(id)||{},r=recurringBy.get(id)||{},d=dealBy.get(id)||{},o=operationBy.get(id)||{},ap=appointmentBy.get(id)||{};
-      const activeRules=Number(r.active_rules||0),paidCount=Number(l.paid_count||0),wonDeals=Number(d.won_deals||0),operationCount=Number(o.operation_count||0);
-      const isCustomer=activeRules>0||paidCount>0||wonDeals>0||operationCount>0;
+      const activeRules=Number(r.active_rules||0),incomeCount=Number(l.income_count||0),paidCount=Number(l.paid_count||0),wonDeals=Number(d.won_deals||0),operationCount=Number(o.operation_count||0);
+      const isCustomer=activeRules>0||incomeCount>0||paidCount>0||wonDeals>0||operationCount>0;
       if(!isCustomer)continue;
 
       const purchasedIds=new Set((o.catalog_item_ids||[]).map(String));
@@ -115,7 +115,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
 
       relationships.push({
         contactId:id,name:contact.name,email:contact.email||null,phone:contact.phone||null,companyName:contact.company_name||null,status,reasons,
-        lastTouchAt,daysSinceTouch:staleDays,activeRules,nextCycleAt:r.next_cycle_at||null,renewalAt,documentRenewalAt:documentRenewal?.dueDate||null,documentRenewalTitle:documentRenewal?.title||null,overdueCount,overdueMinor,paidCount,lastPaidAt:l.last_paid_at||null,
+        lastTouchAt,daysSinceTouch:staleDays,activeRules,nextCycleAt:r.next_cycle_at||null,renewalAt,documentRenewalAt:documentRenewal?.dueDate||null,documentRenewalTitle:documentRenewal?.title||null,overdueCount,overdueMinor,incomeCount,paidCount,lastPaidAt:l.last_paid_at||null,
         openDeals:Number(d.open_deals||0),openPipelineMinor:Number(d.open_pipeline_minor||0),wonDeals,lost90,noShow180,operationCount,
         expansionCandidate:expansion?{id:String(expansion.id),name:expansion.name,kind:expansion.kind,priceMinor:Number(expansion.price_minor||0),billingCycle:expansion.billing_cycle}:null,
         bestOptions:options
