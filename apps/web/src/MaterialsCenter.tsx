@@ -127,6 +127,16 @@ export default function MaterialsCenter(){
     try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
+  function useCatalogOffer(item:CatalogItem|null){
+    setCatalogId(item?.id||'');
+    if(!item)return;
+    if(!title.trim())setTitle(clean(item.name));
+    if(item.description&&!context.trim())setContext(clean(item.description));
+    if(!value.trim()){
+      const suffix=item.billing_cycle==='monthly'?'/mês':item.billing_cycle==='yearly'?'/ano':item.billing_cycle==='weekly'?'/semana':item.billing_cycle==='quarterly'?'/trimestre':'';
+      setValue(money(item.price_minor)+suffix);
+    }
+  }
 
   async function generate(){
     setBusy(true);setError('');setNotice('');
