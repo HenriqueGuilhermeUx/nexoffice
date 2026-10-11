@@ -219,6 +219,9 @@ export async function registerPlaybookRoutes(app:FastifyInstance){
         return{handoff:true,...executed,run:await loadRun(ctx,runId)};
       }
       await query(`update business_playbook_steps set status='completed',result=$4::jsonb,completed_at=now(),completed_by=$5,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,JSON.stringify(executed),ctx.user.id]);
+      if(step.action_id==='purchasing.plan'&&(executed as any)?.result?.id){
+        await query(`update business_playbook_steps set payload=payload||$4::jsonb,updated_at=now() where run_id=$1 and workspace_id=$2 and position>$3 and action_id in ('purchasing.send_to_supplier','purchasing.receive')`,[runId,ctx.workspaceId,step.position,JSON.stringify({purchaseOrderId:(executed as any).result.id})]);
+      }
       await auditLog(ctx,'playbook.step_executed','business_playbook_step',stepId,step,{actionId:step.action_id,externalEffect:false});
       const advanced=await advanceRun(ctx,runId);
       return{executed:true,result:executed,advanced,run:await loadRun(ctx,runId)};
@@ -235,7 +238,23 @@ export async function registerPlaybookRoutes(app:FastifyInstance){
     if(!before)throw new ApiError(404,'playbook_step_not_found','Etapa não encontrada.');
     if(before.status==='completed'||before.status==='skipped')return{reused:true,run:await loadRun(ctx,runId)};
     if(!['waiting_human','ready','blocked'].includes(before.status))throw new ApiError(409,'playbook_step_not_completable','Esta etapa ainda não pode ser concluída manualmente.');
-    await query(`update business_playbook_steps set status=$4,result=coalesce(result,'{}'::jsonb)||$5::jsonb,completed_at=now(),completed_by=$6,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,input.outcome,JSON.stringify({manualCompletion:true,note:input.note||null}),ctx.user.id]);
+    if(input.outcome==='completed'&&before.action_id==='purchasing.receive'){
+      const purchaseOrderId=String(before.payload?.purchaseOrderId||'');
+      if(!purchaseOrderId)throw new ApiError(409,'playbook_evidence_missing','Abra o fluxo de compras e confirme o recebimento antes de concluir esta etapa.');
+      const order=(await query<any>(`select status from purchase_orders where id=$1 and workspace_id=$2`,[purchaseOrderId,ctx.workspaceId]))[0];
+      if(order?.status!=='received')throw new ApiError(409,'playbook_evidence_not_met','A compra ainda não consta como recebida. Confirme o recebimento no fluxo de Estoque & Compras.');
+    }
+    if(input.outcome==='completed'&&before.action_id==='recurrence.activate'){
+      const operationId=String(before.payload?.operationId||'');
+      const rule=operationId?(await query<any>(`select id from recurring_rules where workspace_id=$1 and source_operation_id=$2 and active=true limit 1`,[ctx.workspaceId,operationId]))[0]:null;
+      if(!rule)throw new ApiError(409,'playbook_evidence_not_met','A recorrência ainda não está ativa para esta operação.');
+    }
+    if(input.outcome==='completed'&&before.action_id==='fiscal.issue'){
+      const operationId=String(before.payload?.operationId||'');
+      const operation=operationId?(await query<any>(`select fiscal_status from business_operations where id=$1 and workspace_id=$2`,[operationId,ctx.workspaceId]))[0]:null;
+      if(operation?.fiscal_status!=='authorized')throw new ApiError(409,'playbook_evidence_not_met','A nota ainda não consta como autorizada nesta operação.');
+    }
+    await query(`update business_playbook_steps set status=$4,result=coalesce(result,'{}'::jsonb)||$5::jsonb,completed_at=now(),completed_by=$6,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,input.outcome,JSON.stringify({manualCompletion:true,note:input.note||null,evidenceChecked:['purchasing.receive','recurrence.activate','fiscal.issue'].includes(before.action_id)}),ctx.user.id]);
     await auditLog(ctx,'playbook.step_completed','business_playbook_step',stepId,before,{outcome:input.outcome,note:input.note||null});
     await advanceRun(ctx,runId);
     return{run:await loadRun(ctx,runId)};
