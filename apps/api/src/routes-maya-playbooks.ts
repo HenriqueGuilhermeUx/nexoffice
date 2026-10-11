@@ -5,6 +5,7 @@ import {query} from './db.js';
 import {auditLog} from './events.js';
 import {executeLowRiskBusinessAction} from './business-action-engine.js';
 import {advanceRun,handoffFor,loadRun,startPlaybookRun,type PlaybookTemplateKey,type StartContext} from './routes-playbooks.js';
+import {agentForPlaybookAction,MAYA_ORCHESTRATOR} from './playbook-digital-team.js';
 
 type Candidate={templateKey:PlaybookTemplateKey;title:string;reason:string;priority:'high'|'normal';context:StartContext;subjectLabel:string};
 type Intent={key:PlaybookTemplateKey|'all';label:string};
@@ -116,12 +117,13 @@ async function executeSafePrefix(ctx:any,runId:string,maxSteps=5){
     const run=await loadRun(ctx,runId);
     const step=run.currentStep;
     if(!step||step.status!=='ready'||step.execution_mode!=='safe_internal')return{run,executed,stoppedAt:step||null};
+    const assignedAgent=step.assignedAgent||step.metadata?.assignedAgent||agentForPlaybookAction(step.action_id);
     const action=await executeLowRiskBusinessAction(ctx,step.action_id,step.payload||{});
     await query(`
       update business_playbook_steps
       set status='completed',result=$4::jsonb,started_at=coalesce(started_at,now()),completed_at=now(),completed_by=$5,updated_at=now()
       where id=$1 and run_id=$2 and workspace_id=$3
-    `,[step.id,runId,ctx.workspaceId,JSON.stringify({...action,orchestratedBy:'maya_playbooks_v2'}),ctx.user.id]);
+    `,[step.id,runId,ctx.workspaceId,JSON.stringify({...action,delegatedAgent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR,orchestratedBy:'multi_agent_playbooks_v3'}),ctx.user.id]);
     if(step.action_id==='purchasing.plan'&&(action as any)?.result?.id){
       await query(`
         update business_playbook_steps
@@ -130,8 +132,9 @@ async function executeSafePrefix(ctx:any,runId:string,maxSteps=5){
           and action_id in ('purchasing.send_to_supplier','purchasing.receive')
       `,[runId,ctx.workspaceId,step.position,JSON.stringify({purchaseOrderId:(action as any).result.id})]);
     }
-    await auditLog(ctx,'playbook.maya_safe_step','business_playbook_step',step.id,step,{runId,actionId:step.action_id,externalEffect:false,orchestrator:'maya_playbooks_v2'});
-    executed.push({stepId:step.id,position:step.position,actionId:step.action_id,title:step.title,result:(action as any).result||null});
+    await auditLog(ctx,'playbook.maya_safe_step','business_playbook_step',step.id,step,{runId,actionId:step.action_id,agent:assignedAgent,externalEffect:false,orchestrator:MAYA_ORCHESTRATOR,version:'multi_agent_playbooks_v3'});
+    await auditLog(ctx,'playbook.agent_work_completed','business_playbook_step',step.id,step,{runId,actionId:step.action_id,agent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR,externalEffect:false});
+    executed.push({stepId:step.id,position:step.position,actionId:step.action_id,title:step.title,agent:assignedAgent,result:(action as any).result||null});
     await advanceRun(ctx,runId);
   }
   const run=await loadRun(ctx,runId);
@@ -146,7 +149,9 @@ function attentionFor(run:any,candidate:Candidate){
   return{
     runId:run.id,templateKey:run.template_key,playbookTitle:run.title,subject:candidate.subjectLabel,
     kind,stepId:step.id,stepPosition:step.position,stepTitle:step.title,description:step.description,
-    actionId:step.action_id,executionMode:step.execution_mode,handoff,
+    actionId:step.action_id,executionMode:step.execution_mode,
+    agent:step.assignedAgent||step.metadata?.assignedAgent||agentForPlaybookAction(step.action_id),
+    orchestrator:MAYA_ORCHESTRATOR,handoff,
     why:candidate.reason
   };
 }
@@ -177,13 +182,15 @@ export async function registerMayaPlaybookRoutes(app:FastifyInstance){
     const results:any[]=[];
     let safeStepsExecuted=0,reusedRuns=0,newRuns=0;
     for(const candidate of candidates){
-      const started=await startPlaybookRun(ctx,candidate.templateKey,candidate.context,'maya_playbooks_v2');
+      const started=await startPlaybookRun(ctx,candidate.templateKey,candidate.context,'multi_agent_playbooks_v3');
       if(started.reused)reusedRuns++;else newRuns++;
       const progressed=await executeSafePrefix(ctx,started.run.id);
       safeStepsExecuted+=progressed.executed.length;
       const finalRun=progressed.run;
       results.push({
         candidate,run:finalRun,reused:started.reused,
+        team:finalRun.team||[],
+        orchestrator:finalRun.orchestrator||MAYA_ORCHESTRATOR,
         safeStepsExecuted:progressed.executed,
         humanAttention:attentionFor(finalRun,candidate)
       });
@@ -192,7 +199,7 @@ export async function registerMayaPlaybookRoutes(app:FastifyInstance){
     const attention=results.map(r=>r.humanAttention).filter(Boolean);
     await auditLog(ctx,'playbook.maya_orchestrated','workspace',ctx.workspaceId,null,{
       message:input.message,intents:intents.map(i=>i.key),candidates:candidates.length,newRuns,reusedRuns,safeStepsExecuted,humanAttention:attention.length,
-      externalEffect:false,orchestrator:'maya_playbooks_v2'
+      externalEffect:false,orchestrator:MAYA_ORCHESTRATOR,version:'multi_agent_playbooks_v3'
     });
     const noCases=candidates.length===0;
     const text=noCases?'Não encontrei casos atuais para esse pedido.':
@@ -202,6 +209,8 @@ export async function registerMayaPlaybookRoutes(app:FastifyInstance){
     return{
       understood:true,mode:'execute_safe',agent:'Maya',interpretation:intents,
       summary:{selected:candidates.length,newRuns,reusedRuns,safeStepsExecuted,humanAttention:attention.length},
+      orchestrator:MAYA_ORCHESTRATOR,
+      team:[...new Map(results.flatMap(r=>r.team||[]).map((agent:any)=>[agent.name+':'+agent.role,agent])).values()],
       message:text,results,humanAttention:attention,
       safety:{
         externalActionsAutomatic:false,

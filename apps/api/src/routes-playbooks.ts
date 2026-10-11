@@ -5,6 +5,7 @@ import {query,transaction} from './db.js';
 import {auditLog} from './events.js';
 import {businessActionDefinition} from './business-action-registry.js';
 import {executeLowRiskBusinessAction} from './business-action-engine.js';
+import {agentForPlaybookAction,teamForPlaybookSteps,teamForPlaybookTemplate,MAYA_ORCHESTRATOR} from './playbook-digital-team.js';
 
 const uuid=z.string().uuid();
 export const templateKey=z.enum(['commercial_to_cash','relationship_recovery','renewal_expansion','stock_replenishment']);
@@ -126,8 +127,16 @@ export async function buildPlaybook(ctx:any,key:PlaybookTemplateKey,context:Star
 export async function loadRun(ctx:any,runId:string){
   const run=(await query<any>(`select r.*,c.name contact_name,ci.name catalog_name,o.title operation_title from business_playbook_runs r left join crm_contacts c on c.id=r.contact_id left join business_catalog_items ci on ci.id=r.catalog_item_id left join business_operations o on o.id=r.operation_id where r.id=$1 and r.workspace_id=$2`,[runId,ctx.workspaceId]))[0];
   if(!run)throw new ApiError(404,'playbook_run_not_found','Playbook não encontrado.');
-  const steps=await query<any>(`select * from business_playbook_steps where run_id=$1 and workspace_id=$2 order by position`,[runId,ctx.workspaceId]);
-  return{...run,steps,currentStep:steps.find(step=>['ready','waiting_human','blocked'].includes(step.status))||null,progress:steps.length?Math.round(steps.filter(step=>['completed','skipped'].includes(step.status)).length/steps.length*100):0};
+  const rawSteps=await query<any>(`select * from business_playbook_steps where run_id=$1 and workspace_id=$2 order by position`,[runId,ctx.workspaceId]);
+  const steps=rawSteps.map(step=>({...step,assignedAgent:step.metadata?.assignedAgent||agentForPlaybookAction(step.action_id)}));
+  return{
+    ...run,
+    orchestrator:MAYA_ORCHESTRATOR,
+    team:teamForPlaybookSteps(rawSteps),
+    steps,
+    currentStep:steps.find(step=>['ready','waiting_human','blocked'].includes(step.status))||null,
+    progress:steps.length?Math.round(steps.filter(step=>['completed','skipped'].includes(step.status)).length/steps.length*100):0
+  };
 }
 
 
@@ -146,18 +155,22 @@ export async function startPlaybookRun(ctx:any,key:PlaybookTemplateKey,context:S
     const row=(await client.query<any>(`insert into business_playbook_runs(workspace_id,template_key,title,objective,subject_type,subject_id,contact_id,deal_id,operation_id,catalog_item_id,created_by,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *`,[ctx.workspaceId,key,built.title,built.objective,built.subjectType,built.subjectId,built.contactId,built.dealId,built.operationId,built.catalogItemId,ctx.user.id,JSON.stringify({source,reason:context.reason||null,...((built as any).metadata||{})})])).rows[0];
     for(let i=0;i<built.steps.length;i++){
       const step=built.steps[i];
-      await client.query(`insert into business_playbook_steps(workspace_id,run_id,position,action_id,title,description,status,execution_mode,payload,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[ctx.workspaceId,row.id,i+1,step.actionId,step.title,step.description,i===0?'ready':'pending',executionMode(step.actionId),JSON.stringify(step.payload),JSON.stringify({actionDefinition:businessActionDefinition(step.actionId)})]);
+      await client.query(`insert into business_playbook_steps(workspace_id,run_id,position,action_id,title,description,status,execution_mode,payload,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[ctx.workspaceId,row.id,i+1,step.actionId,step.title,step.description,i===0?'ready':'pending',executionMode(step.actionId),JSON.stringify(step.payload),JSON.stringify({actionDefinition:businessActionDefinition(step.actionId),assignedAgent:agentForPlaybookAction(step.actionId),orchestrator:MAYA_ORCHESTRATOR})]);
     }
     return row;
   });
-  await auditLog(ctx,'playbook.started','business_playbook_run',run.id,null,{templateKey:key,subjectType:built.subjectType,subjectId:built.subjectId,source,externalEffect:false});
+  await auditLog(ctx,'playbook.started','business_playbook_run',run.id,null,{templateKey:key,subjectType:built.subjectType,subjectId:built.subjectId,source,orchestrator:MAYA_ORCHESTRATOR,externalEffect:false});
+  const createdSteps=await query<any>(`select id,position,action_id,title,metadata from business_playbook_steps where run_id=$1 and workspace_id=$2 order by position`,[run.id,ctx.workspaceId]);
+  for(const step of createdSteps){
+    await auditLog(ctx,'playbook.agent_assigned','business_playbook_step',step.id,null,{runId:run.id,position:step.position,actionId:step.action_id,agent:step.metadata?.assignedAgent||agentForPlaybookAction(step.action_id),orchestrator:MAYA_ORCHESTRATOR,externalEffect:false});
+  }
   return{reused:false,run:await loadRun(ctx,run.id)};
 }
 
 export async function registerPlaybookRoutes(app:FastifyInstance){
   app.get('/v1/playbooks/intelligence',async req=>{
     const ctx=await workspaceContext(req,'command.read');
-    const activeRuns=await query<any>(`select r.*,c.name contact_name,ci.name catalog_name,(select count(*)::int from business_playbook_steps s where s.run_id=r.id) total_steps,(select count(*)::int from business_playbook_steps s where s.run_id=r.id and s.status in ('completed','skipped')) completed_steps,(select json_build_object('id',s.id,'position',s.position,'title',s.title,'description',s.description,'actionId',s.action_id,'status',s.status,'executionMode',s.execution_mode,'payload',s.payload) from business_playbook_steps s where s.run_id=r.id and s.status in ('ready','waiting_human','blocked') order by s.position limit 1) current_step_data from business_playbook_runs r left join crm_contacts c on c.id=r.contact_id left join business_catalog_items ci on ci.id=r.catalog_item_id where r.workspace_id=$1 and r.status in ('active','waiting_human') order by r.updated_at desc limit 30`,[ctx.workspaceId]);
+    const activeRuns=await query<any>(`select r.*,c.name contact_name,ci.name catalog_name,(select count(*)::int from business_playbook_steps s where s.run_id=r.id) total_steps,(select count(*)::int from business_playbook_steps s where s.run_id=r.id and s.status in ('completed','skipped')) completed_steps,(select json_build_object('id',s.id,'position',s.position,'title',s.title,'description',s.description,'actionId',s.action_id,'status',s.status,'executionMode',s.execution_mode,'payload',s.payload,'assignedAgent',coalesce(s.metadata->'assignedAgent',jsonb_build_object('name','Maya','role','growth','specialty','Orquestração & Growth'))) from business_playbook_steps s where s.run_id=r.id and s.status in ('ready','waiting_human','blocked') order by s.position limit 1) current_step_data from business_playbook_runs r left join crm_contacts c on c.id=r.contact_id left join business_catalog_items ci on ci.id=r.catalog_item_id where r.workspace_id=$1 and r.status in ('active','waiting_human') order by r.updated_at desc limit 30`,[ctx.workspaceId]);
 
     const recommendations:any[]=[];
     const stalled=(await query<any>(`select o.id operation_id,o.contact_id,o.catalog_item_id,o.title,c.name contact_name from business_operations o left join crm_contacts c on c.id=o.contact_id where o.workspace_id=$1 and o.status not in ('paid','cancelled','closed') and o.updated_at<now()-interval '14 days' order by o.updated_at asc limit 1`,[ctx.workspaceId]))[0];
@@ -176,7 +189,7 @@ export async function registerPlaybookRoutes(app:FastifyInstance){
     const filtered=recommendations.filter(rec=>!activeKeys.has(rec.templateKey+':'+String(rec.context.operationId||rec.context.contactId||rec.context.catalogItemId||'')));
     return{
       recommendations:filtered.slice(0,4),
-      activeRuns:activeRuns.map(run=>({...run,total_steps:Number(run.total_steps||0),completed_steps:Number(run.completed_steps||0),progress:Number(run.total_steps||0)?Math.round(Number(run.completed_steps||0)/Number(run.total_steps||0)*100):0,currentStep:run.current_step_data||null})),
+      activeRuns:activeRuns.map(run=>{const current=run.current_step_data?{...run.current_step_data,assignedAgent:run.current_step_data.assignedAgent||agentForPlaybookAction(run.current_step_data.actionId)}:null;return{...run,orchestrator:MAYA_ORCHESTRATOR,team:teamForPlaybookTemplate(run.template_key),total_steps:Number(run.total_steps||0),completed_steps:Number(run.completed_steps||0),progress:Number(run.total_steps||0)?Math.round(Number(run.completed_steps||0)/Number(run.total_steps||0)*100):0,currentStep:current}}),
       templates:[
         {key:'commercial_to_cash',label:'Venda → Caixa',description:'Leva uma operação até recebimento, resultado e próximo ciclo.'},
         {key:'relationship_recovery',label:'Recuperação de Cliente',description:'Organiza reação a atraso, silêncio ou risco sem disparar comunicação sozinho.'},
@@ -209,26 +222,30 @@ export async function registerPlaybookRoutes(app:FastifyInstance){
     if(!hasPermission(ctx.role,ctx.permissions,def.permission))throw new ApiError(403,'permission_denied','Você não tem permissão para esta ação.');
 
     if(step.execution_mode==='dedicated_external_flow'||step.execution_mode==='human_confirmation'){
-      const gate={definition:def,handoff:handoffFor(step.action_id,step.payload||{}),humanConfirmationRequired:true,externalEffect:def.externalEffect};
+      const assignedAgent=step.metadata?.assignedAgent||agentForPlaybookAction(step.action_id);
+      const gate={definition:def,assignedAgent,handoff:handoffFor(step.action_id,step.payload||{}),humanConfirmationRequired:true,externalEffect:def.externalEffect};
       await query(`update business_playbook_steps set status='waiting_human',started_at=coalesce(started_at,now()),result=$4::jsonb,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,JSON.stringify(gate)]);
       await query(`update business_playbook_runs set status='waiting_human',updated_at=now() where id=$1 and workspace_id=$2`,[runId,ctx.workspaceId]);
-      await auditLog(ctx,'playbook.human_gate','business_playbook_step',stepId,step,{actionId:step.action_id,externalEffect:def.externalEffect});
+      await auditLog(ctx,'playbook.human_gate','business_playbook_step',stepId,step,{actionId:step.action_id,agent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR,externalEffect:def.externalEffect});
       return{humanGate:true,...gate,run:await loadRun(ctx,runId)};
     }
 
     await query(`update business_playbook_steps set status='executing',started_at=coalesce(started_at,now()),updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId]);
     try{
+      const assignedAgent=step.metadata?.assignedAgent||agentForPlaybookAction(step.action_id);
       const executed=await executeLowRiskBusinessAction(ctx as any,step.action_id,step.payload||{});
       if((executed as any).requiresHandoff){
-        await query(`update business_playbook_steps set status='waiting_human',result=$4::jsonb,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,JSON.stringify(executed)]);
+        const delegated={...executed,delegatedAgent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR};
+        await query(`update business_playbook_steps set status='waiting_human',result=$4::jsonb,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,JSON.stringify(delegated)]);
         await query(`update business_playbook_runs set status='waiting_human',updated_at=now() where id=$1 and workspace_id=$2`,[runId,ctx.workspaceId]);
-        return{handoff:true,...executed,run:await loadRun(ctx,runId)};
+        await auditLog(ctx,'playbook.agent_handoff','business_playbook_step',stepId,step,{actionId:step.action_id,agent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR,externalEffect:false});
+        return{handoff:true,...delegated,run:await loadRun(ctx,runId)};
       }
-      await query(`update business_playbook_steps set status='completed',result=$4::jsonb,completed_at=now(),completed_by=$5,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,JSON.stringify(executed),ctx.user.id]);
+      await query(`update business_playbook_steps set status='completed',result=$4::jsonb,completed_at=now(),completed_by=$5,updated_at=now() where id=$1 and run_id=$2 and workspace_id=$3`,[stepId,runId,ctx.workspaceId,JSON.stringify({...executed,delegatedAgent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR}),ctx.user.id]);
       if(step.action_id==='purchasing.plan'&&(executed as any)?.result?.id){
         await query(`update business_playbook_steps set payload=payload||$4::jsonb,updated_at=now() where run_id=$1 and workspace_id=$2 and position>$3 and action_id in ('purchasing.send_to_supplier','purchasing.receive')`,[runId,ctx.workspaceId,step.position,JSON.stringify({purchaseOrderId:(executed as any).result.id})]);
       }
-      await auditLog(ctx,'playbook.step_executed','business_playbook_step',stepId,step,{actionId:step.action_id,externalEffect:false});
+      await auditLog(ctx,'playbook.step_executed','business_playbook_step',stepId,step,{actionId:step.action_id,agent:assignedAgent,orchestrator:MAYA_ORCHESTRATOR,externalEffect:false});
       const advanced=await advanceRun(ctx,runId);
       return{executed:true,result:executed,advanced,run:await loadRun(ctx,runId)};
     }catch(error){

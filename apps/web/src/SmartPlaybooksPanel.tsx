@@ -3,11 +3,12 @@ import {api,post,session} from './api';
 import './smart-playbooks.css';
 
 type Recommendation={templateKey:string;title:string;reason:string;priority:string;context:Record<string,string|null|undefined>};
-type Step={id:string;position:number;title:string;description?:string|null;actionId:string;status:string;executionMode:string;payload?:Record<string,unknown>};
-type Run={id:string;template_key:string;title:string;objective?:string|null;status:string;contact_name?:string|null;catalog_name?:string|null;total_steps:number;completed_steps:number;progress:number;currentStep?:Step|null;current_step_data?:Step|null};
+type Agent={name:string;role:string;specialty:string};
+type Step={id:string;position:number;title:string;description?:string|null;actionId:string;status:string;executionMode:string;payload?:Record<string,unknown>;assignedAgent?:Agent};
+type Run={id:string;template_key:string;title:string;objective?:string|null;status:string;contact_name?:string|null;catalog_name?:string|null;total_steps:number;completed_steps:number;progress:number;currentStep?:Step|null;current_step_data?:Step|null;team?:Agent[];orchestrator?:Agent};
 type Payload={recommendations:Recommendation[];activeRuns:Run[];safety:{externalActionsAutomatic:boolean;humanConfirmationRespected:boolean;actionRegistryEnforced:boolean}};
-type MayaAttention={runId:string;playbookTitle:string;subject:string;kind:string;stepId:string;stepPosition:number;stepTitle:string;description?:string;actionId:string;executionMode:string;why:string;handoff?:{view?:string;action?:string;payload?:Record<string,unknown>}};
-type MayaResponse={understood:boolean;message:string;summary?:{selected:number;newRuns:number;reusedRuns:number;safeStepsExecuted:number;humanAttention:number};humanAttention?:MayaAttention[];suggestedPrompts?:string[]};
+type MayaAttention={runId:string;playbookTitle:string;subject:string;kind:string;stepId:string;stepPosition:number;stepTitle:string;description?:string;actionId:string;executionMode:string;why:string;agent?:Agent;orchestrator?:Agent;handoff?:{view?:string;action?:string;payload?:Record<string,unknown>}};
+type MayaResponse={understood:boolean;message:string;summary?:{selected:number;newRuns:number;reusedRuns:number;safeStepsExecuted:number;humanAttention:number};orchestrator?:Agent;team?:Agent[];humanAttention?:MayaAttention[];suggestedPrompts?:string[]};
 
 const modeLabel:Record<string,string>={
   safe_internal:'Interna segura',
@@ -131,11 +132,11 @@ export default function SmartPlaybooksPanel(){
       </form>
       <div className="mayaPrompts">{mayaPrompts.map(prompt=><button key={prompt} disabled={busy==='maya'} onClick={()=>void askMaya(prompt)}>{prompt.replace('Maya, ','')}</button>)}</div>
       {mayaResult&&<div className="mayaResult">
-        <div className="mayaResultSummary"><b>{mayaResult.message}</b>{mayaResult.summary&&<span>{mayaResult.summary.safeStepsExecuted} etapa(s) interna(s) executada(s) · {mayaResult.summary.humanAttention} ponto(s) para você</span>}</div>
+        <div className="mayaResultSummary"><b>{mayaResult.message}</b>{mayaResult.summary&&<span>{mayaResult.summary.safeStepsExecuted} etapa(s) interna(s) executada(s) · {mayaResult.summary.humanAttention} ponto(s) para você</span>}</div>{!!mayaResult.team?.length&&<div className="mayaTeam"><span>Maya coordenou:</span>{mayaResult.team.map(agent=><b key={agent.name+agent.role}>{agent.name}<small>{agent.specialty}</small></b>)}</div>}
         {!!mayaResult.humanAttention?.length&&<div className="mayaAttentionList">{mayaResult.humanAttention.map(item=><article key={item.runId+item.stepId}>
           <span>{item.kind==='external_approval'?'APROVAÇÃO EXTERNA':item.kind==='human_confirmation'?'CONFIRMAÇÃO HUMANA':'CONTINUAR NO CONTEXTO'}</span>
-          <b>{item.subject} · {item.stepTitle}</b>
-          <p>{item.why}</p>
+          <b>{item.agent?.name||'Equipe Digital'} pede sua atenção · {item.subject}</b>
+          <p><strong>{item.stepTitle}</strong><br/>{item.why}</p>
           <button onClick={()=>openAttention(item)}>Abrir agora</button>
         </article>)}</div>}
         {!mayaResult.understood&&<div className="mayaPrompts">{(mayaResult.suggestedPrompts||mayaPrompts).map(prompt=><button key={prompt} onClick={()=>void askMaya(prompt)}>{prompt}</button>)}</div>}
@@ -160,11 +161,11 @@ export default function SmartPlaybooksPanel(){
       {runs.length?runs.map(run=>{
         const step=(run.currentStep||run.current_step_data||null) as Step|null;
         return <article key={run.id} className="playbookRun">
-          <div className="playbookRunTop"><div><span>{run.contact_name||run.catalog_name||'Negócio'}</span><h4>{run.title}</h4><p>{run.objective}</p></div><strong>{run.progress}%</strong></div>
+          <div className="playbookRunTop"><div><span>{run.contact_name||run.catalog_name||'Negócio'}</span><h4>{run.title}</h4><p>{run.objective}</p>{!!run.team?.length&&<div className="runTeam">{run.team.map(agent=><em key={agent.name+agent.role}>{agent.name} · {agent.specialty}</em>)}</div>}</div><strong>{run.progress}%</strong></div>
           <div className="playbookProgress"><span style={{width:Math.max(2,run.progress)+'%'}}/></div>
           <div className="playbookRunMeta"><span>{run.completed_steps}/{run.total_steps} etapas concluídas</span><span>{run.status==='waiting_human'?'Aguardando você':'Em andamento'}</span></div>
           {step&&<div className="playbookCurrentStep">
-            <div><span>ETAPA {step.position} · {modeLabel[step.executionMode]||step.executionMode}</span><b>{step.title}</b><p>{step.description}</p></div>
+            <div><span>ETAPA {step.position} · {step.assignedAgent?.name||'Equipe Digital'} · {modeLabel[step.executionMode]||step.executionMode}</span><b>{step.title}</b><p>{step.description}{step.assignedAgent?.specialty?' · Responsável: '+step.assignedAgent.specialty:''}</p></div>
             <div className="playbookStepActions">
               {step.status==='waiting_human'?<>
                 <button onClick={()=>{const target=routeFor(step);if(target.view!=='command')window.dispatchEvent(new CustomEvent('nexoffice:navigate',{detail:target}))}}>Abrir fluxo</button>
@@ -177,6 +178,6 @@ export default function SmartPlaybooksPanel(){
       }):<div className="playbookEmpty">Quando o NexOffice detectar um caso claro, o playbook recomendado aparece aqui. Você também pode pedir diretamente para a Maya organizar o que precisa de atenção.</div>}
     </div>
 
-    <footer>A Maya executa apenas etapas internas classificadas como seguras. Ações externas, fiscais, financeiras ou de comunicação não atravessam a trava humana.</footer>
+    <footer>Maya coordena Sofia, Clara, Nico, Theo e Dora no mesmo playbook. Cada especialista trabalha no seu domínio, sem ganhar permissão extra. Ações externas, fiscais, financeiras ou de comunicação não atravessam a trava humana.</footer>
   </section>;
 }

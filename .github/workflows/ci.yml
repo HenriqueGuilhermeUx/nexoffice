@@ -29,6 +29,8 @@ jobs:
         run: node scripts/smoke-smart-playbooks-v1.mjs
       - name: Smoke test Maya Playbooks V2
         run: node scripts/smoke-maya-playbooks-v2.mjs
+      - name: Smoke test Multi-Agent Playbooks V3
+        run: node scripts/smoke-multi-agent-playbooks-v3.mjs
       - name: Validate staging safety contract
         env:
           NEXOFFICE_ENV: staging
@@ -138,6 +140,8 @@ jobs:
         run: node scripts/smoke-smart-playbooks-api.mjs
       - name: Smoke test Maya Playbooks V2 API
         run: node scripts/smoke-maya-playbooks-api.mjs
+      - name: Smoke test Multi-Agent Playbooks V3 API
+        run: node scripts/smoke-multi-agent-playbooks-api.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
       - name: Smoke test billing trial
