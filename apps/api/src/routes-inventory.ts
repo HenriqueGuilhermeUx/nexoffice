@@ -6,7 +6,6 @@ import {auditLog} from './events.js';
 
 const uuid=z.string().uuid();
 const qty=z.number().positive().max(1_000_000);
-const SIGNED="case when movement_type in ('opening','purchase','adjustment_in','transfer_in','return_in') then quantity else -quantity end";
 
 export async function registerInventoryRoutes(app:FastifyInstance){
   app.get('/v1/inventory/summary',async req=>{
