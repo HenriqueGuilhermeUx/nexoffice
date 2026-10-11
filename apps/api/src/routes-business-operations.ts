@@ -41,16 +41,16 @@ export async function registerBusinessOperationRoutes(app:FastifyInstance){
     const description=String(input.description||catalog?.description||catalog?.name||'').trim();
     if(title.length<2)throw new ApiError(400,'operation_title_required','Informe um título para a operação.');
     if(description.length<3)throw new ApiError(400,'operation_description_required','Informe uma descrição para a operação.');
-    const quantity=Number(input.quantity||1),unitPriceMinor=catalog?Number(catalog.price_minor||0):null;
+    const quantity=Number(input.quantity||1),unitPriceMinor=catalog?Number(catalog.price_minor||0):null,unitCostMinor=catalog?.cost_minor===null||catalog?.cost_minor===undefined?null:Number(catalog.cost_minor);
     const amountMinor=input.amountMinor??(unitPriceMinor===null?null:Math.round(unitPriceMinor*quantity));
     if(amountMinor===null)throw new ApiError(400,'operation_amount_required','Informe o valor da operação ou escolha um item com preço no catálogo.');
     const status=input.documentRefId?'contract_ready':'draft';
     const metadata={
       contractEngine:'docwallet',fiscalEngine:'taxagent',collectionMode:'owner_pix',communicationEngine:'smartbots',
-      ...(catalog?{catalogSnapshot:{id:catalog.id,name:catalog.name,kind:catalog.kind,sku:catalog.sku||null,unit:catalog.unit,unitPriceMinor,billingCycle:catalog.billing_cycle,fiscalCode:catalog.fiscal_code||null,nbs:catalog.nbs||null}}:{})
+      ...(catalog?{catalogSnapshot:{id:catalog.id,name:catalog.name,kind:catalog.kind,sku:catalog.sku||null,unit:catalog.unit,unitPriceMinor,unitCostMinor,billingCycle:catalog.billing_cycle,fiscalCode:catalog.fiscal_code||null,nbs:catalog.nbs||null}}:{})
     };
-    const rows=await query<any>(`insert into business_operations(workspace_id,contact_id,deal_id,provider_request_id,document_ref_id,catalog_item_id,quantity,unit_price_minor,title,description,amount_minor,due_at,status,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning *`,[
-      ctx.workspaceId,input.contactId,input.dealId||null,input.providerRequestId||null,input.documentRefId||null,catalog?.id||null,quantity,unitPriceMinor,title,description,amountMinor,input.dueAt||null,status,JSON.stringify(metadata)
+    const rows=await query<any>(`insert into business_operations(workspace_id,contact_id,deal_id,provider_request_id,document_ref_id,catalog_item_id,quantity,unit_price_minor,unit_cost_minor,title,description,amount_minor,due_at,status,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning *`,[
+      ctx.workspaceId,input.contactId,input.dealId||null,input.providerRequestId||null,input.documentRefId||null,catalog?.id||null,quantity,unitPriceMinor,unitCostMinor,title,description,amountMinor,input.dueAt||null,status,JSON.stringify(metadata)
     ]);
     await auditLog(ctx,'business_operation.created','business_operation',rows[0].id,null,rows[0]);return rows[0];
   });
@@ -82,7 +82,7 @@ export async function registerBusinessOperationRoutes(app:FastifyInstance){
     const operation=(await query<any>(`select * from business_operations where id=$1 and workspace_id=$2`,[id,ctx.workspaceId]))[0];if(!operation)throw new ApiError(404,'not_found','Operação não encontrada.');
     if(operation.ledger_entry_id){const existing=(await query<any>(`select * from ledger_entries where id=$1 and workspace_id=$2`,[operation.ledger_entry_id,ctx.workspaceId]))[0];return {reused:true,receivable:existing,operation};}
     const result=await transaction(async client=>{
-      const ledger=(await client.query(`insert into ledger_entries(workspace_id,contact_id,direction,category,description,amount_minor,currency,status,due_at,metadata) values($1,$2,'income','service',$3,$4,$5,'open',$6,$7) returning *`,[ctx.workspaceId,operation.contact_id,operation.description,operation.amount_minor,operation.currency,operation.due_at,JSON.stringify({source:'business_operation',businessOperationId:id,catalogItemId:operation.catalog_item_id||null,quantity:Number(operation.quantity||1),unitPriceMinor:operation.unit_price_minor===null?null:Number(operation.unit_price_minor),documentRefId:operation.document_ref_id||null,fiscalExternalRef:operation.fiscal_external_ref||null})])).rows[0];
+      const ledger=(await client.query(`insert into ledger_entries(workspace_id,contact_id,direction,category,description,amount_minor,currency,status,due_at,metadata) values($1,$2,'income','service',$3,$4,$5,'open',$6,$7) returning *`,[ctx.workspaceId,operation.contact_id,operation.description,operation.amount_minor,operation.currency,operation.due_at,JSON.stringify({source:'business_operation',businessOperationId:id,catalogItemId:operation.catalog_item_id||null,quantity:Number(operation.quantity||1),unitPriceMinor:operation.unit_price_minor===null?null:Number(operation.unit_price_minor),unitCostMinor:operation.unit_cost_minor===null?null:Number(operation.unit_cost_minor),documentRefId:operation.document_ref_id||null,fiscalExternalRef:operation.fiscal_external_ref||null})])).rows[0];
       const updated=(await client.query(`update business_operations set ledger_entry_id=$3,status='collection_ready',updated_at=now() where id=$1 and workspace_id=$2 returning *`,[id,ctx.workspaceId,ledger.id])).rows[0];return {ledger,updated};
     });
     await auditLog(ctx,'business_operation.collection_prepared','business_operation',id,operation,{ledgerEntryId:result.ledger.id,externalEffect:false});return {reused:false,receivable:result.ledger,operation:result.updated,externalEffect:false,pixPackageEndpoint:`/v1/collections/ledger/${result.ledger.id}/pix-package`};
