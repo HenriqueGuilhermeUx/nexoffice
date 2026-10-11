@@ -57,6 +57,7 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
         coalesce(sum(o.amount_minor),0)::bigint booked_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where l.status='paid'),0)::bigint received_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null),0)::bigint cost_known_revenue_minor,
+        count(*) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null)::int cost_known_operations,
         coalesce(sum(
           case
             when o.unit_cost_minor is not null then o.unit_cost_minor*o.quantity
@@ -130,12 +131,12 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
       estimatedGrossProfitMinor:profit,
       estimatedGrossMarginPct:totalCoveredRevenue>0?pct(profit/totalCoveredRevenue*100):null,
       costCoveragePct:totalOperations>0?pct(costKnownOperations/totalOperations*100):0,
-      methodology:'booked_revenue_minus_catalog_cost_snapshot_v1'
+      methodology:'covered_booked_revenue_minus_catalog_cost_snapshot_v1'
     };
 
     const rankedCustomers=customers.map(row=>{
-      const revenue=n(row.booked_revenue_minor),coveredRevenue=n(row.cost_known_revenue_minor),cost=n(row.estimated_cost_minor),profit=coveredRevenue-cost;
-      return {...row,booked_revenue_minor:revenue,received_revenue_minor:n(row.received_revenue_minor),cost_known_revenue_minor:coveredRevenue,estimated_cost_minor:cost,estimated_gross_profit_minor:profit,margin_pct:coveredRevenue>0?pct(profit/coveredRevenue*100):null};
+      const revenue=n(row.booked_revenue_minor),coveredRevenue=n(row.cost_known_revenue_minor),cost=n(row.estimated_cost_minor),profit=coveredRevenue-cost,coverage=n(row.operations)>0?pct(n(row.cost_known_operations)/n(row.operations)*100):0;
+      return {...row,booked_revenue_minor:revenue,received_revenue_minor:n(row.received_revenue_minor),cost_known_revenue_minor:coveredRevenue,estimated_cost_minor:cost,estimated_gross_profit_minor:profit,margin_pct:coveredRevenue>0?pct(profit/coveredRevenue*100):null,cost_coverage_pct:coverage};
     });
 
     const bestNow:NextOption[]=[];
