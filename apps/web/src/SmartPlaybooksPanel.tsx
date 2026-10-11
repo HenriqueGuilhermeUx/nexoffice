@@ -6,6 +6,8 @@ type Recommendation={templateKey:string;title:string;reason:string;priority:stri
 type Step={id:string;position:number;title:string;description?:string|null;actionId:string;status:string;executionMode:string;payload?:Record<string,unknown>};
 type Run={id:string;template_key:string;title:string;objective?:string|null;status:string;contact_name?:string|null;catalog_name?:string|null;total_steps:number;completed_steps:number;progress:number;currentStep?:Step|null;current_step_data?:Step|null};
 type Payload={recommendations:Recommendation[];activeRuns:Run[];safety:{externalActionsAutomatic:boolean;humanConfirmationRespected:boolean;actionRegistryEnforced:boolean}};
+type MayaAttention={runId:string;playbookTitle:string;subject:string;kind:string;stepId:string;stepPosition:number;stepTitle:string;description?:string;actionId:string;executionMode:string;why:string;handoff?:{view?:string;action?:string;payload?:Record<string,unknown>}};
+type MayaResponse={understood:boolean;message:string;summary?:{selected:number;newRuns:number;reusedRuns:number;safeStepsExecuted:number;humanAttention:number};humanAttention?:MayaAttention[];suggestedPrompts?:string[]};
 
 const modeLabel:Record<string,string>={
   safe_internal:'Interna segura',
@@ -14,32 +16,68 @@ const modeLabel:Record<string,string>={
   dedicated_external_flow:'Fluxo externo dedicado'
 };
 
+const mayaPrompts=[
+  'Maya, cuida dos clientes em risco',
+  'Maya, organiza as vendas paradas',
+  'Maya, cuida do que precisa ser reposto',
+  'Maya, prepara as renovações próximas',
+  'Maya, resolve as prioridades do negócio'
+];
+
+function applyContext(actionId:string,p:any){
+  if(actionId==='materials.proposal.prepare'){
+    if(p?.contactId)sessionStorage.setItem('nexoffice.material.contactId',String(p.contactId));
+    if(p?.catalogItemId)sessionStorage.setItem('nexoffice.material.catalogItemId',String(p.catalogItemId));
+  }
+  if(actionId==='relationship.review'||actionId==='message.send'){
+    if(p?.contactId)sessionStorage.setItem('nexoffice.crm.contactId',String(p.contactId));
+  }
+  if(actionId==='finance.receivables.review'&&p?.contactId)sessionStorage.setItem('nexoffice.finance.contactId',String(p.contactId));
+}
+
 function routeFor(step:Step){
   const p=(step.payload||{}) as any;
-  if(step.actionId==='materials.proposal.prepare'){
-    if(p.contactId)sessionStorage.setItem('nexoffice.material.contactId',String(p.contactId));
-    if(p.catalogItemId)sessionStorage.setItem('nexoffice.material.catalogItemId',String(p.catalogItemId));
-    return{view:'materials'};
-  }
+  applyContext(step.actionId,p);
+  if(step.actionId==='materials.proposal.prepare')return{view:'materials'};
   if(step.actionId==='operations.continue'||step.actionId.startsWith('purchasing.')||step.actionId==='inventory.adjust'){
     if(p.operationId)window.dispatchEvent(new CustomEvent('nexoffice:business-operations',{detail:{action:'open',operationId:p.operationId}}));
     return{view:'operations'};
   }
-  if(step.actionId==='relationship.review'||step.actionId==='message.send'){
-    if(p.contactId)sessionStorage.setItem('nexoffice.crm.contactId',String(p.contactId));
-    return{view:'crm'};
-  }
-  if(step.actionId==='fiscal.issue'||step.actionId==='finance.receivables.review'||step.actionId==='profitability.review'||step.actionId==='recurrence.activate'||step.actionId.startsWith('reconciliation.'))return{view:'finance'};
+  if(step.actionId==='relationship.review'||step.actionId==='message.send')return{view:'crm'};
+  if(step.actionId==='fiscal.issue')return{view:'operations'};
+  if(step.actionId==='finance.receivables.review'||step.actionId==='profitability.review'||step.actionId==='recurrence.activate'||step.actionId.startsWith('reconciliation.'))return{view:'finance'};
   return{view:'command'};
+}
+
+function openAttention(item:MayaAttention){
+  const p=(item.handoff?.payload||{}) as any;
+  applyContext(item.actionId,p);
+  const view=String(item.handoff?.view||'command');
+  window.dispatchEvent(new CustomEvent('nexoffice:navigate',{detail:{view}}));
 }
 
 export default function SmartPlaybooksPanel(){
   const[data,setData]=useState<Payload|null>(null),[busy,setBusy]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const[mayaInput,setMayaInput]=useState(''),[mayaResult,setMayaResult]=useState<MayaResponse|null>(null);
   const[sessionKey,setSessionKey]=useState(()=>session.workspace());
   useEffect(()=>{const timer=setInterval(()=>{const next=session.workspace();setSessionKey(prev=>prev===next?prev:next)},700);return()=>clearInterval(timer)},[]);
   useEffect(()=>{if(sessionKey)void load()},[sessionKey]);
 
   async function load(){setError('');try{setData(await api<Payload>('/v1/playbooks/intelligence'))}catch(e:any){setError(e?.message||'Não foi possível carregar os playbooks.')}}
+
+  async function askMaya(message?:string){
+    const command=(message||mayaInput).trim();
+    if(!command)return;
+    setBusy('maya');setError('');setNotice('');setMayaResult(null);
+    try{
+      const r=await post<MayaResponse>('/v1/playbooks/maya',{message:command,maxRuns:4,mode:'execute_safe'});
+      setMayaResult(r);
+      setMayaInput('');
+      if(r.understood)setNotice(r.message);
+      await load();
+    }catch(e:any){setError(e?.message||'A Maya não conseguiu organizar os playbooks agora.')}
+    finally{setBusy('')}
+  }
 
   async function start(rec:Recommendation){
     setBusy('start:'+rec.templateKey);setError('');setNotice('');
@@ -85,6 +123,25 @@ export default function SmartPlaybooksPanel(){
       <button onClick={()=>void load()}>↻</button>
     </header>
 
+    <div className="mayaOrchestrator">
+      <div className="mayaIdentity"><div className="mayaAvatar">M</div><div><span>MAYA · ORQUESTRADORA</span><b>Diga o objetivo. Eu organizo o trabalho seguro e trago só o que precisa de você.</b></div></div>
+      <form onSubmit={e=>{e.preventDefault();void askMaya()}} className="mayaCommand">
+        <input value={mayaInput} onChange={e=>setMayaInput(e.target.value)} placeholder="Ex.: Maya, resolve os clientes em risco" disabled={busy==='maya'}/>
+        <button className="primary" disabled={busy==='maya'||!mayaInput.trim()}>{busy==='maya'?'Organizando…':'Organizar agora'}</button>
+      </form>
+      <div className="mayaPrompts">{mayaPrompts.map(prompt=><button key={prompt} disabled={busy==='maya'} onClick={()=>void askMaya(prompt)}>{prompt.replace('Maya, ','')}</button>)}</div>
+      {mayaResult&&<div className="mayaResult">
+        <div className="mayaResultSummary"><b>{mayaResult.message}</b>{mayaResult.summary&&<span>{mayaResult.summary.safeStepsExecuted} etapa(s) interna(s) executada(s) · {mayaResult.summary.humanAttention} ponto(s) para você</span>}</div>
+        {!!mayaResult.humanAttention?.length&&<div className="mayaAttentionList">{mayaResult.humanAttention.map(item=><article key={item.runId+item.stepId}>
+          <span>{item.kind==='external_approval'?'APROVAÇÃO EXTERNA':item.kind==='human_confirmation'?'CONFIRMAÇÃO HUMANA':'CONTINUAR NO CONTEXTO'}</span>
+          <b>{item.subject} · {item.stepTitle}</b>
+          <p>{item.why}</p>
+          <button onClick={()=>openAttention(item)}>Abrir agora</button>
+        </article>)}</div>}
+        {!mayaResult.understood&&<div className="mayaPrompts">{(mayaResult.suggestedPrompts||mayaPrompts).map(prompt=><button key={prompt} onClick={()=>void askMaya(prompt)}>{prompt}</button>)}</div>}
+      </div>}
+    </div>
+
     {error&&<div className="smartPlaybooksError">{error}</div>}
     {notice&&<div className="smartPlaybooksNotice">{notice}</div>}
 
@@ -117,9 +174,9 @@ export default function SmartPlaybooksPanel(){
             </div>
           </div>}
         </article>;
-      }):<div className="playbookEmpty">Quando o NexOffice detectar um caso claro, o playbook recomendado aparece aqui. Você também pode iniciar a partir dos sinais do negócio.</div>}
+      }):<div className="playbookEmpty">Quando o NexOffice detectar um caso claro, o playbook recomendado aparece aqui. Você também pode pedir diretamente para a Maya organizar o que precisa de atenção.</div>}
     </div>
 
-    <footer>Ações externas, fiscais, financeiras ou de comunicação não atravessam a trava humana. O Playbook organiza e conduz; não burla governança.</footer>
+    <footer>A Maya executa apenas etapas internas classificadas como seguras. Ações externas, fiscais, financeiras ou de comunicação não atravessam a trava humana.</footer>
   </section>;
 }
