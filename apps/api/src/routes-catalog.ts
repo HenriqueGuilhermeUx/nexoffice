@@ -21,6 +21,9 @@ const createSchema=z.object({
   billingCycle:BillingCycle.default('one_time'),
   fiscalCode:nullableText,
   nbs:z.string().trim().regex(/^\d{9}$/).optional().nullable(),
+  trackInventory:z.boolean().optional().default(false),
+  reorderPoint:z.number().min(0).optional().default(0),
+  preferredSupplierId:uuid.optional().nullable(),
   metadata:z.record(z.string(),z.unknown()).optional().default({})
 }).strict();
 
@@ -39,6 +42,9 @@ function rowPayload(input:any){
     billing_cycle:input.billingCycle,
     fiscal_code:input.fiscalCode||null,
     nbs:input.nbs||null,
+    track_inventory:Boolean(input.trackInventory),
+    reorder_point:Number(input.reorderPoint||0),
+    preferred_supplier_id:input.preferredSupplierId||null,
     metadata:input.metadata||{}
   };
 }
@@ -56,7 +62,7 @@ export async function registerCatalogRoutes(app:FastifyInstance){
   app.get('/v1/catalog/items',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
     const raw=(req.query as any)?.includeInactive;const includeInactive=raw===true||String(raw||'').toLowerCase()==='true';
-    return query<any>(`select id,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,active,metadata,created_at,updated_at
+    return query<any>(`select id,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,track_inventory,reorder_point,preferred_supplier_id,active,metadata,created_at,updated_at
       from business_catalog_items
       where workspace_id=$1 and ($2::boolean=true or active=true)
       order by active desc,kind,name`,[ctx.workspaceId,includeInactive]);
@@ -69,6 +75,7 @@ export async function registerCatalogRoutes(app:FastifyInstance){
       count(*) filter(where active and kind='product') products,
       count(*) filter(where active and kind='service') services,
       count(*) filter(where active and billing_cycle<>'one_time') recurring,
+      count(*) filter(where active and kind='product' and track_inventory) tracked_products,
       coalesce(avg(price_minor) filter(where active and price_minor>0),0)::bigint avg_price_minor
       from business_catalog_items where workspace_id=$1`,[ctx.workspaceId]);
     return rows[0]||{active_items:0,products:0,services:0,recurring:0,avg_price_minor:0};
@@ -79,9 +86,9 @@ export async function registerCatalogRoutes(app:FastifyInstance){
     const input=createSchema.parse(req.body||{}),p=rowPayload(input);
     await assertUnique(ctx.workspaceId,p.name,p.sku);
     const rows=await query<any>(`insert into business_catalog_items(
-      workspace_id,created_by,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,metadata
-    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning *`,[
-      ctx.workspaceId,ctx.user.id,p.kind,p.name,p.description,p.sku,p.unit,p.price_minor,p.cost_minor,p.currency,p.billing_cycle,p.fiscal_code,p.nbs,JSON.stringify(p.metadata)
+      workspace_id,created_by,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,track_inventory,reorder_point,preferred_supplier_id,metadata
+    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) returning *`,[
+      ctx.workspaceId,ctx.user.id,p.kind,p.name,p.description,p.sku,p.unit,p.price_minor,p.cost_minor,p.currency,p.billing_cycle,p.fiscal_code,p.nbs,p.track_inventory,p.reorder_point,p.preferred_supplier_id,JSON.stringify(p.metadata)
     ]);
     await auditLog(ctx,'catalog.item_created','business_catalog_item',rows[0].id,null,rows[0]);
     return rows[0];
@@ -103,13 +110,16 @@ export async function registerCatalogRoutes(app:FastifyInstance){
       billingCycle:input.billingCycle??before.billing_cycle,
       fiscalCode:input.fiscalCode===undefined?before.fiscal_code:input.fiscalCode,
       nbs:input.nbs===undefined?before.nbs:input.nbs,
+      trackInventory:input.trackInventory===undefined?before.track_inventory:input.trackInventory,
+      reorderPoint:input.reorderPoint===undefined?Number(before.reorder_point||0):input.reorderPoint,
+      preferredSupplierId:input.preferredSupplierId===undefined?before.preferred_supplier_id:input.preferredSupplierId,
       metadata:input.metadata??before.metadata,
       active:input.active??before.active
     };
     if(next.active)await assertUnique(ctx.workspaceId,next.name,next.sku,id);
-    const rows=await query<any>(`update business_catalog_items set kind=$3,name=$4,description=$5,sku=$6,unit=$7,price_minor=$8,cost_minor=$9,currency=$10,billing_cycle=$11,fiscal_code=$12,nbs=$13,metadata=$14,active=$15,updated_at=now()
+    const rows=await query<any>(`update business_catalog_items set kind=$3,name=$4,description=$5,sku=$6,unit=$7,price_minor=$8,cost_minor=$9,currency=$10,billing_cycle=$11,fiscal_code=$12,nbs=$13,track_inventory=$14,reorder_point=$15,preferred_supplier_id=$16,metadata=$17,active=$18,updated_at=now()
       where id=$1 and workspace_id=$2 returning *`,[
-      id,ctx.workspaceId,next.kind,next.name,next.description||null,next.sku||null,next.unit,next.priceMinor,next.costMinor,next.currency,next.billingCycle,next.fiscalCode||null,next.nbs||null,JSON.stringify(next.metadata||{}),next.active
+      id,ctx.workspaceId,next.kind,next.name,next.description||null,next.sku||null,next.unit,next.priceMinor,next.costMinor,next.currency,next.billingCycle,next.fiscalCode||null,next.nbs||null,next.trackInventory,next.reorderPoint,next.preferredSupplierId||null,JSON.stringify(next.metadata||{}),next.active
     ]);
     await auditLog(ctx,'catalog.item_updated','business_catalog_item',id,before,rows[0]);
     return rows[0];
