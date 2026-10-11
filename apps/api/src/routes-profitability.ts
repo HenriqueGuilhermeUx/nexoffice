@@ -57,7 +57,6 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
         coalesce(sum(o.amount_minor),0)::bigint booked_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where l.status='paid'),0)::bigint received_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null),0)::bigint cost_known_revenue_minor,
-        count(*) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null)::int cost_known_operations,
         coalesce(sum(
           case
             when o.unit_cost_minor is not null then o.unit_cost_minor*o.quantity
@@ -95,6 +94,7 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
         coalesce(sum(o.amount_minor),0)::bigint booked_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where l.status='paid'),0)::bigint received_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null),0)::bigint cost_known_revenue_minor,
+        count(*) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null)::int cost_known_operations,
         coalesce(sum(
           case
             when o.unit_cost_minor is not null then o.unit_cost_minor*o.quantity
