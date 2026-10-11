@@ -38,3 +38,15 @@ export function teamForPlaybookSteps(steps:Array<{action_id?:string;actionId?:st
   }
   return [...byKey.values()];
 }
+
+
+const templateActions:Record<string,string[]>={
+  commercial_to_cash:['materials.proposal.prepare','operations.continue','fiscal.issue','finance.receivables.review','profitability.review','recurrence.activate'],
+  relationship_recovery:['task.followup.create','relationship.review','materials.proposal.prepare','message.send'],
+  renewal_expansion:['relationship.review','materials.proposal.prepare','task.followup.create','message.send'],
+  stock_replenishment:['purchasing.plan','purchasing.send_to_supplier','purchasing.receive']
+};
+
+export function teamForPlaybookTemplate(templateKey:string){
+  return teamForPlaybookSteps((templateActions[templateKey]||[]).map(actionId=>({actionId})));
+}
