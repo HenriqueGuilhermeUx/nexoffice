@@ -46,7 +46,7 @@ function rowPayload(input:any){
 export async function registerCatalogRoutes(app:FastifyInstance){
   app.get('/v1/catalog/items',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
-    const input=z.object({includeInactive:z.coerce.boolean().default(false)}).parse(req.query||{});
+    const raw=(req.query as any)?.includeInactive;const includeInactive=raw===true||String(raw||'').toLowerCase()==='true';
     return query<any>(`select id,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,active,metadata,created_at,updated_at
       from business_catalog_items
       where workspace_id=$1 and ($2::boolean=true or active=true)
