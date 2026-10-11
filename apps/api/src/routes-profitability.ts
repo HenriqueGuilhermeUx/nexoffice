@@ -43,7 +43,7 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
 
     const rows=await query<any>(`
       select
-        coalesce(o.catalog_item_id::text,'uncatalogued') catalog_key,
+        coalesce(o.catalog_item_id::text,'manual:'||md5(coalesce(o.title,'sem-oferta'))) catalog_key,
         o.catalog_item_id,
         coalesce(ci.name,o.title,'Sem oferta vinculada') item_name,
         coalesce(ci.kind,'service') item_kind,
@@ -68,7 +68,7 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
       where o.workspace_id=$1
         and o.created_at>=now()-($2::text||' days')::interval
         and o.status<>'cancelled'
-      group by o.catalog_item_id,ci.name,ci.kind,ci.billing_cycle,o.title
+      group by o.catalog_item_id,coalesce(ci.name,o.title,'Sem oferta vinculada'),coalesce(ci.kind,'service'),coalesce(ci.billing_cycle,'one_time'),coalesce(o.catalog_item_id::text,'manual:'||md5(coalesce(o.title,'sem-oferta')))
       order by booked_revenue_minor desc
     `,[ctx.workspaceId,String(days)]);
 
