@@ -35,6 +35,7 @@ import {registerVerticalRoutes} from './routes-vertical.js';
 import {registerFlexibleRoutes} from './routes-flexible.js';
 import {registerMarketingRoutes} from './routes-marketing.js';
 import {registerMaterialsRoutes} from './routes-materials.js';
+import {registerCatalogRoutes} from './routes-catalog.js';
 import {registerCommercialGrowthRoutes} from './routes-commercial-growth.js';
 import {registerPlatformRoutes} from './routes-platform.js';
 import {registerPlatformHealthRoutes} from './routes-platform-health.js';
@@ -75,7 +76,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.36.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.37.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -100,6 +101,7 @@ await registerFlexibleRoutes(app);
 await registerVerticalRoutes(app);
 await registerMarketingRoutes(app);
 await registerMaterialsRoutes(app);
+await registerCatalogRoutes(app);
 await registerCommercialGrowthRoutes(app);
 await registerPlatformRoutes(app);
 await registerPlatformHealthRoutes(app);

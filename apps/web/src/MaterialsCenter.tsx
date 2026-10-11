@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import {api,post,session} from './api';
+import MaterialCatalogPicker from './MaterialCatalogPicker';
 import './materials-center.css';
 
 type MaterialKind='presentation'|'proposal'|'report'|'onepage'|'image';
@@ -10,6 +11,7 @@ type OnboardingPayload={workspace?:{id:string;name:string};profile?:any;onboardi
 type Dashboard={crm?:{open_deals?:number;open_pipeline_minor?:number};finance?:{receivable_minor?:number;overdue_count?:number};appointments?:{today_appointments?:number};tasks?:{due_tasks?:number}};
 type Contact={id:string;name:string;email?:string;phone?:string;company_name?:string;kind?:string};
 type Deal={id:string;contact_id?:string;title:string;stage:string;value_minor:number|string;next_action?:string};
+type CatalogItem={id:string;kind:'product'|'service';name:string;description?:string|null;unit:string;price_minor:number|string;billing_cycle:string;fiscal_code?:string|null;nbs?:string|null};
 type RecentMaterial={id:number;kind:MaterialKind;theme:ThemeKey;accent?:string;clientId?:string;dealId?:string;draft:Draft};
 type SavedMaterial={id:string;status:string;public_token?:string;title:string;kind:MaterialKind;theme:ThemeKey;contact_name?:string;deal_title?:string;updated_at:string};
 type ShareResponse={id:string;public_token:string;status:string;published_at:string;path:string};
@@ -109,10 +111,10 @@ export default function MaterialsCenter(){
   const[kind,setKind]=useState<MaterialKind>('presentation');const[theme,setTheme]=useState<ThemeKey>('executive');const[profile,setProfile]=useState<OnboardingPayload|null>(null);const[dashboard,setDashboard]=useState<Dashboard|null>(null);
   const[title,setTitle]=useState('');const[audience,setAudience]=useState('');const[objective,setObjective]=useState('');const[context,setContext]=useState('');const[value,setValue]=useState('');const[cta,setCta]=useState('');
   const[draft,setDraft]=useState<Draft|null>(null);const[current,setCurrent]=useState(0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[notice,setNotice]=useState('');
-  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[clientId,setClientId]=useState('');const[dealId,setDealId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);const[savedId,setSavedId]=useState('');const[shareUrl,setShareUrl]=useState('');const[serverRecent,setServerRecent]=useState<SavedMaterial[]>([]);
+  const[contacts,setContacts]=useState<Contact[]>([]);const[deals,setDeals]=useState<Deal[]>([]);const[catalog,setCatalog]=useState<CatalogItem[]>([]);const[clientId,setClientId]=useState('');const[dealId,setDealId]=useState('');const[catalogId,setCatalogId]=useState('');const[brandAccent,setBrandAccent]=useState('');const[logoData,setLogoData]=useState('');const[recent,setRecent]=useState<RecentMaterial[]>([]);const[savedId,setSavedId]=useState('');const[shareUrl,setShareUrl]=useState('');const[serverRecent,setServerRecent]=useState<SavedMaterial[]>([]);
   const businessName=clean(profile?.profile?.metadata?.identity?.businessName||profile?.profile?.metadata?.identity?.tradeName||profile?.workspace?.name||'Seu negócio');
   const basePalette=palettes[theme];const palette={...basePalette,accent:brandAccent||basePalette.accent};
-  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,8):[];const selectedDeal=deals.find(x=>x.id===dealId)||null;
+  const selectedClient=contacts.find(x=>x.id===clientId)||null;const relatedDeals=selectedClient?deals.filter(x=>x.contact_id===selectedClient.id).slice(0,8):[];const selectedDeal=deals.find(x=>x.id===dealId)||null;const selectedCatalog=catalog.find(x=>x.id===catalogId)||null;
   useEffect(()=>{
     try{
       const quick=JSON.parse(sessionStorage.getItem('nexoffice.quickAction')||'null');
@@ -121,10 +123,20 @@ export default function MaterialsCenter(){
       else if(quick?.id==='presentation')setKind('presentation');
       if(['proposal-material','visual-material','presentation'].includes(String(quick?.id||'')))sessionStorage.removeItem('nexoffice.quickAction');
     }catch{}
-    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[]),api<SavedMaterial[]>('/v1/materials').catch(()=>[])]).then(([p,d,cx,dx,mx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[]);setServerRecent(mx||[])});
+    void Promise.all([api<OnboardingPayload>('/v1/onboarding/business').catch(()=>null),api<Dashboard>('/v1/dashboard').catch(()=>null),api<Contact[]>('/v1/crm/contacts').catch(()=>[]),api<Deal[]>('/v1/crm/deals').catch(()=>[]),api<CatalogItem[]>('/v1/catalog/items').catch(()=>[]),api<SavedMaterial[]>('/v1/materials').catch(()=>[])]).then(([p,d,cx,dx,cat,mx])=>{if(p)setProfile(p);if(d)setDashboard(d);setContacts(cx||[]);setDeals(dx||[]);setCatalog(cat||[]);setServerRecent(mx||[])});
     try{const key=`nexoffice.materials.${session.workspace()||'local'}`;const list=JSON.parse(localStorage.getItem(key)||'[]');setRecent(Array.isArray(list)?list.slice(0,8):[])}catch{}
   },[]);
   const ready=useMemo(()=>Boolean(title.trim()||objective.trim()||context.trim()),[title,objective,context]);
+  function useCatalogOffer(item:CatalogItem|null){
+    setCatalogId(item?.id||'');
+    if(!item)return;
+    if(!title.trim())setTitle(clean(item.name));
+    if(item.description&&!context.trim())setContext(clean(item.description));
+    if(!value.trim()){
+      const suffix=item.billing_cycle==='monthly'?'/mês':item.billing_cycle==='yearly'?'/ano':item.billing_cycle==='weekly'?'/semana':item.billing_cycle==='quarterly'?'/trimestre':'';
+      setValue(money(item.price_minor)+suffix);
+    }
+  }
 
   async function generate(){
     setBusy(true);setError('');setNotice('');
@@ -171,7 +183,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     try{
       const saved=await post<any>('/v1/materials',{
         kind,theme,title:next.title,subtitle:next.subtitle||null,content:next,contactId:clientId||null,dealId:dealId||null,
-        metadata:{brandAccent:brandAccent||null,createdFrom:'materials-studio-v2',businessName}
+        metadata:{brandAccent:brandAccent||null,createdFrom:'materials-studio-v2',businessName,catalogItemId:catalogId||null}
       });
       setSavedId(String(saved.id||''));
       const list=await api<SavedMaterial[]>('/v1/materials').catch(()=>[]);
@@ -184,7 +196,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
     setBusy(true);setError('');
     try{
       const row=await api<any>(`/v1/materials/${encodeURIComponent(id)}`);
-      setKind(row.kind);setTheme(row.theme);setDraft(row.content);setCurrent(0);setSavedId(row.id);setClientId(row.contact_id||'');setDealId(row.deal_id||'');
+      setKind(row.kind);setTheme(row.theme);setDraft(row.content);setCurrent(0);setSavedId(row.id);setClientId(row.contact_id||'');setDealId(row.deal_id||'');setCatalogId(clean(row.metadata?.catalogItemId));
       setBrandAccent(clean(row.metadata?.brandAccent));setShareUrl(row.status==='published'&&row.public_token?`${location.origin}/?material=${row.public_token}`:'');
       setNotice('Material do workspace aberto.');
     }catch(e:any){setError(e?.message||'Não foi possível abrir o material.')}finally{setBusy(false)}
@@ -232,7 +244,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   }
 
   function reopen(item:RecentMaterial){
-    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDealId(item.dealId||'');setDraft(item.draft);setCurrent(0);setSavedId('');setShareUrl('');
+    setKind(item.kind);setTheme(item.theme);setBrandAccent(item.accent||'');setClientId(item.clientId||'');setDealId(item.dealId||'');setCatalogId('');setDraft(item.draft);setCurrent(0);setSavedId('');setShareUrl('');
     setNotice('Material recente reaberto. Você pode exportar ou gerar uma nova versão.');
   }
 
@@ -293,6 +305,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
       <div className="materialsSection"><label>Estilo</label><div className="themeRow">{(Object.keys(palettes) as ThemeKey[]).map(t=><button key={t} className={theme===t?'active':''} onClick={()=>setTheme(t)}>{t==='executive'?'Executivo':t==='bold'?'Impacto':'Claro'}</button>)}</div></div>
       <div className="materialsBrand"><label><span>Cor da marca</span><input type="color" value={brandAccent||basePalette.accent} onChange={e=>setBrandAccent(e.target.value)}/></label><label><span>Logo / imagem opcional</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>onLogo(e.target.files?.[0])}/></label></div>
       {contacts.length>0&&<div className="materialsClient"><label><span>Cliente do CRM (opcional)</span><select value={clientId} onChange={e=>{const id=e.target.value;setClientId(id);setDealId('');const selected=contacts.find(x=>x.id===id);if(selected&&!audience.trim())setAudience(clean(selected.company_name||selected.name))}}><option value="">Sem cliente vinculado</option>{contacts.map(x=><option key={x.id} value={x.id}>{x.name}{x.company_name?` · ${x.company_name}`:''}</option>)}</select></label>{selectedClient&&<><small>{relatedDeals.length?`${relatedDeals.length} oportunidade(s) relacionada(s) encontradas.`:'Cliente selecionado; nenhuma oportunidade foi encontrada para ele.'}</small>{relatedDeals.length>0&&<label><span>Oportunidade específica (opcional)</span><select value={dealId} onChange={e=>{const id=e.target.value;setDealId(id);const d=deals.find(x=>x.id===id);if(d&&!title.trim())setTitle(clean(d.title));if(d&&!value.trim()&&Number(d.value_minor)>0)setValue(money(d.value_minor))}}><option value="">Usar contexto geral do cliente</option>{relatedDeals.map(d=><option key={d.id} value={d.id}>{d.title} · {money(d.value_minor)}</option>)}</select></label>}</>}</div>}
+      <MaterialCatalogPicker items={catalog} value={catalogId} onChange={useCatalogOffer}/>
       <div className="materialsFields"><label><span>Título, oferta ou assunto</span><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Gestão de tráfego para Clínica X"/></label><label><span>Para quem?</span><input value={audience} onChange={e=>setAudience(e.target.value)} placeholder="Ex.: diretoria da Clínica X"/></label><label><span>O que você quer conseguir?</span><textarea value={objective} onChange={e=>setObjective(e.target.value)} placeholder="Ex.: apresentar a proposta e mostrar por que faz sentido agora"/></label><label><span>Informações que não podem faltar</span><textarea value={context} onChange={e=>setContext(e.target.value)} placeholder="Cole briefing, entregas, resultados, detalhes do cliente ou contexto da reunião"/></label><div className="materialsTwo"><label><span>Valor / condição</span><input value={value} onChange={e=>setValue(e.target.value)} placeholder="Ex.: R$ 2.500/mês"/></label><label><span>Próximo passo</span><input value={cta} onChange={e=>setCta(e.target.value)} placeholder="Ex.: aprovar proposta até sexta"/></label></div></div>
       <div className="materialsContext"><span>DNA DO NEGÓCIO</span><b>{businessName}</b><small>{profile?.profile?.sector?clean(profile.profile.sector):'Perfil sendo enriquecido pelo NexOffice'}</small></div>
       <button className="materialsGenerate" onClick={generate} disabled={busy||!ready}>{busy?'Preparando…':draft?'Gerar nova versão':'Criar material'}</button>
