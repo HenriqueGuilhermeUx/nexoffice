@@ -27,6 +27,7 @@ const earliest=(values:(string|null|undefined)[])=>{
 export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance){
   app.get('/v1/crm/relationship-intelligence',async req=>{
     const ctx=await workspaceContext(req,'crm.read');
+    const includeDocWallet=String((req.query as any)?.includeDocWallet??'true').toLowerCase()!=='false';
     const [contacts,activities,ledger,recurring,deals,operations,appointments,catalog,documents,docUpcoming]=await Promise.all([
       query<any>('select id,name,email,phone,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 500',[ctx.workspaceId]),
       query<any>("select contact_id,max(occurred_at) last_activity_at,count(*) filter(where occurred_at>=now()-interval '90 days')::int interactions_90 from crm_activities where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
@@ -37,7 +38,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
       query<any>("select contact_id,max(starts_at) filter(where status='completed') last_completed_appointment_at,count(*) filter(where status='no_show' and starts_at>=now()-interval '180 days')::int no_show_180 from appointments where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
       query<any>("select id,name,kind,price_minor,cost_minor,billing_cycle from business_catalog_items where workspace_id=$1 and active=true and price_minor>0 order by case when cost_minor is not null and price_minor>0 then (price_minor-cost_minor)::numeric/price_minor else -1 end desc,price_minor desc,name",[ctx.workspaceId]),
       query<any>("select contact_id,external_ref,title from document_refs where workspace_id=$1 and provider='docwallet' and contact_id is not null",[ctx.workspaceId]),
-      readDocWalletUpcomingExpirations(ctx.workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any))
+      includeDocWallet?readDocWalletUpcomingExpirations(ctx.workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any)):Promise.resolve({ok:false,error:'docwallet_skipped'} as any)
     ]);
 
     const map=(rows:any[])=>new Map(rows.map(row=>[String(row.contact_id),row]));
