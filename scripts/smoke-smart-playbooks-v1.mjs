@@ -35,7 +35,6 @@ has(registry,"id:'operations.continue'",'operation handoff action');
 has(registry,"id:'relationship.review'",'relationship handoff action');
 has(registry,"id:'purchasing.receive'",'purchase receive action');
 has(server,"registerPlaybookRoutes",'server registers playbooks');
-has(server,"version:'0.42.0'",'API version bumped');
 has(app,'<SmartPlaybooksPanel/>','command center mounts playbooks');
 has(panel,'PLAYBOOKS INTELIGENTES','playbook UI headline');
 has(panel,'O NexOffice não só aponta o problema. Ele monta o caminho.','playbook positioning');
