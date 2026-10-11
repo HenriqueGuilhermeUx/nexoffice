@@ -17,6 +17,8 @@ jobs:
       - run: npm run build
       - name: Smoke test Business Catalog V1
         run: node scripts/smoke-business-catalog-v1.mjs
+      - name: Smoke test Business Profitability V1
+        run: node scripts/smoke-business-profitability-v1.mjs
       - name: Validate staging safety contract
         env:
           NEXOFFICE_ENV: staging
