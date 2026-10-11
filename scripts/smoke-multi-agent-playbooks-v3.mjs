@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const must=(v,m)=>{if(!v)throw new Error('Multi-Agent Playbooks V3 contract failed: '+m)};
+const has=(t,v,m)=>must(t.includes(v),m||('missing '+v));
+
+const team=read('apps/api/src/playbook-digital-team.ts');
+const playbooks=read('apps/api/src/routes-playbooks.ts');
+const maya=read('apps/api/src/routes-maya-playbooks.ts');
+const server=read('apps/api/src/server.ts');
+const panel=read('apps/web/src/SmartPlaybooksPanel.tsx');
+
+has(team,"name:'Sofia'",'Sofia registered');
+has(team,"name:'Clara'",'Clara registered');
+has(team,"name:'Nico'",'Nico registered');
+has(team,"name:'Theo'",'Theo registered');
+has(team,"name:'Dora'",'Dora registered');
+has(team,"actionId==='task.followup.create'",'follow-up routed to Sofia');
+has(team,"actionId==='relationship.review'||actionId==='message.send'",'relationship routed to Clara');
+has(team,"actionId==='materials.proposal.prepare'",'proposal routed to Dora');
+has(team,"actionId==='operations.continue'||actionId==='inventory.adjust'||actionId.startsWith('purchasing.')",'operations routed to Nico');
+has(team,"actionId==='finance.receivables.review'||actionId.startsWith('reconciliation.')",'receivables routed to Theo');
+has(playbooks,'assignedAgent:agentForPlaybookAction(step.actionId)','agent persisted in step metadata');
+has(playbooks,"'playbook.agent_assigned'",'agent assignment audited');
+has(playbooks,"'playbook.agent_handoff'",'agent handoff audited');
+has(playbooks,'delegatedAgent:assignedAgent','execution result records specialist');
+has(maya,"'playbook.agent_work_completed'",'agent work audited');
+has(maya,'agent:assignedAgent','Maya execution returns specialist');
+has(maya,'team:finalRun.team||[]','Maya returns run team');
+has(maya,'orchestrator:MAYA_ORCHESTRATOR','Maya remains orchestrator');
+has(server,"version:'0.44.0'",'API version bumped');
+has(panel,'Maya coordenou:','UI shows coordinated team');
+has(panel,"item.agent?.name||'Equipe Digital'",'human attention names specialist');
+has(panel,"step.assignedAgent?.name||'Equipe Digital'",'current step shows specialist');
+has(panel,'Maya coordena Sofia, Clara, Nico, Theo e Dora no mesmo playbook.','multi-agent governance copy');
+console.log('NexOffice Multi-Agent Playbooks V3 contract OK');
