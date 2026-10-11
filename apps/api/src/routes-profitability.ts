@@ -20,7 +20,12 @@ function bestOptions(item:any):NextOption[]{
   const margin=item.margin_pct===null?null:Number(item.margin_pct);
   const coverage=Number(item.cost_coverage_pct||0);
   const receivedShare=Number(item.booked_revenue_minor||0)>0?Number(item.received_revenue_minor||0)/Number(item.booked_revenue_minor||0)*100:0;
-  if(coverage<100)options.push({action:'catalog_set_cost',label:'Informar custo',reason:'Complete o custo para tornar a margem mais confiável.',catalogItemId});
+  if(coverage<100){
+    options.push({action:'catalog_set_cost',label:'Informar custo',reason:'Complete o custo para tornar a margem mais confiável.',catalogItemId});
+    options.push({action:'review_clients',label:'Ver clientes',reason:'Veja onde a oferta já está sendo vendida antes de alterar preço ou custo.',catalogItemId,view:'crm'});
+    options.push({action:'create_proposal',label:'Usar em proposta',reason:'A oferta continua disponível para novas propostas sem assumir que a margem é conhecida.',catalogItemId,view:'materials'});
+    return options.slice(0,3);
+  }
   if(margin!==null&&margin<20){
     options.push({action:'catalog_review_price',label:'Rever preço',reason:'A margem estimada está baixa para esta oferta.',catalogItemId});
     options.push({action:'create_proposal',label:'Criar proposta com novo preço',reason:'Teste um posicionamento de preço melhor em uma nova proposta.',catalogItemId,view:'materials'});
@@ -51,6 +56,7 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
         count(*)::int operations,
         coalesce(sum(o.amount_minor),0)::bigint booked_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where l.status='paid'),0)::bigint received_revenue_minor,
+        coalesce(sum(o.amount_minor) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null),0)::bigint cost_known_revenue_minor,
         coalesce(sum(
           case
             when o.unit_cost_minor is not null then o.unit_cost_minor*o.quantity
@@ -73,10 +79,10 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
     `,[ctx.workspaceId,String(days)]);
 
     const items=rows.map(row=>{
-      const revenue=n(row.booked_revenue_minor),cost=n(row.estimated_cost_minor),profit=revenue-cost;
-      const margin=revenue>0?pct(profit/revenue*100):null;
+      const revenue=n(row.booked_revenue_minor),coveredRevenue=n(row.cost_known_revenue_minor),cost=n(row.estimated_cost_minor),profit=coveredRevenue-cost;
+      const margin=coveredRevenue>0?pct(profit/coveredRevenue*100):null;
       const coverage=n(row.operations)>0?pct(n(row.cost_known_operations)/n(row.operations)*100):0;
-      const normalized={...row,booked_revenue_minor:revenue,received_revenue_minor:n(row.received_revenue_minor),estimated_cost_minor:cost,estimated_gross_profit_minor:profit,margin_pct:margin,cost_coverage_pct:coverage,cost_snapshot_pct:n(row.operations)>0?pct(n(row.cost_snapshot_operations)/n(row.operations)*100):0};
+      const normalized={...row,booked_revenue_minor:revenue,received_revenue_minor:n(row.received_revenue_minor),cost_known_revenue_minor:coveredRevenue,estimated_cost_minor:cost,estimated_gross_profit_minor:profit,margin_pct:margin,cost_coverage_pct:coverage,cost_snapshot_pct:n(row.operations)>0?pct(n(row.cost_snapshot_operations)/n(row.operations)*100):0};
       return {...normalized,best_options:bestOptions(normalized)};
     });
 
@@ -87,6 +93,7 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
         count(*)::int operations,
         coalesce(sum(o.amount_minor),0)::bigint booked_revenue_minor,
         coalesce(sum(o.amount_minor) filter(where l.status='paid'),0)::bigint received_revenue_minor,
+        coalesce(sum(o.amount_minor) filter(where o.unit_cost_minor is not null or ci.cost_minor is not null),0)::bigint cost_known_revenue_minor,
         coalesce(sum(
           case
             when o.unit_cost_minor is not null then o.unit_cost_minor*o.quantity
@@ -108,31 +115,33 @@ export async function registerProfitabilityRoutes(app:FastifyInstance){
 
     const totalRevenue=items.reduce((sum,item)=>sum+n(item.booked_revenue_minor),0);
     const totalReceived=items.reduce((sum,item)=>sum+n(item.received_revenue_minor),0);
+    const totalCoveredRevenue=items.reduce((sum,item)=>sum+n(item.cost_known_revenue_minor),0);
     const totalCost=items.reduce((sum,item)=>sum+n(item.estimated_cost_minor),0);
     const totalOperations=items.reduce((sum,item)=>sum+n(item.operations),0);
     const costKnownOperations=items.reduce((sum,item)=>sum+n(item.cost_known_operations),0);
-    const profit=totalRevenue-totalCost;
+    const profit=totalCoveredRevenue-totalCost;
     const summary={
       days,
       operations:totalOperations,
       bookedRevenueMinor:totalRevenue,
       receivedRevenueMinor:totalReceived,
+      coveredRevenueMinor:totalCoveredRevenue,
       estimatedCostMinor:totalCost,
       estimatedGrossProfitMinor:profit,
-      estimatedGrossMarginPct:totalRevenue>0?pct(profit/totalRevenue*100):null,
+      estimatedGrossMarginPct:totalCoveredRevenue>0?pct(profit/totalCoveredRevenue*100):null,
       costCoveragePct:totalOperations>0?pct(costKnownOperations/totalOperations*100):0,
       methodology:'booked_revenue_minus_catalog_cost_snapshot_v1'
     };
 
     const rankedCustomers=customers.map(row=>{
-      const revenue=n(row.booked_revenue_minor),cost=n(row.estimated_cost_minor),profit=revenue-cost;
-      return {...row,booked_revenue_minor:revenue,received_revenue_minor:n(row.received_revenue_minor),estimated_cost_minor:cost,estimated_gross_profit_minor:profit,margin_pct:revenue>0?pct(profit/revenue*100):null};
+      const revenue=n(row.booked_revenue_minor),coveredRevenue=n(row.cost_known_revenue_minor),cost=n(row.estimated_cost_minor),profit=coveredRevenue-cost;
+      return {...row,booked_revenue_minor:revenue,received_revenue_minor:n(row.received_revenue_minor),cost_known_revenue_minor:coveredRevenue,estimated_cost_minor:cost,estimated_gross_profit_minor:profit,margin_pct:coveredRevenue>0?pct(profit/coveredRevenue*100):null};
     });
 
     const bestNow:NextOption[]=[];
     const missingCost=items.find(item=>Number(item.cost_coverage_pct)<100);
-    const weakMargin=items.filter(item=>item.margin_pct!==null).sort((a,b)=>Number(a.margin_pct)-Number(b.margin_pct))[0];
-    const strongMargin=items.filter(item=>item.margin_pct!==null&&Number(item.margin_pct)>=40).sort((a,b)=>Number(b.estimated_gross_profit_minor)-Number(a.estimated_gross_profit_minor))[0];
+    const weakMargin=items.filter(item=>item.margin_pct!==null&&Number(item.cost_coverage_pct)===100).sort((a,b)=>Number(a.margin_pct)-Number(b.margin_pct))[0];
+    const strongMargin=items.filter(item=>item.margin_pct!==null&&Number(item.cost_coverage_pct)===100&&Number(item.margin_pct)>=40).sort((a,b)=>Number(b.estimated_gross_profit_minor)-Number(a.estimated_gross_profit_minor))[0];
     if(missingCost)bestNow.push({action:'catalog_set_cost',label:'Completar custos do catálogo',reason:'Margem confiável começa com custo informado nas principais ofertas.',catalogItemId:missingCost.catalog_item_id});
     if(weakMargin&&Number(weakMargin.margin_pct)<20)bestNow.push({action:'catalog_review_price',label:'Rever a oferta de menor margem',reason:`${weakMargin.item_name} está com margem estimada de ${weakMargin.margin_pct}%.`,catalogItemId:weakMargin.catalog_item_id});
     if(strongMargin)bestNow.push({action:'create_proposal',label:'Vender mais da oferta mais rentável',reason:`${strongMargin.item_name} combina boa margem com resultado acumulado.`,catalogItemId:strongMargin.catalog_item_id,view:'materials'});
