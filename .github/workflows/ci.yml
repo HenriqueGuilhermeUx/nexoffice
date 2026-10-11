@@ -25,6 +25,8 @@ jobs:
         run: node scripts/smoke-relationship-intelligence-v1.mjs
       - name: Smoke test ERP Value Pack V1
         run: node scripts/smoke-erp-value-pack-v1.mjs
+      - name: Smoke test Smart Playbooks V1
+        run: node scripts/smoke-smart-playbooks-v1.mjs
       - name: Validate staging safety contract
         env:
           NEXOFFICE_ENV: staging
@@ -111,6 +113,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/042_business_profitability.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/043_recurrence_intelligence.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/044_erp_value_pack.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/045_smart_playbooks.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -129,6 +132,8 @@ jobs:
         run: node scripts/smoke-relationship-intelligence-api.mjs
       - name: Smoke test ERP Value Pack API
         run: node scripts/smoke-erp-value-pack-api.mjs
+      - name: Smoke test Smart Playbooks API
+        run: node scripts/smoke-smart-playbooks-api.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
       - name: Smoke test billing trial
