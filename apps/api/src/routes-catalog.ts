@@ -21,8 +21,8 @@ const createSchema=z.object({
   billingCycle:BillingCycle.default('one_time'),
   fiscalCode:nullableText,
   nbs:z.string().trim().regex(/^\d{9}$/).optional().nullable(),
-  trackInventory:z.boolean().optional().default(false),
-  reorderPoint:z.number().min(0).optional().default(0),
+  trackInventory:z.boolean().optional(),
+  reorderPoint:z.number().min(0).optional(),
   preferredSupplierId:uuid.optional().nullable(),
   metadata:z.record(z.string(),z.unknown()).optional().default({})
 }).strict();
