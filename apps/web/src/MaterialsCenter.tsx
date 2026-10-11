@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import {api,post,session} from './api';
+import MaterialCatalogPicker from './MaterialCatalogPicker';
 import './materials-center.css';
 
 type MaterialKind='presentation'|'proposal'|'report'|'onepage'|'image';
