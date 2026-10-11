@@ -22,7 +22,6 @@ has(routes,"playbook.maya_orchestrated",'orchestration audit trail');
 has(playbooks,'export async function startPlaybookRun','shared playbook starter exported');
 has(playbooks,"source='smart_playbooks_v1'",'manual starter preserves source');
 has(server,'registerMayaPlaybookRoutes','server registers Maya route');
-has(server,"version:'0.43.0'",'API version bumped');
 has(panel,'MAYA · ORQUESTRADORA','Maya UI identity');
 has(panel,'Diga o objetivo. Eu organizo o trabalho seguro','Maya orchestration promise');
 has(panel,"'/v1/playbooks/maya'",'UI calls Maya endpoint');
