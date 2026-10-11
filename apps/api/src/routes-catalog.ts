@@ -43,6 +43,15 @@ function rowPayload(input:any){
   };
 }
 
+async function assertUnique(workspaceId:string,name:string,sku?:string|null,excludeId?:string){
+  const byName=(await query<any>(`select id from business_catalog_items where workspace_id=$1 and active=true and lower(name)=lower($2) and ($3::uuid is null or id<>$3::uuid) limit 1`,[workspaceId,name,excludeId||null]))[0];
+  if(byName)throw new ApiError(409,'catalog_name_exists','Já existe um item ativo com este nome no catálogo.');
+  if(sku){
+    const bySku=(await query<any>(`select id from business_catalog_items where workspace_id=$1 and active=true and lower(sku)=lower($2) and ($3::uuid is null or id<>$3::uuid) limit 1`,[workspaceId,sku,excludeId||null]))[0];
+    if(bySku)throw new ApiError(409,'catalog_sku_exists','Já existe um item ativo com este código/SKU no catálogo.');
+  }
+}
+
 export async function registerCatalogRoutes(app:FastifyInstance){
   app.get('/v1/catalog/items',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
@@ -68,6 +77,7 @@ export async function registerCatalogRoutes(app:FastifyInstance){
   app.post('/v1/catalog/items',async req=>{
     const ctx=await workspaceContext(req,'workspace.write');
     const input=createSchema.parse(req.body||{}),p=rowPayload(input);
+    await assertUnique(ctx.workspaceId,p.name,p.sku);
     const rows=await query<any>(`insert into business_catalog_items(
       workspace_id,created_by,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,metadata
     ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning *`,[
@@ -96,6 +106,7 @@ export async function registerCatalogRoutes(app:FastifyInstance){
       metadata:input.metadata??before.metadata,
       active:input.active??before.active
     };
+    if(next.active)await assertUnique(ctx.workspaceId,next.name,next.sku,id);
     const rows=await query<any>(`update business_catalog_items set kind=$3,name=$4,description=$5,sku=$6,unit=$7,price_minor=$8,cost_minor=$9,currency=$10,billing_cycle=$11,fiscal_code=$12,nbs=$13,metadata=$14,active=$15,updated_at=now()
       where id=$1 and workspace_id=$2 returning *`,[
       id,ctx.workspaceId,next.kind,next.name,next.description||null,next.sku||null,next.unit,next.priceMinor,next.costMinor,next.currency,next.billingCycle,next.fiscalCode||null,next.nbs||null,JSON.stringify(next.metadata||{}),next.active
