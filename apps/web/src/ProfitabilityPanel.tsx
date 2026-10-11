@@ -25,9 +25,9 @@ type ProfitItem={
   best_options:Option[];
 };
 type Profitability={
-  summary:{days:number;operations:number;bookedRevenueMinor:number;receivedRevenueMinor:number;estimatedCostMinor:number;estimatedGrossProfitMinor:number;estimatedGrossMarginPct:number|null;costCoveragePct:number;methodology:string};
+  summary:{days:number;operations:number;bookedRevenueMinor:number;receivedRevenueMinor:number;coveredRevenueMinor:number;estimatedCostMinor:number;estimatedGrossProfitMinor:number;estimatedGrossMarginPct:number|null;costCoveragePct:number;methodology:string};
   items:ProfitItem[];
-  customers:Array<{contact_id?:string|null;customer_name:string;operations:number;booked_revenue_minor:number;received_revenue_minor:number;estimated_cost_minor:number;estimated_gross_profit_minor:number;margin_pct:number|null}>;
+  customers:Array<{contact_id?:string|null;customer_name:string;operations:number;booked_revenue_minor:number;received_revenue_minor:number;cost_known_revenue_minor:number;estimated_cost_minor:number;estimated_gross_profit_minor:number;margin_pct:number|null;cost_coverage_pct:number}>;
   bestOptions:Option[];
 };
 
@@ -87,7 +87,7 @@ export default function ProfitabilityPanel(){
     {s&&<><div className="profitabilityKpis">
       <article><small>Vendido</small><b>{money(s.bookedRevenueMinor)}</b><span>{s.operations} operações no período</span></article>
       <article><small>Recebido</small><b>{money(s.receivedRevenueMinor)}</b><span>{s.bookedRevenueMinor?Math.round(s.receivedRevenueMinor/s.bookedRevenueMinor*100):0}% do vendido</span></article>
-      <article><small>Lucro bruto estimado</small><b>{money(s.estimatedGrossProfitMinor)}</b><span>custo informado no catálogo</span></article>
+      <article><small>Lucro bruto estimado</small><b>{money(s.estimatedGrossProfitMinor)}</b><span>sobre {money(s.coveredRevenueMinor)} com custo conhecido</span></article>
       <article><small>Margem estimada</small><b>{pct(s.estimatedGrossMarginPct)}</b><span>{pct(s.costCoveragePct)} das operações com custo conhecido</span></article>
     </div>
 
@@ -103,8 +103,8 @@ export default function ProfitabilityPanel(){
       <section><div className="profitabilityTitle"><div><small>OFERTAS</small><h4>Receita e margem</h4></div></div><div className="profitabilityTable">
         {data?.items.length?data.items.map(item=><article key={item.catalog_key}><div className="profitabilityItem"><span>{item.item_kind==='service'?'Serviço':'Produto'}{item.billing_cycle!=='one_time'?' · recorrente':''}</span><b>{item.item_name}</b><small>{item.operations} operações · {pct(item.cost_coverage_pct)} com custo conhecido</small></div><div><small>Vendido</small><b>{money(item.booked_revenue_minor)}</b></div><div><small>Lucro estimado</small><b>{money(item.estimated_gross_profit_minor)}</b></div><div><small>Margem</small><b className={item.margin_pct!==null&&item.margin_pct<20?'profitabilityRisk':''}>{pct(item.margin_pct)}</b></div><div className="profitabilityRowActions">{item.best_options.slice(0,2).map(option=><button key={option.action} onClick={()=>act(option)}>{option.label}</button>)}</div></article>):<div className="profitabilityEmpty">Ainda não há operações suficientes para comparar ofertas.</div>}
       </div></section>
-      <section><div className="profitabilityTitle"><div><small>CLIENTES</small><h4>Quem gera mais resultado</h4></div><button onClick={()=>act({action:'review_clients',label:'Abrir CRM',reason:'',view:'crm'})}>Abrir CRM</button></div><div className="profitabilityCustomers">{data?.customers.length?data.customers.slice(0,8).map(customer=><article key={customer.contact_id||customer.customer_name}><div><b>{customer.customer_name}</b><small>{customer.operations} operações</small></div><strong>{money(customer.estimated_gross_profit_minor)}</strong><span>margem {pct(customer.margin_pct)}</span></article>):<div className="profitabilityEmpty">Sem clientes suficientes no período.</div>}</div></section>
+      <section><div className="profitabilityTitle"><div><small>CLIENTES</small><h4>Quem gera mais resultado</h4></div><button onClick={()=>act({action:'review_clients',label:'Abrir CRM',reason:'',view:'crm'})}>Abrir CRM</button></div><div className="profitabilityCustomers">{data?.customers.length?data.customers.slice(0,8).map(customer=><article key={customer.contact_id||customer.customer_name}><div><b>{customer.customer_name}</b><small>{customer.operations} operações</small></div><strong>{money(customer.estimated_gross_profit_minor)}</strong><span>margem {pct(customer.margin_pct)} · cobertura {pct(customer.cost_coverage_pct)}</span></article>):<div className="profitabilityEmpty">Sem clientes suficientes no período.</div>}</div></section>
     </div>}
-    <footer>Margem estimada = valor vendido − custo unitário informado no catálogo. Operações antigas sem snapshot usam o custo atual do catálogo e são sinalizadas na cobertura.</footer>
+    <footer>Margem estimada usa somente vendas com custo conhecido. Operações antigas sem snapshot podem usar o custo atual do catálogo; a cobertura mostra quanto da análise tem custo disponível.</footer>
   </>}</section>;
 }
