@@ -43,6 +43,7 @@ import {registerInventoryRoutes} from './routes-inventory.js';
 import {registerOperations360Routes} from './routes-operations-360.js';
 import {registerBusinessActionRoutes} from './routes-business-actions.js';
 import {registerPlaybookRoutes} from './routes-playbooks.js';
+import {registerMayaPlaybookRoutes} from './routes-maya-playbooks.js';
 import {registerCommercialGrowthRoutes} from './routes-commercial-growth.js';
 import {registerPlatformRoutes} from './routes-platform.js';
 import {registerPlatformHealthRoutes} from './routes-platform-health.js';
@@ -83,7 +84,7 @@ app.addHook('onResponse',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 
-app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.42.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
+app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.43.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
 await registerCrmRoutes(app);
@@ -116,6 +117,7 @@ await registerInventoryRoutes(app);
 await registerOperations360Routes(app);
 await registerBusinessActionRoutes(app);
 await registerPlaybookRoutes(app);
+await registerMayaPlaybookRoutes(app);
 await registerCommercialGrowthRoutes(app);
 await registerPlatformRoutes(app);
 await registerPlatformHealthRoutes(app);
