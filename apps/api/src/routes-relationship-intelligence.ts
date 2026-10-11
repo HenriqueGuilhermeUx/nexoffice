@@ -18,6 +18,10 @@ const newest=(values:(string|null|undefined)[])=>{
   const valid=values.filter(Boolean).map(String).sort((a,b)=>new Date(b).getTime()-new Date(a).getTime());
   return valid[0]||null;
 };
+const earliest=(values:(string|null|undefined)[])=>{
+  const valid=values.filter(Boolean).map(String).sort((a,b)=>new Date(a).getTime()-new Date(b).getTime());
+  return valid[0]||null;
+};
 
 export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance){
   app.get('/v1/crm/relationship-intelligence',async req=>{
@@ -48,7 +52,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
       const lastTouchAt=newest([a.last_activity_at,ap.last_completed_appointment_at,o.last_operation_at,l.last_paid_at,d.last_won_at,contact.created_at]);
       const staleDays=daysSince(lastTouchAt)??0;
       const overdueCount=Number(l.overdue_count||0),overdueMinor=Number(l.overdue_minor||0),lost90=Number(d.lost_90||0),noShow180=Number(ap.no_show_180||0);
-      const renewalAt=newest([r.recurrence_ends_at,r.yearly_renewal_at]);
+      const renewalAt=earliest([r.recurrence_ends_at,r.yearly_renewal_at]);
       const renewalDays=daysUntil(renewalAt);
 
       const reasons:string[]=[];
