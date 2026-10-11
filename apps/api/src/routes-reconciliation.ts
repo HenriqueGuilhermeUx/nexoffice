@@ -8,6 +8,37 @@ const uuid=z.string().uuid();
 const txSchema=z.object({externalRef:z.string().optional().nullable(),provider:z.string().default('manual'),occurredAt:z.string().datetime(),direction:z.enum(['income','expense']),amountMinor:z.number().int().nonnegative(),currency:z.string().length(3).default('BRL'),description:z.string().min(1),counterparty:z.string().optional().nullable(),documentNumber:z.string().optional().nullable(),metadata:z.record(z.string(),z.unknown()).default({})});
 
 export async function registerReconciliationRoutes(app:FastifyInstance){
+  app.get('/v1/reconciliation/intelligence',async req=>{
+    const ctx=await workspaceContext(req,'finance.read');
+    const max=Math.min(100,Math.max(1,Number((req.query as any)?.max||40)));
+    const transactions=await query<any>(`select b.*,a.name account_name from bank_transactions b join finance_accounts a on a.id=b.account_id where b.workspace_id=$1 and b.status='unmatched' order by b.occurred_at desc limit $2`,[ctx.workspaceId,max]);
+    const items:any[]=[];
+    for(const tx of transactions){
+      const candidates=await candidateRows(ctx.workspaceId,tx);
+      const best=candidates[0]||null,second=candidates[1]||null;
+      const confidence=best?Number(best.confidence||0):0,gap=best&&second?confidence-Number(second.confidence||0):confidence;
+      const strong=Boolean(best&&confidence>=.86&&gap>=.08);
+      const reasons:string[]=[];
+      if(best){
+        if(Number(best.amount_minor)===Number(tx.amount_minor))reasons.push('valor exato');
+        const base=best.paid_at||best.due_at||best.created_at;
+        if(base){const days=Math.abs(new Date(base).getTime()-new Date(tx.occurred_at).getTime())/86400000;if(days<=1)reasons.push('data muito próxima');else if(days<=3)reasons.push('data próxima');}
+        const contact=String(best.contact_name||'').toLowerCase(),counterparty=String(tx.counterparty||tx.description||'').toLowerCase();
+        if(contact&&counterparty.includes(contact))reasons.push('contraparte compatível');
+      }
+      const bestOptions=best?[
+        {action:'confirm_match',label:strong?'Conciliar':'Revisar e conciliar',reason:strong?'Valor, data e contexto indicam uma correspondência forte.':'Há uma correspondência provável; revise antes de confirmar.',transactionId:tx.id,ledgerEntryId:best.id},
+        {action:'view_ledger',label:'Ver lançamento',reason:'Confira o recebível/despesa sugerido antes de decidir.',transactionId:tx.id,ledgerEntryId:best.id},
+        {action:'ignore_transaction',label:'Não corresponde',reason:'Ignore esta movimentação se ela não deve entrar na conciliação atual.',transactionId:tx.id}
+      ]:[
+        {action:'create_ledger',label:'Criar lançamento',reason:'Nenhum lançamento existente parece corresponder a esta movimentação.',transactionId:tx.id},
+        {action:'ignore_transaction',label:'Ignorar',reason:'Use apenas se a movimentação não deve ser conciliada pelo NexOffice.',transactionId:tx.id}
+      ];
+      items.push({...tx,amount_minor:Number(tx.amount_minor||0),match:{strength:strong?'strong':best?'review':'none',confidence,bestCandidate:best,reasons},bestOptions});
+    }
+    const summary=(await query<any>(`select count(*)::int unmatched,coalesce(sum(amount_minor) filter(where direction='income'),0)::bigint unmatched_income_minor,coalesce(sum(amount_minor) filter(where direction='expense'),0)::bigint unmatched_expense_minor from bank_transactions where workspace_id=$1 and status='unmatched'`,[ctx.workspaceId]))[0];
+    return{summary:{unmatched:Number(summary?.unmatched||0),unmatchedIncomeMinor:Number(summary?.unmatched_income_minor||0),unmatchedExpenseMinor:Number(summary?.unmatched_expense_minor||0),strongMatches:items.filter(x=>x.match.strength==='strong').length,needsReview:items.filter(x=>x.match.strength==='review').length},items,bestOptions:items[0]?.bestOptions||[],safety:{autoMatchFromThisEndpoint:false,humanConfirmationForSuggestedMatches:true,externalEffect:false}};
+  });
   app.get('/v1/reconciliation/summary',async req=>{
     const ctx=await workspaceContext(req,'finance.read');const rows=await query<any>(`select count(*)::int total,count(*) filter(where status='unmatched')::int unmatched,count(*) filter(where status='matched')::int matched,count(*) filter(where status='ignored')::int ignored,coalesce(sum(amount_minor) filter(where status='unmatched' and direction='income'),0)::bigint unmatched_income_minor,coalesce(sum(amount_minor) filter(where status='unmatched' and direction='expense'),0)::bigint unmatched_expense_minor from bank_transactions where workspace_id=$1`,[ctx.workspaceId]);return rows[0]
   });
