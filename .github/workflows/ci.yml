@@ -21,6 +21,8 @@ jobs:
         run: node scripts/smoke-business-profitability-v1.mjs
       - name: Smoke test Recurrence Intelligence V1
         run: node scripts/smoke-recurrence-intelligence-v1.mjs
+      - name: Smoke test Relationship Intelligence V1
+        run: node scripts/smoke-relationship-intelligence-v1.mjs
       - name: Validate staging safety contract
         env:
           NEXOFFICE_ENV: staging
@@ -119,6 +121,8 @@ jobs:
         run: node scripts/smoke.mjs
       - name: Smoke test Recurrence Intelligence API
         run: node scripts/smoke-recurrence-intelligence-api.mjs
+      - name: Smoke test Relationship Intelligence API
+        run: node scripts/smoke-relationship-intelligence-api.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
       - name: Smoke test billing trial
