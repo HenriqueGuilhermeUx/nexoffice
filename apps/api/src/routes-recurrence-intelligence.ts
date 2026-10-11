@@ -2,7 +2,7 @@ import type {FastifyInstance} from 'fastify';
 import {z} from 'zod';
 import {ApiError,workspaceContext} from './auth.js';
 import {query,transaction} from './db.js';
-import {auditLog,emitBusinessEvent} from './events.js';
+import {auditLog} from './events.js';
 
 const uuid=z.string().uuid();
 
@@ -121,7 +121,6 @@ export async function registerRecurrenceIntelligenceRoutes(app:FastifyInstance){
     });
 
     await auditLog(ctx,'recurrence.intelligence_activated','business_operation',operationId,operation,{ruleId:result.rule.id,nextRunAt:result.rule.next_run_at,externalEffect:false});
-    await emitBusinessEvent(ctx.workspaceId,'recurrence.activated','nexoffice.erp','business_operation',operationId,{ruleId:result.rule.id,catalogItemId:operation.catalog_item_id,contactId:operation.contact_id,nextRunAt:result.rule.next_run_at,externalEffect:false});
     return{reused:false,...result,externalEffect:false,retroactiveGeneration:false};
   });
 
