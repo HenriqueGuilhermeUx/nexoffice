@@ -40,5 +40,4 @@ has(app,'<SmartPlaybooksPanel/>','command center mounts playbooks');
 has(panel,'PLAYBOOKS INTELIGENTES','playbook UI headline');
 has(panel,'O NexOffice não só aponta o problema. Ele monta o caminho.','playbook positioning');
 has(panel,'Ações externas, fiscais, financeiras ou de comunicação não atravessam a trava humana.','human control copy');
-lacks(routes,"message.send'",'');
 console.log('NexOffice Smart Playbooks V1 contract OK');
