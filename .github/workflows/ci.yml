@@ -19,6 +19,8 @@ jobs:
         run: node scripts/smoke-business-catalog-v1.mjs
       - name: Smoke test Business Profitability V1
         run: node scripts/smoke-business-profitability-v1.mjs
+      - name: Smoke test Recurrence Intelligence V1
+        run: node scripts/smoke-recurrence-intelligence-v1.mjs
       - name: Validate staging safety contract
         env:
           NEXOFFICE_ENV: staging
@@ -97,6 +99,12 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/020_intelligence_learning_loop.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/021_intelligence_daily_engine.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/022_anonymous_benchmarks.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/028_network_and_owned_payments.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/029_business_operation_lineage.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/031_business_operation_communication.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/041_business_catalog.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/042_business_profitability.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/043_recurrence_intelligence.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -109,6 +117,8 @@ jobs:
           exit 1
       - name: Smoke test operational flow
         run: node scripts/smoke.mjs
+      - name: Smoke test Recurrence Intelligence API
+        run: node scripts/smoke-recurrence-intelligence-api.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
       - name: Smoke test billing trial
