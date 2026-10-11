@@ -7,13 +7,14 @@ import {businessActionDefinition} from './business-action-registry.js';
 import {executeLowRiskBusinessAction} from './business-action-engine.js';
 
 const uuid=z.string().uuid();
-const templateKey=z.enum(['commercial_to_cash','relationship_recovery','renewal_expansion','stock_replenishment']);
+export const templateKey=z.enum(['commercial_to_cash','relationship_recovery','renewal_expansion','stock_replenishment']);
+export type PlaybookTemplateKey=z.infer<typeof templateKey>;
 const handoffActions=new Set(['materials.proposal.prepare','operations.continue','finance.receivables.review','relationship.review','profitability.review','reconciliation.review']);
 
 type StepDraft={actionId:string;title:string;description:string;payload:Record<string,unknown>};
-type StartContext={contactId?:string|null;dealId?:string|null;operationId?:string|null;catalogItemId?:string|null;subjectType?:string|null;subjectId?:string|null;reason?:string|null};
+export type StartContext={contactId?:string|null;dealId?:string|null;operationId?:string|null;catalogItemId?:string|null;subjectType?:string|null;subjectId?:string|null;reason?:string|null};
 
-function executionMode(actionId:string){
+export function executionMode(actionId:string){
   const def=businessActionDefinition(actionId);
   if(!def)throw new ApiError(500,'playbook_action_missing','Ação do playbook não está registrada.');
   if(def.externalEffect)return 'dedicated_external_flow';
@@ -22,7 +23,7 @@ function executionMode(actionId:string){
   return 'safe_internal';
 }
 
-function handoffFor(actionId:string,payload:Record<string,unknown>){
+export function handoffFor(actionId:string,payload:Record<string,unknown>){
   const base={payload};
   if(actionId==='materials.proposal.prepare')return{...base,view:'materials',action:'prepare_proposal'};
   if(actionId==='operations.continue')return{...base,view:'operations',action:'open_operation'};
@@ -38,7 +39,7 @@ function handoffFor(actionId:string,payload:Record<string,unknown>){
   return{...base,view:'command',action:'review'};
 }
 
-async function advanceRun(ctx:any,runId:string){
+export async function advanceRun(ctx:any,runId:string){
   return transaction(async client=>{
     const run=(await client.query<any>(`select * from business_playbook_runs where id=$1 and workspace_id=$2 for update`,[runId,ctx.workspaceId])).rows[0];
     if(!run)throw new ApiError(404,'playbook_run_not_found','Playbook não encontrado.');
@@ -58,7 +59,7 @@ async function advanceRun(ctx:any,runId:string){
   });
 }
 
-async function buildPlaybook(ctx:any,key:z.infer<typeof templateKey>,context:StartContext){
+export async function buildPlaybook(ctx:any,key:PlaybookTemplateKey,context:StartContext){
   const tomorrow=new Date(Date.now()+24*60*60*1000).toISOString();
 
   if(key==='commercial_to_cash'){
@@ -122,11 +123,35 @@ async function buildPlaybook(ctx:any,key:z.infer<typeof templateKey>,context:Sta
   throw new ApiError(400,'playbook_not_supported','Playbook não suportado.');
 }
 
-async function loadRun(ctx:any,runId:string){
+export async function loadRun(ctx:any,runId:string){
   const run=(await query<any>(`select r.*,c.name contact_name,ci.name catalog_name,o.title operation_title from business_playbook_runs r left join crm_contacts c on c.id=r.contact_id left join business_catalog_items ci on ci.id=r.catalog_item_id left join business_operations o on o.id=r.operation_id where r.id=$1 and r.workspace_id=$2`,[runId,ctx.workspaceId]))[0];
   if(!run)throw new ApiError(404,'playbook_run_not_found','Playbook não encontrado.');
   const steps=await query<any>(`select * from business_playbook_steps where run_id=$1 and workspace_id=$2 order by position`,[runId,ctx.workspaceId]);
   return{...run,steps,currentStep:steps.find(step=>['ready','waiting_human','blocked'].includes(step.status))||null,progress:steps.length?Math.round(steps.filter(step=>['completed','skipped'].includes(step.status)).length/steps.length*100):0};
+}
+
+
+export async function startPlaybookRun(ctx:any,key:PlaybookTemplateKey,context:StartContext,source='smart_playbooks_v1'){
+  const built=await buildPlaybook(ctx,key,context);
+  const duplicate=(await query<any>(`select id from business_playbook_runs where workspace_id=$1 and template_key=$2 and status in ('active','waiting_human') and coalesce(subject_id::text,'')=coalesce($3::text,'') limit 1`,[ctx.workspaceId,key,built.subjectId||null]))[0];
+  if(duplicate)return{reused:true,run:await loadRun(ctx,duplicate.id)};
+
+  for(const step of built.steps){
+    const def=businessActionDefinition(step.actionId);
+    if(!def)throw new ApiError(500,'playbook_action_missing','Ação '+step.actionId+' não está registrada.');
+    if(!hasPermission(ctx.role,ctx.permissions,def.permission))throw new ApiError(403,'playbook_permission_denied','Seu perfil não pode iniciar este playbook porque falta a permissão '+def.permission+'.');
+  }
+
+  const run=await transaction(async client=>{
+    const row=(await client.query<any>(`insert into business_playbook_runs(workspace_id,template_key,title,objective,subject_type,subject_id,contact_id,deal_id,operation_id,catalog_item_id,created_by,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *`,[ctx.workspaceId,key,built.title,built.objective,built.subjectType,built.subjectId,built.contactId,built.dealId,built.operationId,built.catalogItemId,ctx.user.id,JSON.stringify({source,reason:context.reason||null,...((built as any).metadata||{})})])).rows[0];
+    for(let i=0;i<built.steps.length;i++){
+      const step=built.steps[i];
+      await client.query(`insert into business_playbook_steps(workspace_id,run_id,position,action_id,title,description,status,execution_mode,payload,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[ctx.workspaceId,row.id,i+1,step.actionId,step.title,step.description,i===0?'ready':'pending',executionMode(step.actionId),JSON.stringify(step.payload),JSON.stringify({actionDefinition:businessActionDefinition(step.actionId)})]);
+    }
+    return row;
+  });
+  await auditLog(ctx,'playbook.started','business_playbook_run',run.id,null,{templateKey:key,subjectType:built.subjectType,subjectId:built.subjectId,source,externalEffect:false});
+  return{reused:false,run:await loadRun(ctx,run.id)};
 }
 
 export async function registerPlaybookRoutes(app:FastifyInstance){
@@ -170,26 +195,7 @@ export async function registerPlaybookRoutes(app:FastifyInstance){
   app.post('/v1/playbooks/start',async req=>{
     const ctx=await workspaceContext(req,'command.decide');
     const input=z.object({templateKey,context:z.object({contactId:uuid.optional().nullable(),dealId:uuid.optional().nullable(),operationId:uuid.optional().nullable(),catalogItemId:uuid.optional().nullable(),subjectType:z.string().optional().nullable(),subjectId:uuid.optional().nullable(),reason:z.string().max(1000).optional().nullable()}).default({})}).parse(req.body||{});
-    const built=await buildPlaybook(ctx,input.templateKey,input.context);
-    const duplicate=(await query<any>(`select id from business_playbook_runs where workspace_id=$1 and template_key=$2 and status in ('active','waiting_human') and coalesce(subject_id::text,'')=coalesce($3::text,'') limit 1`,[ctx.workspaceId,input.templateKey,built.subjectId||null]))[0];
-    if(duplicate)return{reused:true,run:await loadRun(ctx,duplicate.id)};
-
-    for(const step of built.steps){
-      const def=businessActionDefinition(step.actionId);
-      if(!def)throw new ApiError(500,'playbook_action_missing','Ação '+step.actionId+' não está registrada.');
-      if(!hasPermission(ctx.role,ctx.permissions,def.permission))throw new ApiError(403,'playbook_permission_denied','Seu perfil não pode iniciar este playbook porque falta a permissão '+def.permission+'.');
-    }
-
-    const run=await transaction(async client=>{
-      const row=(await client.query<any>(`insert into business_playbook_runs(workspace_id,template_key,title,objective,subject_type,subject_id,contact_id,deal_id,operation_id,catalog_item_id,created_by,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *`,[ctx.workspaceId,input.templateKey,built.title,built.objective,built.subjectType,built.subjectId,built.contactId,built.dealId,built.operationId,built.catalogItemId,ctx.user.id,JSON.stringify({source:'smart_playbooks_v1',reason:input.context.reason||null,...((built as any).metadata||{})})])).rows[0];
-      for(let i=0;i<built.steps.length;i++){
-        const step=built.steps[i];
-        await client.query(`insert into business_playbook_steps(workspace_id,run_id,position,action_id,title,description,status,execution_mode,payload,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[ctx.workspaceId,row.id,i+1,step.actionId,step.title,step.description,i===0?'ready':'pending',executionMode(step.actionId),JSON.stringify(step.payload),JSON.stringify({actionDefinition:businessActionDefinition(step.actionId)})]);
-      }
-      return row;
-    });
-    await auditLog(ctx,'playbook.started','business_playbook_run',run.id,null,{templateKey:input.templateKey,subjectType:built.subjectType,subjectId:built.subjectId,externalEffect:false});
-    return{reused:false,run:await loadRun(ctx,run.id)};
+    return startPlaybookRun(ctx,input.templateKey,input.context);
   });
 
   app.post('/v1/playbooks/runs/:runId/steps/:stepId/execute',async req=>{
