@@ -14,6 +14,8 @@ const operationRoute=read('apps/api/src/routes-business-operations.ts');
 const app=read('apps/web/src/App.tsx');
 const operationsUi=read('apps/web/src/OperationsCenter.tsx');
 const reconUi=read('apps/web/src/ReconciliationIntelligencePanel.tsx');
+const landing=read('apps/web/src/MarketingLanding.tsx');
+const home=read('apps/web/src/HomeV2.tsx');
 
 has(migration,'create table if not exists inventory_movements','inventory movement ledger');
 has(migration,'create table if not exists purchase_orders','purchase planning');
@@ -44,4 +46,18 @@ has(operationsUi,'Nenhum pedido foi enviado ao fornecedor','purchase safety feed
 has(reconUi,'CONCILIAÇÃO INTELIGENTE','reconciliation UI');
 has(reconUi,'A conciliação altera o estado financeiro interno','reconciliation confirmation safety copy');
 lacks(inventory,'message.send','inventory must not send supplier messages');
+has(landing,'Seu negócio não precisa de mais uma tela.','public home positioning');
+has(landing,'Da oportunidade ao dinheiro recebido.','public quote-to-cash story');
+has(landing,'CONCILIAÇÃO','public reconciliation possibility');
+has(landing,'ESTOQUE','public optional inventory possibility');
+has(landing,'AUTONOMIA COM GOVERNANÇA','public governance positioning');
+has(landing,'Ações sensíveis continuam sob seu controle','public human-control promise');
+has(home,'SEU NEGÓCIO EM MOVIMENTO','Today home signal layer');
+has(home,"'/v1/operations/commercial-360'",'Today home commercial pulse');
+has(home,"'/v1/inventory/summary'",'Today home inventory pulse');
+has(home,"'/v1/reconciliation/intelligence?max=20'",'Today home reconciliation pulse');
+has(home,"relationship-intelligence?includeDocWallet=false",'Today home lightweight relationship pulse');
+has(home,"id:'operation-360'",'Today home commercial 360 action');
+has(home,"id:'reconcile'",'Today home reconciliation action');
+has(home,"id:'stock'",'Today home stock action');
 console.log('NexOffice ERP Value Pack V1 contract OK');
