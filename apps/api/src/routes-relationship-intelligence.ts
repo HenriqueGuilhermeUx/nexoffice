@@ -123,7 +123,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
     }
 
     const priority:Record<RelationshipStatus,number>={risk:0,renewal:1,attention:2,expansion:3,healthy:4};
-    relationships.sort((a,b)=>priority[a.status]-priority[b.status]||b.overdueMinor-a.overdueMinor||b.daysSinceTouch-a.daysSinceTouch);
+    relationships.sort((a,b)=>priority[a.status as RelationshipStatus]-priority[b.status as RelationshipStatus]||b.overdueMinor-a.overdueMinor||b.daysSinceTouch-a.daysSinceTouch);
     const count=(status:RelationshipStatus)=>relationships.filter(row=>row.status===status).length;
     const bestOptions:RelationshipOption[]=[];
     for(const row of relationships){
