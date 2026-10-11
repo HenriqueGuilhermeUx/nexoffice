@@ -2,7 +2,7 @@ import type {FastifyInstance} from 'fastify';
 import {z} from 'zod';
 import {ApiError,hasPermission,workspaceContext} from './auth.js';
 import {query,transaction} from './db.js';
-import {auditLog,emitBusinessEvent} from './events.js';
+import {auditLog} from './events.js';
 import {BUSINESS_ACTIONS,businessActionDefinition} from './business-action-registry.js';
 
 const uuid=z.string().uuid();
