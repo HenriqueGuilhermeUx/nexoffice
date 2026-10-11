@@ -50,7 +50,7 @@ export async function registerCatalogRoutes(app:FastifyInstance){
     return query<any>(`select id,kind,name,description,sku,unit,price_minor,cost_minor,currency,billing_cycle,fiscal_code,nbs,active,metadata,created_at,updated_at
       from business_catalog_items
       where workspace_id=$1 and ($2::boolean=true or active=true)
-      order by active desc,kind,name`,[ctx.workspaceId,input.includeInactive]);
+      order by active desc,kind,name`,[ctx.workspaceId,includeInactive]);
   });
 
   app.get('/v1/catalog/summary',async req=>{
