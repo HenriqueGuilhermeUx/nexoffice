@@ -13,7 +13,7 @@ type Relationship={
   contactId:string;name:string;email?:string|null;phone?:string|null;companyName?:string|null;
   status:'healthy'|'attention'|'risk'|'renewal'|'expansion';reasons:string[];
   lastTouchAt?:string|null;daysSinceTouch:number;activeRules:number;nextCycleAt?:string|null;renewalAt?:string|null;
-  overdueCount:number;overdueMinor:number;paidCount:number;lastPaidAt?:string|null;
+  overdueCount:number;overdueMinor:number;incomeCount:number;paidCount:number;lastPaidAt?:string|null;documentRenewalAt?:string|null;documentRenewalTitle?:string|null;
   openDeals:number;openPipelineMinor:number;wonDeals:number;lost90:number;noShow180:number;operationCount:number;
   expansionCandidate?:{id:string;name:string;kind:string;priceMinor:number;billingCycle:string}|null;
   bestOptions:Option[];
@@ -100,7 +100,7 @@ export default function RelationshipIntelligencePanel(){
           <div className="relationshipRowActions">{row.bestOptions.slice(0,3).map(option=><button className={option.action==='create_renewal_proposal'||option.action==='create_expansion_proposal'?'primary':''} key={option.action} disabled={busy==='task:'+row.contactId} onClick={()=>void act(option,row)}>{busy==='task:'+row.contactId&&option.action==='create_followup_task'?'Criando…':option.label}</button>)}</div>
           {expanded===row.contactId&&<div className="relationshipContext">
             <div><small>SINAIS</small><ul>{row.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul></div>
-            <div><small>RECORRÊNCIA</small><b>{row.activeRules} regra(s) ativa(s)</b><span>Próximo ciclo: {date(row.nextCycleAt)}</span><span>Renovação/término: {date(row.renewalAt)}</span></div>
+            <div><small>RECORRÊNCIA & CONTRATO</small><b>{row.activeRules} regra(s) ativa(s)</b><span>Próximo ciclo: {date(row.nextCycleAt)}</span><span>Renovação/término: {date(row.renewalAt)}</span>{row.documentRenewalAt&&<span>DocWallet: {row.documentRenewalTitle||'Contrato'} · {date(row.documentRenewalAt)}</span>}</div>
             <div><small>HISTÓRICO</small><b>{row.wonDeals} negócio(s) ganho(s)</b><span>{row.paidCount} recebimento(s) pago(s)</span><span>{row.lost90} perda(s) em 90 dias · {row.noShow180} falta(s) em 180 dias</span></div>
             <div><small>EXPANSÃO</small>{row.expansionCandidate?<><b>{row.expansionCandidate.name}</b><span>{money(row.expansionCandidate.priceMinor)} · oferta ainda não utilizada</span></>:<span>Nenhuma oferta adicional identificada no catálogo.</span>}</div>
           </div>}
