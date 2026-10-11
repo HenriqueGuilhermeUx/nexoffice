@@ -27,6 +27,7 @@ await call('/v1/ledger',{method:'POST',body:{contactId:riskContact.id,direction:
 
 // 3) Expansion: customer has bought one offer; another active offer exists and relationship is current.
 const expansionContact=await call('/v1/crm/contacts',{method:'POST',body:{kind:'company',name:'Cliente Expansão',email:'expansao@nexoffice.test',phone:'5513999991003',source:'smoke',tags:['cliente']}});
+await call('/v1/crm/deals',{method:'POST',body:{contactId:expansionContact.id,title:'Cliente ativo para expansão',stage:'won',valueMinor:120000,currency:'BRL',source:'smoke'}});
 const offerA=await call('/v1/catalog/items',{method:'POST',body:{kind:'service',name:'Plano Base Relationship Smoke',description:'Oferta já utilizada',unit:'mês',priceMinor:120000,costMinor:50000,currency:'BRL',billingCycle:'monthly'}});
 const offerB=await call('/v1/catalog/items',{method:'POST',body:{kind:'service',name:'Plano Growth Relationship Smoke',description:'Oferta adicional',unit:'mês',priceMinor:220000,costMinor:70000,currency:'BRL',billingCycle:'monthly'}});
 await call('/v1/business-operations',{method:'POST',body:{contactId:expansionContact.id,catalogItemId:offerA.id,quantity:1,dueAt:new Date(now+7*86400000).toISOString()}});
