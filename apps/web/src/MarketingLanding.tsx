@@ -17,6 +17,14 @@ const situations=[
 ];
 
 const flows=['Cliente','Venda','Proposta','Contrato','Trabalho','Nota','Cobrança','Pagamento','Resultado','Próximo ciclo'];
+const proofSteps=[
+  ['01','Cliente entra','Contato, oportunidade e histórico começam no mesmo contexto.'],
+  ['02','Venda avança','Oferta, proposta e contrato seguem conectados ao cliente.'],
+  ['03','Trabalho acontece','Tarefas, agenda, documentos e execução continuam ligados à venda.'],
+  ['04','Dinheiro entra','Nota, cobrança, Pix e conciliação deixam o recebimento rastreável.'],
+  ['05','Próximo ciclo nasce','Resultado, margem, risco e renovação viram próximos passos.']
+];
+
 
 const engines=[
   {brand:'SmartBots',mark:'SB',role:'Atendimento & captação',text:'Bots para recepção, dúvidas, captação e qualificação de contatos conectados ao fluxo comercial.'},
@@ -91,6 +99,12 @@ export default function MarketingLanding(){
         <div className="mkSectionIntro"><p className="mkEyebrow">UMA HISTÓRIA, NÃO DEZ MÓDULOS</p><h2>Da oportunidade ao dinheiro recebido.</h2><p>O NexOffice acompanha a continuidade da operação. Você não precisa pensar como um ERP para usar um sistema completo.</p></div>
         <div className="mkFlowRail">{flows.map((step,index)=><div key={step}><span>{String(index+1).padStart(2,'0')}</span><b>{step}</b>{index<flows.length-1&&<i>→</i>}</div>)}</div>
         <div className="mkFlowExample"><div><small>EXEMPLO</small><b>Você vende uma mensalidade de R$ 2.500.</b></div><p>O NexOffice reutiliza a oferta → prepara proposta → mantém contrato no contexto → acompanha execução → organiza nota e cobrança → identifica pagamento → calcula rentabilidade → prepara próximo ciclo → sinaliza renovação ou risco.</p></div>
+      </section>
+
+      <section className="mkProofSection" aria-labelledby="mkProofTitle">
+        <div className="mkProofIntro"><p className="mkEyebrow">VEJA UMA VENDA ATRAVESSAR O NEXOFFICE</p><h2 id="mkProofTitle">O “sim” do cliente não é o fim do CRM.<br/>É o começo da operação.</h2><p>Exemplo ilustrativo: uma venda de R$ 2.500 continua conectada até o pagamento, o resultado e a próxima oportunidade.</p></div>
+        <div className="mkProofRail">{proofSteps.map(([number,title,text])=><article key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></article>)}</div>
+        <div className="mkProofOutcome"><div><small>SEM NEXOFFICE</small><b>A venda se espalha entre pessoas, abas e planilhas.</b></div><i>→</i><div><small>COM NEXOFFICE</small><b>O contexto acompanha o negócio até o dinheiro entrar — e continua no próximo ciclo.</b></div></div>
       </section>
 
       <section className="mkPossibilities" id="possibilidades">
