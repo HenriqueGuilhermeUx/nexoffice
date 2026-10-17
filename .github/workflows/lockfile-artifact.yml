@@ -1,0 +1,20 @@
+name: Lockfile Artifact
+
+on:
+  push:
+    branches: [fix/lockfile-determinism]
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm install --package-lock-only --ignore-scripts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexoffice-package-lock
+          path: package-lock.json
+          if-no-files-found: error
