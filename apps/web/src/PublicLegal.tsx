@@ -1,4 +1,3 @@
-import {session} from './api';
 import './public-legal.css';
 
 type PageKey='terms'|'privacy'|'cancellation'|'support';
@@ -7,7 +6,7 @@ const updated='18 de setembro de 2026';
 
 export function PublicLegalFooter(){
   const params=new URLSearchParams(location.search);
-  if(session.token()||params.has('app')||params.has('legal'))return null;
+  if(params.has('app')||params.has('legal'))return null;
   return <footer className="publicLegalFooter">
     <div><b>NexOffice</b><span>Sistema operacional do seu negócio.</span></div>
     <nav>
