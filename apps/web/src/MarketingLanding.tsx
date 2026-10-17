@@ -1,5 +1,3 @@
-import {session} from './api';
-
 const pains=[
   ['VENDA','Fechou — e agora?','Proposta, contrato, execução, nota, cobrança e pagamento costumam se espalhar por ferramentas diferentes.'],
   ['DINHEIRO','Entrou um Pix — de quem é?','Banco mostra a movimentação; planilha e memória tentam descobrir a cobrança correspondente.'],
@@ -59,7 +57,7 @@ const useCases=[
 ];
 
 export default function MarketingLanding(){
-  if(session.token()||new URLSearchParams(location.search).has('app'))return null;
+  if(new URLSearchParams(location.search).has('app'))return null;
   const enter=()=>{location.href='/?app=1'};
   return <div className="marketingPage mkNew">
     <header className="marketingNav">
