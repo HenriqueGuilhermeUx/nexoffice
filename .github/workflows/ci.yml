@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - run: npm install
+      - run: npm ci
       - name: Audit dependencies for high severity vulnerabilities
         run: npm audit --audit-level=high
       - run: npm run build
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - name: Apply database schema
         run: |
