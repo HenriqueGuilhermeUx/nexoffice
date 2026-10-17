@@ -9,12 +9,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - run: npm install
+      - name: Audit dependencies for high severity vulnerabilities
+        run: npm audit --audit-level=high
       - run: npm run build
+      - name: Smoke test PowerPoint export dependency
+        run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
         run: node scripts/smoke-business-catalog-v1.mjs
       - name: Smoke test Business Profitability V1
@@ -79,10 +83,10 @@ jobs:
       NEXOFFICE_ADMIN_EMAILS: "admin-smoke@nexoffice.test"
       NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - run: npm install
       - run: npm run build
       - name: Apply database schema
