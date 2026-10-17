@@ -1,0 +1,16 @@
+const mod=await import('pptxgenjs');
+const PptxGenJS=mod.default||mod;
+const pptx=new PptxGenJS();
+pptx.layout='LAYOUT_WIDE';
+pptx.author='NexOffice CI';
+pptx.company='NexOffice';
+pptx.subject='Production hardening smoke';
+pptx.title='NexOffice PPTX smoke';
+pptx.lang='pt-BR';
+if(!pptx.ShapeType?.rect||!pptx.ShapeType?.roundRect)throw new Error('PptxGenJS ShapeType API unavailable');
+const slide=pptx.addSlide();
+if(!slide||typeof slide.addShape!=='function'||typeof slide.addText!=='function')throw new Error('PptxGenJS slide API unavailable');
+slide.background={color:'07111F'};
+slide.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.16,h:7.5,fill:{color:'55D6BE'},line:{color:'55D6BE'}});
+slide.addText('NexOffice',{x:0.72,y:1.05,w:4,h:0.6,fontFace:'Aptos',fontSize:28,bold:true,color:'EAF2FF',margin:0});
+console.log(JSON.stringify({ok:true,version:'4.0.0',layout:pptx.layout,shapeApi:true,textApi:true}));
