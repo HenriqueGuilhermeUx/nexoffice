@@ -1,4 +1,4 @@
-const mod=await import('pptxgenjs');
+const mod=await import('pptxgenjs-plus');
 const PptxGenJS=mod.default||mod;
 const pptx=new PptxGenJS();
 pptx.layout='LAYOUT_WIDE';
@@ -13,4 +13,4 @@ if(!slide||typeof slide.addShape!=='function'||typeof slide.addText!=='function'
 slide.background={color:'07111F'};
 slide.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.16,h:7.5,fill:{color:'55D6BE'},line:{color:'55D6BE'}});
 slide.addText('NexOffice',{x:0.72,y:1.05,w:4,h:0.6,fontFace:'Aptos',fontSize:28,bold:true,color:'EAF2FF',margin:0});
-console.log(JSON.stringify({ok:true,version:'4.0.0',layout:pptx.layout,shapeApi:true,textApi:true}));
+console.log(JSON.stringify({ok:true,version:'4.3.4',layout:pptx.layout,shapeApi:true,textApi:true}));
