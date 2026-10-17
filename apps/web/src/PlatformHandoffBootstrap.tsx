@@ -21,7 +21,8 @@ export default function PlatformHandoffBootstrap(){
       try{
         const result=await post<HandoffResult>('/v1/platform/handoff/consume',{code});
         session.set(result.token,result.workspace.id);
-        history.replaceState({},'',`${location.pathname}${location.search}`);
+        const nextParams=new URLSearchParams(location.search);nextParams.set('app','1');
+        history.replaceState({},'',`${location.pathname}?${nextParams.toString()}`);
         location.reload();
       }catch{
         history.replaceState({},'',`${location.pathname}${location.search}`);

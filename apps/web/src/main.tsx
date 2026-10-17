@@ -33,34 +33,47 @@ import './marketing-readiness.css';
 const pathMaterial=location.pathname.match(/^\/material\/([0-9a-f-]{36})$/i)?.[1]||'';
 const queryMaterial=new URLSearchParams(location.search).get('material')||'';
 const publicMaterialToken=/^[0-9a-f-]{36}$/i.test(pathMaterial||queryMaterial)?(pathMaterial||queryMaterial):'';
+const params=new URLSearchParams(location.search);
+const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
+const appRequested=params.has('app')||handoffRequested;
+const legalRequested=params.has('legal');
+
+const appSurface=<>
+  <PlatformHandoffBootstrap/>
+  <App/>
+  <ProductDiscovery/>
+  <StandaloneSetup/>
+  <ShellUXEnhancements/>
+  <HomeV2/>
+  <OfficeView/>
+  <AssistantNavigationBridge/>
+  <AssistantsWorkspace/>
+  <BusinessKnowledgeCenter/>
+  <KnowledgeSecurityCenter/>
+  <InvestmentDock/>
+  <DocumentWorkspaceBridge/>
+  <ContractCreator/>
+  <BusinessOperationCenter/>
+  <NetworkCenter/>
+  <FinancialEngineCollectionsBridge/>
+  <ReceivingAccountOnboardingBridge/>
+  <FiscalWorkspaceBridge/>
+  <LaunchReadinessCenter/>
+</>;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {publicMaterialToken?<PublicMaterialView token={publicMaterialToken}/>:<>
-      <MarketingLanding/>
-      <MarketingDiscoveryBridge/>
-      <PlatformHandoffBootstrap/>
-      <App/>
-      <ProductDiscovery/>
-      <StandaloneSetup/>
-      <ShellUXEnhancements/>
-      <HomeV2/>
-      <OfficeView/>
-      <AssistantNavigationBridge/>
-      <AssistantsWorkspace/>
-      <BusinessKnowledgeCenter/>
-      <KnowledgeSecurityCenter/>
-      <InvestmentDock/>
-      <DocumentWorkspaceBridge/>
-      <ContractCreator/>
-      <BusinessOperationCenter/>
-      <NetworkCenter/>
-      <FinancialEngineCollectionsBridge/>
-      <ReceivingAccountOnboardingBridge/>
-      <FiscalWorkspaceBridge/>
-      <LaunchReadinessCenter/>
-      <PublicLegalFooter/>
-      <PublicLegalPage/>
-    </>}
+    {publicMaterialToken
+      ? <PublicMaterialView token={publicMaterialToken}/>
+      : legalRequested
+        ? <PublicLegalPage/>
+        : appRequested
+          ? appSurface
+          : <>
+              <MarketingLanding/>
+              <MarketingDiscoveryBridge/>
+              <PublicLegalFooter/>
+            </>
+    }
   </React.StrictMode>
 );
