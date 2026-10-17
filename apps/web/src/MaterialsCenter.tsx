@@ -258,7 +258,7 @@ Regras: títulos curtos; no máximo 4 bullets por slide; bullets curtos; não us
   async function exportPptx(){
     if(!draft)return;setBusy(true);setError('');
     try{
-      const mod=await import('pptxgenjs');const PptxGenJS:any=(mod as any).default||mod;const pptx:any=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author=businessName;pptx.company=businessName;pptx.subject=draft.title;pptx.title=draft.title;pptx.lang='pt-BR';
+      const mod=await import('pptxgenjs-plus');const PptxGenJS:any=(mod as any).default||mod;const pptx:any=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author=businessName;pptx.company=businessName;pptx.subject=draft.title;pptx.title=draft.title;pptx.lang='pt-BR';
       draft.slides.forEach((s,idx)=>{
         const slide:any=pptx.addSlide();slide.background={color:palette.bg.replace('#','')};
         slide.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.16,h:7.5,fill:{color:palette.accent.replace('#','')},line:{color:palette.accent.replace('#','')}});
