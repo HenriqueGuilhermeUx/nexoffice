@@ -10,3 +10,24 @@
 .nexa-pj-theme .hero{background:linear-gradient(125deg,#092756,#0c2147 65%,#061329);border-color:#1d4ed8}
 .nexa-pj-theme .statusDot{background:#38bdf8;box-shadow:0 0 0 3px #0b3762}
 .nexa-pj-theme .authPromise span{border-color:#1e40af;color:#bae6fd}
+
+
+.nexa-pj-gate{min-height:100vh;background:radial-gradient(circle at 20% 0%,#123b7a 0%,#061329 48%,#030b1e 100%);color:#f0f7ff}
+.nexa-pj-gate-header{max-width:1180px;margin:auto;display:flex;align-items:center;gap:14px;padding:24px 22px;border-bottom:1px solid #24466f}
+.nexa-pj-gate-header b{font-size:22px}.nexa-pj-gate-logo{background:linear-gradient(120deg,#2563eb,#38bdf8);height:42px;width:42px;display:grid;place-items:center;border-radius:13px;font-size:24px;font-weight:800}
+.nexa-pj-gate-header a{margin-left:auto;color:#b8dbff;text-decoration:none}
+.nexa-pj-gate-main{max-width:1180px;margin:auto;padding:65px 22px 90px}
+.nexa-pj-gate-main h1{font-size:clamp(34px,5.2vw,68px);max-width:850px;line-height:1.07;letter-spacing:-.045em;margin:20px 0}
+.nexa-pj-gate-main>p{max-width:800px;font-size:18px;color:#bbd2ef;line-height:1.7}
+.nexa-pj-gate-actions{display:flex;flex-wrap:wrap;gap:12px;margin:35px 0}
+.nexa-pj-gate-actions a{padding:15px 25px;border-radius:14px;font-weight:750;text-decoration:none}
+.nexa-pj-gate-actions a:first-child{background:linear-gradient(120deg,#2563eb,#0284c7);color:white}
+.nexa-pj-gate-actions a:last-child{background:#132d51;border:1px solid #315680;color:#e7f4ff}
+.nexa-pj-gate-note{border:1px solid #2c5687;border-radius:20px;padding:25px;background:#102950;max-width:850px}
+.nexa-pj-gate-note p{color:#bed6f2;line-height:1.6;margin:10px 0 0}
+.nexa-pj-gate-main h2{font-size:30px;margin-top:60px}
+.nexa-pj-gate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:15px;margin-top:24px}
+.nexa-pj-gate-grid article{padding:23px;border-radius:17px;background:#0c2245;border:1px solid #274b77}
+.nexa-pj-gate-grid h3{font-size:18px;margin:0 0 8px}
+.nexa-pj-gate-grid p{margin:0;color:#acc8e7;font-size:14px;line-height:1.55}
+.nexa-pj-gate-main .nexa-pj-gate-footnote{font-size:13px;margin-top:26px}
