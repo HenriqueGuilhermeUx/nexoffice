@@ -35,7 +35,8 @@ const queryMaterial=new URLSearchParams(location.search).get('material')||'';
 const publicMaterialToken=/^[0-9a-f-]{36}$/i.test(pathMaterial||queryMaterial)?(pathMaterial||queryMaterial):'';
 const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
-const appRequested=params.has('app')||handoffRequested;
+const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
+const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
 
 const appSurface=<>
