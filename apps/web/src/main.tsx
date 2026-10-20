@@ -37,6 +37,14 @@ const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
 const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
 const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
+if(nexaPjBuild){
+ document.title='Nexa PJ — Gestão empresarial e Conta Nexa';
+ document.querySelector('meta[name="description"]')?.setAttribute('content','Nexa PJ: gestão empresarial, CRM, ERP, automações e Conta Nexa em um só lugar.');
+ document.querySelector('meta[property="og:site_name"]')?.setAttribute('content','Nexa PJ');
+ document.querySelector('meta[property="og:title"]')?.setAttribute('content','Nexa PJ — Gestão empresarial e Conta Nexa');
+ document.querySelector('meta[property="og:description"]')?.setAttribute('content','Nexa PJ: gestão empresarial e operações financeiras conectadas.');
+ document.querySelector('link[rel="canonical"]')?.setAttribute('href','https://trynexa.com.br/pj');
+}
 const legalRequested=params.has('legal');
 
 const appSurface=<>
