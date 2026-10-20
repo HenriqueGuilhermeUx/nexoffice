@@ -30,6 +30,9 @@ const money=(minor:any=0)=>new Intl.NumberFormat('pt-BR',{style:'currency',curre
 const date=(value?:string)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
 const toIso=(local:string)=>local?new Date(local).toISOString():null;
 
+const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
+const productName=nexaPjBuild?'Nexa PJ':'NexOffice';
+const productTagline=nexaPjBuild?'Sua empresa e suas finanças em um só lugar.':'O sistema operacional do seu negócio.';
 export default function App(){
   const [authReady,setAuthReady]=useState(false);const [user,setUser]=useState<any>(null);const [workspaces,setWorkspaces]=useState<Workspace[]>([]);
   const [view,setView]=useState('command');const [dashboard,setDashboard]=useState<Dashboard>({});const [actions,setActions]=useState<Action[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [deals,setDeals]=useState<Deal[]>([]);const [ledger,setLedger]=useState<Ledger[]>([]);const [tasks,setTasks]=useState<Task[]>([]);const [appointments,setAppointments]=useState<Appointment[]>([]);const [policies,setPolicies]=useState<Policy[]>([]);const [integrations,setIntegrations]=useState<Integration[]>([]);const [members,setMembers]=useState<Member[]>([]);const [accounts,setAccounts]=useState<FinanceAccount[]>([]);
@@ -40,7 +43,7 @@ export default function App(){
 
   useEffect(()=>{(async()=>{if(session.token()){try{await loadMe();await refresh()}catch{session.clear()}}setAuthReady(true)})()},[loadMe,refresh]);
   useEffect(()=>{const handler=(event:Event)=>{const detail=(event as CustomEvent<{view?:string;modal?:string}>).detail||{};const allowed=['conta-nexa','command','crm','finance','operations','agenda','documents','materials','team','marketing','compliance','integrations','settings'];if(detail.view&&allowed.includes(detail.view))setView(detail.view);if(detail.modal)setModal(detail.modal)};window.addEventListener('nexoffice:navigate',handler as EventListener);return()=>window.removeEventListener('nexoffice:navigate',handler as EventListener)},[]);
-  if(!authReady)return <div className="splash">NexOffice</div>;
+  if(!authReady)return <div className="splash">{productName}</div>;
   if(!user)return <AuthScreen onDone={async(token,workspaceId)=>{session.set(token,workspaceId);await loadMe();await refresh()}}/>;
 
   const activeWorkspace=workspaces.find(w=>w.id===session.workspace())||workspaces[0];
@@ -55,8 +58,8 @@ export default function App(){
   async function markPaid(id:string){await patch(`/v1/ledger/${id}`,{status:'paid'});await refresh()}
 
   return <div className="shell">
-    <aside className="sidebar"><div className="brand"><div className="brandMark">N</div><div><strong>NexOffice</strong><small>Sistema operacional do seu negócio</small></div></div><nav>{nav.map(([key,label,icon])=><button key={key} className={view===key?'active':''} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sideFoot"><div className="statusDot"/> Core v0.2 · Live</div></aside>
-    <main><header className="topbar"><div><p className="eyebrow">NEXOFFICE</p><h1>{title(view)}</h1><p>O sistema operacional do seu negócio.</p></div><div className="topActions"><select value={activeWorkspace?.id||''} onChange={e=>switchWorkspace(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select><div className="userChip"><b>{user.name}</b><small>{activeWorkspace?.role}</small></div><button className="ghost" onClick={async()=>{try{await post('/v1/auth/logout',{})}catch{}session.clear();location.reload()}}>Sair</button></div></header>
+    <aside className="sidebar"><div className="brand"><div className="brandMark">N</div><div><strong>{productName}</strong><small>{productTagline}</small></div></div><nav>{nav.map(([key,label,icon])=><button key={key} className={view===key?'active':''} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sideFoot"><div className="statusDot"/> Core v0.2 · Live</div></aside>
+    <main><header className="topbar"><div><p className="eyebrow">{nexaPjBuild?'NEXA PJ':'NEXOFFICE'}</p><h1>{view==='conta-nexa'?'Conta Nexa':title(view)}</h1><p>{productTagline}</p></div><div className="topActions"><select value={activeWorkspace?.id||''} onChange={e=>switchWorkspace(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select><div className="userChip"><b>{user.name}</b><small>{activeWorkspace?.role}</small></div><button className="ghost" onClick={async()=>{try{await post('/v1/auth/logout',{})}catch{}session.clear();location.reload()}}>Sair</button></div></header>
     <section className="content">{error&&<div className="errorBanner">{error}<button onClick={()=>setError('')}>×</button></div>}{busy&&<div className="busyLine"/>}{renderView()}</section></main>
     {modal&&<Modal onClose={()=>setModal(null)}>{renderModal()}</Modal>}
   </div>;
