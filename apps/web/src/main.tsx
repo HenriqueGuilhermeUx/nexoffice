@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import NexaPjAccessGate from './NexaPjAccessGate';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
@@ -73,7 +74,9 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {publicMaterialToken
+    {nexaPjBuild
+      ? <NexaPjAccessGate/>
+      : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
       : legalRequested
         ? <PublicLegalPage/>
