@@ -46,7 +46,7 @@ export default function App(){
   const activeWorkspace=workspaces.find(w=>w.id===session.workspace())||workspaces[0];
   const switchWorkspace=async(id:string)=>{session.setWorkspace(id);setBusy(true);await refresh();setBusy(false)};
   const openPipeline=dashboard.crm?.open_pipeline_minor||0;const balance=Number(dashboard.finance?.income_paid_minor||0)-Number(dashboard.finance?.expense_paid_minor||0);
-  const nav=[...(import.meta.env.VITE_PRODUCT_BRAND==='nexa-pj'?[['conta-nexa','Conta Nexa','◉']]:[]),['command','Central de Comando','◈'],['crm','CRM','◎'],['finance','Financeiro','▤'],['operations','Operação','↗'],['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],['materials','Materiais','▦'],['team','Equipe Digital','✦'],['marketing','Marketing','◉'],['compliance','Compliance','✓'],['integrations','Integrações','⇄'],['settings','Empresa & Acessos','⚙']];
+  const nav=[...((import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj'?[['conta-nexa','Conta Nexa','◉']]:[]),['command','Central de Comando','◈'],['crm','CRM','◎'],['finance','Financeiro','▤'],['operations','Operação','↗'],['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],['materials','Materiais','▦'],['team','Equipe Digital','✦'],['marketing','Marketing','◉'],['compliance','Compliance','✓'],['integrations','Integrações','⇄'],['settings','Empresa & Acessos','⚙']];
 
   async function act(actionId:string,decision:'approved'|'rejected'|'dismissed'){setBusy(true);try{await post(`/v1/command/actions/${actionId}/decision`,{decision});await refresh()}catch(e:any){setError(e.message)}finally{setBusy(false)}}
   async function moveDeal(id:string,stage:string){await patch(`/v1/crm/deals/${id}`,{stage});await refresh()}
