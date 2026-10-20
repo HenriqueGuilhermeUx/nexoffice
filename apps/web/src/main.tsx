@@ -38,6 +38,7 @@ const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('
 const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
 const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
 if(nexaPjBuild){
+ document.documentElement.classList.add('nexa-pj-theme');
  document.title='Nexa PJ — Gestão empresarial e Conta Nexa';
  document.querySelector('meta[name="description"]')?.setAttribute('content','Nexa PJ: gestão empresarial, CRM, ERP, automações e Conta Nexa em um só lugar.');
  document.querySelector('meta[property="og:site_name"]')?.setAttribute('content','Nexa PJ');
