@@ -6,10 +6,14 @@ export default function FinancialEngineCollectionsBridge(){
   const[target,setTarget]=useState<Element|null>(null);
   useEffect(()=>{
     const inspect=()=>{
-      const selected=document.querySelector<HTMLButtonElement>('.sidebar nav button.active');
+      const active=document.querySelector<HTMLButtonElement>('.sidebar nav button.active');
       const title=document.querySelector<HTMLElement>('.topbar h1')?.textContent||'';
-      const inFinance=Boolean(selected?.textContent?.includes('Financeiro')||title.includes('Financeiro'));
-      setTarget(inFinance?document.querySelector('.content'):null);
+      // Mount the finance collections center in its existing Financeiro /
+      // Cobrança workspace, never inside Conta Nexa or a different tenant view.
+      const inCollections=Boolean(active?.textContent?.includes('Cobrança')||
+        active?.textContent?.includes('Financeiro')||title.includes('Financeiro')||
+        title.includes('Cobrança'));
+      setTarget(inCollections?document.querySelector('.content'):null);
     };
     inspect();
     const observer=new MutationObserver(inspect);
