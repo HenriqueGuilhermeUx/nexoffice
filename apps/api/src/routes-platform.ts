@@ -31,7 +31,56 @@ async function resolvePlatformAccess(input:AccessInputType){
   return {origin,userId,membership};
 }
 
+// Dedicated, read-only binding check for the future Nexa PJ bridge.
+// This MUST NOT reuse the generic NexOffice platform key or the existing
+// sourceProduct='nexa' federation: that legacy rail has no corporate KYB
+// guarantees. A matching row is NOT authority to issue SSO or move funds.
+function authorizeNexaPjBinding(req:FastifyRequest){
+  const expected=String(process.env.NEXA_PJ_BINDING_PREFLIGHT_KEY||'').trim();
+  if(expected.length<32)throw new ApiError(503,'nexa_pj_bridge_not_configured','Vínculo empresarial Nexa PJ indisponível.');
+  const received=String(req.headers['x-nexa-pj-binding-key']||'');
+  if(!safeEqual(received,expected))throw new ApiError(401,'unauthorized','Credencial de vínculo Nexa PJ inválida.');
+}
+const NexaPjBindingInput=z.object({
+  merchantId:z.string().uuid(),
+  representativeUserId:z.string().uuid(),
+  workspaceId:z.string().uuid(),
+}).strict();
+
 export async function registerPlatformRoutes(app:FastifyInstance){
+  // Private backchannel only. Checks the *existing* NexOffice source origin,
+  // federated identity, active user, workspace, and active membership. Neither
+  // the generic 'nexa' source nor a client-submitted email is sufficient.
+  app.post('/v1/platform/nexa-pj/binding-preflight',async req=>{
+    authorizeNexaPjBinding(req);
+    const input=NexaPjBindingInput.parse(req.body);
+    const matched=await query<{matched:boolean}>(`
+      SELECT true AS matched FROM workspace_origins o
+      JOIN workspaces w ON w.id=o.workspace_id AND w.status='active'
+      JOIN external_identities i ON i.workspace_id=o.workspace_id
+        AND i.provider='nexa-pj'
+        AND i.external_subject=$2
+        AND i.external_tenant_ref=$1
+      JOIN users u ON u.id=i.user_id AND u.status='active'
+      JOIN workspace_members m ON m.workspace_id=w.id
+        AND m.user_id=u.id AND m.active=true
+      WHERE o.source_product='nexa-pj'
+        AND o.external_workspace_ref=$1
+        AND o.workspace_id=$3
+      LIMIT 1
+    `,[input.merchantId,input.representativeUserId,input.workspaceId]);
+    return {
+      bindingMatches:matched.length===1,
+      // This is a read-only consistency check, NOT legal representation
+      // verification or any kind of authorization.
+      legalRepresentationVerified:false,
+      pjApprovalVerified:false,
+      ssoAvailable:false,
+      financialAccess:false,
+      sessionIssued:false,
+    };
+  });
+
   app.get('/v1/platform/health',async req=>{authorize(req);return {status:'ok',service:'nexoffice-platform',capabilities:['provision','session-exchange','federated-user','browser-handoff','federated-rbac'],externalEffects:false}});
 
   app.post('/v1/platform/provision',async req=>{
