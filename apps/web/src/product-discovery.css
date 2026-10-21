@@ -13,3 +13,22 @@
 .productTourFooter div{display:flex;gap:10px}
 @media(max-width:600px){.productCapabilityMap{grid-template-columns:1fr 1fr;padding:12px;gap:8px;max-height:50vh}.productTourFooter{padding:12px}.productTourFooter small{width:100%}}
 @media(max-width:420px){.productCapabilityMap{grid-template-columns:1fr}}
+
+
+/* Capability universe in the public NexOffice marketing bridge. */
+.mkUniverse{display:grid;gap:20px;padding:30px 0}
+.mkUniverseHead span{font-size:11px;font-weight:800;letter-spacing:.12em}
+.mkUniverseHead h3{font-size:clamp(21px,3vw,32px);line-height:1.15;margin:10px 0}
+.mkUniverseHead p{max-width:750px;line-height:1.6;opacity:.82}
+.mkUniverseGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px}
+.mkUniverseGrid article{display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid rgba(100,116,139,.25);border-radius:16px;background:rgba(148,163,184,.06)}
+.mkUniverseGrid article i{font-style:normal;font-size:25px}
+.mkUniverseGrid article b{font-size:15px}
+.mkUniverseGrid article p{font-size:13px;line-height:1.55;margin:0;opacity:.83}
+.mkLineage{display:grid;gap:10px;margin-top:8px}
+.mkLineage small{font-size:11px;font-weight:750;letter-spacing:.1em;opacity:.77}
+.mkLineage>div{display:flex;flex-wrap:wrap;gap:7px}
+.mkLineage span{display:inline-flex;align-items:center;gap:7px;font-size:12px}
+.mkLineage em{opacity:.55;font-style:normal}
+@media(max-width:540px){.mkUniverseGrid{grid-template-columns:1fr 1fr;gap:8px}.mkUniverseGrid article{padding:13px}.mkLineage>div{gap:5px}}
+@media(max-width:370px){.mkUniverseGrid{grid-template-columns:1fr}}
