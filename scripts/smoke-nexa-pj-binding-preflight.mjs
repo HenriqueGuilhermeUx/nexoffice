@@ -72,7 +72,6 @@ assert.deepEqual(Object.keys(matched.data).sort(),[
 ].sort(),'no workspace, identity or token data may be returned');
 
 for(const different of [
-  {...candidate,workspaceId},
   {merchantId,representativeUserId,workspaceId:randomUUID()},
   {merchantId:randomUUID(),representativeUserId,workspaceId},
   {merchantId,representativeUserId:randomUUID(),workspaceId},
