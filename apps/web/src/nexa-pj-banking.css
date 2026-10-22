@@ -66,3 +66,20 @@
 @media(max-width:1050px){.nexa-pj-theme .nexa-pj-gate-intro{grid-template-columns:1fr}.nexa-pj-theme .nexa-pj-gate-main{max-width:780px}}
 @media(max-width:720px){.nexa-pj-theme .nexa-pj-gate-main{padding:38px 17px 70px}.nexa-pj-theme .nexa-pj-mini-main{grid-template-columns:1fr}.nexa-pj-theme .nexa-pj-mini-rail{display:none}.nexa-pj-theme .pj-connect-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.nexa-pj-theme .pj-connect-layout{grid-template-columns:1fr}.nexa-pj-theme .nexa-pj-gate-actions a{width:100%;text-align:center}.nexa-pj-theme .nexa-pj-gate-header{padding:15px}.nexa-pj-theme .nexa-pj-gate-header a{font-size:12px}.nexa-pj-theme .pj-connect-hero{padding:21px}}
 @media(prefers-reduced-motion:reduce){.nexa-pj-theme .pj-connect *{transition:none!important}}
+
+/* Nexa PJ bank+ERP shell cohesion.
+   All selectors require the PJ-only product brand, leaving NexOffice unchanged. */
+.nexa-pj-theme .shell{background:#081927;color:#effbf8}
+.nexa-pj-theme .sidebar{background:linear-gradient(180deg,#0a2531,#081e2d 78%,#081725);border-right-color:rgba(166,231,222,.13)}
+.nexa-pj-theme .brandMark{background:#87efd0!important;color:#082c34!important;border-color:#b1fbe5!important;box-shadow:0 9px 30px rgba(45,218,163,.12)}
+.nexa-pj-theme .brand h1,.nexa-pj-theme .topbar h1{color:#eefcf9}
+.nexa-pj-theme .sidebar nav button.active{color:#a0f6db;background:rgba(95,224,190,.11);border-color:rgba(119,236,209,.2)}
+.nexa-pj-theme .sidebar nav button:not(.active):hover{background:rgba(149,212,218,.08)}
+.nexa-pj-theme .eyebrow{color:#85efcf}
+.nexa-pj-theme .hero{background:linear-gradient(123deg,#17444d,#13354b 65%,#10283c);border-color:rgba(117,239,205,.27)}
+.nexa-pj-theme button.primary,.nexa-pj-theme .primary,.nexa-pj-theme .authSubmit{background:#86efd0!important;color:#052e35!important;border-color:#b1fbe5!important}
+.nexa-pj-theme button.primary:hover,.nexa-pj-theme .primary:hover{background:#b4ffe5!important}
+.nexa-pj-theme .statusDot{background:#7fe6c7;box-shadow:0 0 0 3px rgba(127,230,199,.16)}
+.nexa-pj-theme .topbar{border-bottom-color:rgba(183,229,225,.12)}
+.nexa-pj-theme a:focus-visible,.nexa-pj-theme button:focus-visible{outline:3px solid #9ef4d8;outline-offset:2px}
+@media(max-width:760px){.nexa-pj-theme .sidebar{border-right:0;border-top:1px solid rgba(166,231,222,.17)}}
