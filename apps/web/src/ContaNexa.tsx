@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import {api,session} from './api';
+import './nexa-pj-banking.css';
 
 const NEXA_PJ_PORTAL='https://trynexa.com.br/merchant';
 
@@ -26,7 +27,23 @@ type PjConnectionPreflight={
  * ledger. This panel shows only a read-only structural workspace diagnostic.
  * It cannot trigger KYB, wallet provisioning, Pix, USDC or session exchange.
  */
-export default function ContaNexa({companyName}:{companyName?:string}){
+type ErpFinanceOverview={
+  receivable_minor?:number|string;
+  payable_minor?:number|string;
+};
+const formatErpMoney=(minor?:number|string)=>{
+  if(minor===undefined||minor===null||minor==='')return '—';
+  const value=Number(minor);
+  if(!Number.isFinite(value))return '—';
+  return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'})
+    .format(value/100);
+};
+const navigateErp=(view:'command'|'finance'|'crm'|'operations')=>{
+  window.dispatchEvent(new CustomEvent('nexoffice:navigate',{detail:{view}}));
+};
+export default function ContaNexa({
+  companyName,erpFinance,
+}:{companyName?:string;erpFinance?:ErpFinanceOverview}){
   const workspaceId=session.workspace();
   const [state,setState]=useState<PjConnectionPreflight|null>(null);
   const [pending,setPending]=useState(true);
@@ -69,48 +86,77 @@ export default function ContaNexa({companyName}:{companyName?:string}){
     unavailable?'Não foi possível verificar o vínculo':
     state?.structuralBindingPresent?'Vínculo de workspace identificado':'Vínculo empresarial não confirmado';
 
-  return <section aria-label="Conta Nexa" style={{display:'grid',gap:20}}>
-    <div className="hero">
-      <div>
-        <p className="eyebrow">NEXA PJ · CONTA EMPRESARIAL</p>
-        <h2>Conta Nexa</h2>
-        <p>Gestão da empresa e sua Conta Nexa em uma experiência segura.</p>
-      </div>
-      <div className="heroActions">
-        <a className="primary" href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer">
-          Abrir portal Nexa PJ ↗
-        </a>
+  return <section className="pj-connect" aria-label="Conta Nexa: banco empresarial e ERP">
+    <div className="pj-connect-hero">
+      <small>NEXA PJ / CONTA + ERP + INTELIGÊNCIA</small>
+      <h2>O dinheiro e a operação da sua empresa. No mesmo lugar.</h2>
+      <p>Conta Nexa, financeiro e ERP em uma visão única. Os indicadores do ERP abaixo pertencem ao workspace selecionado; saldos bancários e transações continuam protegidos até a aprovação e autenticação independente da conta PJ.</p>
+      <div className="pj-connect-actions">
+        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer">Acessar Conta Nexa ↗</a>
+        <button type="button" onClick={()=>navigateErp('finance')}>Abrir Financeiro e ERP →</button>
       </div>
     </div>
-    <div className="panel" style={{padding:24,display:'grid',gap:9}}>
-      <p className="eyebrow">VÍNCULO EMPRESARIAL · SOMENTE LEITURA</p>
-      <h3>{connectionLabel}</h3>
-      <p>{state?.structuralBindingPresent
-        ? 'O NexOffice encontrou um vínculo estrutural com a empresa neste workspace. Isso não é uma aprovação KYB nem autenticação da Conta Nexa.'
-        : unavailable
-        ? 'O diagnóstico está indisponível. Por segurança, nenhum saldo ou recurso financeiro será exibido; seus dados existentes permanecem preservados.'
-        : 'A empresa ainda não possui vínculo Nexa PJ confirmado neste workspace. Nenhuma conta é criada automaticamente.'}</p>
-      <small>Para utilizar saldos, extrato, Pix, USDC ou transferências, serão necessárias a aprovação empresarial e a autenticação financeira independente na Nexa.</small>
+    <div className="pj-connect-kpis" aria-label="Resumo de Conta Nexa e ERP">
+      <div className="pj-connect-kpi">
+        <small>Saldo Conta Nexa · BRL</small><strong>—</strong><em>Exige login e liberação financeira</em>
+      </div>
+      <div className="pj-connect-kpi">
+        <small>Saldo Conta Nexa · USDC</small><strong>—</strong><em>Carteira PJ não conectada</em>
+      </div>
+      <div className="pj-connect-kpi">
+        <small>Contas a receber · ERP</small>
+        <strong>{formatErpMoney(erpFinance?.receivable_minor)}</strong>
+        <em>Dados do workspace selecionado</em>
+      </div>
+      <div className="pj-connect-kpi">
+        <small>Contas a pagar · ERP</small>
+        <strong>{formatErpMoney(erpFinance?.payable_minor)}</strong>
+        <em>Dados do workspace selecionado</em>
+      </div>
     </div>
-    <div className="twoCol">
-      <div className="panel" style={{padding:24}}>
-        <p className="eyebrow">IDENTIFICAÇÃO PJ</p>
+    <div className="pj-connect-layout">
+      <div className="pj-connect-panel">
+        <small className="eyebrow">IDENTIDADE EMPRESARIAL</small>
         <h3>{companyName||'Empresa selecionada'}</h3>
-        <p>O nome acima identifica apenas o workspace NexOffice selecionado. Ele não comprova poderes legais, KYB ou titularidade de carteira.</p>
-        <p>O acesso empresarial exige verificação independente do representante e dos vínculos entre empresa e conta.</p>
+        <div className="pj-connect-status" role="status">{connectionLabel}</div>
+        <p>{state?.structuralBindingPresent
+          ? 'O vínculo estrutural deste workspace foi identificado. Isso não significa que a pessoa jurídica tenha sido aprovada pela Nexa nem que exista autorização para consultar saldos.'
+          : unavailable
+          ? 'Não foi possível conferir o vínculo empresarial. Por segurança, nenhum dado bancário será exibido.'
+          : pending
+          ? 'Conferindo permissões de acesso ao workspace.'
+          : 'Nenhum vínculo empresarial financeiro foi confirmado para este workspace.'}</p>
+        <p>O acesso financeiro requer validação do representante, CNPJ e documentos, além de autenticação da Conta Nexa.</p>
       </div>
-      <div className="panel" style={{padding:24}}>
-        <p className="eyebrow">SALDOS E EXTRATO</p>
-        <h3>Dados financeiros protegidos</h3>
-        <p>BRL, USDC, carteiras e movimentações só serão apresentados após autorização financeira por empresa, sem utilizar saldos de pessoa física.</p>
-        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer">Consultar o portal financeiro autenticado ↗</a>
+      <div className="pj-connect-panel">
+        <small className="eyebrow">FINANCEIRO & ERP+</small>
+        <h3>Do recebível ao caixa, sem perder o controle.</h3>
+        <p>Contas, cobranças, conciliação e relatórios empresariais já pertencem ao seu workspace de gestão. A conexão bancária é uma etapa separada e não mistura a carteira PF com a PJ.</p>
+        <div className="pj-connect-actions">
+          <button type="button" onClick={()=>navigateErp('finance')}>Ir para Financeiro →</button>
+          <button type="button" onClick={()=>navigateErp('crm')}>Abrir Clientes e CRM →</button>
+        </div>
+      </div>
+      <div className="pj-connect-panel">
+        <small className="eyebrow">COBRANÇAS E MOVIMENTAÇÕES</small>
+        <h3>Operação financeira com autorização.</h3>
+        <p>Extrato, transferências, compra/conversão e recursos Pix/USDC são consultados ou operados no portal Nexa com autenticação própria, conforme o que for habilitado para a empresa.</p>
+        <div className="pj-connect-actions">
+          <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer">Abrir portal financeiro ↗</a>
+        </div>
+      </div>
+      <div className="pj-connect-panel">
+        <small className="eyebrow">INTELIGÊNCIA DA EMPRESA</small>
+        <h3>O próximo passo começa com contexto.</h3>
+        <p>Central de comando, clientes, contratos, tarefas, operação e equipe digital organizados no mesmo ERP, sem inventar saldos bancários ou executar ordens financeiras.</p>
+        <div className="pj-connect-actions">
+          <button type="button" onClick={()=>navigateErp('command')}>Ver visão geral →</button>
+          <button type="button" onClick={()=>navigateErp('operations')}>Acessar operação →</button>
+        </div>
       </div>
     </div>
-    <div className="panel" style={{padding:24}}>
-      <p className="eyebrow">OPERAÇÕES</p>
-      <h3>Compra, transferência, recebimentos e checkout</h3>
-      <p>Enquanto o vínculo financeiro não estiver homologado, operações permanecem indisponíveis neste painel. O portal Nexa PJ continua sendo o acesso separado aos recursos efetivamente habilitados na conta.</p>
-      <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer">Abrir recursos disponíveis no portal Nexa PJ ↗</a>
+    <div className="pj-connect-note">
+      <strong>Proteção de contas PF e PJ.</strong> Esta tela mostra dados do ERP somente do workspace autenticado. Os saldos bancários não são estimados a partir do ledger empresarial, e nenhuma compra, transferência, Pix, conexão de carteira ou SSO é iniciada por este painel. Toda função financeira depende de vínculo PJ comprovado e sessão Nexa separada.
     </div>
   </section>;
 }
