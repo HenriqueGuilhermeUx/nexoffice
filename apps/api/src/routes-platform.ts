@@ -1,7 +1,7 @@
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
-import {ApiError,hashOpaqueToken,issueSession,newInviteToken,slugify} from './auth.js';
+import {ApiError,hashOpaqueToken,issueSession,newInviteToken,slugify,workspaceContext} from './auth.js';
 import {query,transaction} from './db.js';
 import {verticalPack} from './vertical-packs.js';
 
@@ -48,6 +48,51 @@ const NexaPjBindingInput=z.object({
 }).strict();
 
 export async function registerPlatformRoutes(app:FastifyInstance){
+  /**
+   * NexOffice user-facing, workspace-scoped CONNECTIVITY DIAGNOSTIC.
+   * This is not the privileged backchannel nor the generic federation API.
+   * A workspace membership is necessary but never proves corporate legal
+   * authority, Nexa KYB, wallet ownership or authorization to move funds.
+   * No personal or corporate identifiers are returned to the browser.
+   */
+  app.get('/v1/platform/nexa-pj/connection-preflight',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    const rows=await query<{matched:boolean}>(`
+      SELECT true AS matched
+        FROM workspace_origins o
+        JOIN workspaces w ON w.id=o.workspace_id AND w.status='active'
+        JOIN external_identities i ON i.workspace_id=o.workspace_id
+          AND i.provider='nexa-pj'
+          AND i.external_tenant_ref=o.external_workspace_ref
+          AND i.user_id=$2::uuid
+        JOIN users u ON u.id=i.user_id AND u.status='active'
+        JOIN workspace_members m ON m.workspace_id=o.workspace_id
+          AND m.user_id=i.user_id AND m.active=true
+       WHERE o.source_product='nexa-pj' AND o.workspace_id=$1::uuid
+       LIMIT 2
+    `,[ctx.workspaceId,ctx.user.id]);
+    const structuralBindingPresent=rows.length===1;
+    return {
+      structuralBindingPresent,
+      // Status of the *current authenticated* NexOffice membership only.
+      workspaceMembershipVerifiedByNexOffice:true,
+      companyKybApproved:false,
+      legalRepresentationVerified:false,
+      nexaAccountAuthenticated:false,
+      corporateWalletConnected:false,
+      financialAccess:false,
+      balancesVisible:false,
+      pixEnabled:false,
+      cryptoEnabled:false,
+      ssoAvailable:false,
+      handoffTokenIssued:false,
+      externalEffect:false,
+      reason:structuralBindingPresent
+        ? 'PJ_STRUCTURAL_MATCH_REQUIRES_NEXA_KYB_AND_INDEPENDENT_AUTHORITY'
+        : 'PJ_COMPANY_WORKSPACE_BINDING_NOT_CONFIRMED',
+    };
+  });
+
   // Private backchannel only. Checks the *existing* NexOffice source origin,
   // federated identity, active user, workspace, and active membership. Neither
   // the generic 'nexa' source nor a client-submitted email is sufficient.
