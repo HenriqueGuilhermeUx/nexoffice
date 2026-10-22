@@ -1,0 +1,68 @@
+/* Nexa PJ only: integrated banking + ERP style. Isolated visual design.
+   No auth, account balance or financial authorization is inferred here. */
+.nexa-pj-theme .nexa-pj-gate{background:radial-gradient(ellipse 55% 50% at 85% 0,rgba(25,151,156,.13),transparent),#061422;color:#edf9fa;min-height:100vh}
+.nexa-pj-theme .nexa-pj-gate-header{max-width:1320px;border-color:rgba(180,232,226,.12);padding:18px 24px}
+.nexa-pj-theme .nexa-pj-gate-logo{background:#86efd0;color:#083039;border-radius:12px}
+.nexa-pj-theme .nexa-pj-gate-header a{color:#b9eadd;font-weight:700}
+.nexa-pj-theme .nexa-pj-gate-main{max-width:1320px;padding:62px 24px 90px}
+.nexa-pj-theme .nexa-pj-gate .eyebrow{color:#84eacb;letter-spacing:.15em}
+.nexa-pj-theme .nexa-pj-gate-intro{display:grid;grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);align-items:center;gap:42px}
+.nexa-pj-theme .nexa-pj-gate-main h1{font-size:clamp(38px,4.65vw,66px);letter-spacing:-.055em;line-height:1.08}
+.nexa-pj-theme .nexa-pj-gate-main h1 span{color:#7fedc8}
+.nexa-pj-theme .nexa-pj-gate-main>p{color:#a9c4d1}
+.nexa-pj-theme .nexa-pj-gate-intro-copy>p:not(.eyebrow){font-size:17px;line-height:1.75;color:#aec4d2}
+.nexa-pj-theme .nexa-pj-gate-actions a:first-child{background:#83efd0;color:#092c35;box-shadow:0 12px 32px rgba(76,213,170,.14)}
+.nexa-pj-theme .nexa-pj-gate-actions a:last-child{background:rgba(184,224,231,.07);border:1px solid rgba(184,224,231,.2)}
+.nexa-pj-theme .nexa-pj-gate-actions a:focus-visible,.nexa-pj-theme .pj-connect a:focus-visible{outline:3px solid #9ef5da;outline-offset:3px}
+.nexa-pj-theme .nexa-pj-gate-note{background:rgba(13,39,50,.84);border-color:rgba(172,224,216,.18);max-width:none}
+.nexa-pj-theme .nexa-pj-gate-note strong{color:#b3f7e0}
+.nexa-pj-theme .nexa-pj-gate-note p{color:#a9c7d2;font-size:14px}
+.nexa-pj-theme .nexa-pj-gate-grid article{background:linear-gradient(145deg,rgba(21,49,64,.95),rgba(12,33,50,.95));border-color:rgba(187,227,229,.14);border-radius:18px}
+.nexa-pj-theme .nexa-pj-gate-grid h3{color:#e9fcf6}
+.nexa-pj-theme .nexa-pj-gate-grid p{color:#a0bece}
+.nexa-pj-theme .nexa-pj-gate-main h2{letter-spacing:-.035em;color:#effcfd}
+.nexa-pj-theme .nexa-pj-mini-suite{overflow:hidden;border:1px solid rgba(166,225,223,.18);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.3);background:#0d2635;min-width:0}
+.nexa-pj-theme .nexa-pj-mini-top{padding:13px 18px;background:#09202d;border-bottom:1px solid rgba(163,213,224,.14);display:flex;justify-content:space-between;align-items:center;gap:8px;color:#e9f8fc;font-size:13px}
+.nexa-pj-theme .nexa-pj-mini-top small{font-size:11px;color:#8cabbd}
+.nexa-pj-theme .nexa-pj-mini-main{display:grid;grid-template-columns:132px minmax(0,1fr);min-height:380px}
+.nexa-pj-theme .nexa-pj-mini-rail{background:#0a2030;border-right:1px solid rgba(176,220,229,.11);padding:17px 8px}
+.nexa-pj-theme .nexa-pj-mini-rail span{display:block;padding:10px;color:#9bb5c1;font-size:11px;border-radius:8px;margin-bottom:4px}
+.nexa-pj-theme .nexa-pj-mini-rail .active{color:#8cf1d1;background:rgba(107,224,193,.1)}
+.nexa-pj-theme .nexa-pj-mini-content{padding:20px;min-width:0}
+.nexa-pj-theme .nexa-pj-mini-overline{font-size:10px;color:#93b3c2;text-transform:uppercase;letter-spacing:.13em}
+.nexa-pj-theme .nexa-pj-mini-account{margin-top:14px;border-radius:13px;padding:20px;background:linear-gradient(130deg,#215257,#12354f);border:1px solid rgba(141,231,211,.21)}
+.nexa-pj-theme .nexa-pj-mini-account b{display:block;font-size:30px;letter-spacing:-.03em;margin:9px 0}
+.nexa-pj-theme .nexa-pj-mini-account small{color:#a8d6d9}
+.nexa-pj-theme .nexa-pj-mini-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0}
+.nexa-pj-theme .nexa-pj-mini-cards div{border:1px solid rgba(191,225,233,.12);background:#153549;padding:12px;border-radius:10px}
+.nexa-pj-theme .nexa-pj-mini-cards small{color:#98b7c5;font-size:10px;display:block}
+.nexa-pj-theme .nexa-pj-mini-cards b{display:block;font-size:19px;margin-top:8px;color:#e1faf1}
+.nexa-pj-theme .nexa-pj-mini-bottom{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.nexa-pj-theme .nexa-pj-mini-bottom span{padding:7px 10px;border-radius:100px;border:1px solid rgba(171,216,219,.13);font-size:10px;color:#b2cfd7}
+.nexa-pj-theme .nexa-pj-mini-caption{margin:10px 0;font-size:11px;color:#8eafbe;text-align:right}
+.nexa-pj-theme .nexa-pj-gate-motifs{display:flex;gap:10px;flex-wrap:wrap;color:#a1c9d0;font-size:12px;padding:18px 0}
+.nexa-pj-theme .nexa-pj-gate-motifs span:before{content:'✓';color:#85f0ce;margin-right:6px}
+.nexa-pj-theme .pj-connect{display:grid;gap:19px}
+.nexa-pj-theme .pj-connect-hero{background:linear-gradient(130deg,#164551,#10273d);border:1px solid rgba(144,240,214,.23);border-radius:21px;padding:30px}
+.nexa-pj-theme .pj-connect-hero small{font-size:11px;color:#a5e0d5;letter-spacing:.15em}
+.nexa-pj-theme .pj-connect-hero h2{font-size:clamp(25px,2.5vw,35px);color:#f2fffa;margin:10px 0}
+.nexa-pj-theme .pj-connect-hero p{color:#b5d2df;margin:0;max-width:710px;line-height:1.65}
+.nexa-pj-theme .pj-connect-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.nexa-pj-theme .pj-connect-kpi{border:1px solid rgba(156,214,220,.17);background:#112a3d;border-radius:16px;padding:22px}
+.nexa-pj-theme .pj-connect-kpi small{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:#94b5c7;display:block}
+.nexa-pj-theme .pj-connect-kpi strong{font-size:25px;letter-spacing:-.03em;display:block;margin-top:14px;color:#ecfcfb}
+.nexa-pj-theme .pj-connect-kpi em{font-style:normal;color:#83cfc2;font-size:11px;display:block;margin-top:5px}
+.nexa-pj-theme .pj-connect-layout{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.nexa-pj-theme .pj-connect-panel{border-radius:17px;background:#10273a;border:1px solid rgba(175,221,228,.14);padding:24px}
+.nexa-pj-theme .pj-connect-panel h3{color:#e5f5f5;font-size:19px;letter-spacing:-.03em;margin:12px 0}
+.nexa-pj-theme .pj-connect-panel p{color:#9ab9c8;line-height:1.65;font-size:14px}
+.nexa-pj-theme .pj-connect-status{padding:9px 12px;border-radius:999px;background:rgba(132,233,206,.1);border:1px solid rgba(132,233,206,.2);color:#b0efd9;display:inline-flex;font-size:12px}
+.nexa-pj-theme .pj-connect-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:23px}
+.nexa-pj-theme .pj-connect-actions a,.nexa-pj-theme .pj-connect-actions button{border-radius:12px;padding:12px 18px;text-decoration:none;font-weight:750;font-size:14px}
+.nexa-pj-theme .pj-connect-actions a:first-child{background:#83efd0;color:#092831}
+.nexa-pj-theme .pj-connect-actions button{border:1px solid rgba(185,226,229,.25);background:#15384a;color:#d8f2ee;cursor:pointer}
+.nexa-pj-theme .pj-connect-note{border:1px solid rgba(183,216,228,.17);background:rgba(5,20,32,.5);border-radius:15px;padding:17px 20px;font-size:13px;color:#9ab7c5;line-height:1.65}
+.nexa-pj-theme .pj-connect-note strong{color:#d7f7eb}
+@media(max-width:1050px){.nexa-pj-theme .nexa-pj-gate-intro{grid-template-columns:1fr}.nexa-pj-theme .nexa-pj-gate-main{max-width:780px}}
+@media(max-width:720px){.nexa-pj-theme .nexa-pj-gate-main{padding:38px 17px 70px}.nexa-pj-theme .nexa-pj-mini-main{grid-template-columns:1fr}.nexa-pj-theme .nexa-pj-mini-rail{display:none}.nexa-pj-theme .pj-connect-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.nexa-pj-theme .pj-connect-layout{grid-template-columns:1fr}.nexa-pj-theme .nexa-pj-gate-actions a{width:100%;text-align:center}.nexa-pj-theme .nexa-pj-gate-header{padding:15px}.nexa-pj-theme .nexa-pj-gate-header a{font-size:12px}.nexa-pj-theme .pj-connect-hero{padding:21px}}
+@media(prefers-reduced-motion:reduce){.nexa-pj-theme .pj-connect *{transition:none!important}}
