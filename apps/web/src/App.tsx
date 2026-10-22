@@ -49,7 +49,30 @@ export default function App(){
   const activeWorkspace=workspaces.find(w=>w.id===session.workspace())||workspaces[0];
   const switchWorkspace=async(id:string)=>{session.setWorkspace(id);setBusy(true);await refresh();setBusy(false)};
   const openPipeline=dashboard.crm?.open_pipeline_minor||0;const balance=Number(dashboard.finance?.income_paid_minor||0)-Number(dashboard.finance?.expense_paid_minor||0);
-  const nav=[...((import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj'?[['conta-nexa','Conta Nexa','◉']]:[]),['command','Central de Comando','◈'],['crm','CRM','◎'],['finance','Financeiro','▤'],['operations','Operação','↗'],['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],['materials','Materiais','▦'],['team','Equipe Digital','✦'],['marketing','Marketing','◉'],['compliance','Compliance','✓'],['integrations','Integrações','⇄'],['settings','Empresa & Acessos','⚙']];
+  // The standalone NexOffice product keeps exactly its original
+  // navigation. The PJ build expresses the integrated banking+ERP hierarchy.
+  const nav=nexaPjBuild?[
+    ['conta-nexa','Conta Nexa PJ','◉'],
+    ['finance','Financeiro & ERP','▤'],
+    ['command','Visão geral','◈'],
+    ['crm','Clientes e Vendas','◎'],
+    ['operations','Operações','↗'],
+    ['agenda','Agenda & Tarefas','◷'],
+    ['documents','Documentos','▱'],
+    ['materials','Materiais','▦'],
+    ['team','Inteligência e IA','✦'],
+    ['marketing','Marketing','◉'],
+    ['compliance','Governança','✓'],
+    ['integrations','Integrações','⇄'],
+    ['settings','Empresa & Acessos','⚙'],
+  ]:[
+    ['command','Central de Comando','◈'],['crm','CRM','◎'],
+    ['finance','Financeiro','▤'],['operations','Operação','↗'],
+    ['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],
+    ['materials','Materiais','▦'],['team','Equipe Digital','✦'],
+    ['marketing','Marketing','◉'],['compliance','Compliance','✓'],
+    ['integrations','Integrações','⇄'],['settings','Empresa & Acessos','⚙'],
+  ];
 
   async function act(actionId:string,decision:'approved'|'rejected'|'dismissed'){setBusy(true);try{await post(`/v1/command/actions/${actionId}/decision`,{decision});await refresh()}catch(e:any){setError(e.message)}finally{setBusy(false)}}
   async function moveDeal(id:string,stage:string){await patch(`/v1/crm/deals/${id}`,{stage});await refresh()}
@@ -65,7 +88,13 @@ export default function App(){
   </div>;
 
   function renderView():ReactNode{
-    if(view==='conta-nexa'&&nexaPjBuild)return <ContaNexa companyName={activeWorkspace?.name}/>;
+    if(view==='conta-nexa'&&nexaPjBuild)return <ContaNexa
+      companyName={activeWorkspace?.name}
+      erpFinance={{
+        receivable_minor:dashboard.finance?.receivable_minor,
+        payable_minor:dashboard.finance?.payable_minor,
+      }}
+    />;
     if(view==='command')return <><div className="hero"><div><p className="eyebrow">CENTRAL DE COMANDO</p><h2>{actions.length?`Você tem ${actions.length} pontos para acompanhar.`:'Seu negócio está em ordem agora.'}</h2><p>Eventos do CRM, agenda, financeiro e integrações viram ações priorizadas para sua equipe digital.</p></div><div className="heroActions"><button className="primary" onClick={()=>setView('team')}>Conversar com a equipe</button><button onClick={()=>refresh()}>Atualizar</button></div></div><div className="kpis"><Kpi label="Pipeline aberto" value={money(openPipeline)} hint={`${dashboard.crm?.open_deals||0} oportunidades`}/><Kpi label="Saldo realizado" value={money(balance)} hint="receitas − despesas"/><Kpi label="A receber" value={money(dashboard.finance?.receivable_minor)} hint={`${dashboard.finance?.overdue_count||0} vencidos`}/><Kpi label="Decisões pendentes" value={String(dashboard.approvals?.pending_approvals||0)} hint="aprovações humanas"/></div><SmartPlaybooksPanel/><div className="twoCol"><Panel eyebrow="ACTION INBOX" title="O que precisa de você" badge={actions.length}><div className="actionList">{actions.length?actions.map(a=><ActionCard key={a.id} action={a} onDecision={d=>act(a.id,d)}/>):<Empty text="Nenhuma ação pendente."/>}</div></Panel><Panel eyebrow="PULSO DO NEGÓCIO" title="Agora"><Pulse label="CRM" value={`${dashboard.crm?.open_deals||0} negócios abertos`} detail={money(openPipeline)}/><Pulse label="Financeiro" value={`${dashboard.finance?.overdue_count||0} cobranças vencidas`} detail={money(dashboard.finance?.receivable_minor)}/><Pulse label="Agenda" value={`${dashboard.appointments?.today_appointments||0} compromissos hoje`} detail={`${dashboard.tasks?.due_tasks||0} tarefas próximas`}/><Pulse label="Equipe Digital" value={`${dashboard.command?.open_actions||0} ações na fila`} detail={`${policies.length} políticas de autonomia`}/></Panel></div></>;
     if(view==='crm')return <CRM contacts={contacts} deals={deals} onNewContact={()=>setModal('contact')} onNewDeal={()=>setModal('deal')} onMove={moveDeal}/>;
     if(view==='finance')return <Finance ledger={ledger} dashboard={dashboard} onNew={()=>setModal('ledger')} onPaid={markPaid}/>;
