@@ -1,7 +1,7 @@
 // Ephemeral CI-only end-to-end checks for the PJ read-only bridge.
 // Never runs against a remote API or database. No sessions or financial rails.
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 
 const base='http://127.0.0.1:4000';
@@ -20,6 +20,12 @@ function sql(statement) {
 }
 async function call(path,body,headers={}) {
   const response=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json',...headers},body:JSON.stringify(body)});
+  return {status:response.status,data:await response.json()};
+}
+async function readCurrentWorkspace(token,workspaceId){
+  const response=await fetch(base+'/v1/platform/nexa-pj/connection-preflight',{
+    headers:token?{'authorization':'Bearer '+token,'x-workspace-id':workspaceId}:{'x-workspace-id':workspaceId}
+  });
   return {status:response.status,data:await response.json()};
 }
 const path='/v1/platform/nexa-pj/binding-preflight';
@@ -46,6 +52,42 @@ const provision=await call('/v1/platform/provision',{
 },{'x-nexoffice-key':legacyKey});
 assert.equal(provision.status,200,JSON.stringify(provision.data));
 const workspaceId=provision.data.workspace.id;
+// The actual browser must use a NexOffice-authenticated user session from
+// the current tenant, not the private key used for the operator backchannel.
+const nexofficeUserId=sql(`SELECT user_id FROM external_identities
+  WHERE workspace_id='${workspaceId}'::uuid AND provider='nexa'
+  AND user_id IS NOT NULL LIMIT 1`);
+assert.match(nexofficeUserId,/^[0-9a-f-]{36}$/i);
+const browserToken=randomBytes(32).toString('base64url');
+const tokenHash=createHash('sha256').update(browserToken).digest('hex');
+sql(`INSERT INTO auth_sessions(user_id,token_hash,expires_at)
+ VALUES ('${nexofficeUserId}'::uuid,'${tokenHash}',now()+interval '1 hour')`);
+assert.equal((await readCurrentWorkspace('',workspaceId)).status,401,
+  'anonymous browsers cannot inspect Nexa PJ link state');
+assert.equal((await readCurrentWorkspace('bad-token',workspaceId)).status,401,
+  'invalid bearer tokens cannot inspect corporate link state');
+const beforeBinding=await readCurrentWorkspace(browserToken,workspaceId);
+assert.equal(beforeBinding.status,200,JSON.stringify(beforeBinding.data));
+assert.equal(beforeBinding.data.structuralBindingPresent,false,
+  'legacy Nexa origin cannot impersonate Nexa PJ in the browser');
+
+// An independently authenticated user may belong to multiple workspaces,
+// but the current workspace must never inherit another company's identity.
+const otherMerchantId=randomUUID();
+const secondProvision=await call('/v1/platform/provision',{
+  sourceProduct:'nexa',externalWorkspaceRef:otherMerchantId,
+  businessName:'Outra Empresa CI NexOffice',ownerEmail:email,
+  externalUserSubject:randomUUID(),
+},{'x-nexoffice-key':legacyKey});
+assert.equal(secondProvision.status,200,JSON.stringify(secondProvision.data));
+const otherWorkspaceId=secondProvision.data.workspace.id;
+const otherView=await readCurrentWorkspace(browserToken,otherWorkspaceId);
+assert.equal(otherView.status,200,JSON.stringify(otherView.data));
+assert.equal(otherView.data.structuralBindingPresent,false,
+  'member of another company must never inherit a PJ binding');
+assert.equal((await readCurrentWorkspace(browserToken,randomUUID())).status,403,
+  'users cannot probe a workspace where they are not a member');
+
 const original=await call(path,{merchantId,representativeUserId,workspaceId},auth);
 assert.equal(original.data.bindingMatches,false,'legacy nexa origin may not be treated as nexa-pj');
 const sourceDenied=await call('/v1/platform/provision',{
@@ -63,6 +105,23 @@ WHERE workspace_id='${workspaceId}'::uuid AND provider='nexa'
   AND external_subject='${representativeUserId}' AND user_id IS NOT NULL`);
 const matched=await call(path,{merchantId,representativeUserId,workspaceId},auth);
 assert.equal(matched.data.bindingMatches,true,'fully bound synthetic tenant should match');
+const browserLinked=await readCurrentWorkspace(browserToken,workspaceId);
+assert.equal(browserLinked.status,200,JSON.stringify(browserLinked.data));
+assert.equal(browserLinked.data.structuralBindingPresent,true,
+  'current authenticated member can see company structural readiness');
+for(const key of [
+  'companyKybApproved','legalRepresentationVerified','nexaAccountAuthenticated',
+  'corporateWalletConnected','financialAccess','balancesVisible','pixEnabled',
+  'cryptoEnabled','ssoAvailable','handoffTokenIssued','externalEffect'
+])assert.equal(browserLinked.data[key],false,key+' must remain denied');
+assert.equal(browserLinked.data.workspaceMembershipVerifiedByNexOffice,true);
+for(const pii of [merchantId,representativeUserId,workspaceId,nexofficeUserId,browserToken])
+  assert.equal(JSON.stringify(browserLinked.data).includes(pii),false,
+    'readiness must not expose user, company, tenant or token data');
+const unrelatedAfterBinding=await readCurrentWorkspace(browserToken,otherWorkspaceId);
+assert.equal(unrelatedAfterBinding.data.structuralBindingPresent,false,
+  'one company binding cannot appear in another workspace');
+
 for(const key of ['legalRepresentationVerified','pjApprovalVerified','ssoAvailable','financialAccess','sessionIssued']){
   assert.equal(matched.data[key],false,key+' must remain disabled even on structural match');
 }
@@ -80,7 +139,10 @@ for(const different of [
   assert.equal(result.data.bindingMatches,false,'tenant/user/company mismatch must fail');
 }
 sql(`UPDATE workspace_members SET active=false WHERE workspace_id='${workspaceId}'::uuid`);
+const revokedBrowser=await readCurrentWorkspace(browserToken,workspaceId);
+assert.equal(revokedBrowser.status,403,
+  'revoked member must not inspect even the company connection state');
 const revoked=await call(path,{merchantId,representativeUserId,workspaceId},auth);
 assert.equal(revoked.data.bindingMatches,false,'revoked membership must invalidate preflight');
 
-console.log('PASS: dedicated PJ key, strict request schema, legacy-source isolation, company/identity/tenant match, revoked membership, no session/financial access.');
+console.log('PASS: dedicated PJ backchannel and tenant-scoped browser preflight, PF/PJ and cross-workspace isolation, revocation, no tokens, money or corporate authority.');
