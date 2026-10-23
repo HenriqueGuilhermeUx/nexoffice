@@ -40,7 +40,7 @@ function parseAmount(value:string){
 function validDay(raw:string){
  const text=raw.trim(),d=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
  const value=d?[d[3],d[2],d[1]].join('-'):text;
- if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||new Date(value).toISOString().slice(0,10)!==value)throw new Error('Data inválida: '+raw);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value)throw new Error('Data inválida: '+raw);
  return value;
 }
 function csvFields(line:string,separator:string){
@@ -76,7 +76,7 @@ function parseCsv(text:string):CsvRow[]{
  });
 }
 async function request<T>(path:string,token:string,method='GET',data?:unknown):Promise<T>{
- const response=await fetch(API+path,{method,headers:{authorization:'Bearer '+token,'content-type':'application/json'},
+ const response=await fetch(API+path,{method,headers:{authorization:'Bearer '+token,...(data!==undefined?{'content-type':'application/json'}:{})},
   ...(data!==undefined?{body:JSON.stringify(data)}:{})});
  const body=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(body.message||body.error||'Não foi possível concluir esta ação.');
@@ -160,7 +160,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
    <p>Registre uma receita ou despesa. O saldo declarado só será ajustado se você marcar a opção.</p>
    <form className="np-studio-form" onSubmit={e=>submit(e,f=>({path:'/v1/personal/transactions/manual',method:'POST',payload:{
     accountId:field(f,'accountId'),bookedOn:field(f,'bookedOn'),description:field(f,'description'),
-    category:field(f,'category')||undefined,amountMinor:(field(f,'direction')==='expense'?'-':'')+parseAmount(field(f,'amount')),
+    category:field(f,'category')||undefined,amountMinor:String((field(f,'direction')==='expense'?-1n:1n)*BigInt(parseAmount(field(f,'amount'))<0n?-BigInt(parseAmount(field(f,'amount')):BigInt(parseAmount(field(f,'amount'))))),
     applyToBalance:f.get('applyToBalance')==='on'
    },success:'Movimentação registrada.'}))}>
     <label>Conta<select name="accountId" required>{data.accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
