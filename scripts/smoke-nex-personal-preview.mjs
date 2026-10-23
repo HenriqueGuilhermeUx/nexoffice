@@ -66,6 +66,37 @@ try{
  const studio=await call('/v1/personal/studio','GET',undefined,token);
  assert.equal(studio.body.totals.manualAvailableMinor,'10000');
  assert.equal(studio.body.provenance.verifiedBanking,false);
+
+ const agents=await call('/v1/personal/agents','GET',undefined,token);
+ assert.equal(agents.status,200,JSON.stringify(agents.body));
+ assert.equal(agents.body.agents.length,8,'Eight specialist agents must be discoverable');
+ const expected=['expenses','financial','planning','investments','shopping','simulations','payments','contracts'];
+ assert.deepEqual(agents.body.agents.map(a=>a.id),expected);
+ const anonAgent=await call('/v1/personal/agents/expenses/analyze','POST',{});
+ assert.equal(anonAgent.status,401,'Specialist data must require authentication');
+ for(const id of expected){
+   const request=id==='shopping'?{amountMinor:'25000',installments:2}
+    :id==='simulations'?{monthlyMinor:'35000',months:6,installments:1}
+    :id==='contracts'?{contractText:'Contrato com prazo e valor, mas sem cláusula de multa ou rescisão.'}
+    :{};
+   const result=await call('/v1/personal/agents/'+id+'/analyze','POST',request,token);
+   assert.equal(result.status,200,id+': '+JSON.stringify(result.body));
+   assert.ok(result.body.answer,id+': must return a grounded answer');
+   assert.equal(result.body.modelCalled,false);
+   assert.equal(result.body.externalEffect,false);
+   assert.equal(result.body.verifiedBanking,false);
+   assert.equal(result.body.canInitiatePayment,false);
+   if(id==='shopping')assert.match(result.body.answer,/R\$ 250,00/);
+   if(id==='simulations')assert.match(result.body.answer,/R\$ 2.100,00/);
+   if(id==='contracts')assert.ok(!JSON.stringify(result.body).includes('Contrato com prazo'),'Contract text must not be echoed');
+ }
+ const invalidAgent=await call('/v1/personal/agents/trade/analyze','POST',{},token);
+ assert.equal(invalidAgent.status,400,'Trading is not a supported action');
+ const malformed=await call('/v1/personal/agents/simulations/analyze','POST',{months:99999},token);
+ assert.equal(malformed.status,400,'Simulation inputs must be bounded');
+ const forged=await call('/v1/personal/agents/financial/analyze','POST',{ownerId:randomUUID()},token);
+ assert.equal(forged.status,400,'Client cannot change analysis owner');
+
  const logout=await call('/v1/auth/logout','POST',{},token);assert.equal(logout.status,200);
  const after=await call('/v1/personal/studio','GET',undefined,token);assert.equal(after.status,401);
  const loginRejected=await call('/v1/auth/login','POST',{email:'not-allowed@example.test',password:'SecurePass-123!'});
