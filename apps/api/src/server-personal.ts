@@ -9,6 +9,7 @@ import {ApiError,issueSession,revokeSession,verifyPassword} from './auth.js';
 import {runPersonalPreviewMigrations} from './personal-preview-migrations.js';
 import {registerNexPersonalRoutes} from './routes-nex-personal.js';
 import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
+import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
 import {registerPersonalPreviewStatic} from './personal-preview-static.js';
 
 if(process.env.NEX_PERSONAL_PREVIEW!=='true')throw new Error('NEX_PERSONAL_PREVIEW=true required for isolated preview');
@@ -87,6 +88,7 @@ app.post('/v1/auth/login',async req=>{
 app.post('/v1/auth/logout',async req=>{await revokeSession(req);return {ok:true}});
 await registerNexPersonalRoutes(app);
 await registerNexPersonalStudioRoutes(app);
+await registerNexPersonalAgentsRoutes(app);
 await registerPersonalPreviewStatic(app);
 
 app.setErrorHandler((error,req,reply)=>{
