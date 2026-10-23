@@ -4,6 +4,7 @@ import NexPersonalStudio from './NexPersonalStudio';
 
 const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
 const TOKEN_KEY='nex.personal.token';
+const PREVIEW=import.meta.env.VITE_PERSONAL_STAGING==='true';
 type PersonalMe={user:{id:string;name:string;email:string};activated:boolean};
 type Overview={
   currency:string;connectedAccounts:number;freshAccounts:number;manualAccounts?:number;manualAvailableMinor?:string|null;
@@ -78,7 +79,7 @@ export default function NexPersonal(){
     const payload={email:String(data.get('email')||''),password:String(data.get('password')||'')};
     const path=mode==='register'?'/v1/personal/auth/register':'/v1/auth/login';
     try{
-      const response=await request<{token:string}>(path,{method:'POST',body:JSON.stringify(mode==='register'?{...payload,name:String(data.get('name')||'')}:payload)},'');
+      const response=await request<{token:string}>(path,{method:'POST',body:JSON.stringify(mode==='register'?{...payload,name:String(data.get('name')||''),...(PREVIEW?{previewInviteCode:String(data.get('previewInviteCode')||'')}:{} )}:payload)},'');
       sessionStorage.setItem(TOKEN_KEY,response.token);setToken(response.token);
     }catch(err){setError(err instanceof Error?err.message:'Falha de autenticação.');}
     finally{setBusy(false);}
@@ -103,6 +104,7 @@ export default function NexPersonal(){
       <p>Organize contas, acompanhe gastos e tome decisões mais inteligentes. Seu dinheiro permanece nos seus bancos.</p>
       <form onSubmit={submitAuth}>
         {mode==='register'&&<label>Seu nome<input name="name" type="text" autoComplete="name" required minLength={2}/></label>}
+        {mode==='register'&&PREVIEW&&<label>Código de convite para homologação<input name="previewInviteCode" type="password" autoComplete="off" minLength={8} maxLength={128} required/></label>}
         <label>E-mail<input name="email" type="email" autoComplete="email" required/></label>
         <label>Senha<input name="password" type="password" autoComplete={mode==='register'?'new-password':'current-password'} minLength={mode==='register'?8:1} required/></label>
         {error&&<div className="np-error" role="alert">{error}</div>}
