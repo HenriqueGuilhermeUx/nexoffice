@@ -74,7 +74,7 @@ export function cleanTransactionDescription(raw:string){
   .replace(/\s+/g,' ').trim()||'Movimentação';
 }
 function validDate(s:string){
- if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||new Date(s).toISOString().slice(0,10)!==s)
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(Date.parse(s))||new Date(s).toISOString().slice(0,10)!==s)
    throw new Error('Data inválida.');
 }
 function positiveInt(s:string,maxDigits=32){
