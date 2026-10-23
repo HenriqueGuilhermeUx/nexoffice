@@ -17,6 +17,8 @@ jobs:
       - name: Audit dependencies for high severity vulnerabilities
         run: npm audit --audit-level=high
       - run: npm run build
+      - name: Smoke test bank and on-chain transaction ETL
+        run: node scripts/smoke-nex-personal-etl.mjs
       - name: Smoke test Nex Personal CSV and OFX parser
         run: node --experimental-strip-types scripts/smoke-nex-personal-parser.mjs
       - name: Smoke test Nex Personal FGC and bank-fee draft
