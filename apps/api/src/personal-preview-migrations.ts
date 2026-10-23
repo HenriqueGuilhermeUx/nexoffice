@@ -5,7 +5,8 @@ import pg from 'pg';
 const migrationPaths=[
  'infra/personal-preview/001_identity.sql',
  'infra/postgres/046_nex_personal_foundation.sql',
- 'infra/postgres/047_nex_personal_planning.sql'
+ 'infra/postgres/047_nex_personal_planning.sql',
+ 'infra/postgres/048_nex_personal_life_os.sql'
 ];
 /** Refuse to bootstrap preview tables inside business or unknown existing databases. */
 export async function runPersonalPreviewMigrations(){
