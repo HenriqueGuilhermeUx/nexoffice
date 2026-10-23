@@ -8,7 +8,7 @@ import {query} from './db.js';
  * No external LLM/provider, trading, payment initiation, custody or PJ data.
  * Contract text is processed in memory and never stored in DB, audit or logs.
  */
-const ids=['expenses','financial','planning','investments','shopping','simulations','payments','contracts'] as const;
+const ids=['expenses','financial','planning','investments','shopping','simulations','payments','contracts','public_services','debt_review','legal_support'] as const;
 type AgentId=typeof ids[number];
 const inputSchema=z.object({
   amountMinor:z.string().regex(/^\d{1,12}$/).refine(v=>BigInt(v)>0n).optional(),
@@ -30,7 +30,10 @@ const catalog=[
  {id:'shopping',name:'Faro',role:'Compras inteligentes',status:'available',description:'Avalia impacto de compras e parcelas com os dados disponíveis.',prompt:'Quanto impactaria essa compra?',icon:'cart'},
  {id:'simulations',name:'Cenário',role:'Simulador financeiro',status:'available',description:'Projeções de poupança e parcelas sem rendimentos presumidos.',prompt:'Simular meu planejamento',icon:'calculator'},
  {id:'payments',name:'Fluxo',role:'Contas e pagamentos',status:'limited',description:'Organiza vencimentos; Pix, boletos e pagamentos reais desativados.',prompt:'Quais contas estão para vencer?',icon:'calendar'},
- {id:'contracts',name:'Clara',role:'Leitura de contratos',status:'limited',description:'Checklist de cláusulas em texto colado, sem conclusão jurídica.',prompt:'Quero revisar cláusulas',icon:'file'}
+ {id:'contracts',name:'Clara',role:'Leitura de contratos',status:'limited',description:'Checklist de cláusulas em texto colado, sem conclusão jurídica.',prompt:'Quero revisar cláusulas',icon:'file'},
+ {id:'public_services',name:'Cida',role:'Serviços públicos',status:'limited',description:'Orienta IPTU, agendamento da CIN, licenças municipais e Detran.',prompt:'Como faço este serviço?',icon:'landmark'},
+ {id:'debt_review',name:'Recomeço',role:'Revisão de dívidas',status:'limited',description:'Simula renegociações informadas, sem consultar CPF ou Serasa.',prompt:'Quero revisar uma dívida',icon:'scale'},
+ {id:'legal_support',name:'Lia',role:'Orientação jurídica inicial',status:'limited',description:'Checklist de contratos, dívidas, condomínio e relações de trabalho.',prompt:'Tenho uma dúvida jurídica',icon:'book'}
 ] as const;
 
 async function personalOwner(req:FastifyRequest){
@@ -146,6 +149,24 @@ export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
     facts=upcoming.slice(0,6).map(b=>b.name+': '+fmt(b.amount_minor)+' · '+(b.next_due_on instanceof Date?b.next_due_on.toISOString().slice(0,10):String(b.next_due_on).slice(0,10)));
     facts.push('Nenhum Pix, boleto ou pagamento é iniciado pela homologação.');
     sources=['lembretes cadastrados'];limitation='A Efí e pagamentos reais ainda não estão habilitados. Marcar lembrete não paga a conta.';break;
+   }
+   case 'public_services': {
+    title='Orientação para serviços públicos';
+    answer='O roteiro inicial para IPTU, CIN, alvarás e Detran está disponível na interface do navegador. O órgão responsável, prazos e documentos dependem da localidade.';
+    facts=['Não solicitamos CPF, documentos, login ou senha gov.br.','Confira as instruções e utilize apenas o portal oficial do órgão.'];
+    sources=['orientações governamentais públicas'];limitation='Nenhum agendamento ou documento é emitido automaticamente.';break;
+   }
+   case 'debt_review': {
+    title='Revisão inicial de dívidas';
+    answer='Compare propostas informadas por você na ferramenta local. Para consultas reais, utilize canais oficiais do BC e da Serasa.';
+    facts=['Solicite memória de cálculo e condições por escrito.','Nunca envie Pix sem confirmar a titularidade do beneficiário.'];
+    sources=['guia educativo sem consulta a CPF'];limitation='Não há conexão com Serasa, negociação ou acordos pré-aprovados.';break;
+   }
+   case 'legal_support': {
+    title='Checklist jurídico preliminar';
+    answer='O checklist local pode ajudar a organizar dúvidas sobre contratos, dívidas, condomínio ou questões trabalhistas.';
+    facts=['Os dados digitados no checklist local não são enviados para esta API.','Questões específicas, urgentes ou litigiosas exigem avaliação profissional.'];
+    sources=['orientações gerais'];limitation='Não substitui advogado, Defensoria Pública ou órgão competente. Sem integração ativa com plataforma jurídica.';break;
    }
    case 'contracts': {
     title='Checklist de leitura contratual';
