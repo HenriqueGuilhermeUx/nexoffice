@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent,type ReactNode} from 'react';
 import {api,patch,post,put,session,type Workspace} from './api';
 import ContaNexa from './ContaNexa';
-import {PjOffice2D,PjAgentDirectory,PJ_SECTORS} from './PjOffice';
+import {PjOffice2D,PjAgentDirectory} from './PjOffice';
 import MarketingCenter from './MarketingCenter';
 import ComplianceCenter from './ComplianceCenter';
 import MaterialsCenter from './MaterialsCenter';
@@ -36,7 +36,7 @@ const productName=nexaPjBuild?'Nexa PJ':'NexOffice';
 const productTagline=nexaPjBuild?'Sua empresa e suas finanças em um só lugar.':'O sistema operacional do seu negócio.';
 export default function App(){
   const [authReady,setAuthReady]=useState(false);const [user,setUser]=useState<any>(null);const [workspaces,setWorkspaces]=useState<Workspace[]>([]);
-  const [view,setView]=useState('command');const [pjSector,setPjSector]=useState('');const [dashboard,setDashboard]=useState<Dashboard>({});const [actions,setActions]=useState<Action[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [deals,setDeals]=useState<Deal[]>([]);const [ledger,setLedger]=useState<Ledger[]>([]);const [tasks,setTasks]=useState<Task[]>([]);const [appointments,setAppointments]=useState<Appointment[]>([]);const [policies,setPolicies]=useState<Policy[]>([]);const [integrations,setIntegrations]=useState<Integration[]>([]);const [members,setMembers]=useState<Member[]>([]);const [accounts,setAccounts]=useState<FinanceAccount[]>([]);
+  const [view,setView]=useState('command');const [dashboard,setDashboard]=useState<Dashboard>({});const [actions,setActions]=useState<Action[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [deals,setDeals]=useState<Deal[]>([]);const [ledger,setLedger]=useState<Ledger[]>([]);const [tasks,setTasks]=useState<Task[]>([]);const [appointments,setAppointments]=useState<Appointment[]>([]);const [policies,setPolicies]=useState<Policy[]>([]);const [integrations,setIntegrations]=useState<Integration[]>([]);const [members,setMembers]=useState<Member[]>([]);const [accounts,setAccounts]=useState<FinanceAccount[]>([]);
   const [modal,setModal]=useState<string|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
 
   const loadMe=useCallback(async()=>{const me=await api<any>('/v1/auth/me');setUser(me.user);setWorkspaces(me.workspaces||[]);if(!session.workspace()&&me.workspaces?.[0])session.setWorkspace(me.workspaces[0].id);const invite=new URLSearchParams(location.search).get('invite');if(invite){try{const accepted=await post<any>('/v1/invites/accept',{token:invite});if(accepted.workspaceId)session.setWorkspace(accepted.workspaceId);history.replaceState({},'',location.pathname)}catch{} }return me},[]);
@@ -85,7 +85,7 @@ export default function App(){
   return <div className="shell">
     <aside className="sidebar"><div className="brand"><div className="brandMark">N</div><div><strong>{productName}</strong><small>{productTagline}</small></div></div><nav>{nav.map(([key,label,icon])=><button key={key} className={view===key?'active':''} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sideFoot"><div className="statusDot"/> Core v0.2 · Live</div></aside>
     <main><header className="topbar"><div><p className="eyebrow">{nexaPjBuild?'NEXA PJ':'NEXOFFICE'}</p><h1>{view==='conta-nexa'?'Conta Nexa':title(view)}</h1><p>{productTagline}</p></div><div className="topActions"><select value={activeWorkspace?.id||''} onChange={e=>switchWorkspace(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select><div className="userChip"><b>{user.name}</b><small>{activeWorkspace?.role}</small></div><button className="ghost" onClick={async()=>{try{await post('/v1/auth/logout',{})}catch{}session.clear();location.reload()}}>Sair</button></div></header>
-    <section className="content">{nexaPjBuild&&<div className="pj-sector-bar"><label htmlFor="pj-sector">Setor da empresa</label><select id="pj-sector" value={pjSector} onChange={e=>setPjSector(e.target.value)}><option value="">Selecionar para explorar</option>{PJ_SECTORS.map(sector=><option key={sector} value={sector}>{sector}</option>)}</select><small>Prévia de organização; não altera o onboarding ou as permissões do workspace.</small></div>}{error&&<div className="errorBanner">{error}<button onClick={()=>setError('')}>×</button></div>}{busy&&<div className="busyLine"/>}{renderView()}</section></main>
+    <section className="content">{nexaPjBuild&&<div className="pj-sector-bar"><strong>ERP do seu setor:</strong><span>{({general:"Geral",legal:"Jurídico",health:"Saúde",condo:"Condomínios",commerce:"Comércio"} as Record<string,string>)[activeWorkspace?.vertical||"general"]||activeWorkspace?.vertical||"Geral"}</span><button type="button" onClick={()=>setView("office-2d")}>Explorar escritório 2D →</button><small>Perfil definido no cadastro desta empresa. Alterações de setor dependem das configurações autorizadas do workspace.</small></div>}{error&&<div className="errorBanner">{error}<button onClick={()=>setError('')}>×</button></div>}{busy&&<div className="busyLine"/>}{renderView()}</section></main>
     {modal&&<Modal onClose={()=>setModal(null)}>{renderModal()}</Modal>}
   </div>;
 
