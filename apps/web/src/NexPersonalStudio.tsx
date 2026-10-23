@@ -18,7 +18,7 @@ type Studio={
  maya:{mode:string;externalModelCalled:boolean;insights:Insight[]};
  provenance:{accounts:string;expenses:string;verifiedBanking:boolean;note:string};
 };
-const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
+const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
 function formatMinor(v:string|null|undefined){
  if(v==null)return '—';
@@ -43,8 +43,10 @@ function signedAmount(value:string,direction:string){
  return String(direction==='expense'?-absolute:absolute);
 }
 async function request<T>(path:string,token:string,method='GET',data?:unknown):Promise<T>{
- const response=await fetch(API+path,{method,headers:{authorization:'Bearer '+token,...(data!==undefined?{'content-type':'application/json'}:{})},
-  ...(data!==undefined?{body:JSON.stringify(data)}:{})});
+ let response:Response;
+ try{response=await fetch(API+path,{method,headers:{authorization:'Bearer '+token,...(data!==undefined?{'content-type':'application/json'}:{})},
+  ...(data!==undefined?{body:JSON.stringify(data)}:{})});}
+ catch{throw new Error('Não foi possível conectar ao Nex Personal. Tente recarregar a página.');}
  const body=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(body.message||body.error||'Não foi possível concluir esta ação.');
  return body as T;
@@ -63,7 +65,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  const [csvName,setCsvName]=useState('');
  const [mayaQuestion,setMayaQuestion]=useState('');
  const [mayaAnswer,setMayaAnswer]=useState('');
- const load=useCallback(async()=>{setData(await request<Studio>('/v1/personal/studio',token));},[token]);
+ const load=useCallback(async()=>{const next=await request<Studio>('/v1/personal/studio',token);setData(next);setError('');},[token]);
  useEffect(()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Erro ao carregar.')).finally(()=>setLoading(false));},[load]);
  const accountId=selectedAccount||data?.accounts[0]?.id||'';
  async function action(path:string,method:string,payload?:unknown,success='Informações salvas.'){
@@ -104,7 +106,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
   finally{setBusy(false);}
  }
  if(loading)return <section className="np-panel">Preparando suas finanças pessoais…</section>;
- if(!data)return <section className="np-panel"><p>{error||'Dados ainda não disponíveis.'}</p><button className="np-text-button" onClick={()=>void load()}>Tentar novamente</button></section>;
+ if(!data)return <section className="np-panel"><p>{error||'Dados ainda não disponíveis.'}</p><button className="np-primary" onClick={()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Falha de conexão.')).finally(()=>setLoading(false));}}>Tentar novamente</button></section>;
  const common=<>{error&&<p className="np-error" role="alert">{error}</p>}{notice&&<p className="np-studio-success" role="status">{notice}</p>}</>;
  return <div className="np-studio">
  {common}
