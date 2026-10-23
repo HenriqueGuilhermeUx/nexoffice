@@ -2,6 +2,7 @@ import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
 import NexPersonalAgents from './NexPersonalAgents';
+import NexPersonalLifeOffice from './NexPersonalLifeOffice';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 const TOKEN_KEY='nex.personal.token';
@@ -48,7 +49,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'today'|'money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy'>('today');
+  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy'>('office');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -102,9 +103,9 @@ export default function NexPersonal(){
   if(!token)return <div className="np-root np-auth">
     <main className="np-auth-card">
       <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
-      <div className="np-auth-kicker">Todos os seus bancos. Uma só inteligência.</div>
-      <h1>Sua vida financeira merece clareza.</h1>
-      <p>Organize contas, acompanhe gastos e tome decisões mais inteligentes. Seu dinheiro permanece nos seus bancos.</p>
+      <div className="np-auth-kicker">Sua vida mais simples. Seu tempo de volta.</div>
+      <h1>Uma equipe para facilitar a sua vida.</h1>
+      <p>Dinheiro, compras, planejamento, documentos, família e mais. Escolha o que importa para você. Seus dados permanecem separados e sob seu controle.</p>
       <form onSubmit={submitAuth}>
         {mode==='register'&&<label>Seu nome<input name="name" type="text" autoComplete="name" required minLength={2}/></label>}
         {mode==='register'&&PREVIEW&&<label>Código de convite para homologação<input name="previewInviteCode" type="password" autoComplete="off" minLength={8} maxLength={128} required/></label>}
@@ -134,13 +135,14 @@ export default function NexPersonal(){
     <aside className="np-sidebar">
       <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
       <div className="np-sidebar-bottom"><span>O Nex Personal não mantém custódia de dinheiro.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
     <main className="np-main">
-      <header className="np-top"><div><div className="np-kicker">NEX PERSONAL · VISÃO UNIFICADA</div><h1>Olá, {displayName}.</h1><p>Entenda seu dinheiro. Decida com tranquilidade.</p></div><span className="np-pill">Sem transferências reais</span></header>
+      <header className="np-top"><div><div className="np-kicker">NEX PERSONAL · SUA VIDA, UM SÓ LUGAR</div><h1>Olá, {displayName}.</h1><p>Sua vida mais simples. Seu tempo de volta.</p></div><span className="np-pill">Sem transferências reais</span></header>
       {error&&<div className="np-error" role="alert">{error}</div>}
+      {section==='office'&&<NexPersonalLifeOffice token={token} onOpenSection={setSection}/>}
       {section==='today'&&<>
         <div className="np-stats">
           <div className="np-stat"><span>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Disponível conectado':'Saldo declarado'}</span><strong>{money(overview?.availableMinor??overview?.manualAvailableMinor)}</strong><small>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Saldo informado pelas instituições':'Informado por você · sem verificação bancária'}</small></div>
