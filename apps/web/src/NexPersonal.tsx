@@ -3,6 +3,7 @@ import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
 import NexPersonalAgents,{type AgentId} from './NexPersonalAgents';
 import NexPersonalLifeOffice from './NexPersonalLifeOffice';
+import PersonalPrivacyCenter from './PersonalPrivacyCenter';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 const TOKEN_KEY='nex.personal.token';
@@ -168,10 +169,7 @@ export default function NexPersonal(){
       {section==='wealth'&&<NexPersonalStudio view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
             {section==='maya'&&<NexPersonalStudio view="maya" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='privacy'&&<section className="np-panel"><h2>Privacidade e consentimentos</h2><p>Seus dados PF não são compartilhados com nenhum workspace empresarial. Ofertas personalizadas e compartilhamento com parceiros dependem de autorizações separadas.</p>
-        {consents.length===0?<p className="np-empty">Nenhum consentimento registrado. A conexão Open Finance permanece indisponível até a integração real.</p>:consents.map(c=><div key={c.id} className="np-line"><strong>{c.purpose}</strong><span>{c.status} · {when(c.created_at)}</span></div>)}
-        <p className="np-footnote">Não vendemos sua base de dados. O Nex Personal não é banco nem custodiante.</p>
-      </section>}
+      {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
     </main>
   </div>;
 }
