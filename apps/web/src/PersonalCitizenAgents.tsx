@@ -102,7 +102,7 @@ export default function PersonalCitizenAgents({agent}:{agent:CitizenAgent}){
      <option value="contracts">Contratos e cláusulas</option><option value="debt">Cobranças e renegociação</option>
      <option value="condo">Condomínio e assembleias</option><option value="labor">Questões trabalhistas</option>
     </select></label>
-    <label className="np-citizen-wide">Trecho sem informações pessoais (opcional)<textarea value={legalBody} onChange={e=>{setLegalBody(e.target.value.slice(0,4000));setLegalResult(null);}} rows={5} maxLength={4000} placeholder="Cole apenas cláusulas não sensíveis. Nada é transmitido. Sem documento, a Lia apresenta um checklist geral."/></label>
+    <label className="np-citizen-wide">Trecho sem informações pessoais (opcional)<textarea value={legalBody} onChange={e=>{setLegalBody(e.target.value.slice(0,4000));setLegalResult(null);}} rows={5} maxLength={4000} placeholder="Cole apenas cláusulas não sensíveis. Nada é transmitido. Sem documento, a Bella apresenta um checklist geral."/></label>
     <button type="submit" className="np-primary">Ver pontos de atenção</button>
    </form>
    {legalResult&&<div className="np-citizen-result" role="status">
