@@ -51,3 +51,9 @@
 .np-life-policy strong{font-size:13px}.np-life-policy p{font-size:12px;margin:10px 0 3px}
 @media(max-width:1120px){.np-life-floor{grid-template-columns:repeat(3,minmax(0,1fr))}.np-life-columns{grid-template-columns:1fr}}
 @media(max-width:650px){.np-life-hero{flex-direction:column;align-items:stretch;padding:19px}.np-life-floor{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:7px}.np-life-room{min-height:124px;padding:12px 7px 20px}.np-life-room strong{font-size:12px}.np-life-room small{font-size:9px}.np-life-corridor{font-size:9px;justify-content:center}.np-life-corridor span:first-child,.np-life-corridor span:last-child{display:none}.np-life-map-wrap{padding:9px}.np-life-map-head{flex-direction:column;align-items:start}.np-life-journeys{grid-template-columns:1fr}.np-life-detail{padding:18px}.np-life-header-row{flex-direction:column}.np-life-room-detail-head{align-items:start}}
+
+.np-life-nudge{background:#fff9ec;border:1px solid #f0d6a5;padding:19px 22px;border-radius:16px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.np-life-nudge .np-kicker{display:block;margin:0 0 8px;color:#a96914}
+.np-life-nudge strong{font-size:16px;color:#694e20}
+.np-life-nudge p{margin:6px 0 0;font-size:12px;color:#806c4b}
+@media(max-width:650px){.np-life-nudge{flex-direction:column;align-items:start}}
