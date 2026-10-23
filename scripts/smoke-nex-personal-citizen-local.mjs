@@ -33,7 +33,7 @@ assert.ok(!draft.includes('CPF'));
 const legal=legalChecklist('labor','O contrato estipula salário, mas não indica jornada, férias ou rescisão.');
 assert.equal(legal.reviewed,true);
 assert.ok(legal.missing.length>=1);
-assert.match(legal.disclaimer,/não análise jurídica/);
+assert.match(legal.disclaimer,/sem análise jurídica/);
 assert.ok(legalChecklist('condo','').missing.length>0);
 
 for(const file of [
