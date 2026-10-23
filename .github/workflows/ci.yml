@@ -209,6 +209,9 @@ jobs:
             if ! curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1; then break; fi
             sleep 1
           done
+      - name: Refuse preview schema on any existing NexOffices business DB
+        run: |
+          node --input-type=module -e "import {runPersonalPreviewMigrations} from './apps/api/dist/personal-preview-migrations.js'; try{await runPersonalPreviewMigrations(); process.exitCode=1;}catch(e){if(!String(e.message).includes('REFUSING preview migration')){console.error(e.message);process.exitCode=1;}else{console.log('Existing business DB rejected safely.');}}"
       - name: Create disposable Nex Personal database
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nex_personal_preview_ci'
       - name: Start isolated Nex Personal preview API
