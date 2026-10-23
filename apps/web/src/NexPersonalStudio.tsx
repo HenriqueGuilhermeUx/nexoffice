@@ -37,6 +37,11 @@ function parseAmount(value:string){
  const [whole,decimal='']=s.split('.');
  return (neg?'-':'')+String(BigInt(whole)*100n+BigInt((decimal+'00').slice(0,2)));
 }
+function signedAmount(value:string,direction:string){
+ const n=BigInt(parseAmount(value)),absolute=n<0n?-n:n;
+ if(absolute===0n)throw new Error('O valor da movimentação precisa ser diferente de zero.');
+ return String(direction==='expense'?-absolute:absolute);
+}
 function validDay(raw:string){
  const text=raw.trim(),d=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
  const value=d?[d[3],d[2],d[1]].join('-'):text;
@@ -160,7 +165,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
    <p>Registre uma receita ou despesa. O saldo declarado só será ajustado se você marcar a opção.</p>
    <form className="np-studio-form" onSubmit={e=>submit(e,f=>({path:'/v1/personal/transactions/manual',method:'POST',payload:{
     accountId:field(f,'accountId'),bookedOn:field(f,'bookedOn'),description:field(f,'description'),
-    category:field(f,'category')||undefined,amountMinor:String((field(f,'direction')==='expense'?-1n:1n)*BigInt(parseAmount(field(f,'amount'))<0n?-BigInt(parseAmount(field(f,'amount')):BigInt(parseAmount(field(f,'amount'))))),
+    category:field(f,'category')||undefined,amountMinor:signedAmount(field(f,'amount'),field(f,'direction')),
     applyToBalance:f.get('applyToBalance')==='on'
    },success:'Movimentação registrada.'}))}>
     <label>Conta<select name="accountId" required>{data.accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
