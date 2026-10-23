@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useState} from 'react';
 import './nex-personal-life-office.css';
 
-type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments';
+type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments'|'marketing'|'offers';
 type Kind='buy_car'|'trip'|'email'|'family_study'|'health_organize'|'investment_review'|'publish'|'documents'|'buy_phone'|'family_planning';
 type Route='money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy';
 type Agent='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts';
@@ -20,7 +20,9 @@ const ROOMS:ReadonlyArray<Room>=[
  {id:'work',title:'Meu dia',emoji:'🗓️',agent:'Assistente pessoal',source:'Staff',ready:false,description:'Futuro: agenda, lembretes, reuniões, veículos e tarefas com controles próprios.',tag:'Integração planejada'},
  {id:'travel',title:'Viagens e lazer',emoji:'🧳',agent:'Concierge de viagens',source:'Parceiros futuros',ready:false,description:'Planejamento de viagens, hotéis e aluguel, com comparação transparente antes da compra.',tag:'Jornada disponível'},
  {id:'vehicle',title:'Mobilidade',emoji:'🚘',agent:'Concierge automotivo',source:'Staff + DocWallet',ready:false,description:'Jornada de compra e venda de carro, documentação, financiamento e anúncio.',tag:'Jornada disponível'},
- {id:'family',title:'Casa e família',emoji:'🏠',agent:'Organizador familiar',source:'Staff + Mindsteps',ready:false,description:'Calendário doméstico e estudos, sem coleta automática de dados de menores.',tag:'Jornada disponível'}
+ {id:'family',title:'Casa e família',emoji:'🏠',agent:'Organizador familiar',source:'Staff + Mindsteps',ready:false,description:'Calendário doméstico e estudos, sem coleta automática de dados de menores.',tag:'Jornada disponível'},
+ {id:'marketing',title:'Criação e mídia',emoji:'🎨',agent:'Criador de conteúdo',source:'MODO',ready:false,description:'Preparar publicações, anúncios e peças para aprovação do cliente. Integração autenticada com MODO ainda pendente.',tag:'Integração planejada'},
+ {id:'offers',title:'Oportunidades',emoji:'🎁',agent:'Curadoria imparcial',source:'Marketplace',ready:false,description:'Futuro catálogo multiparceiro. Ofertas patrocinadas identificadas, comissões claras, sem uso de dados sensíveis.',tag:'Marketplace futuro'}
 ];
 const JOURNEYS:ReadonlyArray<{kind:Kind;title:string;summary:string;room:Area;steps:string[];route?:Route}>=[
  {kind:'buy_car',title:'Comprar ou trocar de carro',room:'vehicle',summary:'Da escolha à venda do usado, documentação e financiamento.',steps:['Definir faixa de preço e custo total','Comparar propostas e CET de financiamento','Revisar documentação e contrato','Preparar anúncio do carro anterior'],route:'agents'},
@@ -31,7 +33,7 @@ const JOURNEYS:ReadonlyArray<{kind:Kind;title:string;summary:string;room:Area;st
  {kind:'documents',title:'Criar ou revisar um contrato',room:'documents',summary:'Do checklist até assinatura, quando conectada.',steps:['Organizar objeto, partes e prazos','Revisar cláusulas relevantes','Gerar minuta e enviar para assinatura com autorização'],route:'agents'},
  {kind:'family_study',title:'Apoiar estudos da família',room:'education',summary:'Organização educacional com respeito à privacidade.',steps:['Escolher uma matéria ou objetivo de estudo','Criar roteiro e exercícios','Revisar evolução sem publicidade dirigida a menores']},
  {kind:'health_organize',title:'Organizar cuidados de saúde',room:'health',summary:'Lembretes e informações de saúde em ambiente separado.',steps:['Definir quais serviços deseja acessar','Autorizar separadamente a Health Wallet quando disponível','Consultar informações sem compartilhar dados com anúncios']},
- {kind:'publish',title:'Criar uma publicação',room:'work',summary:'Ideia, texto e divulgação com MODO.',steps:['Definir público e objetivo da publicação','Criar rascunho e visual','Publicar somente após revisar e autorizar']},
+ {kind:'publish',title:'Criar uma publicação',room:'marketing',summary:'Ideia, texto e divulgação com MODO.',steps:['Definir público e objetivo da publicação','Criar rascunho e visual','Publicar somente após revisar e autorizar']},
  {kind:'family_planning',title:'Organizar o mês em casa',room:'family',summary:'Compromissos familiares e contas recorrentes.',steps:['Listar prioridades do mês','Criar lembretes e orçamento','Revisar antes de assumir novos compromissos'],route:'planning'}
 ];
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true'?'':((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
