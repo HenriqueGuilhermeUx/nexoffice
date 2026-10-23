@@ -56,6 +56,60 @@ export function compareUserQuotes(a:UserQuote,b:UserQuote){
    'Nenhuma proposta foi enviada, contratada, compartilhada com parceiro ou usada para anúncios.'
   ],revenueFromCommissions:false,partnerConnected:false,userDataShared:false,externalEffect:false};
 }
+/**
+ * Future partner-feed contract only. NO source calls or runtime partner offers.
+ * Payout and sponsorship must NEVER be ranking criteria.
+ */
+export type ContractedCreditOffer={
+ id:string;providerName:string;
+ principalMinor:string;termMonths:number;totalPayableMinor:string;
+ cetAnnualBps:number;platformCommissionMinor:string;
+ sponsored:boolean;sourceVerified:boolean;validUntil:string
+};
+export function assessVerifiedCreditOffers(
+ offers:ContractedCreditOffer[],comparison:{principalMinor:string;termMonths:number},asOf:string
+){
+ if(offers.length>50)throw Error('Catálogo excede o limite da comparação.');
+ const principal=cents(comparison.principalMinor);
+ if(!Number.isSafeInteger(comparison.termMonths)||comparison.termMonths<1||comparison.termMonths>360)
+  throw Error('Prazo de comparação inválido.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(asOf)||Number.isNaN(Date.parse(asOf))||
+   new Date(asOf).toISOString().slice(0,10)!==asOf)throw Error('Data da comparação inválida.');
+ const skipped:string[]=[];
+ const accepted:Array<{offer:ContractedCreditOffer;cost:bigint}>=[];
+ const ids=new Set<string>();
+ for(const offer of offers){
+  if(!/^[a-zA-Z0-9_-]{1,80}$/.test(offer.id)||ids.has(offer.id))
+   throw Error('Identificador de proposta inválido ou repetido.');
+  ids.add(offer.id);
+  if(!offer.sourceVerified||offer.validUntil<asOf||!offer.providerName.trim()||offer.providerName.length>100){
+   skipped.push(offer.id);continue;
+  }
+  if(offer.principalMinor!==comparison.principalMinor||offer.termMonths!==comparison.termMonths){
+   skipped.push(offer.id);continue;
+  }
+  if(!Number.isSafeInteger(offer.cetAnnualBps)||offer.cetAnnualBps<0||offer.cetAnnualBps>1000000){
+   skipped.push(offer.id);continue;
+  }
+  const cost=cents(offer.totalPayableMinor),commission=cents(offer.platformCommissionMinor,true);
+  if(cost<principal||commission>cost){skipped.push(offer.id);continue;}
+  accepted.push({offer,cost});
+ }
+ const sortNeutral=(a:{offer:ContractedCreditOffer;cost:bigint},b:{offer:ContractedCreditOffer;cost:bigint})=>
+  a.cost===b.cost?a.offer.cetAnnualBps-b.offer.cetAnnualBps||a.offer.id.localeCompare(b.offer.id):
+   a.cost<b.cost?-1:1;
+ const organic=accepted.filter(x=>!x.offer.sponsored).sort(sortNeutral);
+ const sponsored=accepted.filter(x=>x.offer.sponsored).sort(sortNeutral);
+ return {
+  organic:organic.map(x=>x.offer),
+  sponsored:sponsored.map(x=>x.offer),
+  skipped,
+  rankingBasis:'total_payable_then_cet_for_equal_principal_and_term',
+  commissionsUsedInRanking:false,externalEffect:false,
+  disclosure:'Propostas precisam ter fonte verificável, CET e validade. Patrocínios são mostrados à parte, sem alterar a ordenação neutra.'
+ };
+}
+
 export const FUTURE_MARKETPLACE_CAPABILITIES=[
  {id:'credit',label:'Crédito e financiamento',role:'Correspondente/parceiro autorizado',status:'not_connected'},
  {id:'investment',label:'Investimentos',role:'Intermediário/distribuidor autorizado',status:'not_connected'},
