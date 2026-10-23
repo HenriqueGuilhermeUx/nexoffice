@@ -51,7 +51,7 @@ export default function PersonalCitizenAgents({agent}:{agent:CitizenAgent}){
  return <div className="np-citizen-tool">
   <div className="np-citizen-privacy"><span aria-hidden="true">🔒</span><strong>Cálculo local e confidencial.</strong> O conteúdo desta ferramenta não é enviado para a API, a publicidade ou outros aplicativos. Não cole senhas, CPF ou informações de terceiros.</div>
   {agent==='public_services'&&<>
-   <div className="np-citizen-lead"><span className="np-kicker">CIDA · SERVIÇOS PÚBLICOS</span><h3>Encontre o caminho certo para resolver.</h3><p>IPTU, identidade, alvará e Detran. A Cida apresenta o roteiro inicial e encaminha para órgãos oficiais; nunca solicita documentos ou senhas governamentais.</p></div>
+   <div className="np-citizen-lead"><span className="np-kicker">THEO · SERVIÇOS PÚBLICOS</span><h3>Encontre o caminho certo para resolver.</h3><p>IPTU, identidade, alvará e Detran. O Theo apresenta o roteiro inicial e encaminha para órgãos oficiais; nunca solicita documentos ou senhas governamentais.</p></div>
    <form className="np-citizen-form" onSubmit={e=>{e.preventDefault();setError('');setGuide(citizenGuide(task,city,state));}}>
     <label>O que deseja fazer?<select value={task} onChange={e=>{setTask(e.target.value as CitizenTask);setGuide(null);}}>
       <option value="iptu">Emitir 2ª via de IPTU</option><option value="identity">Agendar nova identidade (CIN)</option>
@@ -68,7 +68,7 @@ export default function PersonalCitizenAgents({agent}:{agent:CitizenAgent}){
    <p className="np-citizen-small">Municípios possuem sistemas e exigências diferentes. Não inventamos links municipais nem emitimos guias. Confira sempre o domínio oficial do órgão.</p>
   </>}
   {agent==='debt_review'&&<>
-   <div className="np-citizen-lead"><span className="np-kicker">RECOMEÇO · DÍVIDAS E NEGOCIAÇÃO</span><h3>Compare antes de aceitar qualquer acordo.</h3><p>Analise o custo nominal e o impacto mensal de uma proposta informada por você. Nenhum dado do seu CPF é consultado, e não existe oferta Serasa integrada nesta fase.</p></div>
+   <div className="np-citizen-lead"><span className="np-kicker">JOCA · DÍVIDAS E NEGOCIAÇÃO</span><h3>Compare antes de aceitar qualquer acordo.</h3><p>Analise o custo nominal e o impacto mensal de uma proposta informada por você. Nenhum dado do seu CPF é consultado, e não existe oferta Serasa integrada nesta fase.</p></div>
    <div className="np-citizen-links">
     <VerifiedLink url={EXTERNAL_LINKS.registrato}>Consultar dívidas financeiras no Banco Central</VerifiedLink>
     <VerifiedLink url={EXTERNAL_LINKS.serasa}>Ver ofertas no Serasa Limpa Nome</VerifiedLink>
@@ -96,7 +96,7 @@ export default function PersonalCitizenAgents({agent}:{agent:CitizenAgent}){
    <p className="np-citizen-small">O relatório SCR do Registrato mostra dívidas bancárias declaradas ao BC, mas pode ter defasagem. A Serasa exibe somente acordos efetivamente oferecidos por parceiros. Nenhum dos serviços foi conectado ao Nex Personal.</p>
   </>}
   {agent==='legal_support'&&<>
-   <div className="np-citizen-lead"><span className="np-kicker">LIA · ORIENTAÇÃO JURÍDICA INICIAL</span><h3>Entenda o assunto antes de tomar uma decisão.</h3><p>Revisão inicial de pontos de atenção em contratos, cobranças, condomínio e trabalho. A tecnologia jurídica do grupo poderá integrar esta experiência depois de uma revisão de segurança.</p></div>
+   <div className="np-citizen-lead"><span className="np-kicker">BELLA · ORIENTAÇÃO JURÍDICA INICIAL</span><h3>Entenda o assunto antes de tomar uma decisão.</h3><p>Revisão inicial de pontos de atenção em contratos, cobranças, condomínio e trabalho. A tecnologia jurídica do grupo poderá integrar esta experiência depois de uma revisão de segurança.</p></div>
    <form className="np-citizen-form" onSubmit={e=>{e.preventDefault();setError('');setLegalResult(legalChecklist(legalTopic,legalBody));}}>
     <label>Assunto<select value={legalTopic} onChange={e=>{setLegalTopic(e.target.value as LegalTopic);setLegalResult(null);}}>
      <option value="contracts">Contratos e cláusulas</option><option value="debt">Cobranças e renegociação</option>
@@ -111,7 +111,7 @@ export default function PersonalCitizenAgents({agent}:{agent:CitizenAgent}){
     <ul>{legalResult.missing.length?legalResult.missing.map(item=><li key={item}>{item}</li>):<li>O trecho menciona os termos principais pesquisados. Leia o conteúdo integral e confirme sua validade.</li>}</ul>
     <p className="np-citizen-warning">{legalResult.disclaimer}</p>
    </div>}
-   <p className="np-citizen-small">A Lia não consulta processos, decide a validade de cláusulas, protocola petições ou substitui um advogado. O apoio avançado da plataforma jurídica dependerá de integração segura e de responsabilidade profissional.</p>
+   <p className="np-citizen-small">A Bella não consulta processos, decide a validade de cláusulas, protocola petições ou substitui um advogado. O apoio avançado da plataforma jurídica dependerá de integração segura e de responsabilidade profissional.</p>
   </>}
   {error&&<p className="np-error" role="alert">{error}</p>}
   {notice&&<p className="np-studio-success" role="status">{notice}</p>}
