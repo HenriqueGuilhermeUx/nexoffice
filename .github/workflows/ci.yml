@@ -254,6 +254,12 @@ jobs:
           NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
           DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
         run: node scripts/smoke-nex-personal-preview.mjs
+      - name: Smoke test personal privacy export permissions
+        env:
+          NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS: nex-personal-ci@example.test
+          NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
+          DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
+        run: node scripts/smoke-nex-personal-privacy.mjs
       - name: API logs on failure
         if: failure()
         run: |
