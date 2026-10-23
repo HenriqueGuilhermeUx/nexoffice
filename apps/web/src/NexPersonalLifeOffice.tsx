@@ -4,6 +4,7 @@ import './nex-personal-life-office.css';
 type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments';
 type Kind='buy_car'|'trip'|'email'|'family_study'|'health_organize'|'investment_review'|'publish'|'documents'|'buy_phone'|'family_planning';
 type Route='money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy';
+type Agent='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts';
 type Preferences={focus_areas:Area[];proactive_mode:'off'|'on_open'};
 type Intent={id:string;kind:Kind;status:'planned'|'done';created_at:string};
 type Life={preferences:Preferences;intents:Intent[];proactiveDeliveryActive:false;marketingPersonalization:false;partnerDataShared:false;connectedProducts:[]};
@@ -42,8 +43,8 @@ async function request<T>(path:string,token:string,method='GET',payload?:unknown
  return body as T;
 }
 const formatDate=(date:string)=>new Date(date).toLocaleDateString('pt-BR');
-export default function NexPersonalLifeOffice({token,onOpenSection}:{
- token:string;onOpenSection:(section:Route)=>void
+export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:{
+ token:string;onOpenSection:(section:Route)=>void;onOpenAgent:(agent:Agent)=>void
 }){
  const [data,setData]=useState<Life|null>(null);
  const [area,setArea]=useState<Area>('money');
@@ -130,7 +131,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection}:{
    </div>
    <div className="np-life-detail-foot">
     <span className="np-life-availability">{selected.tag}</span>
-    {selected.route?<button className="np-primary" type="button" onClick={()=>onOpenSection(selected.route!)}>Abrir ferramenta disponível →</button>:
+    {selected.route?<button className="np-primary" type="button" onClick={()=>selected.route==='agents'?onOpenAgent(selected.id==='investments'?'investments':selected.id==='shopping'?'shopping':'contracts'):onOpenSection(selected.route!)}>Abrir ferramenta disponível →</button>:
      <span className="np-life-notlive">Experiência integrada em preparação · nenhuma conexão de dados ativa</span>}
    </div>
   </section>
@@ -145,7 +146,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection}:{
     <div className="np-life-steps">
       <h3>{selectedJourney.title}</h3><ol>{selectedJourney.steps.map(s=><li key={s}>{s}</li>)}</ol>
       <div className="np-life-steps-actions"><button className="np-primary" type="button" disabled={busy} onClick={()=>void startJourney()}>Guardar nos meus planos</button>
-      {selectedJourney.route&&<button className="np-studio-secondary" type="button" onClick={()=>onOpenSection(selectedJourney.route!)}>Usar recurso disponível</button>}</div>
+      {selectedJourney.route&&<button className="np-studio-secondary" type="button" onClick={()=>selectedJourney.route==='agents'?onOpenAgent(selectedJourney.kind==='documents'?'contracts':selectedJourney.kind==='investment_review'?'investments':'shopping'):onOpenSection(selectedJourney.route!)}>Usar recurso disponível</button>}</div>
     </div>
    </section>
    <section className="np-panel">
