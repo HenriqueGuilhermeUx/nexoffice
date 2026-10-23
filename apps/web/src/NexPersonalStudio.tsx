@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal-studio.css';
+import {parsePersonalStatement, type StatementRow} from './PersonalStatementParser';
 
 type Section='money'|'spending'|'planning'|'wealth'|'maya';
 type ManualAccount={id:string;name:string;institution_name:string;available_minor:string|null;balance_as_of:string|null};
@@ -17,7 +18,6 @@ type Studio={
  maya:{mode:string;externalModelCalled:boolean;insights:Insight[]};
  provenance:{accounts:string;expenses:string;verifiedBanking:boolean;note:string};
 };
-type CsvRow={date:string;description:string;amountMinor:string;category?:string};
 const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
 function formatMinor(v:string|null|undefined){
@@ -42,44 +42,6 @@ function signedAmount(value:string,direction:string){
  if(absolute===0n)throw new Error('O valor da movimentação precisa ser diferente de zero.');
  return String(direction==='expense'?-absolute:absolute);
 }
-function validDay(raw:string){
- const text=raw.trim(),d=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
- const value=d?[d[3],d[2],d[1]].join('-'):text;
- if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value)throw new Error('Data inválida: '+raw);
- return value;
-}
-function csvFields(line:string,separator:string){
- const parts:string[]=[];let value='',quoted=false;
- for(let i=0;i<line.length;i++){
-  const c=line[i];
-  if(c==='"'&&quoted&&line[i+1]==='"'){value+='"';i++;continue;}
-  if(c==='"'){quoted=!quoted;continue;}
-  if(c===separator&&!quoted){parts.push(value.trim());value='';continue;}
-  value+=c;
- }
- if(quoted)throw new Error('CSV com aspas não fechadas.');
- parts.push(value.trim());return parts;
-}
-function normalizeHeader(s:string){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');}
-function parseCsv(text:string):CsvRow[]{
- const lines=text.replace(/^\uFEFF/,'').replace(/\r/g,'').split('\n').filter(line=>line.trim());
- if(lines.length<2)throw new Error('O CSV precisa ter cabeçalho e pelo menos uma transação.');
- const delimiter=lines[0].includes(';')?';':',',headers=csvFields(lines[0],delimiter).map(normalizeHeader);
- const index=(aliases:string[])=>headers.findIndex(s=>aliases.includes(s));
- const date=index(['data','date','dataoperacao','datalancamento','datalanc']),description=index(['descricao','description','historico','estabelecimento','detalhe']),
-    value=index(['valor','amount','valorr','valorbrl']),cat=index(['categoria','category']);
- if(date<0||description<0||value<0)throw new Error('Use cabeçalhos data, descricao e valor (CSV separado por ; ou ,).');
- if(lines.length>251)throw new Error('Importe no máximo 250 transações por vez.');
- return lines.slice(1).map((line,i)=>{
-  const cells=csvFields(line,delimiter),descriptionText=String(cells[description]||'').trim();
-  if(descriptionText.length<2||descriptionText.length>120)throw new Error('Descrição inválida na linha '+(i+2));
-  const amountMinor=parseAmount(cells[value]||'');
-  if(amountMinor==='0'||amountMinor==='-0')throw new Error('Valor zero na linha '+(i+2));
-  const category=(cat>=0?cells[cat]||'':'').trim();
-  if(category&&(category.length<2||category.length>70))throw new Error('Categoria inválida na linha '+(i+2));
-  return {date:validDay(cells[date]||''),description:descriptionText,amountMinor,...(category?{category}:{})};
- });
-}
 async function request<T>(path:string,token:string,method='GET',data?:unknown):Promise<T>{
  const response=await fetch(API+path,{method,headers:{authorization:'Bearer '+token,...(data!==undefined?{'content-type':'application/json'}:{})},
   ...(data!==undefined?{body:JSON.stringify(data)}:{})});
@@ -97,7 +59,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
  const [selectedAccount,setSelectedAccount]=useState('');
- const [csv,setCsv]=useState<CsvRow[]>([]);
+ const [csv,setCsv]=useState<StatementRow[]>([]);
  const [csvName,setCsvName]=useState('');
  const [mayaQuestion,setMayaQuestion]=useState('');
  const [mayaAnswer,setMayaAnswer]=useState('');
@@ -119,7 +81,10 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
   setCsv([]);setNotice('');setError('');
   if(!file)return;
   if(file.size>350000){setError('O CSV excede 350 KB. Separe em arquivos menores.');return;}
-  try{setCsv(parseCsv(await file.text()));setCsvName(file.name);}
+  try{const bytes=new Uint8Array(await file.arrayBuffer());
+   const utf=new TextDecoder('utf-8').decode(bytes);
+   const content=utf.includes('\uFFFD')?new TextDecoder('windows-1252').decode(bytes):utf;
+   setCsv(parsePersonalStatement(content,file.name));setCsvName(file.name);}
   catch(e){setError(e instanceof Error?e.message:'CSV inválido.');}
  }
  async function askMaya(event:FormEvent<HTMLFormElement>){
@@ -178,15 +143,15 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
     <button className="np-primary" disabled={busy}>Salvar movimentação</button>
    </form>
   </Card>}
-  {data.accounts.length>0&&<Card title="Importar extrato CSV">
-   <p>Importe um arquivo com colunas <strong>data;descricao;valor</strong>. Despesas devem ter valor negativo. Antes de importar, confira a prévia; isso não altera seu saldo manual.</p>
+  {data.accounts.length>0&&<Card title="Importar extrato CSV ou OFX">
+   <p>Importe CSV (<strong>data;descricao;valor</strong>, com despesas negativas) ou OFX. Confira a prévia; sua posição de saldo informado não será alterada.</p>
    <div className="np-studio-form">
     <label>Conta de destino<select value={accountId} onChange={e=>{setSelectedAccount(e.target.value);setCsv([]);}}>{data.accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
-    <label>Arquivo CSV<input type="file" accept=".csv,text/csv" onChange={e=>void readFile(e.currentTarget.files?.[0])}/></label>
+    <label>Arquivo CSV<input type="file" accept=".csv,.ofx,text/csv,application/x-ofx" onChange={e=>void readFile(e.currentTarget.files?.[0])}/></label>
    </div>
    {csv.length>0&&<div className="np-studio-preview"><strong>Prévia: {csvName} — {csv.length} movimentos</strong>
     {csv.slice(0,5).map((r,i)=><div className="np-line" key={i}><span>{r.date} · {r.description}</span><strong>{formatMinor(r.amountMinor)}</strong></div>)}
-    <p>{csv.length>5?'Exibindo as primeiras cinco linhas. ':''}Duplicatas idênticas por data, descrição e valor serão ignoradas, inclusive se forem lançamentos distintos.</p>
+    <p>{csv.length>5?'Exibindo as primeiras cinco linhas. ':''}Duplicatas são identificadas por data, valor, descrição e referência bancária quando disponível. Lançamentos idênticos sem identificador podem ser confundidos.</p>
     <button className="np-primary" onClick={()=>void importCsv()} disabled={busy}>Confirmar importação</button>
    </div>}
   </Card>}
