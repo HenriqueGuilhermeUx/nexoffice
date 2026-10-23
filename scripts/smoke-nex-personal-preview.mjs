@@ -20,6 +20,30 @@ async function call(path,method='GET',body,token,origin){
 try{
  const health=await call('/health');assert.equal(health.status,200);
  assert.equal(health.body.service,'nex-personal-preview');
+
+ // Same-origin public preview must render the app and allow browser preflight.
+ const selfOrigin='https://nex-personal-preview-api.onrender.com';
+ const ui=await fetch(host+'/',{headers:{origin:selfOrigin}});
+ assert.equal(ui.status,200,'Personal preview root should serve its own web UI.');
+ assert.match(ui.headers.get('content-type')||'',/text\/html/);
+ const html=await ui.text();
+ assert.match(html,/id="root"/,'Vite entry should render React on the same API domain.');
+ assert.equal(ui.headers.get('access-control-allow-origin'),selfOrigin);
+ const assetPath=html.match(/(?:src|href)="(\/assets\/[^"]+)"/)?.[1];
+ assert.ok(assetPath,'Vite HTML must include an assets bundle.');
+ const asset=await fetch(host+assetPath);
+ assert.equal(asset.status,200,'Bundled Vite asset must load without another hostname.');
+ const preflight=await fetch(host+'/v1/personal/auth/register',{
+   method:'OPTIONS',
+   headers:{origin:selfOrigin,'access-control-request-method':'POST','access-control-request-headers':'content-type'}
+ });
+ assert.equal(preflight.status,204,'Same-origin browser preflight must succeed.');
+ assert.equal(preflight.headers.get('access-control-allow-origin'),selfOrigin);
+ const otherPreflight=await fetch(host+'/v1/personal/auth/register',{
+   method:'OPTIONS',headers:{origin:'https://nex-personal-ci.example.test','access-control-request-method':'POST'}
+ });
+ assert.equal(otherPreflight.status,204,'Existing authorized cross-origin frontend must remain supported.');
+
  const pj=await call('/v1/workspaces');assert.equal(pj.status,404,'No PJ endpoints on isolated preview');
  const pjRegister=await call('/v1/auth/register','POST',{name:'Company'});
  assert.equal(pjRegister.status,404,'Business registration must not exist');
