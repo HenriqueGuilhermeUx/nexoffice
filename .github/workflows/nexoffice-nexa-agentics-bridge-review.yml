@@ -1,0 +1,65 @@
+name: NexOffices x Nexa Agentics — Isolated Adapter Review
+
+on:
+  push:
+    branches:
+      - feat/nexa-agentics-cross-product-adapter-20261023
+    paths:
+      - apps/api/src/nexa-agentics-bridge.ts
+      - apps/api/src/nexa-agentics-bridge.test.ts
+      - apps/api/src/routes-nexa-agentics.ts
+      - apps/api/src/server.ts
+      - .github/workflows/nexoffice-nexa-agentics-bridge-review.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - apps/api/src/nexa-agentics-bridge.ts
+      - apps/api/src/nexa-agentics-bridge.test.ts
+      - apps/api/src/routes-nexa-agentics.ts
+      - apps/api/src/server.ts
+      - .github/workflows/nexoffice-nexa-agentics-bridge-review.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexoffice-agentics-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signed-workspace-connector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NODE_ENV: test
+      NEXOFFICE_AGENTICS_BRIDGE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Ensure no hosted data/secrets/deploy
+        run: |
+          test -z "${DATABASE_URL:-}"
+          test -z "${RENDER:-}"
+          test -z "${NEXOFFICE_AGENTICS_PRODUCT_KEY_B64:-}"
+          test -z "${NEXOFFICE_AGENTICS_BASE_URL:-}"
+          test "${NEXOFFICE_AGENTICS_BRIDGE_ENABLED}" = false
+      - name: Install only declared dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify signed workspace context and fail-closed transport
+        run: npx --no-install tsx --test apps/api/src/nexa-agentics-bridge.test.ts
+      - name: Compile workspace domains, integrations and API
+        run: |
+          npm run build -w @nexoffice/domain
+          npm run build -w @nexoffice/integrations
+          npm run build -w @nexoffice/api
+      - name: Verify feature disabled in real deployment
+        run: |
+          node -e "const fs=require('fs');const src=fs.readFileSync('apps/api/src/nexa-agentics-bridge.ts','utf8');if(!src.includes(\"env.NODE_ENV!=='production'\")||!src.includes(\"!env.RENDER\"))process.exit(1)"
+          echo 'NEXOFFICE_AGENTICS_REVIEW_ONLY: no deploy, no migration, no external action'
