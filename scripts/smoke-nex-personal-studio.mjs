@@ -8,7 +8,7 @@ const db=new pg.Client({connectionString:process.env.DATABASE_URL,ssl:process.en
 await db.connect();
 const userIds=[];
 async function call(path,token,method='GET',data){
- const response=await fetch(host+path,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},
+ const response=await fetch(host+path,{method,headers:{...(data!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},
    ...(data!==undefined?{body:JSON.stringify(data)}:{})});
  const body=await response.json().catch(()=>({}));
  return {status:response.status,body};
@@ -99,6 +99,8 @@ try{
  assert.equal(overview.body.manualAvailableMinor,'97500');
  const wrongDelete=await call('/v1/personal/wealth/'+asset.body.id,bob,'DELETE');
  assert.equal(wrongDelete.status,404);
+ const deleteMine=await call('/v1/personal/wealth/'+asset.body.id,alice,'DELETE');
+ assert.equal(deleteMine.status,200,'Owner must delete without a JSON body.');
  const complete=await call('/v1/personal/bills/'+bill.body.id+'/complete',alice,'POST',{});
  assert.equal(complete.status,200);
  assert.equal(complete.body.scheduledPayment,false);
