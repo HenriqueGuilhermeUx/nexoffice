@@ -5,7 +5,7 @@ import {query} from './db.js';
 
 // Deliberately minimal: only self-selected areas and non-sensitive intent types.
 // No automatic product-to-product data access, marketing, payment or AI model calls.
-const areas=['money','health','education','family','documents','work','shopping','travel','vehicle','investments'] as const;
+const areas=['money','health','education','family','documents','work','shopping','travel','vehicle','investments','marketing','offers'] as const;
 const kinds=['buy_car','trip','email','family_study','health_organize','investment_review','publish','documents','buy_phone','family_planning'] as const;
 async function personalOwner(req:FastifyRequest){
  const user=await authenticate(req);
