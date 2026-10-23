@@ -7,10 +7,10 @@
 - Manual BRL accounts and explicit declaration of account balance, with visible **not bank verified** provenance.
 - Manual transactions: optionally adjust declared account balance *only* with the explicit checkbox.
 - CSV import: client-side preview of supported \`data;descricao;valor\` or comma-separated headers; max 250 rows per request and 350 KB per file in the UI. Expenses have negative amounts. Imported historic entries **never change** the current declared balance.
-- Repeat imports deduplicate by owner, account, date, normalized description, amount and optional provider reference. Identical same-day charges can collide: the user must disambiguate via reference in an enhanced importer (not yet in UI), or add the second charge manually.
+- Repeat imports deduplicate by owner, account, date, normalized description, amount and optional reference. OFX FITID is retained, so distinct bank transactions with identical descriptions/date/amount can coexist. CSV can include an optional `referencia` column. Without a reference, identical same-day charges can still collide.
 - Budget by category/month, manual goals with updates, assets and liabilities declared in BRL, monthly/quarterly/yearly/one-off due-date reminders.
-- Maya deterministic questions with source-specific explanations; no external LLM, no paid financial guidance and no Pix.
-- CI: Postgres migrations, existing smoke and Personal P0/P1 smoke for auth, cross-user financial privacy, import idempotency, updated balance, planning and Maya.
+- Maya deterministic questions with source-specific explanations and typed Q&A; no external LLM, no paid financial guidance and no Pix. Transaction categories can be corrected by the owner.
+- CI: Postgres migrations, existing smoke, Personal P0/P1 authenticated API tests, bodyless DELETE, cross-user isolation, import idempotency, updated balance, planning, Maya and independent CSV/OFX parser fixtures.
 
 ## Important accuracy boundaries
 - \`availableMinor\` in the P0 overview is reserved for **verified connected providers**. Manual balances are returned separately as \`manualAvailableMinor\`, never passed off as verified funds.
