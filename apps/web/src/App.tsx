@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent,type ReactNode} from 'react';
 import {api,patch,post,put,session,type Workspace} from './api';
 import ContaNexa from './ContaNexa';
+import {PjOffice2D,PjAgentDirectory,PJ_SECTORS} from './PjOffice';
 import MarketingCenter from './MarketingCenter';
 import ComplianceCenter from './ComplianceCenter';
 import MaterialsCenter from './MaterialsCenter';
@@ -35,14 +36,14 @@ const productName=nexaPjBuild?'Nexa PJ':'NexOffice';
 const productTagline=nexaPjBuild?'Sua empresa e suas finanças em um só lugar.':'O sistema operacional do seu negócio.';
 export default function App(){
   const [authReady,setAuthReady]=useState(false);const [user,setUser]=useState<any>(null);const [workspaces,setWorkspaces]=useState<Workspace[]>([]);
-  const [view,setView]=useState('command');const [dashboard,setDashboard]=useState<Dashboard>({});const [actions,setActions]=useState<Action[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [deals,setDeals]=useState<Deal[]>([]);const [ledger,setLedger]=useState<Ledger[]>([]);const [tasks,setTasks]=useState<Task[]>([]);const [appointments,setAppointments]=useState<Appointment[]>([]);const [policies,setPolicies]=useState<Policy[]>([]);const [integrations,setIntegrations]=useState<Integration[]>([]);const [members,setMembers]=useState<Member[]>([]);const [accounts,setAccounts]=useState<FinanceAccount[]>([]);
+  const [view,setView]=useState('command');const [pjSector,setPjSector]=useState('');const [dashboard,setDashboard]=useState<Dashboard>({});const [actions,setActions]=useState<Action[]>([]);const [contacts,setContacts]=useState<Contact[]>([]);const [deals,setDeals]=useState<Deal[]>([]);const [ledger,setLedger]=useState<Ledger[]>([]);const [tasks,setTasks]=useState<Task[]>([]);const [appointments,setAppointments]=useState<Appointment[]>([]);const [policies,setPolicies]=useState<Policy[]>([]);const [integrations,setIntegrations]=useState<Integration[]>([]);const [members,setMembers]=useState<Member[]>([]);const [accounts,setAccounts]=useState<FinanceAccount[]>([]);
   const [modal,setModal]=useState<string|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
 
   const loadMe=useCallback(async()=>{const me=await api<any>('/v1/auth/me');setUser(me.user);setWorkspaces(me.workspaces||[]);if(!session.workspace()&&me.workspaces?.[0])session.setWorkspace(me.workspaces[0].id);const invite=new URLSearchParams(location.search).get('invite');if(invite){try{const accepted=await post<any>('/v1/invites/accept',{token:invite});if(accepted.workspaceId)session.setWorkspace(accepted.workspaceId);history.replaceState({},'',location.pathname)}catch{} }return me},[]);
   const refresh=useCallback(async()=>{if(!session.token())return;const requestedWorkspace=session.workspace();setError('');try{const [d,a,c,de,l,t,ap,p,i,m,fa]=await Promise.all([api<Dashboard>('/v1/dashboard'),api<Action[]>('/v1/command/actions'),api<Contact[]>('/v1/crm/contacts'),api<Deal[]>('/v1/crm/deals'),api<Ledger[]>('/v1/ledger'),api<Task[]>('/v1/tasks'),api<Appointment[]>('/v1/appointments'),api<Policy[]>('/v1/autonomy-policies'),api<Integration[]>('/v1/integrations'),api<Member[]>('/v1/members'),api<FinanceAccount[]>('/v1/finance/accounts')]);if(nexaPjBuild&&requestedWorkspace!==session.workspace())return;setDashboard(d);setActions(a);setContacts(c);setDeals(de);setLedger(l);setTasks(t);setAppointments(ap);setPolicies(p);setIntegrations(i);setMembers(m);setAccounts(fa)}catch(e:any){if(nexaPjBuild&&requestedWorkspace!==session.workspace())return;if(e?.status===401){session.clear();setUser(null);setWorkspaces([])}else setError(e?.message||'Não foi possível atualizar os dados.')}},[]);
 
   useEffect(()=>{(async()=>{if(session.token()){try{await loadMe();await refresh()}catch{session.clear()}}setAuthReady(true)})()},[loadMe,refresh]);
-  useEffect(()=>{const handler=(event:Event)=>{const detail=(event as CustomEvent<{view?:string;modal?:string}>).detail||{};const allowed=['conta-nexa','command','crm','finance','operations','agenda','documents','materials','maya','team','marketing','compliance','integrations','settings'];if(detail.view&&allowed.includes(detail.view)&&(detail.view!=='conta-nexa'||nexaPjBuild))setView(detail.view);if(detail.modal)setModal(detail.modal)};window.addEventListener('nexoffice:navigate',handler as EventListener);return()=>window.removeEventListener('nexoffice:navigate',handler as EventListener)},[]);
+  useEffect(()=>{const handler=(event:Event)=>{const detail=(event as CustomEvent<{view?:string;modal?:string}>).detail||{};const allowed=['conta-nexa','command','crm','finance','operations','agenda','documents','materials','maya','agents-pj','office-2d','team','marketing','compliance','integrations','settings'];if(detail.view&&allowed.includes(detail.view)&&(detail.view!=='conta-nexa'||nexaPjBuild))setView(detail.view);if(detail.modal)setModal(detail.modal)};window.addEventListener('nexoffice:navigate',handler as EventListener);return()=>window.removeEventListener('nexoffice:navigate',handler as EventListener)},[]);
   if(!authReady)return <div className="splash">{productName}</div>;
   if(!user)return <AuthScreen onDone={async(token,workspaceId)=>{session.set(token,workspaceId);await loadMe();await refresh()}}/>;
 
@@ -60,8 +61,8 @@ export default function App(){
     ['agenda','Agenda & Tarefas','◷'],
     ['documents','Documentos','▱'],
     ['materials','Materiais','▦'],
-    ['maya','Maya · IA Comercial','✧'],
-    ['team','Equipe de Agentes','✦'],
+    ['agents-pj','Agentes e IA','✦'],
+    ['office-2d','Escritório 2D','▦'],
     ['marketing','Marketing','◉'],
     ['compliance','Governança','✓'],
     ['integrations','Integrações','⇄'],
@@ -84,7 +85,7 @@ export default function App(){
   return <div className="shell">
     <aside className="sidebar"><div className="brand"><div className="brandMark">N</div><div><strong>{productName}</strong><small>{productTagline}</small></div></div><nav>{nav.map(([key,label,icon])=><button key={key} className={view===key?'active':''} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sideFoot"><div className="statusDot"/> Core v0.2 · Live</div></aside>
     <main><header className="topbar"><div><p className="eyebrow">{nexaPjBuild?'NEXA PJ':'NEXOFFICE'}</p><h1>{view==='conta-nexa'?'Conta Nexa':title(view)}</h1><p>{productTagline}</p></div><div className="topActions"><select value={activeWorkspace?.id||''} onChange={e=>switchWorkspace(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select><div className="userChip"><b>{user.name}</b><small>{activeWorkspace?.role}</small></div><button className="ghost" onClick={async()=>{try{await post('/v1/auth/logout',{})}catch{}session.clear();location.reload()}}>Sair</button></div></header>
-    <section className="content">{error&&<div className="errorBanner">{error}<button onClick={()=>setError('')}>×</button></div>}{busy&&<div className="busyLine"/>}{renderView()}</section></main>
+    <section className="content">{nexaPjBuild&&<div className="pj-sector-bar"><label htmlFor="pj-sector">Setor da empresa</label><select id="pj-sector" value={pjSector} onChange={e=>setPjSector(e.target.value)}><option value="">Selecionar para explorar</option>{PJ_SECTORS.map(sector=><option key={sector} value={sector}>{sector}</option>)}</select><small>Prévia de organização; não altera o onboarding ou as permissões do workspace.</small></div>}{error&&<div className="errorBanner">{error}<button onClick={()=>setError('')}>×</button></div>}{busy&&<div className="busyLine"/>}{renderView()}</section></main>
     {modal&&<Modal onClose={()=>setModal(null)}>{renderModal()}</Modal>}
   </div>;
 
@@ -96,6 +97,8 @@ export default function App(){
         payable_minor:dashboard.finance?.payable_minor,
       }}
     />;
+    if(view==='office-2d'&&nexaPjBuild)return <PjOffice2D navigate={setView}/>;
+    if(view==='agents-pj'&&nexaPjBuild)return <PjAgentDirectory navigate={setView}/>;
     if(view==='command')return <><div className="hero"><div><p className="eyebrow">CENTRAL DE COMANDO</p><h2>{actions.length?`Você tem ${actions.length} pontos para acompanhar.`:'Seu negócio está em ordem agora.'}</h2><p>Eventos do CRM, agenda, financeiro e integrações viram ações priorizadas para sua equipe digital.</p></div><div className="heroActions"><button className="primary" onClick={()=>setView('team')}>Conversar com a equipe</button><button onClick={()=>refresh()}>Atualizar</button></div></div><div className="kpis"><Kpi label="Pipeline aberto" value={money(openPipeline)} hint={`${dashboard.crm?.open_deals||0} oportunidades`}/><Kpi label="Saldo realizado" value={money(balance)} hint="receitas − despesas"/><Kpi label="A receber" value={money(dashboard.finance?.receivable_minor)} hint={`${dashboard.finance?.overdue_count||0} vencidos`}/><Kpi label="Decisões pendentes" value={String(dashboard.approvals?.pending_approvals||0)} hint="aprovações humanas"/></div><SmartPlaybooksPanel/><div className="twoCol"><Panel eyebrow="ACTION INBOX" title="O que precisa de você" badge={actions.length}><div className="actionList">{actions.length?actions.map(a=><ActionCard key={a.id} action={a} onDecision={d=>act(a.id,d)}/>):<Empty text="Nenhuma ação pendente."/>}</div></Panel><Panel eyebrow="PULSO DO NEGÓCIO" title="Agora"><Pulse label="CRM" value={`${dashboard.crm?.open_deals||0} negócios abertos`} detail={money(openPipeline)}/><Pulse label="Financeiro" value={`${dashboard.finance?.overdue_count||0} cobranças vencidas`} detail={money(dashboard.finance?.receivable_minor)}/><Pulse label="Agenda" value={`${dashboard.appointments?.today_appointments||0} compromissos hoje`} detail={`${dashboard.tasks?.due_tasks||0} tarefas próximas`}/><Pulse label="Equipe Digital" value={`${dashboard.command?.open_actions||0} ações na fila`} detail={`${policies.length} políticas de autonomia`}/></Panel></div></>;
     if(view==='crm')return <CRM contacts={contacts} deals={deals} onNewContact={()=>setModal('contact')} onNewDeal={()=>setModal('deal')} onMove={moveDeal}/>;
     if(view==='finance')return <Finance ledger={ledger} dashboard={dashboard} onNew={()=>setModal('ledger')} onPaid={markPaid}/>;
