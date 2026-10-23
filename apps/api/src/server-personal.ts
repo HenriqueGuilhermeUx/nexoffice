@@ -1,6 +1,7 @@
 // Independent Nex Personal preview API. No business routing, integrations, billing or jobs.
 // Only enable for an isolated staging database, never an existing business/production DB.
 import 'dotenv/config';
+import {createHash,timingSafeEqual} from 'node:crypto';
 import Fastify from 'fastify';
 import {z} from 'zod';
 import {query} from './db.js';
@@ -12,6 +13,8 @@ import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
 if(process.env.NEX_PERSONAL_PREVIEW!=='true')throw new Error('NEX_PERSONAL_PREVIEW=true required for isolated preview');
 if(process.env.NEXOFFICE_EXTERNAL_ACTIONS!=='false')throw new Error('External actions must be disabled');
 if(process.env.NEXOFFICE_INTELLIGENCE_DAILY_ENGINE!=='false')throw new Error('Business intelligence jobs must be disabled');
+const inviteHash=String(process.env.NEX_PERSONAL_PREVIEW_INVITE_SHA256||'').trim().toLowerCase();
+if(!/^[0-9a-f]{64}$/.test(inviteHash))throw new Error('NEX_PERSONAL_PREVIEW_INVITE_SHA256 must be a valid SHA256 hex digest.');
 const allowedEmails=String(process.env.NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS||'').split(',')
   .map(v=>v.trim().toLowerCase()).filter(Boolean);
 if(!allowedEmails.length)throw new Error('A non-empty preview email allowlist is required.');
@@ -57,6 +60,13 @@ app.addHook('preHandler',async req=>{
    checkRate('auth:'+req.ip,12,15*60*1000);
    const email=emailSchema.parse((req.body as Record<string,unknown>)?.email);
    if(!allowedEmails.includes(email))throw new ApiError(403,'preview_invitation_required','Esta homologação está disponível apenas para testadores autorizados.');
+   if(req.url==='/v1/personal/auth/register'){
+     const code=String((req.body as Record<string,unknown>)?.previewInviteCode||'');
+     const provided=createHash('sha256').update(code).digest();
+     const expected=Buffer.from(inviteHash,'hex');
+     if(!code||!timingSafeEqual(provided,expected))
+       throw new ApiError(403,'preview_invitation_required','Código de convite inválido.');
+   }
  }
 });
 app.get('/health',async()=>({status:'ok',service:'nex-personal-preview',externalFinancialActions:false,realBankConnections:false}));
