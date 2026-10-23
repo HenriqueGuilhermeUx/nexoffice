@@ -19,6 +19,8 @@ jobs:
       - run: npm run build
       - name: Smoke test Nex Personal CSV and OFX parser
         run: node --experimental-strip-types scripts/smoke-nex-personal-parser.mjs
+      - name: Smoke test Nex Personal FGC and bank-fee draft
+        run: node --experimental-strip-types scripts/smoke-nex-personal-financial-review.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
