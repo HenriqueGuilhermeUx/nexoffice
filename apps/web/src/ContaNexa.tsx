@@ -96,6 +96,25 @@ export default function ContaNexa({
         <button type="button" onClick={()=>navigateErp('finance')}>Abrir Financeiro e ERP →</button>
       </div>
     </div>
+    <div className="pj-bank-workspace" aria-label="Central financeira da empresa">
+      <div className="pj-bank-workspace-heading">
+        <div><small className="eyebrow">CONTA EMPRESARIAL</small><h3>Seu centro financeiro</h3>
+          <p>Conta bancária e gestão no mesmo painel. Os serviços bancários são liberados somente após a verificação da empresa.</p>
+        </div>
+        <span className="pj-bank-readiness" role="status">{state?.structuralBindingPresent?'Vínculo identificado · aprovação pendente':'Conta PJ ainda não habilitada'}</span>
+      </div>
+      <div className="pj-bank-quick-actions" aria-label="Atalhos financeiros">
+        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar recursos de recebimento no portal Nexa, sujeito a habilitação">Receber <span>↗</span></a>
+        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar recursos de pagamentos no portal Nexa, sujeito a habilitação">Pagar <span>↗</span></a>
+        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar recursos de transferência no portal Nexa, sujeito a habilitação">Transferir <span>↗</span></a>
+        <button type="button" onClick={()=>navigateErp('finance')}>Cobranças e ERP <span>→</span></button>
+        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar extrato empresarial no portal Nexa, sujeito a habilitação">Extrato <span>↗</span></a>
+      </div>
+      <div className="pj-bank-activity" aria-label="Movimentações da Conta Nexa">
+        <div><h4>Movimentações da conta</h4><p>O extrato bancário da empresa aparece aqui somente após integração, aprovação e sessão PJ independente.</p></div>
+        <span>Sem acesso financeiro autorizado</span>
+      </div>
+    </div>
     <div className="pj-connect-kpis" aria-label="Resumo de Conta Nexa e ERP">
       <div className="pj-connect-kpi">
         <small>Saldo Conta Nexa · BRL</small><strong>—</strong><em>Exige login e liberação financeira</em>
