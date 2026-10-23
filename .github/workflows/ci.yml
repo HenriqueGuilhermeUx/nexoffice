@@ -209,6 +209,8 @@ jobs:
             if ! curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1; then break; fi
             sleep 1
           done
+      - name: Create disposable Nex Personal database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nex_personal_preview_ci'
       - name: Start isolated Nex Personal preview API
         env:
           NEX_PERSONAL_PREVIEW: "true"
@@ -220,7 +222,8 @@ jobs:
           NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
           ALLOWED_ORIGINS: https://nex-personal-ci.example.test
           NODE_ENV: production
-          AUTO_MIGRATE: "false"
+          AUTO_MIGRATE: "true"
+          DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
         run: |
           export NEX_PERSONAL_PREVIEW_INVITE_SHA256="$(node -e "console.log(require('crypto').createHash('sha256').update(process.env.NEX_PERSONAL_PREVIEW_TEST_INVITE).digest('hex'))")"
           node apps/api/dist/server-personal.js > /tmp/nex-personal-preview-api.log 2>&1 &
@@ -235,6 +238,7 @@ jobs:
         env:
           NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS: nex-personal-ci@example.test
           NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
+          DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
         run: node scripts/smoke-nex-personal-preview.mjs
       - name: API logs on failure
         if: failure()
