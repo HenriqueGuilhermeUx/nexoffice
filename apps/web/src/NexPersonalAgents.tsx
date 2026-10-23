@@ -7,17 +7,17 @@ export type AgentId='expenses'|'financial'|'planning'|'investments'|'shopping'|'
 export const PERSONAL_AGENTS:ReadonlyArray<{
  id:AgentId;name:string;role:string;description:string;icon:string;prompt:string;status:'active'|'limited'
 }>=[
- {id:'expenses',name:'Atlas',role:'Gastos',icon:'◔',status:'active',description:'Onde, quanto e por que você gasta.',prompt:'Analisar gastos e orçamentos'},
- {id:'financial',name:'Norte',role:'Análise financeira',icon:'▦',status:'active',description:'Receitas, despesas, saldos e patrimônio.',prompt:'Gerar diagnóstico financeiro'},
- {id:'planning',name:'Prisma',role:'Planejamento',icon:'◎',status:'active',description:'Metas, reserva e compromissos futuros.',prompt:'Revisar minhas metas'},
- {id:'investments',name:'Lume',role:'Investimentos',icon:'↗',status:'limited',description:'Organiza sua carteira declarada, sem cotações.',prompt:'Revisar meus investimentos'},
- {id:'shopping',name:'Faro',role:'Compras',icon:'◇',status:'active',description:'Impacto de compras e parcelamentos.',prompt:'Avaliar uma compra'},
- {id:'simulations',name:'Cenário',role:'Simulações',icon:'▤',status:'active',description:'Planeje valores ao longo do tempo.',prompt:'Simular meu cenário'},
- {id:'payments',name:'Fluxo',role:'Pagamentos',icon:'◷',status:'limited',description:'Agenda de contas, sem transferências reais.',prompt:'Revisar contas a vencer'},
- {id:'contracts',name:'Clara',role:'Contratos',icon:'≡',status:'limited',description:'Checklist preliminar de cláusulas contratuais.',prompt:'Examinar contrato'},
- {id:'public_services',name:'Cida',role:'Serviços públicos',icon:'▣',status:'limited',description:'IPTU, identidade, alvarás e Detran.',prompt:'Orientar meu serviço público'},
- {id:'debt_review',name:'Recomeço',role:'Dívidas',icon:'↺',status:'limited',description:'Compare acordos e planeje renegociações.',prompt:'Revisar dívida ou acordo'},
- {id:'legal_support',name:'Lia',role:'Direitos e contratos',icon:'⚖',status:'limited',description:'Questões contratuais, de condomínio e trabalhistas.',prompt:'Entender meus direitos'}
+ {id:'expenses',name:'Mila',role:'Gastos',icon:'◔',status:'active',description:'Mostra onde você gasta e ajuda a economizar.',prompt:'Analisar gastos e orçamentos'},
+ {id:'financial',name:'Nina',role:'Análise financeira',icon:'▦',status:'active',description:'Organiza entradas, saídas, saldos e patrimônio.',prompt:'Gerar diagnóstico financeiro'},
+ {id:'planning',name:'Liz',role:'Planejamento',icon:'◎',status:'active',description:'Ajuda a definir metas e planejar o futuro.',prompt:'Revisar minhas metas'},
+ {id:'investments',name:'Léo',role:'Investimentos',icon:'↗',status:'limited',description:'Analisa sua carteira declarada e os custos.',prompt:'Revisar meus investimentos'},
+ {id:'shopping',name:'Bia',role:'Compras',icon:'◇',status:'active',description:'Avalia compras e o impacto das parcelas.',prompt:'Avaliar uma compra'},
+ {id:'simulations',name:'Ben',role:'Simulações',icon:'▤',status:'active',description:'Simula cenários antes de você decidir.',prompt:'Simular meu cenário'},
+ {id:'payments',name:'Ravi',role:'Pagamentos',icon:'◷',status:'limited',description:'Acompanha contas e vencimentos, sem pagar por você.',prompt:'Revisar contas a vencer'},
+ {id:'contracts',name:'Mel',role:'Contratos',icon:'≡',status:'limited',description:'Revê pontos de atenção nos seus contratos.',prompt:'Examinar contrato'},
+ {id:'public_services',name:'Theo',role:'Serviços públicos',icon:'▣',status:'limited',description:'Orienta IPTU, CIN, Detran e alvarás.',prompt:'Orientar meu serviço público'},
+ {id:'debt_review',name:'Joca',role:'Dívidas',icon:'↺',status:'limited',description:'Compara acordos e ajuda a negociar dívidas.',prompt:'Revisar dívida ou acordo'},
+ {id:'legal_support',name:'Bella',role:'Direitos e contratos',icon:'⚖',status:'limited',description:'Ajuda a entender contratos, direitos e obrigações.',prompt:'Entender meus direitos'}
 ];
 type AgentResult={
  agentId:AgentId;agentName:string;title:string;answer:string;facts:string[];sources:string[];
@@ -72,8 +72,8 @@ export default function NexPersonalAgents({token,initialAgent='expenses',onOpenS
  return <div className="np-agents">
   <section className="np-agents-intro">
    <span className="np-kicker">CENTRAL DE AGENTES · NEX PERSONAL</span>
-   <h2>Sua equipe financeira pessoal.</h2>
-   <p>A Maya coordena o trabalho; cada agente resolve uma necessidade. Nesta homologação, as análises são cálculos e verificações explicáveis, baseados nos dados que você informou.</p>
+   <h2>Sua equipe para a vida toda.</h2>
+   <p>A Maya organiza tudo. Conheça cada especialista pelo nome e veja, logo abaixo, como ele pode ajudar você. Nesta homologação, as funções disponíveis são orientações, cálculos e análises com limitações claras.</p>
    <div className="np-agents-note"><strong>Maya · Coordenadora</strong><span>Escolha o especialista abaixo. Nenhum agente executa pagamentos, compras, investimentos ou assinaturas.</span></div>
   </section>
   <div className="np-agents-grid" aria-label="Especialistas disponíveis">
