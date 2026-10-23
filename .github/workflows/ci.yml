@@ -23,6 +23,8 @@ jobs:
         run: node --experimental-strip-types scripts/smoke-nex-personal-financial-review.mjs
       - name: Smoke test private civic, debt and legal tools
         run: node --experimental-strip-types scripts/smoke-nex-personal-citizen-local.mjs
+      - name: Check Nex Personal specialist names and card descriptions
+        run: node scripts/smoke-nex-personal-names.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
