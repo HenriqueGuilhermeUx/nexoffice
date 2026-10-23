@@ -42,6 +42,14 @@ try{
  const again=await call('/v1/personal/transactions/import',alice,'POST',csv);
  assert.equal(again.body.imported,0);
  assert.equal(again.body.duplicates,2);
+
+ const referenceImport=await call('/v1/personal/transactions/import',alice,'POST',{accountId,rows:[
+  {date,description:'Compra OFX repetida',amountMinor:'-500',reference:'bank-operation-a'},
+  {date,description:'Compra OFX repetida',amountMinor:'-500',reference:'bank-operation-b'}
+ ]});
+ assert.equal(referenceImport.status,200,JSON.stringify(referenceImport.body));
+ assert.equal(referenceImport.body.imported,2,'Distinct OFX FITIDs must retain otherwise-identical same-day charges.');
+
  const invalid=await call('/v1/personal/transactions/import',bob,'POST',{accountId,rows:csv.rows});
  assert.equal(invalid.status,404,'Different user cannot import to another account.');
  const oldAccount=await call('/v1/personal/accounts',alice);
@@ -75,7 +83,7 @@ try{
  assert.equal(studio.status,200,JSON.stringify(studio.body));
  assert.equal(studio.body.totals.manualAvailableMinor,'97500');
  assert.equal(studio.body.totals.declaredNetWorthMinor,'112500');
- assert.equal(studio.body.totals.spentMonthMinor,'6490');
+ assert.equal(studio.body.totals.spentMonthMinor,'7490');
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='budget'),'Real budget excess should be detected.');
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='bills'));
  assert.equal(studio.body.maya.externalModelCalled,false);
@@ -83,7 +91,7 @@ try{
 
  const maya=await call('/v1/personal/maya/ask',alice,'POST',{question:'Quanto gastei neste mês?'});
  assert.equal(maya.status,200,JSON.stringify(maya.body));
- assert.ok(maya.body.answer.includes('R$ 64,90'),JSON.stringify(maya.body));
+ assert.ok(maya.body.answer.includes('R$ 74,90'),JSON.stringify(maya.body));
  assert.equal(maya.body.modelCalled,false);
  assert.equal(maya.body.canInitiatePayment,false);
  const questionForBob=await call('/v1/personal/maya/ask',bob,'POST',{question:'Qual meu saldo?'});
