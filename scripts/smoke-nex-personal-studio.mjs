@@ -63,6 +63,49 @@ try{
  assert.equal(seenByBob.body.transactions.length,0);
  assert.equal(seenByBob.body.totals.declaredNetWorthMinor,'0');
 
+
+ // Preview must be authenticated, never connect a bank, and never write transactions.
+ const wallet='0x'+'a'.repeat(40),sender='0x'+'b'.repeat(40);
+ const pre=await call('/v1/personal/transactions/enrichment/preview',alice,'POST',{items:[
+  {source:'open_finance',accountRef:'test-bank-acct',date,description:'Pagamento supermercado',
+   amountMinor:'-2500',currency:'BRL',reference:'belvo-test-1'},
+  {source:'onchain',chainId:137,walletAddress:wallet,from:sender,to:wallet,
+   txHash:'0x'+'d'.repeat(64),logIndex:0,contractAddress:'0x'+'e'.repeat(40),
+   symbol:'USDC',amountAtomic:'1500000',decimals:6,status:'confirmed'}
+ ]});
+ assert.equal(pre.status,200,JSON.stringify(pre.body));
+ assert.equal(pre.body.persisted,false);
+ assert.equal(pre.body.providerConnected,false);
+ assert.equal(pre.body.externalEffect,false);
+ assert.equal(pre.body.items.length,2);
+ assert.equal(pre.body.items[0].category,'Alimentação');
+ assert.equal(pre.body.items[1].unit,'USDC');
+ assert.equal(pre.body.items[1].treatment,'review');
+ const anonymous=await call('/v1/personal/transactions/enrichment/preview','', 'POST',{items:[]});
+ assert.equal(anonymous.status,401);
+ const invalidPreview=await call('/v1/personal/transactions/enrichment/preview',alice,'POST',{
+  items:[{source:'open_finance',accountRef:'acct',date,description:'A',amountMinor:'-200',currency:'BRL',privateBankPassword:'no'}]
+ });
+ assert.equal(invalidPreview.status,400,'Do not accept unknown sensitive provider secrets');
+ // A Pix can be a third-party payment or a self transfer. Never auto count it.
+ const unknownPix=await call('/v1/personal/transactions/manual',alice,'POST',{
+  accountId,description:'Pix enviado para outra conta',amountMinor:'-7400',bookedOn:date,
+  applyToBalance:false
+ });
+ assert.equal(unknownPix.status,200);
+ const unknownDenied=await call('/v1/personal/transactions/'+unknownPix.body.id+'/classification',alice,'PATCH',{
+  treatment:'excluded_internal'
+ });
+ assert.equal(unknownDenied.status,400,'Explicit self-transfer confirmation required');
+ const otherCannot=await call('/v1/personal/transactions/'+unknownPix.body.id+'/classification',bob,'PATCH',{
+  treatment:'excluded_internal',confirmOwnTransfer:true
+ });
+ assert.equal(otherCannot.status,404,'Other user must not classify another person transaction');
+ const confirmedOwn=await call('/v1/personal/transactions/'+unknownPix.body.id+'/classification',alice,'PATCH',{
+  treatment:'excluded_internal',confirmOwnTransfer:true
+ });
+ assert.equal(confirmedOwn.status,200);
+
  const budget=await call('/v1/personal/budgets',alice,'POST',{month,category:'Alimentação',limitMinor:'2000'});
  assert.equal(budget.status,200);
  const goal=await call('/v1/personal/goals',alice,'POST',{name:'Reserva',targetMinor:'200000',savedMinor:'12000'});
