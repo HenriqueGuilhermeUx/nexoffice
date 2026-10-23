@@ -30,3 +30,11 @@
 .np-studio-orb{display:grid;place-items:center;width:35px;height:35px;flex-shrink:0;background:#e6efff;border-radius:11px;color:#1458e8;font-weight:800}
 .np-studio-foot{font-size:12px;padding-top:12px}
 @media(max-width:650px){.np-studio-form{grid-template-columns:1fr}.np-studio-inline{flex-direction:column;align-items:stretch}.np-studio-card .np-line{gap:10px;overflow-wrap:anywhere}}
+
+.np-studio-maya-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:23px 0}
+.np-studio-maya-form label{grid-column:1/-1;font-size:12px;font-weight:700;color:#436175}
+.np-studio-maya-form input{padding:12px 14px;min-width:0;border:1px solid #cbd7e2;border-radius:11px;font:inherit}
+.np-studio-maya-answer{padding:19px 22px;margin:15px 0;background:#edf4ff;border:1px solid #c9dfff;border-radius:13px}
+.np-studio-maya-answer p{margin:10px 0}
+.np-studio-maya-answer small{font-size:11px;color:#657a90}
+@media(max-width:550px){.np-studio-maya-form{grid-template-columns:1fr}.np-studio-maya-form label{grid-column:1}}
