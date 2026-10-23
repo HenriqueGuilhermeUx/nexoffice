@@ -83,3 +83,31 @@
 .nexa-pj-theme .topbar{border-bottom-color:rgba(183,229,225,.12)}
 .nexa-pj-theme a:focus-visible,.nexa-pj-theme button:focus-visible{outline:3px solid #9ef4d8;outline-offset:2px}
 @media(max-width:760px){.nexa-pj-theme .sidebar{border-right:0;border-top:1px solid rgba(166,231,222,.17)}}
+
+/* PJ desktop-first workspace: constrained only to the PJ brand.
+   Keeps four finance indicators readable on wide screens, allows narrower
+   windows without overflow, and leaves the existing NexOffice variant alone. */
+@media (min-width: 1200px) {
+  .nexa-pj-theme .pj-connect { gap: 24px; }
+  .nexa-pj-theme .pj-connect-hero { padding: 36px 40px; }
+  .nexa-pj-theme .pj-connect-kpis { gap: 16px; }
+  .nexa-pj-theme .pj-connect-kpi { min-width: 0; padding: 24px; }
+  .nexa-pj-theme .pj-connect-kpi strong { overflow-wrap: anywhere; }
+  .nexa-pj-theme .pj-connect-layout { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+  .nexa-pj-theme .pj-connect-panel { min-width: 0; padding: 28px; }
+}
+@media (min-width: 721px) and (max-width: 1199px) {
+  .nexa-pj-theme .pj-connect-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .nexa-pj-theme .pj-connect-layout { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .nexa-pj-theme .pj-connect-kpi, .nexa-pj-theme .pj-connect-panel { min-width: 0; }
+}
+@media (max-width: 520px) {
+  .nexa-pj-theme .pj-connect-kpis { grid-template-columns: 1fr; }
+  .nexa-pj-theme .pj-connect-actions > * { width: 100%; text-align: center; }
+}
+.nexa-pj-theme .pj-connect { min-width: 0; }
+.nexa-pj-theme .pj-connect-hero,
+.nexa-pj-theme .pj-connect-kpi,
+.nexa-pj-theme .pj-connect-panel { overflow-wrap: break-word; }
+.nexa-pj-theme .pj-connect-actions button,
+.nexa-pj-theme .pj-connect-actions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
