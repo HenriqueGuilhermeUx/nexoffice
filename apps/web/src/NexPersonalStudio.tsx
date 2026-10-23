@@ -4,7 +4,7 @@ import {parsePersonalStatement, type StatementRow} from './PersonalStatementPars
 
 type Section='money'|'spending'|'planning'|'wealth'|'maya';
 type ManualAccount={id:string;name:string;institution_name:string;available_minor:string|null;balance_as_of:string|null};
-type RecordTx={id:string;description:string;amount_minor:string;booked_at:string;category:string|null;source:string;account_id:string};
+type RecordTx={id:string;description:string;amount_minor:string;booked_at:string;category:string|null;source:string;account_id:string;analysis_role?:'expense'|'income'|'excluded_internal'|'review'|null;analysis_confidence?:string|null;category_origin?:string|null;analysis_rule?:string|null};
 type Budget={id:string;category:string;limit_minor:string;spent_minor:string;month:string};
 type Goal={id:string;name:string;target_minor:string;saved_minor:string;due_on:string|null;status:string};
 type Wealth={id:string;name:string;kind:'asset'|'liability';category:string;amount_minor:string};
@@ -165,9 +165,23 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
     <button className="np-studio-secondary" disabled={busy}>Salvar categoria</button>
    </form>}
   </Card>
-  <Card title="Histórico organizado">
+  {data.transactions.some(t=>t.analysis_role==='review')&&<Card title="Movimentações para confirmar">
+    <p>Pix, transferências e aplicações podem parecer despesas ou receitas. Revise a finalidade antes que entrem nos totais. Só marque como transferência própria se as contas forem suas.</p>
+    <form className="np-studio-form" onSubmit={e=>submit(e,f=>({
+      path:'/v1/personal/transactions/'+field(f,'transactionId')+'/classification',
+      method:'PATCH',payload:{treatment:field(f,'treatment'),
+        confirmOwnTransfer:field(f,'treatment')==='excluded_internal'?f.get('confirmOwnTransfer')==='on':undefined},
+      success:'Classificação confirmada. Os totais serão recalculados.'
+    }))}>
+      <label>Movimentação<select name="transactionId" required>{data.transactions.filter(t=>t.analysis_role==='review').map(t=><option key={t.id} value={t.id}>{t.description.slice(0,55)} · {formatMinor(t.amount_minor)}</option>)}</select></label>
+      <label>O que é?<select name="treatment" required defaultValue="review"><option value="review">Manter em análise</option><option value="expense">Despesa real</option><option value="income">Receita real (apenas entradas)</option><option value="excluded_internal">Transferência entre minhas próprias contas</option></select></label>
+      <label className="np-studio-check"><input type="checkbox" name="confirmOwnTransfer"/> Confirmo que as contas envolvidas são minhas, se classificar como transferência própria</label>
+      <button className="np-studio-secondary" disabled={busy}>Confirmar classificação</button>
+    </form>
+   </Card>}
+   <Card title="Histórico organizado">
    {data.transactions.length===0?<p>Ainda não há movimentações registradas.</p>:data.transactions.slice(0,25).map(t=><div className="np-line" key={t.id}>
-    <span><strong>{t.description}</strong><small>{String(t.booked_at).slice(0,10)} · {t.category||'Sem categoria'} · {t.source==='csv'?'CSV':t.source==='manual'?'Manual':'Provedor'}</small></span><strong>{formatMinor(t.amount_minor)}</strong>
+    <span><strong>{t.description}</strong><small>{String(t.booked_at).slice(0,10)} · {t.category||'Sem categoria'} · {t.source==='csv'?'CSV':t.source==='manual'?'Manual':'Provedor'} · {t.analysis_role==='review'?'Precisa revisão':t.analysis_role==='excluded_internal'?'Transferência própria':t.category_origin==='user'?'Revisado por você':t.analysis_role?'Categoria sugerida':'Classificação anterior'}</small></span><strong>{formatMinor(t.amount_minor)}</strong>
    </div>)}
   </Card>
  </>}
