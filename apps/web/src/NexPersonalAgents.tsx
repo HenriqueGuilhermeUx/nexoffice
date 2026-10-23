@@ -1,8 +1,9 @@
 import {useState,type FormEvent} from 'react';
 import './nex-personal-agents.css';
 import PersonalInvestmentInspector from './PersonalInvestmentInspector';
+import PersonalCitizenAgents,{type CitizenAgent} from './PersonalCitizenAgents';
 
-export type AgentId='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts';
+export type AgentId='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts'|'public_services'|'debt_review'|'legal_support';
 export const PERSONAL_AGENTS:ReadonlyArray<{
  id:AgentId;name:string;role:string;description:string;icon:string;prompt:string;status:'active'|'limited'
 }>=[
@@ -13,7 +14,10 @@ export const PERSONAL_AGENTS:ReadonlyArray<{
  {id:'shopping',name:'Faro',role:'Compras',icon:'◇',status:'active',description:'Impacto de compras e parcelamentos.',prompt:'Avaliar uma compra'},
  {id:'simulations',name:'Cenário',role:'Simulações',icon:'▤',status:'active',description:'Planeje valores ao longo do tempo.',prompt:'Simular meu cenário'},
  {id:'payments',name:'Fluxo',role:'Pagamentos',icon:'◷',status:'limited',description:'Agenda de contas, sem transferências reais.',prompt:'Revisar contas a vencer'},
- {id:'contracts',name:'Clara',role:'Contratos',icon:'≡',status:'limited',description:'Checklist preliminar de cláusulas contratuais.',prompt:'Examinar contrato'}
+ {id:'contracts',name:'Clara',role:'Contratos',icon:'≡',status:'limited',description:'Checklist preliminar de cláusulas contratuais.',prompt:'Examinar contrato'},
+ {id:'public_services',name:'Cida',role:'Serviços públicos',icon:'▣',status:'limited',description:'IPTU, identidade, alvarás e Detran.',prompt:'Orientar meu serviço público'},
+ {id:'debt_review',name:'Recomeço',role:'Dívidas',icon:'↺',status:'limited',description:'Compare acordos e planeje renegociações.',prompt:'Revisar dívida ou acordo'},
+ {id:'legal_support',name:'Lia',role:'Direitos e contratos',icon:'⚖',status:'limited',description:'Questões contratuais, de condomínio e trabalhistas.',prompt:'Entender meus direitos'}
 ];
 type AgentResult={
  agentId:AgentId;agentName:string;title:string;answer:string;facts:string[];sources:string[];
@@ -43,6 +47,7 @@ export default function NexPersonalAgents({token,initialAgent='expenses',onOpenS
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const agent=PERSONAL_AGENTS.find(a=>a.id===selected)!;
+ const privateAgent=selected==='public_services'||selected==='debt_review'||selected==='legal_support';
  async function analyze(event?:FormEvent<HTMLFormElement>){
   event?.preventDefault();setBusy(true);setError('');
   try{
@@ -84,7 +89,7 @@ export default function NexPersonalAgents({token,initialAgent='expenses',onOpenS
     <span className="np-kicker">ESPECIALISTA · {agent.role.toUpperCase()}</span>
     <h2 id="np-agent-title">{agent.name}</h2><p>{agent.description}</p>
    </div></div>
-   <form onSubmit={e=>void analyze(e)} className="np-agent-form">
+   {privateAgent?<PersonalCitizenAgents key={selected} agent={selected as CitizenAgent}/>:<form onSubmit={e=>void analyze(e)} className="np-agent-form">
     {(selected==='shopping'||selected==='simulations')&&<label>Valor da compra ou do cenário (R$)
       <input value={price} onChange={e=>setPrice(e.target.value)} inputMode="decimal" placeholder="Ex.: 1.250,00" maxLength={20}/>
     </label>}
@@ -101,7 +106,7 @@ export default function NexPersonalAgents({token,initialAgent='expenses',onOpenS
       <textarea value={contractText} maxLength={4000} rows={5} onChange={e=>setContractText(e.target.value)} placeholder="Cole apenas um trecho não sensível. O texto não é armazenado nem enviado a um serviço externo."/>
     </label>}
     <button className="np-primary" type="submit" disabled={busy}>{busy?'Analisando…':agent.prompt}</button>
-   </form>
+   </form>}
    {error&&<p role="alert" className="np-error">{error}</p>}
    {result&&<div className="np-agent-result" role="status">
     <div className="np-agent-result-top"><span className="np-kicker">DIAGNÓSTICO · {result.agentName.toUpperCase()}</span><h3>{result.title}</h3></div>
