@@ -80,6 +80,20 @@ try{
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='bills'));
  assert.equal(studio.body.maya.externalModelCalled,false);
  assert.equal(studio.body.provenance.verifiedBanking,false);
+
+ const maya=await call('/v1/personal/maya/ask',alice,'POST',{question:'Quanto gastei neste mês?'});
+ assert.equal(maya.status,200,JSON.stringify(maya.body));
+ assert.ok(maya.body.answer.includes('R$ 64,90'),JSON.stringify(maya.body));
+ assert.equal(maya.body.modelCalled,false);
+ assert.equal(maya.body.canInitiatePayment,false);
+ const questionForBob=await call('/v1/personal/maya/ask',bob,'POST',{question:'Qual meu saldo?'});
+ assert.equal(questionForBob.status,200);
+ assert.ok(!questionForBob.body.answer.includes('975,00'),'Maya must never leak another user balance.');
+ const forbiddenCategory=await call('/v1/personal/transactions/'+manual.body.id+'/category',bob,'PATCH',{category:'Outro'});
+ assert.equal(forbiddenCategory.status,404);
+ const categoryUpdated=await call('/v1/personal/transactions/'+manual.body.id+'/category',alice,'PATCH',{category:'Compras pessoais'});
+ assert.equal(categoryUpdated.status,200);
+
  const overview=await call('/v1/personal/overview',alice);
  assert.equal(overview.body.availableMinor,null,'Declared balance must never be presented as verified balance.');
  assert.equal(overview.body.manualAvailableMinor,'97500');
