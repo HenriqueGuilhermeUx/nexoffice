@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {
-  parseBrlInput,displayBrl,evaluateQuote,compareUserQuotes,FUTURE_MARKETPLACE_CAPABILITIES
+  parseBrlInput,displayBrl,evaluateQuote,compareUserQuotes,assessVerifiedCreditOffers,FUTURE_MARKETPLACE_CAPABILITIES
 } from '../apps/web/src/PersonalMarketplaceEngine.ts';
 
 assert.equal(parseBrlInput('2.500,75'),'250075');
@@ -43,4 +43,30 @@ for(const file of ['apps/web/src/PersonalMarketplaceEngine.ts','apps/web/src/Per
  assert.doesNotMatch(source,/\bfetch\s*\(|XMLHttpRequest|sendBeacon|localStorage\.setItem|sessionStorage\.setItem|WebSocket\s*\(/,
   file+' must never transmit entered figures or store quote history');
 }
+
+const baseOffer={id:'bank-a',providerName:'Banco A',principalMinor:'2000000',termMonths:12,
+ totalPayableMinor:'2400000',cetAnnualBps:2800,platformCommissionMinor:'90000',
+ sponsored:false,sourceVerified:true,validUntil:'2026-10-30'};
+const bankB={...baseOffer,id:'bank-b',providerName:'Banco B',totalPayableMinor:'2250000',
+ cetAnnualBps:2700,platformCommissionMinor:'1'};
+const sponsored={...baseOffer,id:'sponsor-x',providerName:'Patrocinador X',totalPayableMinor:'2100000',
+ cetAnnualBps:2300,platformCommissionMinor:'150000',sponsored:true};
+const ranked=assessVerifiedCreditOffers([baseOffer,bankB,sponsored],
+ {principalMinor:'2000000',termMonths:12},'2026-10-23');
+assert.deepEqual(ranked.organic.map(q=>q.id),['bank-b','bank-a']);
+assert.deepEqual(ranked.sponsored.map(q=>q.id),['sponsor-x']);
+assert.equal(ranked.commissionsUsedInRanking,false);
+assert.equal(ranked.externalEffect,false);
+const altered=assessVerifiedCreditOffers([
+ {...baseOffer,platformCommissionMinor:'1'}, {...bankB,platformCommissionMinor:'100000'},
+ {...sponsored,platformCommissionMinor:'0'}
+],{principalMinor:'2000000',termMonths:12},'2026-10-23');
+assert.deepEqual(altered.organic.map(q=>q.id),ranked.organic.map(q=>q.id),
+ 'Changing commissions cannot alter organic ranking');
+const noApproval=assessVerifiedCreditOffers([{...bankB,sourceVerified:false}],
+ {principalMinor:'2000000',termMonths:12},'2026-10-23');
+assert.equal(noApproval.organic.length,0,'unverified offers are never presented');
+assert.equal(assessVerifiedCreditOffers([{...bankB,validUntil:'2026-10-22'}],
+ {principalMinor:'2000000',termMonths:12},'2026-10-23').organic.length,0);
+
 console.log('Personal marketplace: deterministic comparison, equal basis, no CET claim, empty partners, no data-sharing OK');
