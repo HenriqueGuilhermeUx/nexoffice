@@ -1,0 +1,25 @@
+.np-market-lab{display:grid;gap:15px}
+.np-market-lab>.np-panel{margin:0}
+.np-market-lab h2{margin:9px 0 10px}
+.np-market-lab p{font-size:13px;line-height:1.65}
+.np-market-privacy{background:#edf7f2;border:1px solid #c9e6d7;border-radius:12px;padding:15px 16px;font-size:12px;line-height:1.55;color:#285b44;margin:17px 0}
+.np-market-privacy strong{margin-right:4px}
+.np-market-quotes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:20px 0}
+.np-market-quote{display:grid;gap:11px;align-content:start;background:#f7f9fd;padding:18px;border:1px solid #dbe7f2;border-radius:14px}
+.np-market-quote h4{font-size:17px;color:#204a69;margin:0}
+.np-market-quote p{font-size:12px;margin:0;color:#718495}
+.np-market-quote label{display:grid;gap:6px;color:#456075;font-size:12px;font-weight:700}
+.np-market-quote input{border:1px solid #cbdae5;padding:11px;border-radius:10px;width:100%;min-width:0;color:#173348;font:inherit;background:white}
+.np-market-result{border:1px solid #d4e1ef;border-radius:14px;background:#f0f6ff;padding:20px;margin-top:19px}
+.np-market-result h3{font-size:17px;margin:0 0 14px;color:#173a5f}
+.np-market-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.np-market-totals>div{background:white;border:1px solid #dfeaf3;padding:15px;border-radius:10px;display:grid;gap:7px}
+.np-market-totals small,.np-market-totals span{font-size:11px;color:#648094}
+.np-market-totals strong{font-size:21px;color:#194f93}
+.np-market-result ul{font-size:12px;line-height:1.6;padding-left:20px;color:#5a7489;display:grid;gap:6px}
+.np-market-capabilities{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}
+.np-market-capabilities>div{padding:14px;background:#f7f9fc;border:1px solid #e1e9f0;border-radius:11px;display:grid;gap:7px}
+.np-market-capabilities strong{font-size:13px;color:#17394b}
+.np-market-capabilities small{font-size:11px;line-height:1.5;color:#637c8e}
+.np-market-legal{font-size:11px!important;color:#60768a!important}
+@media(max-width:680px){.np-market-quotes,.np-market-capabilities,.np-market-totals{grid-template-columns:1fr}.np-market-quote{padding:14px}}
