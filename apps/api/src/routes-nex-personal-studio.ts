@@ -234,7 +234,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
     const spentMap=new Map<string,bigint>(spentByCategory.map(r=>[r.category,BigInt(r.spent_minor)]));
     const budgetItems=budgets.map(b=>({...b,spent_minor:String(spentMap.get(b.category)||0n)}));
     const upcoming=bills.filter(b=>{
-      const d=new Date(String(b.next_due_on).slice(0,10)+'T12:00:00Z').getTime()-Date.now();
+      const d=new Date(b.next_due_on).getTime()-Date.now();
       return d<=30*86400000;
     });
     const upcomingTotal=sum(upcoming,r=>r.amount_minor);
@@ -301,7 +301,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       evidence=['nex_personal.goals'];
     }else if(/vencimento|contas? a pagar|contas? venc|proxim|boletos?/.test(q)){
       const thirty=Date.now()+30*86400000;
-      const pending=bills.filter(b=>new Date(String(b.next_due_on).slice(0,10)+'T12:00:00Z').getTime()<=thirty);
+      const pending=bills.filter(b=>new Date(b.next_due_on).getTime()<=thirty);
       const due=pending.reduce((n,b)=>n+BigInt(b.amount_minor),0n);
       answer=pending.length?'Você cadastrou '+pending.length+' conta(s) com vencimento nos próximos 30 dias, somando '+fmt(String(due))+'. Esses são lembretes, não pagamentos agendados.':'Não há contas cadastradas para os próximos 30 dias. Posso avaliar apenas os vencimentos que você informar.';
       evidence=['nex_personal.bills'];
