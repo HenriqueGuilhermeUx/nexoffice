@@ -4,7 +4,7 @@ import NexPersonalStudio from './NexPersonalStudio';
 
 const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
 const TOKEN_KEY='nex.personal.token';
-const PREVIEW=import.meta.env.VITE_PERSONAL_STAGING==='true';
+const PREVIEW=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
 type PersonalMe={user:{id:string;name:string;email:string};activated:boolean};
 type Overview={
   currency:string;connectedAccounts:number;freshAccounts:number;manualAccounts?:number;manualAvailableMinor?:string|null;
