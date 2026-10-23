@@ -62,6 +62,15 @@ export default function NexPersonalLifeOffice({token,onOpenSection}:{
  const selected=ROOMS.find(r=>r.id===area)!;
  const selectedJourney=JOURNEYS.find(j=>j.kind===journey)!;
  const active=(data?.intents||[]).filter(j=>j.status==='planned');
+ const focus=data?.preferences.focus_areas||[];
+ const visibleRooms=[...ROOMS].sort((a,b)=>{
+  const ai=focus.indexOf(a.id),bi=focus.indexOf(b.id);
+  return (ai<0?999:ai)-(bi<0?999:bi);
+ });
+ const shouldHighlight=data?.preferences.proactive_mode==='on_open';
+ const suggested=shouldHighlight?active[0]:undefined;
+ const nextJourney=suggested?JOURNEYS.find(j=>j.kind===suggested.kind):null;
+
  async function savePreferences(){
   setBusy(true);setError('');setNotice('');
   try{
@@ -93,10 +102,17 @@ export default function NexPersonalLifeOffice({token,onOpenSection}:{
    </div>
    <div className="np-life-maya"><span className="np-life-maya-icon">M</span><div><strong>Maya</strong><small>Coordenadora · no seu controle</small></div></div>
   </div>
+  {shouldHighlight&&<section className="np-life-nudge" role="status">
+    <div><span className="np-kicker">MAYA · LEMBRETE NA ABERTURA</span>
+      <strong>{nextJourney?'Retomar: '+nextJourney.title:'Uma prioridade de cada vez'}</strong>
+      <p>{nextJourney?'Você guardou esta jornada. Confira o roteiro e decida o próximo passo.':'Você pode selecionar um ambiente ou iniciar uma jornada; suas áreas favoritas aparecerão primeiro no escritório.'}</p>
+    </div>
+    {nextJourney&&<button type="button" className="np-studio-secondary" onClick={()=>{setJourney(nextJourney.kind);setArea(nextJourney.room);}}>Ver meu roteiro</button>}
+  </section>}
   <section className="np-life-map-wrap" aria-label="Escritório 2D com ambientes de atendimento">
    <div className="np-life-map-head"><strong>SEU ESCRITÓRIO DE VIDA</strong><small>Clique nos ambientes para ver o que já funciona e o que está em integração.</small></div>
    <div className="np-life-floor">
-    {ROOMS.map((room,index)=><button key={room.id} type="button"
+    {visibleRooms.map((room,index)=><button key={room.id} type="button"
        className={'np-life-room '+(area===room.id?'np-life-room-current ':'')+(room.ready?'np-life-room-ready':'np-life-room-planned')}
        onClick={()=>{setArea(room.id);const first=JOURNEYS.find(j=>j.room===room.id);if(first)setJourney(first.kind);}}
        aria-pressed={area===room.id} aria-label={'Abrir '+room.title}>
