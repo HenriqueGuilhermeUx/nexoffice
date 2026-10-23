@@ -7,7 +7,8 @@ import {query,transaction} from './db.js';
 const registration=z.object({
   name:z.string().trim().min(2).max(160),
   email:z.string().email().max(255),
-  password:z.string().min(8).max(256)
+  password:z.string().min(8).max(256),
+  previewInviteCode:z.string().max(128).optional()
 }).strict();
 
 async function personalOwner(req:Parameters<typeof authenticate>[0]):Promise<string>{
