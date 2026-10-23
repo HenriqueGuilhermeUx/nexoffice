@@ -23,12 +23,13 @@ const origin=String(process.env.ALLOWED_ORIGINS||'').trim();
 if(!/^https:\/\/[^,\s/]+(?::\d+)?$/.test(origin))throw new Error('Single exact HTTPS ALLOWED_ORIGINS value required.');
 const databaseUrl=String(process.env.DATABASE_URL||'');
 if(!/^postgres(?:ql)?:\/\//.test(databaseUrl))throw new Error('Dedicated preview PostgreSQL URL required.');
-if(!/nex[-_]?personal/i.test(databaseUrl))throw new Error('Preview database URL must identify Nex Personal, not NexOffices/Nexa.');
+const isolatedCi=process.env.CI==='true'&&process.env.NEX_PERSONAL_PREVIEW_CI==='true';
+if(!isolatedCi&&!/nex[-_]?personal/i.test(databaseUrl))throw new Error('Preview database URL must identify Nex Personal, not NexOffices/Nexa.');
 if(process.env.NEXOFFICE_DATABASE_SCOPE!=='nex-personal-preview')throw new Error('NEXOFFICE_DATABASE_SCOPE must be nex-personal-preview');
 if(process.env.NODE_ENV!=='production')throw new Error('NODE_ENV=production required for public-facing staging');
-if(process.env.AUTO_MIGRATE!=='true')throw new Error('AUTO_MIGRATE=true required for isolated preview bootstrapping.');
+if(process.env.AUTO_MIGRATE!=='true'&&!isolatedCi)throw new Error('AUTO_MIGRATE=true required for isolated preview bootstrapping.');
 
-await runMigrations();
+if(process.env.AUTO_MIGRATE==='true')await runMigrations();
 const app=Fastify({logger:{level:'warn'},bodyLimit:512*1024});
 const rate=new Map<string,{start:number;count:number}>();
 function checkRate(key:string,limit:number,windowMs:number){
