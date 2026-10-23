@@ -218,3 +218,4 @@ export class NexOfficePlatformBridgeClient {
     return payload as T;
   }
 }
+export * from './open-finance.js';
