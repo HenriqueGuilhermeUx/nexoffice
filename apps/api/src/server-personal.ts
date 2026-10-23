@@ -6,7 +6,7 @@ import Fastify from 'fastify';
 import {z} from 'zod';
 import {query} from './db.js';
 import {ApiError,issueSession,revokeSession,verifyPassword} from './auth.js';
-import {runMigrations} from './migrations.js';
+import {runPersonalPreviewMigrations} from './personal-preview-migrations.js';
 import {registerNexPersonalRoutes} from './routes-nex-personal.js';
 import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
 
@@ -29,7 +29,7 @@ if(process.env.NEXOFFICE_DATABASE_SCOPE!=='nex-personal-preview')throw new Error
 if(process.env.NODE_ENV!=='production')throw new Error('NODE_ENV=production required for public-facing staging');
 if(process.env.AUTO_MIGRATE!=='true'&&!isolatedCi)throw new Error('AUTO_MIGRATE=true required for isolated preview bootstrapping.');
 
-if(process.env.AUTO_MIGRATE==='true')await runMigrations();
+if(process.env.AUTO_MIGRATE==='true')await runPersonalPreviewMigrations();
 const app=Fastify({logger:{level:'warn'},bodyLimit:512*1024});
 const rate=new Map<string,{start:number;count:number}>();
 function checkRate(key:string,limit:number,windowMs:number){
