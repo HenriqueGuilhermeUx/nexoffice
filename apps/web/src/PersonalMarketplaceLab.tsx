@@ -40,7 +40,7 @@ export default function PersonalMarketplaceLab(){
   <section className="np-panel">
    <span className="np-kicker">NOAH · OPORTUNIDADES COM LIBERDADE</span>
    <h2>Compare antes de decidir.</h2>
-   <p>O Nex Personal está preparando a distribuição de crédito, investimentos, seguros e serviços de parceiros. **Ainda não há ofertas integradas ou pré-aprovadas.** Enquanto isso, você pode comparar os valores de duas propostas que já possui, no próprio navegador.</p>
+   <p>O Nex Personal está preparando a distribuição de crédito, investimentos, seguros e serviços de parceiros. <strong>Ainda não há ofertas integradas ou pré-aprovadas.</strong> Enquanto isso, você pode comparar os valores de duas propostas que já possui, no próprio navegador.</p>
    <div className="np-market-privacy"><strong>Privacidade primeiro.</strong> Valores digitados nesta comparação permanecem na aba; não são enviados à API, parceiros, publicidade ou bancos. Não há consulta de CPF, anúncio dirigido ou pedido de crédito.</div>
    <form onSubmit={submit}>
     <div className="np-market-quotes">{form(a,setA)}{form(b,setB)}</div>
