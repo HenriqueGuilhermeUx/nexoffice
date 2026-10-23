@@ -11,6 +11,7 @@ import {reconcileWooviBillingSubscriptions} from './billing-reconciliation.js';
 import {reconcileSmartBotsAddonEntitlements} from './smartbots-addon-reconciliation.js';
 import {registerAuthRoutes} from './routes-auth.js';
 import {registerNexPersonalRoutes} from './routes-nex-personal.js';
+import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
 import {registerFinanceRoutes} from './routes-finance.js';
@@ -89,6 +90,7 @@ app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.44.0
 
 await registerAuthRoutes(app);
 await registerNexPersonalRoutes(app);
+await registerNexPersonalStudioRoutes(app);
 await registerCrmRoutes(app);
 await registerOpsRoutes(app);
 await registerFinanceRoutes(app);
