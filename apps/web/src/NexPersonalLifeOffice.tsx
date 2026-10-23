@@ -1,28 +1,31 @@
 import {useCallback,useEffect,useState} from 'react';
 import './nex-personal-life-office.css';
 
-type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments'|'marketing'|'offers';
+type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments'|'marketing'|'offers'|'public_services'|'debt_review'|'legal_support';
 type Kind='buy_car'|'trip'|'email'|'family_study'|'health_organize'|'investment_review'|'publish'|'documents'|'buy_phone'|'family_planning';
 type Route='money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy';
-type Agent='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts';
+type Agent='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts'|'public_services'|'debt_review'|'legal_support';
 type Preferences={focus_areas:Area[];proactive_mode:'off'|'on_open'};
 type Intent={id:string;kind:Kind;status:'planned'|'done';created_at:string};
 type Life={preferences:Preferences;intents:Intent[];proactiveDeliveryActive:false;marketingPersonalization:false;partnerDataShared:false;connectedProducts:[]};
 type Room={id:Area;title:string;emoji:string;agent:string;source:string;ready:boolean;description:string;route?:Route;tag:string};
 
 const ROOMS:ReadonlyArray<Room>=[
- {id:'money',title:'Meu dinheiro',emoji:'💳',agent:'Norte · Atlas',source:'Nex Finance Core',ready:true,description:'Organize saldos declarados, extratos, gastos e compromissos.',route:'money',tag:'Acessível'},
- {id:'investments',title:'Investimentos',emoji:'📈',agent:'Lume',source:'Nex Personal',ready:true,description:'Faça um diagnóstico inicial do patrimônio informado, sem cotações ou ordens.',route:'agents',tag:'Análise inicial'},
- {id:'shopping',title:'Compras e crédito',emoji:'🛍️',agent:'Faro',source:'Marketplace futuro',ready:true,description:'Simule preços e parcelas. Comparação real de ofertas ainda depende de parceiros.',route:'agents',tag:'Simulador'},
- {id:'health',title:'Minha saúde',emoji:'🩺',agent:'Equipe saúde',source:'Health Wallet',ready:false,description:'Visão futura de organização, consultas, documentos e cuidado, com acesso separado e autorização própria.',tag:'Integração planejada'},
- {id:'education',title:'Educação',emoji:'📚',agent:'Tutor pessoal',source:'Mindsteps',ready:false,description:'Estudos e aprendizagem para adultos e apoio familiar, sem perfilar crianças.',tag:'Integração planejada'},
- {id:'documents',title:'Documentos',emoji:'🗂️',agent:'Clara',source:'DocWallet',ready:true,description:'Hoje: checklist textual com Clara. Criação e assinatura dentro do Personal dependerão de integração segura.',route:'agents',tag:'Checklist disponível'},
- {id:'work',title:'Meu dia',emoji:'🗓️',agent:'Assistente pessoal',source:'Staff',ready:false,description:'Futuro: agenda, lembretes, reuniões, veículos e tarefas com controles próprios.',tag:'Integração planejada'},
- {id:'travel',title:'Viagens e lazer',emoji:'🧳',agent:'Concierge de viagens',source:'Parceiros futuros',ready:false,description:'Planejamento de viagens, hotéis e aluguel, com comparação transparente antes da compra.',tag:'Jornada disponível'},
- {id:'vehicle',title:'Mobilidade',emoji:'🚘',agent:'Concierge automotivo',source:'Staff + DocWallet',ready:false,description:'Jornada de compra e venda de carro, documentação, financiamento e anúncio.',tag:'Jornada disponível'},
- {id:'family',title:'Casa e família',emoji:'🏠',agent:'Organizador familiar',source:'Staff + Mindsteps',ready:false,description:'Calendário doméstico e estudos, sem coleta automática de dados de menores.',tag:'Jornada disponível'},
- {id:'marketing',title:'Criação e mídia',emoji:'🎨',agent:'Criador de conteúdo',source:'MODO',ready:false,description:'Preparar publicações, anúncios e peças para aprovação do cliente. Integração autenticada com MODO ainda pendente.',tag:'Integração planejada'},
- {id:'offers',title:'Oportunidades',emoji:'🎁',agent:'Curadoria imparcial',source:'Marketplace',ready:false,description:'Futuro catálogo multiparceiro. Ofertas patrocinadas identificadas, comissões claras, sem uso de dados sensíveis.',tag:'Marketplace futuro'}
+ {id:'money',title:'Meu dinheiro',emoji:'💳',agent:'Norte · Atlas',source:'Organização financeira pessoal',ready:true,description:'Organize saldos declarados, extratos, gastos e compromissos.',route:'money',tag:'Acessível'},
+ {id:'investments',title:'Investimentos',emoji:'📈',agent:'Lume',source:'Acompanhamento de patrimônio',ready:true,description:'Faça um diagnóstico inicial do patrimônio informado, sem cotações ou ordens.',route:'agents',tag:'Análise inicial'},
+ {id:'shopping',title:'Compras e crédito',emoji:'🛍️',agent:'Faro',source:'Comparação e simulação',ready:true,description:'Simule preços e parcelas. Comparação real de ofertas ainda depende de parceiros.',route:'agents',tag:'Simulador'},
+ {id:'health',title:'Minha saúde',emoji:'🩺',agent:'Equipe saúde',source:'Central de cuidado e bem-estar',ready:false,description:'Visão futura de organização, consultas, documentos e cuidado, com proteção reforçada e autorização própria.',tag:'Integração planejada'},
+ {id:'education',title:'Educação',emoji:'📚',agent:'Tutor pessoal',source:'Estudos e aprendizagem',ready:false,description:'Estudos e aprendizagem para adultos e apoio familiar, sem perfilar crianças.',tag:'Integração planejada'},
+ {id:'documents',title:'Documentos',emoji:'🗂️',agent:'Clara',source:'Central de documentos',ready:true,description:'Hoje: checklist textual com Clara. Criação e assinatura digital dependerão de integração segura.',route:'agents',tag:'Checklist disponível'},
+ {id:'work',title:'Meu dia',emoji:'🗓️',agent:'Assistente pessoal',source:'Agenda e assistente pessoal',ready:false,description:'Organização de agenda, lembretes, reuniões e tarefas, com controles próprios.',tag:'Integração planejada'},
+ {id:'travel',title:'Viagens e lazer',emoji:'🧳',agent:'Concierge de viagens',source:'Viagens e hospedagens',ready:false,description:'Planejamento de viagens, hotéis e aluguel, com comparação transparente antes da compra.',tag:'Jornada disponível'},
+ {id:'vehicle',title:'Mobilidade',emoji:'🚘',agent:'Concierge automotivo',source:'Vida sobre rodas',ready:false,description:'Jornada de compra e venda de carro, documentação, financiamento e anúncio.',tag:'Jornada disponível'},
+ {id:'family',title:'Casa e família',emoji:'🏠',agent:'Organizador familiar',source:'Rotina em família',ready:false,description:'Calendário doméstico e estudos, sem coleta automática de dados de menores.',tag:'Jornada disponível'},
+ {id:'marketing',title:'Criação e mídia',emoji:'🎨',agent:'Criador de conteúdo',source:'Criação de conteúdo',ready:false,description:'Preparar publicações, anúncios e peças para aprovação do cliente. Publicação integrada ainda pendente.',tag:'Integração planejada'},
+ {id:'offers',title:'Oportunidades',emoji:'🎁',agent:'Curadoria imparcial',source:'Ofertas e oportunidades',ready:false,description:'Futuro catálogo multiparceiro. Ofertas patrocinadas identificadas, comissões claras, sem uso de dados sensíveis.',tag:'Marketplace futuro'},
+ {id:'public_services',title:'Serviços públicos',emoji:'🏛️',agent:'Cida',source:'Ajuda com órgãos públicos',ready:true,route:'agents',description:'Como obter segunda via de IPTU, identidade, licenças e serviços do Detran, com links oficiais.',tag:'Guia local disponível'},
+ {id:'debt_review',title:'Resolver dívidas',emoji:'🤝',agent:'Recomeço',source:'Organizador de negociações',ready:true,route:'agents',description:'Compare custo total de acordos, organize propostas e prepare mensagens ao credor.',tag:'Simulação privada'},
+ {id:'legal_support',title:'Entender direitos',emoji:'⚖️',agent:'Lia',source:'Guia jurídico inicial',ready:true,route:'agents',description:'Tire dúvidas iniciais sobre contratos, condomínio, cobranças e trabalho.',tag:'Checklist privado'}
 ];
 const JOURNEYS:ReadonlyArray<{kind:Kind;title:string;summary:string;room:Area;steps:string[];route?:Route}>=[
  {kind:'buy_car',title:'Comprar ou trocar de carro',room:'vehicle',summary:'Da escolha à venda do usado, documentação e financiamento.',steps:['Definir faixa de preço e custo total','Comparar propostas e CET de financiamento','Revisar documentação e contrato','Preparar anúncio do carro anterior'],route:'agents'},
@@ -33,7 +36,7 @@ const JOURNEYS:ReadonlyArray<{kind:Kind;title:string;summary:string;room:Area;st
  {kind:'documents',title:'Criar ou revisar um contrato',room:'documents',summary:'Do checklist até assinatura, quando conectada.',steps:['Organizar objeto, partes e prazos','Revisar cláusulas relevantes','Gerar minuta e enviar para assinatura com autorização'],route:'agents'},
  {kind:'family_study',title:'Apoiar estudos da família',room:'education',summary:'Organização educacional com respeito à privacidade.',steps:['Escolher uma matéria ou objetivo de estudo','Criar roteiro e exercícios','Revisar evolução sem publicidade dirigida a menores']},
  {kind:'health_organize',title:'Organizar cuidados de saúde',room:'health',summary:'Lembretes e informações de saúde em ambiente separado.',steps:['Definir quais serviços deseja acessar','Autorizar separadamente a Health Wallet quando disponível','Consultar informações sem compartilhar dados com anúncios']},
- {kind:'publish',title:'Criar uma publicação',room:'marketing',summary:'Ideia, texto e divulgação com MODO.',steps:['Definir público e objetivo da publicação','Criar rascunho e visual','Publicar somente após revisar e autorizar']},
+ {kind:'publish',title:'Criar uma publicação',room:'marketing',summary:'Ideia, texto e divulgação com aprovação.',steps:['Definir público e objetivo da publicação','Criar rascunho e visual','Publicar somente após revisar e autorizar']},
  {kind:'family_planning',title:'Organizar o mês em casa',room:'family',summary:'Compromissos familiares e contas recorrentes.',steps:['Listar prioridades do mês','Criar lembretes e orçamento','Revisar antes de assumir novos compromissos'],route:'planning'}
 ];
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true'?'':((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
@@ -133,7 +136,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
    </div>
    <div className="np-life-detail-foot">
     <span className="np-life-availability">{selected.tag}</span>
-    {selected.route?<button className="np-primary" type="button" onClick={()=>selected.route==='agents'?onOpenAgent(selected.id==='investments'?'investments':selected.id==='shopping'?'shopping':'contracts'):onOpenSection(selected.route!)}>Abrir ferramenta disponível →</button>:
+    {selected.route?<button className="np-primary" type="button" onClick={()=>selected.route==='agents'?onOpenAgent(selected.id==='investments'?'investments':selected.id==='shopping'?'shopping':selected.id==='public_services'?'public_services':selected.id==='debt_review'?'debt_review':selected.id==='legal_support'?'legal_support':'contracts'):onOpenSection(selected.route!)}>Abrir ferramenta disponível →</button>:
      <span className="np-life-notlive">Experiência integrada em preparação · nenhuma conexão de dados ativa</span>}
    </div>
   </section>
