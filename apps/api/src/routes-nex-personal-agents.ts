@@ -23,17 +23,17 @@ const fmt=(value:bigint|string)=>{
 };
 const sum=(items:Record<string,any>[],field:string)=>items.reduce((n,v)=>n+BigInt(v[field]||'0'),0n);
 const catalog=[
- {id:'expenses',name:'Atlas',role:'Analista de gastos',status:'available',description:'Categorias, orçamento e padrões das despesas registradas.',prompt:'Onde estou gastando mais?',icon:'chart'},
- {id:'financial',name:'Norte',role:'Analista financeiro',status:'available',description:'Entradas, saídas, saldo declarado e visão patrimonial parcial.',prompt:'Como estão minhas finanças?',icon:'wallet'},
- {id:'planning',name:'Prisma',role:'Planejador',status:'available',description:'Metas, reservas e compromissos dos próximos meses.',prompt:'Como avançar nas minhas metas?',icon:'target'},
- {id:'investments',name:'Lume',role:'Investimentos',status:'limited',description:'Organiza ativos declarados e liquidez; não indica ativos nem cotações.',prompt:'Como está minha carteira declarada?',icon:'trend'},
- {id:'shopping',name:'Faro',role:'Compras inteligentes',status:'available',description:'Avalia impacto de compras e parcelas com os dados disponíveis.',prompt:'Quanto impactaria essa compra?',icon:'cart'},
- {id:'simulations',name:'Cenário',role:'Simulador financeiro',status:'available',description:'Projeções de poupança e parcelas sem rendimentos presumidos.',prompt:'Simular meu planejamento',icon:'calculator'},
- {id:'payments',name:'Fluxo',role:'Contas e pagamentos',status:'limited',description:'Organiza vencimentos; Pix, boletos e pagamentos reais desativados.',prompt:'Quais contas estão para vencer?',icon:'calendar'},
- {id:'contracts',name:'Clara',role:'Leitura de contratos',status:'limited',description:'Checklist de cláusulas em texto colado, sem conclusão jurídica.',prompt:'Quero revisar cláusulas',icon:'file'},
- {id:'public_services',name:'Cida',role:'Serviços públicos',status:'limited',description:'Orienta IPTU, agendamento da CIN, licenças municipais e Detran.',prompt:'Como faço este serviço?',icon:'landmark'},
- {id:'debt_review',name:'Recomeço',role:'Revisão de dívidas',status:'limited',description:'Simula renegociações informadas, sem consultar CPF ou Serasa.',prompt:'Quero revisar uma dívida',icon:'scale'},
- {id:'legal_support',name:'Lia',role:'Orientação jurídica inicial',status:'limited',description:'Checklist de contratos, dívidas, condomínio e relações de trabalho.',prompt:'Tenho uma dúvida jurídica',icon:'book'}
+ {id:'expenses',name:'Mila',role:'Analista de gastos',status:'available',description:'Categorias, orçamento e padrões das despesas registradas.',prompt:'Onde estou gastando mais?',icon:'chart'},
+ {id:'financial',name:'Nina',role:'Analista financeiro',status:'available',description:'Entradas, saídas, saldo declarado e visão patrimonial parcial.',prompt:'Como estão minhas finanças?',icon:'wallet'},
+ {id:'planning',name:'Liz',role:'Planejador',status:'available',description:'Metas, reservas e compromissos dos próximos meses.',prompt:'Como avançar nas minhas metas?',icon:'target'},
+ {id:'investments',name:'Léo',role:'Investimentos',status:'limited',description:'Organiza ativos declarados e liquidez; não indica ativos nem cotações.',prompt:'Como está minha carteira declarada?',icon:'trend'},
+ {id:'shopping',name:'Bia',role:'Compras inteligentes',status:'available',description:'Avalia impacto de compras e parcelas com os dados disponíveis.',prompt:'Quanto impactaria essa compra?',icon:'cart'},
+ {id:'simulations',name:'Ben',role:'Simulador financeiro',status:'available',description:'Projeções de poupança e parcelas sem rendimentos presumidos.',prompt:'Simular meu planejamento',icon:'calculator'},
+ {id:'payments',name:'Ravi',role:'Contas e pagamentos',status:'limited',description:'Organiza vencimentos; Pix, boletos e pagamentos reais desativados.',prompt:'Quais contas estão para vencer?',icon:'calendar'},
+ {id:'contracts',name:'Mel',role:'Leitura de contratos',status:'limited',description:'Checklist de cláusulas em texto colado, sem conclusão jurídica.',prompt:'Quero revisar cláusulas',icon:'file'},
+ {id:'public_services',name:'Theo',role:'Serviços públicos',status:'limited',description:'Orienta IPTU, agendamento da CIN, licenças municipais e Detran.',prompt:'Como faço este serviço?',icon:'landmark'},
+ {id:'debt_review',name:'Joca',role:'Revisão de dívidas',status:'limited',description:'Simula renegociações informadas, sem consultar CPF ou Serasa.',prompt:'Quero revisar uma dívida',icon:'scale'},
+ {id:'legal_support',name:'Bella',role:'Orientação jurídica inicial',status:'limited',description:'Checklist de contratos, dívidas, condomínio e relações de trabalho.',prompt:'Tenho uma dúvida jurídica',icon:'book'}
 ] as const;
 
 async function personalOwner(req:FastifyRequest){
