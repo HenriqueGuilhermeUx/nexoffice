@@ -42,7 +42,7 @@ export default function App(){
   const refresh=useCallback(async()=>{if(!session.token())return;const requestedWorkspace=session.workspace();setError('');try{const [d,a,c,de,l,t,ap,p,i,m,fa]=await Promise.all([api<Dashboard>('/v1/dashboard'),api<Action[]>('/v1/command/actions'),api<Contact[]>('/v1/crm/contacts'),api<Deal[]>('/v1/crm/deals'),api<Ledger[]>('/v1/ledger'),api<Task[]>('/v1/tasks'),api<Appointment[]>('/v1/appointments'),api<Policy[]>('/v1/autonomy-policies'),api<Integration[]>('/v1/integrations'),api<Member[]>('/v1/members'),api<FinanceAccount[]>('/v1/finance/accounts')]);if(nexaPjBuild&&requestedWorkspace!==session.workspace())return;setDashboard(d);setActions(a);setContacts(c);setDeals(de);setLedger(l);setTasks(t);setAppointments(ap);setPolicies(p);setIntegrations(i);setMembers(m);setAccounts(fa)}catch(e:any){if(nexaPjBuild&&requestedWorkspace!==session.workspace())return;if(e?.status===401){session.clear();setUser(null);setWorkspaces([])}else setError(e?.message||'Não foi possível atualizar os dados.')}},[]);
 
   useEffect(()=>{(async()=>{if(session.token()){try{await loadMe();await refresh()}catch{session.clear()}}setAuthReady(true)})()},[loadMe,refresh]);
-  useEffect(()=>{const handler=(event:Event)=>{const detail=(event as CustomEvent<{view?:string;modal?:string}>).detail||{};const allowed=['conta-nexa','command','crm','finance','operations','agenda','documents','materials','team','marketing','compliance','integrations','settings'];if(detail.view&&allowed.includes(detail.view)&&(detail.view!=='conta-nexa'||nexaPjBuild))setView(detail.view);if(detail.modal)setModal(detail.modal)};window.addEventListener('nexoffice:navigate',handler as EventListener);return()=>window.removeEventListener('nexoffice:navigate',handler as EventListener)},[]);
+  useEffect(()=>{const handler=(event:Event)=>{const detail=(event as CustomEvent<{view?:string;modal?:string}>).detail||{};const allowed=['conta-nexa','command','crm','finance','operations','agenda','documents','materials','maya','team','marketing','compliance','integrations','settings'];if(detail.view&&allowed.includes(detail.view)&&(detail.view!=='conta-nexa'||nexaPjBuild))setView(detail.view);if(detail.modal)setModal(detail.modal)};window.addEventListener('nexoffice:navigate',handler as EventListener);return()=>window.removeEventListener('nexoffice:navigate',handler as EventListener)},[]);
   if(!authReady)return <div className="splash">{productName}</div>;
   if(!user)return <AuthScreen onDone={async(token,workspaceId)=>{session.set(token,workspaceId);await loadMe();await refresh()}}/>;
 
@@ -60,7 +60,8 @@ export default function App(){
     ['agenda','Agenda & Tarefas','◷'],
     ['documents','Documentos','▱'],
     ['materials','Materiais','▦'],
-    ['team','Inteligência e IA','✦'],
+    ['maya','Maya · IA Comercial','✧'],
+    ['team','Equipe de Agentes','✦'],
     ['marketing','Marketing','◉'],
     ['compliance','Governança','✓'],
     ['integrations','Integrações','⇄'],
@@ -102,6 +103,7 @@ export default function App(){
     if(view==='agenda')return <Agenda tasks={tasks} appointments={appointments} onTask={()=>setModal('task')} onAppointment={()=>setModal('appointment')} onTaskStatus={updateTask} onAppointmentStatus={updateAppointment}/>;
     if(view==='documents')return <Documents/>;
     if(view==='materials')return <MaterialsCenter/>;
+    if(view==='maya'&&nexaPjBuild)return <><div className="moduleIntro"><p className="eyebrow">MAYA · INTELIGÊNCIA COMERCIAL</p><h2>Sua estratégia e execução comercial conectadas ao negócio.</h2><p>Maya integra o papel de Growth e Orquestração da equipe digital. Acompanhe campanhas no Marketing, as prioridades na Central de Comando e as políticas de autonomia em Agentes. Conversa direta somente quando o recurso estiver habilitado.</p><div className="pj-maya-actions"><button className="primary" type="button" onClick={()=>setView('marketing')}>Abrir Marketing</button><button type="button" onClick={()=>setView('command')}>Ver prioridades</button><button type="button" onClick={()=>setView('team')}>Todos os agentes</button></div></div><Team policies={policies} onEdit={p=>setModal(`policy:${p.action_type}`)}/></>;
     if(view==='team')return <Team policies={policies} onEdit={p=>setModal(`policy:${p.action_type}`)}/>;
     if(view==='marketing')return <MarketingCenter workspaceId={activeWorkspace?.id||''}/>;
     if(view==='compliance')return <ComplianceCenter/>;
