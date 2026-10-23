@@ -54,19 +54,19 @@ export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
   // Minimal queries, always bound to the authenticated owner. Not a business workspace.
   const [accounts,monthlyTransactions,budgets,goals,bills,wealth]=await Promise.all([
    query<any>("select available_minor::text available_minor from nex_personal.accounts where owner_user_id=$1 and provider='manual' and status='active' and currency='BRL'",[owner]),
-   query<any>("select amount_minor::text amount_minor,coalesce(category,'Outros') category from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and booked_at>=date_trunc('month',now() at time zone 'America/Sao_Paulo') and booked_at<date_trunc('month',now() at time zone 'America/Sao_Paulo')+interval '1 month'",[owner]),
+   query<any>("select amount_minor::text amount_minor,coalesce(category,'Outros') category,analysis_role from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and booked_at>=date_trunc('month',now() at time zone 'America/Sao_Paulo') and booked_at<date_trunc('month',now() at time zone 'America/Sao_Paulo')+interval '1 month'",[owner]),
    query<any>("select category,limit_minor::text limit_minor from nex_personal.budgets where owner_user_id=$1 and month=date_trunc('month',now() at time zone 'America/Sao_Paulo')::date",[owner]),
    query<any>("select name,target_minor::text target_minor,saved_minor::text saved_minor,due_on,status from nex_personal.goals where owner_user_id=$1 and status='active' order by created_at desc limit 20",[owner]),
    query<any>("select name,amount_minor::text amount_minor,next_due_on,interval_months from nex_personal.bills where owner_user_id=$1 and active=true order by next_due_on limit 80",[owner]),
    query<any>("select name,kind,category,amount_minor::text amount_minor from nex_personal.wealth_items where owner_user_id=$1 and currency='BRL'",[owner])
   ]);
   const balance=sum(accounts,'available_minor');
-  const spent=monthlyTransactions.filter(t=>BigInt(t.amount_minor)<0n).reduce((n,t)=>n-BigInt(t.amount_minor),0n);
-  const income=sum(monthlyTransactions.filter(t=>BigInt(t.amount_minor)>0n),'amount_minor');
+  const spent=monthlyTransactions.filter(t=>BigInt(t.amount_minor)<0n&&(t.analysis_role==null||t.analysis_role==='expense')).reduce((n,t)=>n-BigInt(t.amount_minor),0n);
+  const income=sum(monthlyTransactions.filter(t=>BigInt(t.amount_minor)>0n&&(t.analysis_role==null||t.analysis_role==='income')),'amount_minor');
   const assets=sum(wealth.filter(w=>w.kind==='asset'),'amount_minor');
   const debts=sum(wealth.filter(w=>w.kind==='liability'),'amount_minor');
   const byCategory=new Map<string,bigint>();
-  for(const tx of monthlyTransactions)if(BigInt(tx.amount_minor)<0n)
+  for(const tx of monthlyTransactions)if(BigInt(tx.amount_minor)<0n&&(tx.analysis_role==null||tx.analysis_role==='expense'))
    byCategory.set(tx.category,(byCategory.get(tx.category)||0n)-BigInt(tx.amount_minor));
   const ordered=[...byCategory].sort((a,b)=>a[1]===b[1]?a[0].localeCompare(b[0]):a[1]>b[1]?-1:1);
   const upcoming=bills.filter(b=>{
@@ -78,7 +78,7 @@ export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
   switch(agentId){
    case 'expenses': {
     title='Seu mapa de gastos';
-    answer=monthlyTransactions.some(t=>BigInt(t.amount_minor)<0n)
+    answer=monthlyTransactions.some(t=>BigInt(t.amount_minor)<0n&&(t.analysis_role==null||t.analysis_role==='expense'))
      ?'As despesas registradas neste mês totalizam '+fmt(spent)+'.'
      :'Ainda não há despesas registradas neste mês; importe um extrato ou lance movimentações.';
     facts=ordered.slice(0,5).map(([cat,value])=>cat+': '+fmt(value));
