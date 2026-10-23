@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import NexPersonal from './NexPersonal';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
@@ -37,6 +38,7 @@ const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
 const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
+const personalRequested=/^\/personal\/?$/.test(location.pathname);
 
 const appSurface=<>
   <PlatformHandoffBootstrap/>
@@ -65,7 +67,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
-      : legalRequested
+      : personalRequested
+        ? <NexPersonal/>
+        : legalRequested
         ? <PublicLegalPage/>
         : appRequested
           ? appSurface
