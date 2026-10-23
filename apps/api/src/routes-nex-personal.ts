@@ -60,16 +60,16 @@ export async function registerNexPersonalRoutes(app:FastifyInstance){
   app.get('/v1/personal/accounts',async req=>{
     const owner=await personalOwner(req);
     const rows=await query<any>(
-      "select id, institution_name, name, account_type, currency, current_minor::text current_minor, available_minor::text available_minor, balance_as_of, last_synced_at, status, (balance_as_of >= now()-interval '48 hours' and status='active') fresh from nex_personal.accounts where owner_user_id=$1 order by institution_name,name",
+      "select id, institution_name, name, account_type, currency, current_minor::text current_minor, available_minor::text available_minor, balance_as_of, last_synced_at, status, (provider<>'manual' and balance_as_of >= now()-interval '48 hours' and status='active') fresh, provider, (provider='manual') manually_reported from nex_personal.accounts where owner_user_id=$1 order by institution_name,name",
       [owner]
     );
-    return {accounts:rows,source:'connected_institutions',custodial:false};
+    return {accounts:rows,source:'mixed_user_declared_and_connected',custodial:false};
   });
 
   app.get('/v1/personal/transactions',async req=>{
     const owner=await personalOwner(req);
     const rows=await query<any>(
-      'select t.id,t.account_id,t.description,t.amount_minor::text amount_minor,t.currency,t.category,t.booked_at,a.institution_name from nex_personal.transactions t join nex_personal.accounts a on a.id=t.account_id and a.owner_user_id=t.owner_user_id where t.owner_user_id=$1 order by t.booked_at desc,t.id desc limit 50',
+      'select t.id,t.account_id,t.description,t.amount_minor::text amount_minor,t.currency,t.category,t.booked_at,t.source,a.institution_name from nex_personal.transactions t join nex_personal.accounts a on a.id=t.account_id and a.owner_user_id=t.owner_user_id where t.owner_user_id=$1 order by t.booked_at desc,t.id desc limit 50',
       [owner]
     );
     return {transactions:rows,readOnly:true};
@@ -78,7 +78,7 @@ export async function registerNexPersonalRoutes(app:FastifyInstance){
   app.get('/v1/personal/overview',async req=>{
     const owner=await personalOwner(req);
     const metrics=await query<any>(
-      "select count(*)::int account_count, count(*) filter(where status='active' and currency='BRL' and balance_as_of>=now()-interval '48 hours' and available_minor is not null)::int fresh_brl_count, sum(available_minor) filter(where status='active' and currency='BRL' and balance_as_of>=now()-interval '48 hours' and available_minor is not null)::text available_minor, max(balance_as_of) last_balance_at from nex_personal.accounts where owner_user_id=$1",
+      "select count(*) filter(where provider<>'manual')::int account_count, count(*) filter(where provider<>'manual' and status='active' and currency='BRL' and balance_as_of>=now()-interval '48 hours' and available_minor is not null)::int fresh_brl_count, sum(available_minor) filter(where provider<>'manual' and status='active' and currency='BRL' and balance_as_of>=now()-interval '48 hours' and available_minor is not null)::text available_minor, count(*) filter(where provider='manual' and currency='BRL' and status='active')::int manual_count, sum(available_minor) filter(where provider='manual' and currency='BRL' and status='active')::text manual_available_minor, max(balance_as_of) last_balance_at from nex_personal.accounts where owner_user_id=$1",
       [owner]
     );
     const row=metrics[0],complete=row.account_count>0 && row.account_count===row.fresh_brl_count;
@@ -89,14 +89,17 @@ export async function registerNexPersonalRoutes(app:FastifyInstance){
     return {
       currency:'BRL',
       connectedAccounts:row.account_count,
+      manualAccounts:row.manual_count,
+      manualAvailableMinor:row.manual_available_minor,
       freshAccounts:row.fresh_brl_count,
       availableMinor:complete?row.available_minor:null,
-      spentThisMonthMinor:row.account_count>0?expenses[0].spent_minor:null,
+      spentThisMonthMinor:(row.account_count+row.manual_count)>0?expenses[0].spent_minor:null,
+      expensesArePartial:true,
       lastBalanceAt:row.last_balance_at,
       incomplete:!complete,
       custodial:false,
       financialActionsEnabled:false,
-      maya:{status:complete?'data_ready':'awaiting_verified_data',message:complete?'Dados financeiros disponíveis para análise.':'Conecte uma instituição para que a Maya analise números reais.'}
+      maya:{status:complete?'data_ready':row.manual_count>0?'manual_data_ready':'awaiting_data',message:complete?'Dados financeiros conectados disponíveis para análise.':row.manual_count>0?'Você já pode organizar suas finanças com contas informadas manualmente. Os valores ainda não são verificados pelo banco.':'Adicione uma conta manual ou importe um extrato para começar, mesmo sem Open Finance.'}
     };
   });
 
