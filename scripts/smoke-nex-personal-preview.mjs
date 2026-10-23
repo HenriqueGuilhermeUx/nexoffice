@@ -97,6 +97,44 @@ try{
  const forged=await call('/v1/personal/agents/financial/analyze','POST',{ownerId:randomUUID()},token);
  assert.equal(forged.status,400,'Client cannot change analysis owner');
 
+
+ // Life OS: opt-in only, owner-scoped metadata, and no cross-product data sharing.
+ const anonLife=await call('/v1/personal/life');assert.equal(anonLife.status,401);
+ const initialLife=await call('/v1/personal/life','GET',undefined,token);
+ assert.equal(initialLife.status,200,JSON.stringify(initialLife.body));
+ assert.equal(initialLife.body.preferences.proactive_mode,'off');
+ assert.deepEqual(initialLife.body.preferences.focus_areas,[]);
+ assert.equal(initialLife.body.partnerDataShared,false);
+ assert.equal(initialLife.body.marketingPersonalization,false);
+ assert.deepEqual(initialLife.body.connectedProducts,[]);
+ assert.equal(initialLife.body.proactiveDeliveryActive,false);
+ const selected=await call('/v1/personal/life/preferences','PUT',{
+  focusAreas:['money','health','vehicle'],proactiveMode:'on_open'
+ },token);
+ assert.equal(selected.status,200,JSON.stringify(selected.body));
+ assert.equal(selected.body.proactiveDeliveryActive,false,'No background notification scheduler');
+ const invalidPreferences=await call('/v1/personal/life/preferences','PUT',{
+  focusAreas:['health','health'],proactiveMode:'on_open'
+ },token);
+ assert.equal(invalidPreferences.status,400,'Duplicate areas cannot be saved');
+ const fakeSharing=await call('/v1/personal/life/preferences','PUT',{
+  focusAreas:['money'],proactiveMode:'on_open',shareHealthData:true
+ },token);
+ assert.equal(fakeSharing.status,400,'No hidden health-data sharing capability');
+ const newLife=await call('/v1/personal/life/intents','POST',{kind:'buy_car'},token);
+ assert.equal(newLife.status,200,JSON.stringify(newLife.body));
+ assert.equal(newLife.body.externalEffect,false);
+ const freshLife=await call('/v1/personal/life','GET',undefined,token);
+ assert.equal(freshLife.body.intents.length,1);
+ assert.equal(freshLife.body.preferences.proactive_mode,'on_open');
+ const otherIntent=await call('/v1/personal/life/intents/'+randomUUID()+'/complete','POST',{},token);
+ assert.equal(otherIntent.status,404,'Foreign/missing owner tasks must not be modified');
+ const completeLife=await call('/v1/personal/life/intents/'+newLife.body.intent.id+'/complete','POST',{},token);
+ assert.equal(completeLife.status,200);
+ assert.equal(completeLife.body.externalEffect,false);
+ const doneLife=await call('/v1/personal/life','GET',undefined,token);
+ assert.equal(doneLife.body.intents[0].status,'done');
+
  const logout=await call('/v1/auth/logout','POST',{},token);assert.equal(logout.status,200);
  const after=await call('/v1/personal/studio','GET',undefined,token);assert.equal(after.status,401);
  const loginRejected=await call('/v1/auth/login','POST',{email:'not-allowed@example.test',password:'SecurePass-123!'});
