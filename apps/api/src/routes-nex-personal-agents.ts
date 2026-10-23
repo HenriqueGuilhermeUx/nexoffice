@@ -67,7 +67,8 @@ export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
    byCategory.set(tx.category,(byCategory.get(tx.category)||0n)-BigInt(tx.amount_minor));
   const ordered=[...byCategory].sort((a,b)=>a[1]===b[1]?a[0].localeCompare(b[0]):a[1]>b[1]?-1:1);
   const upcoming=bills.filter(b=>{
-   const due=Date.parse(String(b.next_due_on).slice(0,10)+'T12:00:00-03:00');
+   const dueDate=b.next_due_on instanceof Date?b.next_due_on.toISOString().slice(0,10):String(b.next_due_on).slice(0,10);
+   const due=Date.parse(dueDate+'T12:00:00-03:00');
    return Number.isFinite(due)&&due<=Date.now()+30*86400000;
   });
   let title='',answer='',facts:string[]=[],sources:string[]=[],limitation='';
@@ -142,7 +143,7 @@ export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
     title='Agenda de contas e pagamentos';
     answer=upcoming.length?'Há '+upcoming.length+' compromisso(s) informados com vencimento até 30 dias (inclui vencidos): '+fmt(sum(upcoming,'amount_minor'))+'.':
       'Você ainda não possui lembretes para os próximos 30 dias.';
-    facts=upcoming.slice(0,6).map(b=>b.name+': '+fmt(b.amount_minor)+' · '+String(b.next_due_on).slice(0,10));
+    facts=upcoming.slice(0,6).map(b=>b.name+': '+fmt(b.amount_minor)+' · '+(b.next_due_on instanceof Date?b.next_due_on.toISOString().slice(0,10):String(b.next_due_on).slice(0,10)));
     facts.push('Nenhum Pix, boleto ou pagamento é iniciado pela homologação.');
     sources=['lembretes cadastrados'];limitation='A Efí e pagamentos reais ainda não estão habilitados. Marcar lembrete não paga a conta.';break;
    }
