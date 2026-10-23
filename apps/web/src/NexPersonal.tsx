@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
-import NexPersonalAgents from './NexPersonalAgents';
+import NexPersonalAgents,{type AgentId} from './NexPersonalAgents';
 import NexPersonalLifeOffice from './NexPersonalLifeOffice';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
@@ -51,6 +51,7 @@ export default function NexPersonal(){
   const [consents,setConsents]=useState<Consent[]>([]);
   const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy'>('office');
   const [mode,setMode]=useState<'login'|'register'>('login');
+  const [initialSpecialist,setInitialSpecialist]=useState<AgentId>('expenses');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [ready,setReady]=useState(false);
@@ -142,7 +143,7 @@ export default function NexPersonal(){
     <main className="np-main">
       <header className="np-top"><div><div className="np-kicker">NEX PERSONAL · SUA VIDA, UM SÓ LUGAR</div><h1>Olá, {displayName}.</h1><p>Sua vida mais simples. Seu tempo de volta.</p></div><span className="np-pill">Sem transferências reais</span></header>
       {error&&<div className="np-error" role="alert">{error}</div>}
-      {section==='office'&&<NexPersonalLifeOffice token={token} onOpenSection={setSection}/>}
+      {section==='office'&&<NexPersonalLifeOffice token={token} onOpenSection={setSection} onOpenAgent={(agent)=>{setInitialSpecialist(agent);setSection('agents');}}/>}
       {section==='today'&&<>
         <div className="np-stats">
           <div className="np-stat"><span>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Disponível conectado':'Saldo declarado'}</span><strong>{money(overview?.availableMinor??overview?.manualAvailableMinor)}</strong><small>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Saldo informado pelas instituições':'Informado por você · sem verificação bancária'}</small></div>
@@ -165,7 +166,7 @@ export default function NexPersonal(){
       {section==='spending'&&<NexPersonalStudio view="spending" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='planning'&&<NexPersonalStudio view="planning" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='wealth'&&<NexPersonalStudio view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='agents'&&<NexPersonalAgents token={token} onOpenSection={setSection}/>}
+      {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
             {section==='maya'&&<NexPersonalStudio view="maya" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='privacy'&&<section className="np-panel"><h2>Privacidade e consentimentos</h2><p>Seus dados PF não são compartilhados com nenhum workspace empresarial. Ofertas personalizadas e compartilhamento com parceiros dependem de autorizações separadas.</p>
         {consents.length===0?<p className="np-empty">Nenhum consentimento registrado. A conexão Open Finance permanece indisponível até a integração real.</p>:consents.map(c=><div key={c.id} className="np-line"><strong>{c.purpose}</strong><span>{c.status} · {when(c.created_at)}</span></div>)}
