@@ -36,7 +36,7 @@ export async function registerNexPersonalPrivacyRoutes(app:FastifyInstance){
   const truncated:string[]=[];
   for(const table of TABLES){
    // Fixed schema/table identifiers from internal constant, never user input.
-   const rows=await query<any>('select * from nex_personal.'+table+' where owner_user_id=$1 order by '+(table==='life_preferences'?'owner_user_id':'created_at')+' desc limit $2',[user.id,MAX_RECORDS_PER_TABLE+1]);
+   const rows=await query<any>('select * from nex_personal.'+table+' where owner_user_id=$1 order by '+(table==='life_preferences'?'owner_user_id':table==='transactions'?'booked_at':'created_at')+' desc limit $2',[user.id,MAX_RECORDS_PER_TABLE+1]);
    if(rows.length>MAX_RECORDS_PER_TABLE)truncated.push(table);
    snapshot[table]=rows.slice(0,MAX_RECORDS_PER_TABLE);
   }
