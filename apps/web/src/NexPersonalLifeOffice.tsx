@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import './nex-personal-life-office.css';
+import PersonalMarketplaceLab from './PersonalMarketplaceLab';
 
 type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments'|'marketing'|'offers'|'public_services'|'debt_review'|'legal_support';
 type Kind='buy_car'|'trip'|'email'|'family_study'|'health_organize'|'investment_review'|'publish'|'documents'|'buy_phone'|'family_planning';
@@ -143,6 +144,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
      <span className="np-life-notlive">Experiência integrada em preparação · nenhuma conexão de dados ativa</span>}
    </div>
   </section>
+  {(area==='offers'||area==='shopping')&&<PersonalMarketplaceLab/>}
   <div className="np-life-columns">
    <section className="np-panel">
     <div className="np-life-header-row"><div><span className="np-kicker">JORNADAS COMPLETAS</span><h2>O que você quer resolver?</h2></div><small>Roteiros organizados, não operações reais</small></div>
