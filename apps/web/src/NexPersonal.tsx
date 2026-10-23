@@ -1,16 +1,17 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal.css';
+import NexPersonalStudio from './NexPersonalStudio';
 
 const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
 const TOKEN_KEY='nex.personal.token';
 type PersonalMe={user:{id:string;name:string;email:string};activated:boolean};
 type Overview={
-  currency:string;connectedAccounts:number;freshAccounts:number;
+  currency:string;connectedAccounts:number;freshAccounts:number;manualAccounts?:number;manualAvailableMinor?:string|null;
   availableMinor:string|null;spentThisMonthMinor:string|null;
   lastBalanceAt:string|null;incomplete:boolean;custodial:false;
   maya:{status:string;message:string}
 };
-type Account={id:string;institution_name:string;name:string;account_type:string;currency:string;current_minor:string|null;available_minor:string|null;balance_as_of:string|null;status:string;fresh:boolean};
+type Account={id:string;institution_name:string;name:string;account_type:string;currency:string;current_minor:string|null;available_minor:string|null;balance_as_of:string|null;status:string;fresh:boolean;provider:string;manually_reported:boolean};
 type Movement={id:string;description:string;amount_minor:string;currency:string;category:string|null;booked_at:string;institution_name:string};
 type Consent={id:string;purpose:string;status:string;created_at:string;expires_at:string|null};
 
@@ -43,7 +44,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'today'|'money'|'spending'|'privacy'>('today');
+  const [section,setSection]=useState<'today'|'money'|'spending'|'planning'|'wealth'|'maya'|'privacy'>('today');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -127,7 +128,7 @@ export default function NexPersonal(){
     <aside className="np-sidebar">
       <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['maya','Maya'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
       <div className="np-sidebar-bottom"><span>Seus recursos continuam nas instituições conectadas.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
@@ -136,21 +137,21 @@ export default function NexPersonal(){
       {error&&<div className="np-error" role="alert">{error}</div>}
       {section==='today'&&<>
         <div className="np-stats">
-          <div className="np-stat"><span>Disponível nas contas</span><strong>{money(overview?.availableMinor)}</strong><small>{overview?.incomplete?'Aguardando saldos atualizados de todas as contas':'Saldos informados pelas instituições'}</small></div>
-          <div className="np-stat"><span>Contas conectadas</span><strong>{overview?.connectedAccounts??'—'}</strong><small>Instituições verificadas</small></div>
-          <div className="np-stat"><span>Gastos neste mês</span><strong>{money(overview?.spentThisMonthMinor)}</strong><small>{overview?.incomplete?'Aguardando conexão e sincronização':'Movimentações importadas'}</small></div>
+          <div className="np-stat"><span>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Disponível conectado':'Saldo declarado'}</span><strong>{money(overview?.availableMinor??overview?.manualAvailableMinor)}</strong><small>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Saldo informado pelas instituições':'Informado por você · sem verificação bancária'}</small></div>
+          <div className="np-stat"><span>Contas organizadas</span><strong>{(overview?.connectedAccounts??0)+(overview?.manualAccounts??0)}</strong><small>{overview?.manualAccounts??0} manuais · {overview?.connectedAccounts??0} conectadas</small></div>
+          <div className="np-stat"><span>Gastos neste mês</span><strong>{money(overview?.spentThisMonthMinor)}</strong><small>Movimentações que você registrou ou importou · visão parcial</small></div>
         </div>
         <section className="np-panel np-maya"><div className="np-maya-avatar">M</div><div><span className="np-kicker">MAYA · SUA INTELIGÊNCIA FINANCEIRA</span><h2>Seu próximo passo, com base em dados.</h2><p>{overview?.maya.message}</p><small>A Maya não cria números nem executa transações sem sua autorização.</small></div></section>
-        <section className="np-panel"><div className="np-panel-head"><div><h2>Suas instituições</h2><p>Uma visão consolidada, sem transferir sua custódia.</p></div><span className="np-pill">Open Finance</span></div>
-          {accounts.length===0?<div className="np-empty"><strong>Suas contas ainda não estão conectadas.</strong><p>A integração segura com o provedor Open Finance está em preparação. Nenhum saldo fictício será exibido.</p><button disabled className="np-primary">Conectar instituição · em breve</button></div>:
-            <div className="np-account-list">{accounts.slice(0,6).map(a=><div key={a.id} className="np-line"><span><strong>{a.institution_name}</strong><small>{a.name}</small></span><span><strong>{a.fresh?money(a.available_minor,a.currency):'Aguardando atualização'}</strong><small>Atualizado em {when(a.balance_as_of)}</small></span></div>)}</div>}
+        <section className="np-panel"><div className="np-panel-head"><div><h2>Suas instituições</h2><p>Uma visão consolidada, sem transferir sua custódia.</p></div><span className="np-pill">Manual agora · Open Finance depois</span></div>
+          {accounts.length===0?<div className="np-empty"><strong>Suas contas ainda não estão conectadas.</strong><p>A integração segura com o provedor Open Finance está em preparação. Nenhum saldo fictício será exibido.</p><button className="np-primary" onClick={()=>setSection('money')}>Adicionar conta manual</button></div>:
+            <div className="np-account-list">{accounts.slice(0,6).map(a=><div key={a.id} className="np-line"><span><strong>{a.institution_name}</strong><small>{a.name}</small></span><span><strong>{a.manually_reported?money(a.available_minor,a.currency):a.fresh?money(a.available_minor,a.currency):'Aguardando atualização'}</strong><small>{a.manually_reported?'Informado por você':'Atualizado em '+when(a.balance_as_of)}</small></span></div>)}</div>}
         </section>
       </>}
-      {section==='money'&&<section className="np-panel"><h2>Meu Dinheiro</h2><p>Contas e movimentações importadas — somente consulta.</p>
-        {accounts.map(a=><div key={a.id} className="np-line"><span><strong>{a.institution_name} · {a.name}</strong><small>{a.account_type}</small></span><span><strong>{a.fresh?money(a.available_minor,a.currency):'Saldo desatualizado'}</strong><small>{when(a.balance_as_of)}</small></span></div>)}
-        <h3>Últimas movimentações</h3>{movements.length===0?<p className="np-empty">Sem movimentações importadas. Aguardando conexão Open Finance.</p>:movements.map(m=><div key={m.id} className="np-line"><span><strong>{m.description}</strong><small>{m.institution_name} · {when(m.booked_at)}</small></span><strong>{money(m.amount_minor,m.currency)}</strong></div>)}
-      </section>}
-      {section==='spending'&&<section className="np-panel"><h2>Gastos e planejamento</h2><p>O orçamento pessoal será calculado apenas quando existirem transações financeiras verificadas.</p><div className="np-stat"><span>Saídas do mês</span><strong>{money(overview?.spentThisMonthMinor)}</strong></div><p>Em breve: categorias, assinaturas, metas e previsões da Maya.</p></section>}
+      {section==='money'&&<NexPersonalStudio view="money" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='spending'&&<NexPersonalStudio view="spending" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='planning'&&<NexPersonalStudio view="planning" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='wealth'&&<NexPersonalStudio view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='maya'&&<NexPersonalStudio view="maya" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='privacy'&&<section className="np-panel"><h2>Privacidade e consentimentos</h2><p>Seus dados PF não são compartilhados com nenhum workspace empresarial. Ofertas personalizadas e compartilhamento com parceiros dependem de autorizações separadas.</p>
         {consents.length===0?<p className="np-empty">Nenhum consentimento registrado. A conexão Open Finance permanece indisponível até a integração real.</p>:consents.map(c=><div key={c.id} className="np-line"><strong>{c.purpose}</strong><span>{c.status} · {when(c.created_at)}</span></div>)}
         <p className="np-footnote">Não vendemos sua base de dados. O Nex Personal não é banco nem custodiante.</p>
