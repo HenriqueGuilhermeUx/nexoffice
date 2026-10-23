@@ -61,7 +61,8 @@ app.addHook('onRequest',async(req,reply)=>{
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 app.addHook('preHandler',async req=>{
- if(req.url==='/v1/auth/login'||req.url==='/v1/personal/auth/register'){
+ // CORS OPTIONS requests never have auth JSON bodies; validate POST login/signup only.
+ if(req.method==='POST'&&(req.url==='/v1/auth/login'||req.url==='/v1/personal/auth/register')){
    checkRate('auth:'+req.ip,12,15*60*1000);
    const email=emailSchema.parse((req.body as Record<string,unknown>)?.email);
    if(!allowedEmails.includes(email))throw new ApiError(403,'preview_invitation_required','Esta homologação está disponível apenas para testadores autorizados.');
