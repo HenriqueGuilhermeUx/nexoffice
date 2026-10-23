@@ -40,3 +40,24 @@
 @media(max-width:1100px){.np-agents-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.np-agents-grid{grid-template-columns:1fr 1fr;gap:8px}.np-agent-tile{min-height:192px;padding:13px 10px;column-gap:7px}.np-agent-tile.np-agent-selected{padding:12px 9px}.np-agent-icon{width:35px;height:35px;font-size:21px}.np-agent-meta strong{font-size:14px}.np-agent-meta small{font-size:10px}.np-agent-desc{font-size:11px}.np-agent-workspace{padding:19px}.np-agents-intro{padding:5px 0}.np-agents-spotlight{flex-direction:column;align-items:start}}
 @media(max-width:360px){.np-agents-grid{grid-template-columns:1fr}}
+
+.np-invest-inspector{display:flex;flex-direction:column;gap:14px}
+.np-invest-inspector>.np-panel{margin:0}
+.np-invest-inspector .np-kicker{margin:0}
+.np-invest-inspector h2{margin:8px 0 10px}
+.np-invest-inspector p{color:#5b7386;font-size:13px;line-height:1.65}
+.np-invest-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:20px 0}
+.np-invest-form label{display:flex;flex-direction:column;gap:7px;color:#456173;font-size:12px;font-weight:700}
+.np-invest-form input,.np-invest-form select{width:100%;min-width:0;border:1px solid #c7d5e4;border-radius:11px;padding:11px 12px;font:inherit;color:#173647;background:#fff}
+.np-invest-form button{align-self:end}
+.np-invest-result{border:1px solid #e3cfa7;background:#fff9ee;border-radius:14px;padding:16px 20px;margin:14px 0}
+.np-invest-result strong{color:#8d5a13}
+.np-invest-result p{color:#6c5737}
+.np-invest-result small{font-size:11px;line-height:1.55;color:#857353}
+.np-invest-legal{font-size:11px!important;color:#607a8d!important}
+.np-invest-legal a{color:#1458e8}
+.np-invest-draft{border:1px solid #dce6f2;border-radius:12px;padding:17px;background:#f4f8fe;display:grid;gap:12px}
+.np-invest-draft-head{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap;font-size:13px}
+.np-invest-draft textarea{width:100%;padding:13px;border-radius:10px;border:1px solid #cbd9e9;white-space:pre-wrap;font:12px/1.6 system-ui,sans-serif;color:#173647;resize:vertical;background:#fff}
+.np-invest-draft small{font-size:11px;color:#60778a}
+@media(max-width:650px){.np-invest-form{grid-template-columns:1fr}}
