@@ -1,5 +1,6 @@
 import {useState,type FormEvent} from 'react';
 import './nex-personal-agents.css';
+import PersonalInvestmentInspector from './PersonalInvestmentInspector';
 
 export type AgentId='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts';
 export const PERSONAL_AGENTS:ReadonlyArray<{
@@ -119,5 +120,6 @@ export default function NexPersonalAgents({token,initialAgent='expenses',onOpenS
     </div>
    </div>
   </section>
+  {selected==='investments'&&<PersonalInvestmentInspector/>}
  </div>;
 }
