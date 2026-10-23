@@ -39,7 +39,7 @@ const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('
 const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
 const personalRequested=/^\/personal\/?$/.test(location.pathname);
-const personalPreview=import.meta.env.VITE_PERSONAL_STAGING==='true';
+const personalPreview=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
 
 const appSurface=<>
   <PlatformHandoffBootstrap/>
