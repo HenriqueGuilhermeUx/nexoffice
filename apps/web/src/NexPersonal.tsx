@@ -2,7 +2,7 @@ import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
 
-const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
+const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 const TOKEN_KEY='nex.personal.token';
 const PREVIEW=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
 type PersonalMe={user:{id:string;name:string;email:string};activated:boolean};
@@ -20,7 +20,9 @@ async function request<T>(path:string,options:RequestInit={},token=sessionStorag
   const headers=new Headers(options.headers||{});
   headers.set('content-type','application/json');
   if(token)headers.set('authorization','Bearer '+token);
-  const response=await fetch(API+path,{...options,headers});
+  let response:Response;
+  try{response=await fetch(API+path,{...options,headers});}
+  catch{throw new Error('Não foi possível conectar ao Nex Personal. Verifique sua conexão e tente novamente.');}
   const body=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(body.message||body.error||'Não foi possível carregar seus dados.');
   return body as T;
