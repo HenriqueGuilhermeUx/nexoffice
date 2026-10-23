@@ -89,9 +89,9 @@ app.setErrorHandler((error,req,reply)=>{
  const status=Number((error as any).statusCode||((error as any).issues?400:500));
  // Do not leak raw SQL or PII in public error responses.
  if(status>=500){
-  req.log.error({code:(error as any).code||'server_error',name:error.name},'Preview request failed');
+  req.log.error({code:(error as any).code||'server_error',name:error instanceof Error?error.name:'UnknownError'},'Preview request failed');
   return reply.code(500).send({error:'server_error',message:'Não foi possível concluir a operação.'});
  }
- return reply.code(status).send({error:(error as any).code||'invalid_request',message:error.message});
+ return reply.code(status).send({error:(error as any).code||'invalid_request',message:error instanceof Error?error.message:'Requisição inválida.'});
 });
 await app.listen({host:'0.0.0.0',port:Number(process.env.PORT||4000)});
