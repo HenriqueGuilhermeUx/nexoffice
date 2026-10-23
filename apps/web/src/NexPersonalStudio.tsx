@@ -94,6 +94,8 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  const [selectedAccount,setSelectedAccount]=useState('');
  const [csv,setCsv]=useState<CsvRow[]>([]);
  const [csvName,setCsvName]=useState('');
+ const [mayaQuestion,setMayaQuestion]=useState('');
+ const [mayaAnswer,setMayaAnswer]=useState('');
  const load=useCallback(async()=>{setData(await request<Studio>('/v1/personal/studio',token));},[token]);
  useEffect(()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Erro ao carregar.')).finally(()=>setLoading(false));},[load]);
  const accountId=selectedAccount||data?.accounts[0]?.id||'';
@@ -114,6 +116,12 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
   if(file.size>350000){setError('O CSV excede 350 KB. Separe em arquivos menores.');return;}
   try{setCsv(parseCsv(await file.text()));setCsvName(file.name);}
   catch(e){setError(e instanceof Error?e.message:'CSV inválido.');}
+ }
+ async function askMaya(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(!mayaQuestion.trim())return;setBusy(true);setError('');
+  try{const result=await request<{answer:string}>('/v1/personal/maya/ask',token,'POST',{question:mayaQuestion});setMayaAnswer(result.answer);}
+  catch(e){setError(e instanceof Error?e.message:'Não foi possível responder.');}
+  finally{setBusy(false);}
  }
  async function importCsv(){
   if(!accountId||!csv.length)return;
@@ -177,6 +185,14 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
     <button className="np-primary" onClick={()=>void importCsv()} disabled={busy}>Confirmar importação</button>
    </div>}
   </Card>}
+  <Card title="Categorizar lançamentos">
+   <p>Você pode corrigir uma categoria calculada automaticamente após importar seu extrato.</p>
+   {data.transactions.length>0&&<form className="np-studio-form" onSubmit={e=>submit(e,f=>({path:'/v1/personal/transactions/'+field(f,'transactionId')+'/category',method:'PATCH',payload:{category:field(f,'category')},success:'Categoria atualizada.'}))}>
+    <label>Movimentação<select name="transactionId" required>{data.transactions.slice(0,100).map(t=><option key={t.id} value={t.id}>{t.description.slice(0,35)} · {formatMinor(t.amount_minor)}</option>)}</select></label>
+    <label>Nova categoria<input name="category" placeholder="Alimentação" required/></label>
+    <button className="np-studio-secondary" disabled={busy}>Salvar categoria</button>
+   </form>}
+  </Card>
   <Card title="Histórico organizado">
    {data.transactions.length===0?<p>Ainda não há movimentações registradas.</p>:data.transactions.slice(0,25).map(t=><div className="np-line" key={t.id}>
     <span><strong>{t.description}</strong><small>{String(t.booked_at).slice(0,10)} · {t.category||'Sem categoria'} · {t.source==='csv'?'CSV':t.source==='manual'?'Manual':'Provedor'}</small></span><strong>{formatMinor(t.amount_minor)}</strong>
@@ -258,6 +274,13 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  </>}
  {view==='maya'&&<Card title="Maya · inteligência financeira pessoal">
   <p>Primeira versão baseada em regras e cálculos auditáveis, sem chamada a modelo externo. Usa apenas os lançamentos, saldos e metas que você registrar.</p>
+  <form className="np-studio-maya-form" onSubmit={e=>void askMaya(e)}>
+   <label htmlFor="np-maya-question">Pergunte à Maya</label>
+   <input id="np-maya-question" value={mayaQuestion} onChange={e=>setMayaQuestion(e.target.value)}
+    placeholder="Quanto gastei neste mês?" maxLength={400} minLength={3} required/>
+   <button className="np-primary" disabled={busy}>Perguntar</button>
+  </form>
+  {mayaAnswer&&<div className="np-studio-maya-answer"><strong>Maya respondeu</strong><p>{mayaAnswer}</p><small>Resposta informativa, limitada aos seus registros. Sem IA externa.</small></div>}
   {data.maya.insights.map((i,index)=><div className="np-studio-insight" key={index}><div className="np-studio-orb">M</div><div><strong>{i.title}</strong><p>{i.detail.replace(/(-?\d+) centavos/g,(_full,minor:string)=>formatMinor(minor))}</p><small>Fonte: {i.source}</small></div></div>)}
   <div className="np-studio-summary"><div>Contas a vencer (30 dias)<strong>{formatMinor(data.totals.upcomingBillsMinor)}</strong><small>Conforme seus lembretes</small></div><div>Gastos do mês<strong>{formatMinor(data.totals.spentMonthMinor)}</strong><small>Apenas movimentações conhecidas</small></div></div>
   <p className="np-studio-foot">A Maya não realiza pagamentos, não inventa rendimentos e não vende seus dados. Não é aconselhamento financeiro individualizado.</p>
