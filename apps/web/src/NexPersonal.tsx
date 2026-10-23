@@ -152,7 +152,7 @@ export default function NexPersonal(){
           <div className="np-stat"><span>Gastos neste mês</span><strong>{money(overview?.spentThisMonthMinor)}</strong><small>Movimentações que você registrou ou importou · visão parcial</small></div>
         </div>
         <section className="np-panel np-agents-spotlight">
-          <div><span className="np-kicker">SEU TIME DE AGENTES</span><h2>11 especialistas. Uma visão integrada.</h2>
+          <div><span className="np-kicker">SUA EQUIPE DE ESPECIALISTAS</span><h2>11 especialistas. Uma visão integrada.</h2>
             <p>Gastos, investimentos, compras, dívidas, serviços públicos, orientação jurídica e outras áreas. A Maya coordena sua equipe.</p>
             <small>Hoje: diagnósticos e simulações sobre informações declaradas · ações financeiras reais indisponíveis.</small>
           </div><button type="button" className="np-primary" onClick={()=>setSection('agents')}>Conhecer meus agentes →</button>
