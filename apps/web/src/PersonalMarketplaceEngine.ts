@@ -1,0 +1,66 @@
+/**
+ * Financial product distribution preview. Deterministic, local and independent
+ * of commissions. This is not an APR/CET calculation, lender offer or approval.
+ */
+export type UserQuote={
+  label:string;principalMinor:string;upfrontMinor:string;
+  installmentMinor:string;installments:number;extraFeesMinor:string;
+};
+export type QuoteEvaluation={
+  label:string;principalMinor:bigint;upfrontMinor:bigint;
+  installments:number;installmentMinor:bigint;extraFeesMinor:bigint;
+  totalMinor:bigint;nominalCostMinor:bigint;
+};
+const limit=10n**13n; // user-input cap for preview; currency BRL cents
+function cents(raw:string,allowZero=false):bigint{
+ if(!/^\d{1,13}$/.test(raw))throw Error('Valores devem ser informados em centavos inteiros.');
+ const value=BigInt(raw);
+ if(value>limit||(!allowZero&&value===0n))throw Error('Valor inexistente ou fora do limite de comparação.');
+ return value;
+}
+export function parseBrlInput(value:string,allowZero=false):string{
+ const clean=value.replace(/R\$/gi,'').trim().replace(/\s/g,'');
+ const normalized=clean.includes(',')?clean.replace(/\./g,'').replace(',','.'):clean;
+ if(!/^\d{1,10}(?:\.\d{1,2})?$/.test(normalized))throw Error('Informe um valor como 1.250,00.');
+ const [whole,fraction='']=normalized.split('.');
+ const minor=BigInt(whole)*100n+BigInt((fraction+'00').slice(0,2));
+ if(minor>limit||(!allowZero&&minor===0n))throw Error('Informe um valor válido para simulação.');
+ return String(minor);
+}
+export function displayBrl(value:bigint):string{
+ const abs=value<0n?-value:value;
+ return (value<0n?'-':'')+'R$ '+(abs/100n).toLocaleString('pt-BR')+','+String(abs%100n).padStart(2,'0');
+}
+export function evaluateQuote(input:UserQuote):QuoteEvaluation{
+ if(!input.label.trim()||input.label.length>65)throw Error('Dê um nome curto à proposta.');
+ const principal=cents(input.principalMinor),upfront=cents(input.upfrontMinor,true);
+ const each=cents(input.installmentMinor),fees=cents(input.extraFeesMinor,true);
+ if(!Number.isSafeInteger(input.installments)||input.installments<1||input.installments>360)throw Error('Número de parcelas inválido.');
+ const total=upfront+each*BigInt(input.installments)+fees;
+ if(total>limit)throw Error('Total supera o limite do simulador.');
+ return {label:input.label.trim(),principalMinor:principal,upfrontMinor:upfront,
+  installments:input.installments,installmentMinor:each,extraFeesMinor:fees,
+  totalMinor:total,nominalCostMinor:total-principal};
+}
+export function compareUserQuotes(a:UserQuote,b:UserQuote){
+ const first=evaluateQuote(a),second=evaluateQuote(b);
+ const comparable=first.principalMinor===second.principalMinor&&first.installments===second.installments;
+ const cheapest=comparable?(first.totalMinor===second.totalMinor?'tie':first.totalMinor<second.totalMinor?'a':'b'):null;
+ return {quotes:[first,second],comparable,cheapest,
+  differenceMinor:comparable?(first.totalMinor>second.totalMinor?first.totalMinor-second.totalMinor:second.totalMinor-first.totalMinor):null,
+  notes:[
+   'Propostas digitadas pelo próprio usuário, não verificadas por instituições financeiras.',
+   'O total inclui somente entrada, parcelas e encargos adicionais informados. Não inclui cobranças desconhecidas, seguros obrigatórios não declarados ou custos futuros.',
+   'O cálculo NÃO é o Custo Efetivo Total (CET), nem uma aprovação ou recomendação de crédito.',
+   comparable?'Mesmo principal e mesmo número de parcelas: comparação nominal possível.':'Valores financiados ou prazos diferentes: não classificamos uma proposta como melhor.',
+   'Nenhuma proposta foi enviada, contratada, compartilhada com parceiro ou usada para anúncios.'
+  ],revenueFromCommissions:false,partnerConnected:false,userDataShared:false,externalEffect:false};
+}
+export const FUTURE_MARKETPLACE_CAPABILITIES=[
+ {id:'credit',label:'Crédito e financiamento',role:'Correspondente/parceiro autorizado',status:'not_connected'},
+ {id:'investment',label:'Investimentos',role:'Intermediário/distribuidor autorizado',status:'not_connected'},
+ {id:'insurance',label:'Seguros e proteção',role:'Corretora/habilitado',status:'not_connected'},
+ {id:'commerce',label:'Compras e viagens',role:'Lojas, plataformas e operadores',status:'not_connected'},
+ {id:'pix',label:'Pix e pagamentos',role:'ITP/participante habilitado',status:'not_connected'},
+ {id:'media',label:'Benefícios e ofertas',role:'Mídia separada, opt-in e identificada',status:'disabled'}
+] as const;
