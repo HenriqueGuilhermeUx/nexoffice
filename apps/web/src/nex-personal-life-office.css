@@ -9,7 +9,7 @@
 .np-life-map-head{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:16px}
 .np-life-map-head strong{font-size:12px;letter-spacing:1.5px;color:#50677c}.np-life-map-head small{font-size:12px;color:#5c7386}
 .np-life-floor{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;padding:13px;background:repeating-linear-gradient(90deg,#d3dce3 0,#d3dce3 1px,transparent 1px,transparent 36px),repeating-linear-gradient(0deg,#d3dce3 0,#d3dce3 1px,#dfe7ec 1px,#dfe7ec 36px);border:5px solid #93a9b8;border-radius:11px}
-.np-life-room{position:relative;min-width:0;min-height:136px;text-align:left;border:3px solid #8ba1b0;border-radius:5px;background:linear-gradient(135deg,#fff 0%,#f3f7fa 75%);padding:13px 12px 22px;display:flex;flex-direction:column;align-items:start;justify-content:center;gap:5px;cursor:pointer;box-shadow:inset 4px 4px 0 #eef3f6,0 4px 7px #5674861c}
+.np-life-room{position:relative;min-width:0;min-height:174px;text-align:left;border:3px solid #8ba1b0;border-radius:5px;background:linear-gradient(135deg,#fff 0%,#f3f7fa 75%);padding:13px 12px 22px;display:flex;flex-direction:column;align-items:start;justify-content:center;gap:4px;cursor:pointer;box-shadow:inset 4px 4px 0 #eef3f6,0 4px 7px #5674861c}
 .np-life-room:hover{border-color:#3473d6;background:#f4f8ff}
 .np-life-room-current{border-color:#1458e8!important;background:#edf4ff!important;box-shadow:inset 4px 4px 0 #daeaff,0 0 0 2px #1458e82b}
 .np-life-room-number{position:absolute;top:7px;right:8px;font-size:10px;font-weight:850;color:#849aab;letter-spacing:.4px}
@@ -57,3 +57,16 @@
 .np-life-nudge strong{font-size:16px;color:#694e20}
 .np-life-nudge p{margin:6px 0 0;font-size:12px;color:#806c4b}
 @media(max-width:650px){.np-life-nudge{flex-direction:column;align-items:start}}
+
+/* Person-first office: name, service, then one-sentence explanation. */
+.np-life-room .np-life-room-agent{font-size:19px;line-height:1.12;color:#173f6a;letter-spacing:-.25px}
+.np-life-room .np-life-room-category{font-size:12px;line-height:1.35;font-weight:750;color:#3f617b}
+.np-life-room .np-life-room-tagline{font-size:11px;line-height:1.4;color:#657e90;font-weight:500;min-height:32px;display:block}
+.np-life-room-current .np-life-room-agent{color:#1458e8}
+.np-life-room-detail-head .np-life-agent-line{color:#245fba;font-size:14px;font-weight:750;margin:3px 0 7px}
+@media(max-width:650px){
+ .np-life-room{min-height:168px;padding:12px 9px 21px}
+ .np-life-room .np-life-room-agent{font-size:17px}
+ .np-life-room .np-life-room-category{font-size:11px}
+ .np-life-room .np-life-room-tagline{font-size:10px;line-height:1.35}
+}
