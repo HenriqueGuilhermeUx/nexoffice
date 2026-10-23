@@ -41,3 +41,19 @@ export function PjAgentDirectory({navigate}:{navigate:(view:View)=>void}){
     <div className="pj-agent-directory">{PJ_AGENTS.map(a=><article className="pj-agent-tile" key={a.name}><span className="pj-agent-monogram" aria-hidden="true">{a.name[0]}</span><h3>{a.name}</h3><strong>{a.role}</strong><p>{a.description}</p><button type="button" onClick={()=>navigate(a.area as View)}>Abrir área →</button></article>)}</div>
   </section>;
 }
+
+type PjSectorView='crm'|'finance'|'operations'|'agenda'|'documents'|'marketing'|'conta-nexa'|'team';
+const SECTOR_PRIORITIES:Record<string,Array<{view:PjSectorView;title:string;detail:string}>>={
+  legal:[{view:'documents',title:'Documentos e contratos',detail:'Arquivos, aprovações e instrumentos'},{view:'agenda',title:'Agenda e prazos',detail:'Compromissos e tarefas'},{view:'crm',title:'Clientes',detail:'Atendimento e relacionamento'}],
+  health:[{view:'agenda',title:'Agenda e atendimentos',detail:'Compromissos e organização'},{view:'documents',title:'Documentos',detail:'Arquivos e aprovações'},{view:'finance',title:'Financeiro',detail:'Receitas e despesas'}],
+  condo:[{view:'finance',title:'Contas e cobranças',detail:'Recebíveis e despesas'},{view:'operations',title:'Operações',detail:'Rotinas e solicitações'},{view:'documents',title:'Documentos',detail:'Arquivos e aprovações'}],
+  commerce:[{view:'crm',title:'Clientes e vendas',detail:'Pipeline e oportunidades'},{view:'finance',title:'Financeiro',detail:'Caixa e contas'},{view:'marketing',title:'Marketing',detail:'Campanhas e crescimento'}],
+  general:[{view:'finance',title:'Financeiro',detail:'Receitas, despesas e cobranças'},{view:'crm',title:'Clientes e vendas',detail:'Relacionamento e pipeline'},{view:'operations',title:'Operações',detail:'Rotinas e tarefas'}],
+};
+export function PjSectorShortcuts({vertical,navigate}:{vertical?:string;navigate:(view:PjSectorView)=>void}){
+  const entries=SECTOR_PRIORITIES[vertical||'general']||SECTOR_PRIORITIES.general;
+  return <section className="pj-sector-shortcuts" aria-label="Atalhos prioritários do setor">
+    <div><p className="eyebrow">SEU ERP, DO SEU JEITO</p><h2>Prioridades da sua empresa</h2><p>Organizadas pelo setor informado no cadastro. Todos os outros módulos continuam disponíveis no menu.</p></div>
+    <div className="pj-sector-shortcut-grid">{entries.map(item=><button key={item.view} type="button" onClick={()=>navigate(item.view)}><strong>{item.title}</strong><span>{item.detail}</span><small>Abrir módulo →</small></button>)}</div>
+  </section>;
+}
