@@ -29,7 +29,7 @@ export default function PersonalInvestmentInspector(){
  }
  return <div className="np-invest-inspector">
   <section className="np-panel">
-   <span className="np-kicker">LUME · CONCENTRAÇÃO DE RISCO</span>
+   <span className="np-kicker">LÉO · CONCENTRAÇÃO DE RISCO</span>
    <h2>Estou acima do limite ordinário do FGC?</h2>
    <p>Informe o valor total de instrumentos possivelmente cobertos no <strong>mesmo conglomerado emissor</strong>. Esta é uma análise didática com valores declarados, não uma conexão com o banco.</p>
    <form onSubmit={checkFGC} className="np-invest-form">
@@ -48,7 +48,7 @@ export default function PersonalInvestmentInspector(){
    <p className="np-invest-legal">Fonte: <a href="https://www.fgc.org.br/sobre-garantia-fgc" target="_blank" rel="noopener noreferrer">Regras oficiais do FGC</a>. Verifique titularidade, produto, emissor e saldos atualizados.</p>
   </section>
   <section className="np-panel">
-   <span className="np-kicker">LUME · CUSTOS E NEGOCIAÇÃO</span>
+   <span className="np-kicker">LÉO · CUSTOS E NEGOCIAÇÃO</span>
    <h2>Questione taxas e peça alternativas ao banco</h2>
    <p>O modelo gera um pedido documentado de esclarecimentos, sem inventar produtos mais rentáveis. Uma rentabilidade de fundo divulgada já pode estar líquida de taxas: não as subtraia novamente.</p>
    <form onSubmit={writeLetter} className="np-invest-form">
