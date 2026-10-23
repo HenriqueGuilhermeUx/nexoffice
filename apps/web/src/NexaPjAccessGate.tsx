@@ -14,6 +14,9 @@ export default function NexaPjAccessGate(){
   ['Agenda e tarefas','Compromissos, responsáveis e próximas ações'],
   ['Documentos e contratos','Gestão documental, propostas e arquivos empresariais'],
   ['Marketing e automações','Campanhas, comunicação e rotinas integradas'],
+  ['Agentes especializados','Maya, Sofia, Alex, Clara, Nico, Theo e Dora, cada um com sua função'],
+  ['Escritório 2D','Mapa interativo dos setores com atalhos aos módulos disponíveis'],
+  ['ERP adaptado ao setor','Priorização de áreas conforme o perfil definido no cadastro'],
   ['Inteligência empresarial','Insights e equipe digital com decisões humanas'],
  ];
  return <div className="nexa-pj-gate">
