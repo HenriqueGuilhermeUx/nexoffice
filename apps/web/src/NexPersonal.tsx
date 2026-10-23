@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
+import NexPersonalAgents from './NexPersonalAgents';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 const TOKEN_KEY='nex.personal.token';
@@ -47,7 +48,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'today'|'money'|'spending'|'planning'|'wealth'|'maya'|'privacy'>('today');
+  const [section,setSection]=useState<'today'|'money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy'>('today');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -133,7 +134,7 @@ export default function NexPersonal(){
     <aside className="np-sidebar">
       <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['maya','Maya'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
       <div className="np-sidebar-bottom"><span>O Nex Personal não mantém custódia de dinheiro.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
@@ -146,7 +147,13 @@ export default function NexPersonal(){
           <div className="np-stat"><span>Contas organizadas</span><strong>{(overview?.connectedAccounts??0)+(overview?.manualAccounts??0)}</strong><small>{overview?.manualAccounts??0} manuais · {overview?.connectedAccounts??0} conectadas</small></div>
           <div className="np-stat"><span>Gastos neste mês</span><strong>{money(overview?.spentThisMonthMinor)}</strong><small>Movimentações que você registrou ou importou · visão parcial</small></div>
         </div>
-        <section className="np-panel np-maya"><div className="np-maya-avatar">M</div><div><span className="np-kicker">MAYA · SUA INTELIGÊNCIA FINANCEIRA</span><h2>Seu próximo passo, com base em dados.</h2><p>{overview?.maya.message}</p><small>A Maya não cria números nem executa transações sem sua autorização.</small></div></section>
+        <section className="np-panel np-agents-spotlight">
+          <div><span className="np-kicker">SEU TIME DE AGENTES</span><h2>8 especialistas. Uma visão integrada.</h2>
+            <p>Gastos, investimentos, compras, simulações, pagamentos, planejamento, contratos e análise financeira. A Maya coordena sua equipe.</p>
+            <small>Hoje: diagnósticos e simulações sobre informações declaradas · ações financeiras reais indisponíveis.</small>
+          </div><button type="button" className="np-primary" onClick={()=>setSection('agents')}>Conhecer meus agentes →</button>
+        </section>
+        <section className="np-panel np-maya"><div className="np-maya-avatar">M</div><div><span className="np-kicker">MAYA · COORDENADORA DOS ESPECIALISTAS</span><h2>Comece pelos dados e escolha seu agente.</h2><p>{overview?.maya.message}</p><small>A equipe não realiza transações nesta homologação.</small></div></section>
         <section className="np-panel"><div className="np-panel-head"><div><h2>Suas instituições</h2><p>Uma visão consolidada, sem transferir sua custódia.</p></div><span className="np-pill">Manual agora · Open Finance depois</span></div>
           {accounts.length===0?<div className="np-empty"><strong>Suas contas ainda não estão conectadas.</strong><p>A integração segura com o provedor Open Finance está em preparação. Nenhum saldo fictício será exibido.</p><button className="np-primary" onClick={()=>setSection('money')}>Adicionar conta manual</button></div>:
             <div className="np-account-list">{accounts.slice(0,6).map(a=><div key={a.id} className="np-line"><span><strong>{a.institution_name}</strong><small>{a.name}</small></span><span><strong>{a.manually_reported?money(a.available_minor,a.currency):a.fresh?money(a.available_minor,a.currency):'Aguardando atualização'}</strong><small>{a.manually_reported?'Informado por você':'Atualizado em '+when(a.balance_as_of)}</small></span></div>)}</div>}
@@ -156,7 +163,8 @@ export default function NexPersonal(){
       {section==='spending'&&<NexPersonalStudio view="spending" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='planning'&&<NexPersonalStudio view="planning" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='wealth'&&<NexPersonalStudio view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='maya'&&<NexPersonalStudio view="maya" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='agents'&&<NexPersonalAgents token={token} onOpenSection={setSection}/>}
+            {section==='maya'&&<NexPersonalStudio view="maya" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='privacy'&&<section className="np-panel"><h2>Privacidade e consentimentos</h2><p>Seus dados PF não são compartilhados com nenhum workspace empresarial. Ofertas personalizadas e compartilhamento com parceiros dependem de autorizações separadas.</p>
         {consents.length===0?<p className="np-empty">Nenhum consentimento registrado. A conexão Open Finance permanece indisponível até a integração real.</p>:consents.map(c=><div key={c.id} className="np-line"><strong>{c.purpose}</strong><span>{c.status} · {when(c.created_at)}</span></div>)}
         <p className="np-footnote">Não vendemos sua base de dados. O Nex Personal não é banco nem custodiante.</p>
