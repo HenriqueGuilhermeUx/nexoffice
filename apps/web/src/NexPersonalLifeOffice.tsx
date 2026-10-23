@@ -8,24 +8,24 @@ type Agent='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulatio
 type Preferences={focus_areas:Area[];proactive_mode:'off'|'on_open'};
 type Intent={id:string;kind:Kind;status:'planned'|'done';created_at:string};
 type Life={preferences:Preferences;intents:Intent[];proactiveDeliveryActive:false;marketingPersonalization:false;partnerDataShared:false;connectedProducts:[]};
-type Room={id:Area;title:string;emoji:string;agent:string;source:string;ready:boolean;description:string;route?:Route;tag:string};
+type Room={id:Area;title:string;emoji:string;agent:string;tagline:string;source:string;ready:boolean;description:string;route?:Route;tag:string};
 
 const ROOMS:ReadonlyArray<Room>=[
- {id:'money',title:'Meu dinheiro',emoji:'💳',agent:'Norte · Atlas',source:'Organização financeira pessoal',ready:true,description:'Organize saldos declarados, extratos, gastos e compromissos.',route:'money',tag:'Acessível'},
- {id:'investments',title:'Investimentos',emoji:'📈',agent:'Lume',source:'Acompanhamento de patrimônio',ready:true,description:'Faça um diagnóstico inicial do patrimônio informado, sem cotações ou ordens.',route:'agents',tag:'Análise inicial'},
- {id:'shopping',title:'Compras e crédito',emoji:'🛍️',agent:'Faro',source:'Comparação e simulação',ready:true,description:'Simule preços e parcelas. Comparação real de ofertas ainda depende de parceiros.',route:'agents',tag:'Simulador'},
- {id:'health',title:'Minha saúde',emoji:'🩺',agent:'Equipe saúde',source:'Central de cuidado e bem-estar',ready:false,description:'Visão futura de organização, consultas, documentos e cuidado, com proteção reforçada e autorização própria.',tag:'Integração planejada'},
- {id:'education',title:'Educação',emoji:'📚',agent:'Tutor pessoal',source:'Estudos e aprendizagem',ready:false,description:'Estudos e aprendizagem para adultos e apoio familiar, sem perfilar crianças.',tag:'Integração planejada'},
- {id:'documents',title:'Documentos',emoji:'🗂️',agent:'Clara',source:'Central de documentos',ready:true,description:'Hoje: checklist textual com Clara. Criação e assinatura digital dependerão de integração segura.',route:'agents',tag:'Checklist disponível'},
- {id:'work',title:'Meu dia',emoji:'🗓️',agent:'Assistente pessoal',source:'Agenda e assistente pessoal',ready:false,description:'Organização de agenda, lembretes, reuniões e tarefas, com controles próprios.',tag:'Integração planejada'},
- {id:'travel',title:'Viagens e lazer',emoji:'🧳',agent:'Concierge de viagens',source:'Viagens e hospedagens',ready:false,description:'Planejamento de viagens, hotéis e aluguel, com comparação transparente antes da compra.',tag:'Jornada disponível'},
- {id:'vehicle',title:'Mobilidade',emoji:'🚘',agent:'Concierge automotivo',source:'Vida sobre rodas',ready:false,description:'Jornada de compra e venda de carro, documentação, financiamento e anúncio.',tag:'Jornada disponível'},
- {id:'family',title:'Casa e família',emoji:'🏠',agent:'Organizador familiar',source:'Rotina em família',ready:false,description:'Calendário doméstico e estudos, sem coleta automática de dados de menores.',tag:'Jornada disponível'},
- {id:'marketing',title:'Criação e mídia',emoji:'🎨',agent:'Criador de conteúdo',source:'Criação de conteúdo',ready:false,description:'Preparar publicações, anúncios e peças para aprovação do cliente. Publicação integrada ainda pendente.',tag:'Integração planejada'},
- {id:'offers',title:'Oportunidades',emoji:'🎁',agent:'Curadoria imparcial',source:'Ofertas e oportunidades',ready:false,description:'Futuro catálogo multiparceiro. Ofertas patrocinadas identificadas, comissões claras, sem uso de dados sensíveis.',tag:'Marketplace futuro'},
- {id:'public_services',title:'Serviços públicos',emoji:'🏛️',agent:'Cida',source:'Ajuda com órgãos públicos',ready:true,route:'agents',description:'Como obter segunda via de IPTU, identidade, licenças e serviços do Detran, com links oficiais.',tag:'Guia local disponível'},
- {id:'debt_review',title:'Resolver dívidas',emoji:'🤝',agent:'Recomeço',source:'Organizador de negociações',ready:true,route:'agents',description:'Compare custo total de acordos, organize propostas e prepare mensagens ao credor.',tag:'Simulação privada'},
- {id:'legal_support',title:'Entender direitos',emoji:'⚖️',agent:'Lia',source:'Guia jurídico inicial',ready:true,route:'agents',description:'Tire dúvidas iniciais sobre contratos, condomínio, cobranças e trabalho.',tag:'Checklist privado'}
+ {id:'money',title:'Meu dinheiro',emoji:'💳',agent:'Nina',tagline:'Organiza seu dinheiro e suas contas.',source:'Organização financeira pessoal',ready:true,description:'Organize saldos declarados, extratos, gastos e compromissos.',route:'money',tag:'Acessível'},
+ {id:'investments',title:'Investimentos',emoji:'📈',agent:'Léo',tagline:'Revisa investimentos, taxas e riscos.',source:'Acompanhamento de patrimônio',ready:true,description:'Faça um diagnóstico inicial do patrimônio informado, sem cotações ou ordens.',route:'agents',tag:'Análise inicial'},
+ {id:'shopping',title:'Compras e crédito',emoji:'🛍️',agent:'Bia',tagline:'Compara compras, preços e parcelas.',source:'Comparação e simulação',ready:true,description:'Simule preços e parcelas. Comparação real de ofertas ainda depende de parceiros.',route:'agents',tag:'Simulador'},
+ {id:'health',title:'Minha saúde',emoji:'🩺',agent:'Luna',tagline:'Ajuda a organizar seus cuidados de saúde.',source:'Central de cuidado e bem-estar',ready:false,description:'Visão futura de organização, consultas, documentos e cuidado, com proteção reforçada e autorização própria.',tag:'Integração planejada'},
+ {id:'education',title:'Educação',emoji:'📚',agent:'Duda',tagline:'Apoia estudos, tarefas e aprendizado.',source:'Estudos e aprendizagem',ready:false,description:'Estudos e aprendizagem para adultos e apoio familiar, sem perfilar crianças.',tag:'Integração planejada'},
+ {id:'documents',title:'Documentos',emoji:'🗂️',agent:'Mel',tagline:'Cuida de documentos e contratos.',source:'Central de documentos',ready:true,description:'Hoje: checklist textual com Clara. Criação e assinatura digital dependerão de integração segura.',route:'agents',tag:'Checklist disponível'},
+ {id:'work',title:'Meu dia',emoji:'🗓️',agent:'Zoe',tagline:'Organiza agenda, tarefas e lembretes.',source:'Agenda e assistente pessoal',ready:false,description:'Organização de agenda, lembretes, reuniões e tarefas, com controles próprios.',tag:'Integração planejada'},
+ {id:'travel',title:'Viagens e lazer',emoji:'🧳',agent:'Kai',tagline:'Ajuda a planejar viagens e passeios.',source:'Viagens e hospedagens',ready:false,description:'Planejamento de viagens, hotéis e aluguel, com comparação transparente antes da compra.',tag:'Jornada disponível'},
+ {id:'vehicle',title:'Mobilidade',emoji:'🚘',agent:'Max',tagline:'Facilita compras e cuidados com o carro.',source:'Vida sobre rodas',ready:false,description:'Jornada de compra e venda de carro, documentação, financiamento e anúncio.',tag:'Jornada disponível'},
+ {id:'family',title:'Casa e família',emoji:'🏠',agent:'Luca',tagline:'Ajuda na rotina da casa e da família.',source:'Rotina em família',ready:false,description:'Calendário doméstico e estudos, sem coleta automática de dados de menores.',tag:'Jornada disponível'},
+ {id:'marketing',title:'Criação e mídia',emoji:'🎨',agent:'Gabi',tagline:'Ajuda a criar posts e anúncios.',source:'Criação de conteúdo',ready:false,description:'Preparar publicações, anúncios e peças para aprovação do cliente. Publicação integrada ainda pendente.',tag:'Integração planejada'},
+ {id:'offers',title:'Oportunidades',emoji:'🎁',agent:'Noah',tagline:'Reúne oportunidades para você comparar.',source:'Ofertas e oportunidades',ready:false,description:'Futuro catálogo multiparceiro. Ofertas patrocinadas identificadas, comissões claras, sem uso de dados sensíveis.',tag:'Marketplace futuro'},
+ {id:'public_services',title:'Serviços públicos',emoji:'🏛️',agent:'Theo',tagline:'Orienta IPTU, CIN, alvarás e Detran.',source:'Ajuda com órgãos públicos',ready:true,route:'agents',description:'Como obter segunda via de IPTU, identidade, licenças e serviços do Detran, com links oficiais.',tag:'Guia local disponível'},
+ {id:'debt_review',title:'Resolver dívidas',emoji:'🤝',agent:'Joca',tagline:'Ajuda a revisar dívidas e negociar.',source:'Organizador de negociações',ready:true,route:'agents',description:'Compare custo total de acordos, organize propostas e prepare mensagens ao credor.',tag:'Simulação privada'},
+ {id:'legal_support',title:'Entender direitos',emoji:'⚖️',agent:'Bella',tagline:'Explica contratos, direitos e dúvidas legais.',source:'Guia jurídico inicial',ready:true,route:'agents',description:'Tire dúvidas iniciais sobre contratos, condomínio, cobranças e trabalho.',tag:'Checklist privado'}
 ];
 const JOURNEYS:ReadonlyArray<{kind:Kind;title:string;summary:string;room:Area;steps:string[];route?:Route}>=[
  {kind:'buy_car',title:'Comprar ou trocar de carro',room:'vehicle',summary:'Da escolha à venda do usado, documentação e financiamento.',steps:['Definir faixa de preço e custo total','Comparar propostas e CET de financiamento','Revisar documentação e contrato','Preparar anúncio do carro anterior'],route:'agents'},
@@ -121,10 +121,12 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
     {visibleRooms.map((room,index)=><button key={room.id} type="button"
        className={'np-life-room '+(area===room.id?'np-life-room-current ':'')+(room.ready?'np-life-room-ready':'np-life-room-planned')}
        onClick={()=>{setArea(room.id);const first=JOURNEYS.find(j=>j.room===room.id);if(first)setJourney(first.kind);}}
-       aria-pressed={area===room.id} aria-label={'Abrir '+room.title}>
+       aria-pressed={area===room.id} aria-label={'Conhecer '+room.agent+', '+room.title+'. '+room.tagline}>
        <span className="np-life-room-number">{String(index+1).padStart(2,'0')}</span>
        <span className="np-life-room-emoji" aria-hidden="true">{room.emoji}</span>
-       <strong>{room.title}</strong><small>{room.agent}</small>
+       <strong className="np-life-room-agent">{room.agent}</strong>
+       <span className="np-life-room-category">{room.title}</span>
+       <small className="np-life-room-tagline">{room.tagline}</small>
        <span className="np-life-door" aria-hidden="true"/>
     </button>)}
    </div>
@@ -132,7 +134,8 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
   </section>
   <section className="np-panel np-life-detail">
    <div className="np-life-room-detail-head"><div className="np-life-large-icon">{selected.emoji}</div>
-    <div><span className="np-kicker">{selected.source.toUpperCase()}</span><h2>{selected.title}</h2><p>{selected.description}</p></div>
+    <div><span className="np-kicker">{selected.title.toUpperCase()}</span><h2>{selected.agent}</h2>
+      <p className="np-life-agent-line">{selected.tagline}</p><p>{selected.description}</p></div>
    </div>
    <div className="np-life-detail-foot">
     <span className="np-life-availability">{selected.tag}</span>
