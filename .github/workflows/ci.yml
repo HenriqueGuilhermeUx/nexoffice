@@ -122,6 +122,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/043_recurrence_intelligence.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/044_erp_value_pack.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/045_smart_playbooks.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/046_nex_personal_foundation.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -132,6 +133,8 @@ jobs:
           done
           cat /tmp/nexoffice-api.log
           exit 1
+      - name: Smoke test Nex Personal isolation and read-only API
+        run: node scripts/smoke-nex-personal.mjs
       - name: Smoke test operational flow
         run: node scripts/smoke.mjs
       - name: Smoke test Recurrence Intelligence API
