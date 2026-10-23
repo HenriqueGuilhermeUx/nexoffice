@@ -11,6 +11,7 @@ import {registerNexPersonalRoutes} from './routes-nex-personal.js';
 import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
 import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
 import {registerNexPersonalLifeRoutes} from './routes-nex-personal-life.js';
+import {registerNexPersonalPrivacyRoutes} from './routes-nex-personal-privacy.js';
 import {registerPersonalPreviewStatic} from './personal-preview-static.js';
 
 if(process.env.NEX_PERSONAL_PREVIEW!=='true')throw new Error('NEX_PERSONAL_PREVIEW=true required for isolated preview');
@@ -52,6 +53,8 @@ app.addHook('onRequest',async(req,reply)=>{
  reply.header('referrer-policy','no-referrer');
  reply.header('cache-control','no-store');
  reply.header('strict-transport-security','max-age=31536000');
+ reply.header('permissions-policy','camera=(), microphone=(), geolocation=(), payment=()');
+ reply.header('content-security-policy',"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
  const requestOrigin=String(req.headers.origin||'');
  if(requestOrigin&&(requestOrigin===origin||requestOrigin===selfOrigin))reply.header('access-control-allow-origin',requestOrigin);
  reply.header('vary','Origin');
@@ -92,6 +95,7 @@ await registerNexPersonalRoutes(app);
 await registerNexPersonalStudioRoutes(app);
 await registerNexPersonalAgentsRoutes(app);
 await registerNexPersonalLifeRoutes(app);
+await registerNexPersonalPrivacyRoutes(app);
 await registerPersonalPreviewStatic(app);
 
 app.setErrorHandler((error,req,reply)=>{
