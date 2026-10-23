@@ -186,6 +186,14 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
   </Card>
  </>}
  {view==='spending'&&<>
+   <Card title="Classificação inteligente de transações">
+    <p>O motor já sugere categorias para movimentações manuais e extratos CSV/OFX. Pix, transferências e aplicações sem confirmação ficam separados dos gastos até você revisar.</p>
+    <div className="np-studio-summary">
+      <div>Para revisar<strong>{data.transactions.filter(t=>t.analysis_role==='review').length}</strong><small>Movimentações recentes com finalidade incerta</small></div>
+      <div>Com classificação<strong>{data.transactions.filter(t=>['expense','income','excluded_internal'].includes(t.analysis_role||'')).length}</strong><small>Regras automáticas ou decisão do cliente</small></div>
+    </div>
+    <p>Open Finance e blockchain: adaptadores de prévia preparados, mas <strong>sem banco ou carteira conectados</strong> nesta homologação. Quantidades cripto não são convertidas ficticiamente para reais.</p>
+   </Card>
   <div className="np-studio-summary"><div>Gastos registrados no mês<strong>{formatMinor(data.totals.spentMonthMinor)}</strong><small>Parcial: depende do que foi importado ou digitado</small></div></div>
   <Card title="Gastos por categoria">
    {data.spentByCategory.length===0?<p>Adicione movimentações para acompanhar seus gastos.</p>:data.spentByCategory.map(t=><div className="np-line" key={t.category}><span>{t.category}</span><strong>{formatMinor(t.spent_minor)}</strong></div>)}
