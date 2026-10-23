@@ -69,8 +69,8 @@ try{
 
  const agents=await call('/v1/personal/agents','GET',undefined,token);
  assert.equal(agents.status,200,JSON.stringify(agents.body));
- assert.equal(agents.body.agents.length,8,'Eight specialist agents must be discoverable');
- const expected=['expenses','financial','planning','investments','shopping','simulations','payments','contracts'];
+ assert.equal(agents.body.agents.length,11,'Eleven specialist agents must be discoverable');
+ const expected=['expenses','financial','planning','investments','shopping','simulations','payments','contracts','public_services','debt_review','legal_support'];
  assert.deepEqual(agents.body.agents.map(a=>a.id),expected);
  const anonAgent=await call('/v1/personal/agents/expenses/analyze','POST',{});
  assert.equal(anonAgent.status,401,'Specialist data must require authentication');
@@ -109,7 +109,7 @@ try{
  assert.deepEqual(initialLife.body.connectedProducts,[]);
  assert.equal(initialLife.body.proactiveDeliveryActive,false);
  const selected=await call('/v1/personal/life/preferences','PUT',{
-  focusAreas:['money','health','vehicle'],proactiveMode:'on_open'
+  focusAreas:['money','health','public_services'],proactiveMode:'on_open'
  },token);
  assert.equal(selected.status,200,JSON.stringify(selected.body));
  assert.equal(selected.body.proactiveDeliveryActive,false,'No background notification scheduler');
