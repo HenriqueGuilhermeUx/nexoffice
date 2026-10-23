@@ -90,6 +90,7 @@ export default function NexPersonal(){
     finally{setBusy(false);}
   }
   function logout(){
+    if(token)void request('/v1/auth/logout',{method:'POST',body:'{}'},token).catch(()=>{});
     sessionStorage.removeItem(TOKEN_KEY);setToken('');setMe(null);setOverview(null);setAccounts([]);setMovements([]);setConsents([]);
   }
 
@@ -130,10 +131,10 @@ export default function NexPersonal(){
       <div className="np-nav-label">SEU ESPAÇO</div>
       {([['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['maya','Maya'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
-      <div className="np-sidebar-bottom"><span>Seus recursos continuam nas instituições conectadas.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
+      <div className="np-sidebar-bottom"><span>O Nex Personal não mantém custódia de dinheiro.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
     <main className="np-main">
-      <header className="np-top"><div><div className="np-kicker">NEX PERSONAL · VISÃO UNIFICADA</div><h1>Olá, {displayName}.</h1><p>Entenda seu dinheiro. Decida com tranquilidade.</p></div><span className="np-pill">Modo leitura</span></header>
+      <header className="np-top"><div><div className="np-kicker">NEX PERSONAL · VISÃO UNIFICADA</div><h1>Olá, {displayName}.</h1><p>Entenda seu dinheiro. Decida com tranquilidade.</p></div><span className="np-pill">Sem transferências reais</span></header>
       {error&&<div className="np-error" role="alert">{error}</div>}
       {section==='today'&&<>
         <div className="np-stats">
