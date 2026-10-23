@@ -3,6 +3,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {ApiError,authenticate} from './auth.js';
 import {query,transaction} from './db.js';
+import {enrichBankTransaction,previewEnrichment} from '@nexoffice/integrations/personal-etl';
 
 const id=z.string().uuid();
 const amount=z.string().regex(/^-?\d{1,13}$/,'Informe um valor válido em centavos.');
@@ -22,16 +23,7 @@ function monthKey(date:string){
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(date))throw new ApiError(400,'invalid_month','Mês inválido.');
   return date+'-01';
 }
-function inferCategory(description:string){
-  const s=description.toLowerCase();
-  if(/mercado|supermerc|hortifruti|padaria|atacad/.test(s))return 'Alimentação';
-  if(/ifood|restaurante|lanchonete|pizzaria|delivery/.test(s))return 'Restaurantes';
-  if(/uber|99pop|combustivel|posto |metro|metrô|onibus|ônibus/.test(s))return 'Transporte';
-  if(/netflix|spotify|prime video|assinatura|youtube premium/.test(s))return 'Assinaturas';
-  if(/farmacia|farmácia|hospital|clinica|clínica/.test(s))return 'Saúde';
-  if(/energia|enel|sabesp|condominio|condomínio|internet|telefone/.test(s))return 'Moradia';
-  return 'Outros';
-}
+
 async function manualAccount(owner:string,accountId:string){
   const rows=await query<{id:string}>(
     "select id from nex_personal.accounts where owner_user_id=$1 and id=$2 and provider='manual' and status='active'",
@@ -85,9 +77,12 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
         [input.accountId,owner]
       );
       if(!acc.rows.length)throw new ApiError(404,'manual_account_not_found','Conta manual não encontrada.');
+      const enriched=enrichBankTransaction({source:'csv',accountRef:input.accountId,date:input.bookedOn,
+        description:input.description,amountMinor:input.amountMinor,currency:'BRL'});
       const inserted=await client.query<{id:string}>(
-        "insert into nex_personal.transactions(owner_user_id,account_id,provider_transaction_ref,description,amount_minor,currency,category,booked_at,source) values($1,$2,$3,$4,$5,'BRL',$6,$7::date + interval '12 hours','manual') returning id",
-        [owner,input.accountId,'manual-'+randomUUID(),input.description,input.amountMinor,input.category||inferCategory(input.description),input.bookedOn]
+        "insert into nex_personal.transactions(owner_user_id,account_id,provider_transaction_ref,description,amount_minor,currency,category,booked_at,source,analysis_role,analysis_confidence,category_origin,analysis_rule) values($1,$2,$3,$4,$5,'BRL',$6,$7::date + interval '12 hours','manual',$8,$9,$10,$11) returning id",
+        [owner,input.accountId,'manual-'+randomUUID(),input.description,input.amountMinor,input.category||enriched.category,input.bookedOn,
+          enriched.treatment,enriched.confidence,input.category?'user':'rule',enriched.reason]
       );
       if(input.applyToBalance)await client.query(
         "update nex_personal.accounts set current_minor=current_minor+$3::bigint,available_minor=available_minor+$3::bigint,balance_as_of=now(),updated_at=now() where id=$1 and owner_user_id=$2",
@@ -125,9 +120,12 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       for(const row of input.rows){
         const canonical=[input.accountId,row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference||''].join('|');
         const fingerprint=createHash('sha256').update(canonical).digest('hex');
+        const enriched=enrichBankTransaction({source:'csv',accountRef:input.accountId,date:row.date,
+          description:row.description,amountMinor:row.amountMinor,currency:'BRL',reference:row.reference});
         const result=await client.query(
-          "insert into nex_personal.transactions(owner_user_id,account_id,provider_transaction_ref,description,amount_minor,currency,category,booked_at,source,fingerprint) values($1,$2,$3,$4,$5,'BRL',$6,$7::date + interval '12 hours','csv',$8) on conflict do nothing returning id",
-          [owner,input.accountId,'csv-'+fingerprint,row.description,row.amountMinor,row.category||inferCategory(row.description),row.date,fingerprint]
+          "insert into nex_personal.transactions(owner_user_id,account_id,provider_transaction_ref,description,amount_minor,currency,category,booked_at,source,fingerprint,analysis_role,analysis_confidence,category_origin,analysis_rule) values($1,$2,$3,$4,$5,'BRL',$6,$7::date + interval '12 hours','csv',$8,$9,$10,$11,$12) on conflict do nothing returning id",
+          [owner,input.accountId,'csv-'+fingerprint,row.description,row.amountMinor,row.category||enriched.category,row.date,fingerprint,
+            enriched.treatment,enriched.confidence,row.category?'user':'rule',enriched.reason]
         );
         if(result.rowCount)imported++;else duplicates++;
       }
@@ -139,6 +137,41 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
     });
     return {...counts,source:'csv',verified:false,currentBalanceChanged:false,externalEffect:false,
       note:'Duplicatas idênticas (data, descrição e valor) são ignoradas. Use referência diferente para lançamentos distintos com os mesmos dados.'};
+  });
+
+  // Data supplied voluntarily for a read-only preview. No provider / wallet API is
+  // queried, no addresses are attached to identities, and no raw feed is persisted.
+  const bankPreview=z.object({
+    source:z.enum(['csv','open_finance']),accountRef:z.string().trim().min(2).max(120),
+    date:day,description:z.string().trim().min(2).max(500),
+    amountMinor:amount.refine(v=>BigInt(v)!==0n),currency:z.literal('BRL'),
+    reference:z.string().trim().max(120).optional(),
+    merchantName:z.string().trim().max(160).optional(),
+    providerCategory:z.string().trim().max(100).optional(),
+    selfTransferConfirmed:z.boolean().optional()
+  }).strict();
+  const walletPreview=z.object({
+    source:z.literal('onchain'),chainId:z.number().int().min(1).max(1000000000),
+    walletAddress:z.string(),from:z.string(),to:z.string(),txHash:z.string(),
+    logIndex:z.number().int().min(0).max(1000000),
+    contractAddress:z.string().optional(),symbol:z.string(),
+    amountAtomic:z.string(),decimals:z.number().int().min(0).max(36),
+    status:z.enum(['confirmed','pending','reverted']),
+    action:z.enum(['transfer','swap','bridge','reward','gas']).optional(),
+    confirmedOwnWallets:z.array(z.string()).max(12).optional()
+  }).strict();
+  app.post('/v1/personal/transactions/enrichment/preview',async req=>{
+    const owner=await ownerOf(req);
+    const input=z.object({items:z.array(z.discriminatedUnion('source',[
+      bankPreview.extend({source:z.literal('csv')}),
+      bankPreview.extend({source:z.literal('open_finance')}),
+      walletPreview
+    ])).min(1).max(40)}).strict().parse(req.body);
+    const result=previewEnrichment(input.items);
+    // Audit only the fact that a preview was run. Never log raw statements,
+    // addresses, merchant text or blockchain transaction hashes.
+    await audit(owner,'transaction.enrichment_previewed','transaction_preview');
+    return result;
   });
 
   app.post('/v1/personal/budgets',async req=>{
@@ -219,7 +252,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       accounts,transactions,budgets,goals,wealth,bills,spentByCategory
     ]=await Promise.all([
       query<any>("select id,name,institution_name,available_minor::text available_minor,balance_as_of from nex_personal.accounts where owner_user_id=$1 and provider='manual' and status='active' order by created_at",[owner]),
-      query<any>("select id,account_id,description,amount_minor::text amount_minor,category,source,booked_at from nex_personal.transactions where owner_user_id=$1 order by booked_at desc,id desc limit 100",[owner]),
+      query<any>("select id,account_id,description,amount_minor::text amount_minor,category,source,booked_at,analysis_role,analysis_confidence,category_origin,analysis_rule from nex_personal.transactions where owner_user_id=$1 order by booked_at desc,id desc limit 100",[owner]),
       query<any>("select id,month,category,limit_minor::text limit_minor from nex_personal.budgets where owner_user_id=$1 and month=date_trunc('month',now() at time zone 'America/Sao_Paulo')::date order by category",[owner]),
       query<any>("select id,name,target_minor::text target_minor,saved_minor::text saved_minor,due_on,status from nex_personal.goals where owner_user_id=$1 order by created_at desc",[owner]),
       query<any>("select id,name,kind,category,amount_minor::text amount_minor,currency from nex_personal.wealth_items where owner_user_id=$1 order by created_at desc",[owner]),
@@ -261,11 +294,28 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
     };
   });
 
+  app.patch('/v1/personal/transactions/:id/classification',async req=>{
+    const owner=await ownerOf(req),transactionId=id.parse((req.params as any).id);
+    const input=z.object({
+      treatment:z.enum(['expense','income','excluded_internal','review']),
+      category:category.optional(),confirmOwnTransfer:z.boolean().optional()
+    }).strict().parse(req.body);
+    if(input.treatment==='excluded_internal'&&input.confirmOwnTransfer!==true)
+      throw new ApiError(400,'own_transfer_confirmation_required','Confirme que as contas são suas antes de excluir o valor dos gastos.');
+    const rows=await query<{id:string}>(
+      "update nex_personal.transactions set analysis_role=$3,analysis_confidence='high',category_origin='user',analysis_rule='user_reviewed',category=coalesce($4,category) where owner_user_id=$1 and id=$2 and ($3='review' or ($3='income' and amount_minor>0) or ($3='expense' and amount_minor<0) or $3='excluded_internal') returning id",
+      [owner,transactionId,input.treatment,input.category||null]
+    );
+    if(!rows.length)throw new ApiError(404,'not_found','Movimentação não encontrada ou direção incompatível.');
+    await audit(owner,'transaction.classification_reviewed','transaction',transactionId);
+    return {updated:true,userReviewed:true,externalEffect:false};
+  });
+
   app.patch('/v1/personal/transactions/:id/category',async req=>{
     const owner=await ownerOf(req),transactionId=id.parse((req.params as any).id);
     const input=z.object({category}).strict().parse(req.body);
     const rows=await query<{id:string}>(
-      'update nex_personal.transactions set category=$3 where owner_user_id=$1 and id=$2 returning id',
+      "update nex_personal.transactions set category=$3,category_origin='user' where owner_user_id=$1 and id=$2 returning id",
       [owner,transactionId,input.category]
     );
     if(!rows.length)throw new ApiError(404,'not_found','Movimentação não encontrada.');
