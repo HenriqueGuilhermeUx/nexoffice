@@ -1,0 +1,42 @@
+.np-agents{display:flex;flex-direction:column;gap:20px}
+.np-agents-intro{padding:22px 25px 5px}
+.np-agents-intro h2{font-size:clamp(26px,3vw,34px);letter-spacing:-1px;margin:10px 0}
+.np-agents-intro p{max-width:780px;color:#62788b;line-height:1.65;font-size:14px}
+.np-agents-note{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 18px;background:#eaf1ff;border:1px solid #d0e0ff;border-radius:13px;font-size:13px;color:#2c4e7b;margin-top:19px}
+.np-agents-note strong{color:#1458e8}
+.np-agents-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.np-agent-tile{display:grid;grid-template-columns:46px minmax(0,1fr);grid-template-rows:auto 1fr auto;align-items:start;column-gap:11px;row-gap:10px;background:white;border:1px solid #dfe8f1;border-radius:18px;text-align:left;padding:19px 15px;cursor:pointer;min-height:193px;box-shadow:0 8px 20px #15304108;transition:transform .15s,border-color .15s,box-shadow .15s}
+.np-agent-tile:hover{border-color:#93b5ef;transform:translateY(-2px);box-shadow:0 9px 24px #1b4c8a12}
+.np-agent-tile.np-agent-selected{border:2px solid #1458e8;padding:18px 14px;background:linear-gradient(145deg,#eff5ff,white 65%)}
+.np-agent-icon{display:grid;place-items:center;background:#eaf1ff;border-radius:13px;width:44px;height:44px;color:#1458e8;font-weight:800;font-size:26px;line-height:1}
+.np-agent-meta{display:flex;flex-direction:column;gap:4px;min-width:0}
+.np-agent-meta strong{font-size:17px;color:#173246}
+.np-agent-meta small{font-size:12px;color:#4b6477;font-weight:650}
+.np-agent-desc{grid-column:1/-1;font-size:12px;line-height:1.5;color:#637587}
+.np-agent-status{grid-column:1/-1;font-size:10px;text-transform:uppercase;font-weight:750;letter-spacing:.35px;color:#1458e8}
+.np-agent-workspace{padding:28px;margin-bottom:32px}
+.np-agent-heading{display:flex;gap:17px;align-items:center;padding-bottom:19px;border-bottom:1px solid #e7edf3}
+.np-agent-icon-big{width:62px;height:62px;font-size:32px;flex-shrink:0}
+.np-agent-heading h2{margin:3px 0 2px}
+.np-agent-heading p{font-size:13px;margin:0}
+.np-agent-form{display:flex;align-items:end;flex-wrap:wrap;gap:13px;padding:22px 0}
+.np-agent-form label{display:flex;flex:1 1 200px;flex-direction:column;gap:8px;color:#456074;font-size:12px;font-weight:700}
+.np-agent-form input,.np-agent-form textarea{border:1px solid #cbd8e5;background:white;padding:12px;border-radius:10px;font:inherit;min-width:0;width:100%;color:#153041}
+.np-agent-form textarea{font-size:13px;line-height:1.6;resize:vertical}
+.np-agent-form .np-agent-full{flex-basis:100%}
+.np-agent-form .np-primary{min-height:45px}
+.np-agent-result{background:#f2f7ff;border:1px solid #d0dfff;border-radius:16px;padding:22px 24px;margin-bottom:18px}
+.np-agent-result h3{font-size:21px;margin:9px 0 11px;color:#173246}
+.np-agent-result p{font-size:13px;line-height:1.65}
+.np-agent-result ul{padding-left:20px;margin:15px 0;display:grid;gap:9px;color:#2f4e65;font-size:13px;line-height:1.5}
+.np-agent-result .np-agent-caution{border-top:1px solid #cadcf2;padding-top:12px;font-weight:650}
+.np-agent-result small{font-size:11px;color:#597189;line-height:1.65}
+.np-agent-shortcuts{border-top:1px solid #e7edf3;padding-top:19px;display:grid;gap:13px}
+.np-agent-shortcuts strong{font-size:13px}
+.np-agent-shortcuts>div{display:flex;gap:8px;flex-wrap:wrap}
+.np-agents-spotlight{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.np-agents-spotlight p{margin:9px 0 0}
+.np-agents-spotlight .np-primary{flex-shrink:0}
+@media(max-width:1100px){.np-agents-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.np-agents-grid{grid-template-columns:1fr 1fr;gap:8px}.np-agent-tile{min-height:192px;padding:13px 10px;column-gap:7px}.np-agent-tile.np-agent-selected{padding:12px 9px}.np-agent-icon{width:35px;height:35px;font-size:21px}.np-agent-meta strong{font-size:14px}.np-agent-meta small{font-size:10px}.np-agent-desc{font-size:11px}.np-agent-workspace{padding:19px}.np-agents-intro{padding:5px 0}.np-agents-spotlight{flex-direction:column;align-items:start}}
+@media(max-width:360px){.np-agents-grid{grid-template-columns:1fr}}
