@@ -290,7 +290,6 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
     let answer='',evidence:string[]=[];
     if(/assinatura|recorrente|mensalidade/.test(q)){
       const items=bills.filter(b=>b.interval_months>0);
-      const monthlyTotal=items.reduce((n,b)=>n+BigInt(b.amount_minor)*12n/BigInt(12/b.interval_months),0n);
       answer=items.length?'Você cadastrou '+items.length+' compromisso(s) recorrente(s). A soma nominal registrada é '+fmt(String(items.reduce((n,b)=>n+BigInt(b.amount_minor),0n)))+' por ciclo individual; os ciclos variam e não equivalem todos a uma mensalidade.':'Ainda não há compromissos recorrentes cadastrados aqui. Isso não significa que não existam assinaturas nos seus bancos.';
       evidence=['nex_personal.bills'];
     }else if(/meta|guardar|poupar|reserva/.test(q)){
@@ -300,7 +299,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
         answer='Na meta "'+g.name+'", você informou '+fmt(g.saved_minor)+' de '+fmt(g.target_minor)+'. Falta '+fmt(String(remaining>0n?remaining:0n))+'. Isso é acompanhamento, não recomendação de investimento.';
       }
       evidence=['nex_personal.goals'];
-    }else if(/conta|vencimento|pagar|proxim/.test(q)){
+    }else if(/vencimento|contas? a pagar|contas? venc|proxim|boletos?/.test(q)){
       const thirty=Date.now()+30*86400000;
       const pending=bills.filter(b=>new Date(String(b.next_due_on).slice(0,10)+'T12:00:00Z').getTime()<=thirty);
       const due=pending.reduce((n,b)=>n+BigInt(b.amount_minor),0n);
