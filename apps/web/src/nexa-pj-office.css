@@ -22,3 +22,13 @@
 .nexa-pj-theme .pj-sector-bar small{font-size:11px;color:#aabbcf}
 @media(max-width:1100px){.nexa-pj-theme .pj-office-map{grid-template-columns:repeat(2,minmax(0,1fr))}.nexa-pj-theme .pj-agent-directory{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.nexa-pj-theme .pj-office-map,.nexa-pj-theme .pj-agent-directory{grid-template-columns:1fr}.nexa-pj-theme .pj-office-room{min-height:140px}}
+
+.nexa-pj-theme .pj-sector-shortcuts{padding:22px;background:linear-gradient(130deg,#101c2d,#192f4d);border:1px solid #435b79;border-radius:17px;margin:0 0 20px}
+.nexa-pj-theme .pj-sector-shortcuts h2{margin:5px 0;color:#f1f6ff;font-size:23px}
+.nexa-pj-theme .pj-sector-shortcuts p{color:#bbc9da;margin:4px 0 16px;font-size:13px}
+.nexa-pj-theme .pj-sector-shortcut-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.nexa-pj-theme .pj-sector-shortcut-grid button{display:flex;flex-direction:column;text-align:left;gap:9px;padding:18px;min-height:120px;background:#223c5d;border:1px solid #667d9a;border-radius:12px;color:#f5f7fa;cursor:pointer}
+.nexa-pj-theme .pj-sector-shortcut-grid button:hover,.nexa-pj-theme .pj-sector-shortcut-grid button:focus-visible{background:#2d507a;outline:2px solid #d8e4f4;outline-offset:2px}
+.nexa-pj-theme .pj-sector-shortcut-grid button span{color:#c4d1e1;font-size:12px}
+.nexa-pj-theme .pj-sector-shortcut-grid button small{margin-top:auto;color:#d8e5f8}
+@media(max-width:790px){.nexa-pj-theme .pj-sector-shortcut-grid{grid-template-columns:1fr}}
