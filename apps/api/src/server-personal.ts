@@ -9,6 +9,7 @@ import {ApiError,issueSession,revokeSession,verifyPassword} from './auth.js';
 import {runPersonalPreviewMigrations} from './personal-preview-migrations.js';
 import {registerNexPersonalRoutes} from './routes-nex-personal.js';
 import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
+import {registerPersonalPreviewStatic} from './personal-preview-static.js';
 
 if(process.env.NEX_PERSONAL_PREVIEW!=='true')throw new Error('NEX_PERSONAL_PREVIEW=true required for isolated preview');
 if(process.env.NEXOFFICE_EXTERNAL_ACTIONS!=='false')throw new Error('External actions must be disabled');
@@ -20,6 +21,8 @@ const allowedEmails=String(process.env.NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS||'').
 if(!allowedEmails.length)throw new Error('A non-empty preview email allowlist is required.');
 if(allowedEmails.some(e=>!z.email().safeParse(e).success))throw new Error('Preview email allowlist must contain valid addresses.');
 const origin=String(process.env.ALLOWED_ORIGINS||'').trim();
+const selfOrigin=String(process.env.NEX_PERSONAL_PREVIEW_SELF_ORIGIN||'').trim();
+if(selfOrigin&&!/^https:\/\/[^,\s/]+(?::\d+)?$/.test(selfOrigin))throw new Error('Invalid same-origin preview URL.');
 if(!/^https:\/\/[^,\s/]+(?::\d+)?$/.test(origin))throw new Error('Single exact HTTPS ALLOWED_ORIGINS value required.');
 const databaseUrl=String(process.env.DATABASE_URL||'');
 if(!/^postgres(?:ql)?:\/\//.test(databaseUrl))throw new Error('Dedicated preview PostgreSQL URL required.');
@@ -48,12 +51,12 @@ app.addHook('onRequest',async(req,reply)=>{
  reply.header('cache-control','no-store');
  reply.header('strict-transport-security','max-age=31536000');
  const requestOrigin=String(req.headers.origin||'');
- if(requestOrigin===origin)reply.header('access-control-allow-origin',origin);
+ if(requestOrigin&&(requestOrigin===origin||requestOrigin===selfOrigin))reply.header('access-control-allow-origin',requestOrigin);
  reply.header('vary','Origin');
  reply.header('access-control-allow-headers','authorization,content-type');
  reply.header('access-control-allow-methods','GET,POST,PUT,PATCH,DELETE,OPTIONS');
  // Browser CORS is not authentication; tokens remain required on sensitive reads.
- if(requestOrigin&&requestOrigin!==origin)throw new ApiError(403,'origin_denied','Origem não autorizada.');
+ if(requestOrigin&&requestOrigin!==origin&&requestOrigin!==selfOrigin)throw new ApiError(403,'origin_denied','Origem não autorizada.');
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 app.addHook('preHandler',async req=>{
@@ -84,6 +87,7 @@ app.post('/v1/auth/login',async req=>{
 app.post('/v1/auth/logout',async req=>{await revokeSession(req);return {ok:true}});
 await registerNexPersonalRoutes(app);
 await registerNexPersonalStudioRoutes(app);
+await registerPersonalPreviewStatic(app);
 
 app.setErrorHandler((error,req,reply)=>{
  const status=Number((error as any).statusCode||((error as any).issues?400:500));
