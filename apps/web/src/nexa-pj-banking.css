@@ -111,3 +111,20 @@
 .nexa-pj-theme .pj-connect-panel { overflow-wrap: break-word; }
 .nexa-pj-theme .pj-connect-actions button,
 .nexa-pj-theme .pj-connect-actions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Nexa PJ banking desktop command center — scoped to PJ variant. */
+.nexa-pj-theme .pj-bank-workspace{padding:25px 28px;background:linear-gradient(125deg,#0e3443,#10283a 65%,#102436);border:1px solid rgba(144,240,214,.25);border-radius:19px;display:grid;gap:19px;min-width:0}
+.nexa-pj-theme .pj-bank-workspace-heading{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap}
+.nexa-pj-theme .pj-bank-workspace-heading h3{margin:5px 0;font-size:clamp(22px,2vw,29px);color:#f0fff9}
+.nexa-pj-theme .pj-bank-workspace-heading p,.nexa-pj-theme .pj-bank-activity p{color:#abcbd3;line-height:1.55;margin:5px 0;max-width:670px;font-size:13px}
+.nexa-pj-theme .pj-bank-readiness{border:1px solid rgba(148,221,209,.24);border-radius:999px;padding:9px 14px;color:#a6e3d2;font-size:12px}
+.nexa-pj-theme .pj-bank-quick-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.nexa-pj-theme .pj-bank-quick-actions a,.nexa-pj-theme .pj-bank-quick-actions button{min-width:0;min-height:66px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:16px;border-radius:12px;background:#163e4c;color:#e6fcf6;border:1px solid rgba(172,234,216,.19);text-decoration:none;font-size:13px;font-weight:750;cursor:pointer}
+.nexa-pj-theme .pj-bank-quick-actions a:hover,.nexa-pj-theme .pj-bank-quick-actions button:hover{background:#20515b}
+.nexa-pj-theme .pj-bank-quick-actions span{color:#8becd2}
+.nexa-pj-theme .pj-bank-activity{display:flex;gap:14px;align-items:center;justify-content:space-between;border-top:1px solid rgba(163,222,214,.15);padding-top:17px;flex-wrap:wrap}
+.nexa-pj-theme .pj-bank-activity h4{margin:0;color:#ebfdf8}
+.nexa-pj-theme .pj-bank-activity>span{font-size:12px;color:#a5c3cb}
+@media(max-width:1199px){.nexa-pj-theme .pj-bank-quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.nexa-pj-theme .pj-bank-workspace{padding:18px}.nexa-pj-theme .pj-bank-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:390px){.nexa-pj-theme .pj-bank-quick-actions{grid-template-columns:1fr}}
