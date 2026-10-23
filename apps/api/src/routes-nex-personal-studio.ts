@@ -260,4 +260,66 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       externalEffect:false
     };
   });
+
+  app.patch('/v1/personal/transactions/:id/category',async req=>{
+    const owner=await ownerOf(req),transactionId=id.parse((req.params as any).id);
+    const input=z.object({category}).strict().parse(req.body);
+    const rows=await query<{id:string}>(
+      'update nex_personal.transactions set category=$3 where owner_user_id=$1 and id=$2 returning id',
+      [owner,transactionId,input.category]
+    );
+    if(!rows.length)throw new ApiError(404,'not_found','Movimentação não encontrada.');
+    await audit(owner,'transaction.category_changed','transaction',transactionId);
+    return {updated:true,externalEffect:false};
+  });
+
+  // Grounded assistant: deterministic answers from only the authenticated user's numbers.
+  // No model call or sensitive financial data sent to third parties.
+  app.post('/v1/personal/maya/ask',async req=>{
+    const owner=await ownerOf(req);
+    const input=z.object({question:z.string().trim().min(3).max(400)}).strict().parse(req.body);
+    const q=input.question.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const [accountRows,spendingRows,bills,goals]=await Promise.all([
+      query<any>("select count(*)::int qty,coalesce(sum(available_minor),0)::text total from nex_personal.accounts where owner_user_id=$1 and provider='manual' and currency='BRL' and status='active'",[owner]),
+      query<any>("select coalesce(sum(-amount_minor),0)::text spent_minor,coalesce(count(*),0)::int tx_count from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and booked_at>=date_trunc('month',now() at time zone 'America/Sao_Paulo')",[owner]),
+      query<any>("select name,amount_minor::text amount_minor,next_due_on,interval_months from nex_personal.bills where owner_user_id=$1 and active=true order by next_due_on limit 60",[owner]),
+      query<any>("select name,target_minor::text target_minor,saved_minor::text saved_minor,due_on from nex_personal.goals where owner_user_id=$1 and status='active' order by created_at desc limit 20",[owner])
+    ]);
+    const fmt=(s:string)=>{const v=BigInt(s),abs=v<0n?-v:v;return (v<0n?'-':'')+'R$ '+(abs/100n).toLocaleString('pt-BR')+','+String(abs%100n).padStart(2,'0');};
+    const declared=String(accountRows[0].total),spent=String(spendingRows[0].spent_minor);
+    let answer='',evidence:string[]=[];
+    if(/assinatura|recorrente|mensalidade/.test(q)){
+      const items=bills.filter(b=>b.interval_months>0);
+      const monthlyTotal=items.reduce((n,b)=>n+BigInt(b.amount_minor)*12n/BigInt(12/b.interval_months),0n);
+      answer=items.length?'Você cadastrou '+items.length+' compromisso(s) recorrente(s). A soma nominal registrada é '+fmt(String(items.reduce((n,b)=>n+BigInt(b.amount_minor),0n)))+' por ciclo individual; os ciclos variam e não equivalem todos a uma mensalidade.':'Ainda não há compromissos recorrentes cadastrados aqui. Isso não significa que não existam assinaturas nos seus bancos.';
+      evidence=['nex_personal.bills'];
+    }else if(/meta|guardar|poupar|reserva/.test(q)){
+      if(!goals.length)answer='Você ainda não cadastrou metas. Crie uma meta com valor alvo e valor reservado para eu calcular quanto falta.';
+      else {
+        const g=goals[0],remaining=BigInt(g.target_minor)-BigInt(g.saved_minor);
+        answer='Na meta "'+g.name+'", você informou '+fmt(g.saved_minor)+' de '+fmt(g.target_minor)+'. Falta '+fmt(String(remaining>0n?remaining:0n))+'. Isso é acompanhamento, não recomendação de investimento.';
+      }
+      evidence=['nex_personal.goals'];
+    }else if(/conta|vencimento|pagar|proxim/.test(q)){
+      const thirty=Date.now()+30*86400000;
+      const pending=bills.filter(b=>new Date(String(b.next_due_on).slice(0,10)+'T12:00:00Z').getTime()<=thirty);
+      const due=pending.reduce((n,b)=>n+BigInt(b.amount_minor),0n);
+      answer=pending.length?'Você cadastrou '+pending.length+' conta(s) com vencimento nos próximos 30 dias, somando '+fmt(String(due))+'. Esses são lembretes, não pagamentos agendados.':'Não há contas cadastradas para os próximos 30 dias. Posso avaliar apenas os vencimentos que você informar.';
+      evidence=['nex_personal.bills'];
+    }else if(/gasto|gastei|despesa|consumo|mes/.test(q)){
+      answer=Number(spendingRows[0].tx_count)>0?'Neste mês, as despesas que você registrou ou importou somam '+fmt(spent)+'. Esse número pode estar incompleto, pois ainda não há conexão bancária.':'Ainda não há despesas registradas neste mês. Importar um CSV ajuda a começar a análise.';
+      evidence=['nex_personal.transactions'];
+    }else if(/dinheiro|saldo|posso comprar|disponivel|sobrar/.test(q)){
+      answer=Number(accountRows[0].qty)>0?'Seu saldo total declarado nas contas manuais é '+fmt(declared)+'. Sem histórico completo de renda, despesas e obrigações, não consigo afirmar se uma compra cabe com segurança no orçamento.':'Você ainda não informou contas e saldos. Não consigo calcular seu dinheiro disponível sem dados.';
+      evidence=['nex_personal.accounts'];
+    }else if(/divida|emprestimo|credito|juros/.test(q)){
+      answer='Posso organizar suas dívidas declaradas, mas para decidir qual pagar primeiro preciso também de taxas de juros, parcelas e condições dos contratos. Não vou inventar essas informações.';
+      evidence=['nex_personal.wealth_items'];
+    }else{
+      answer='Posso analisar saldos declarados, gastos do mês, metas e contas a vencer. Pergunte, por exemplo: "quanto gastei?", "quanto falta para minha meta?" ou "quais contas vencem?".';
+      evidence=[];
+    }
+    return {answer,evidence,verifiedBanking:false,source:'user_declared_or_imported',
+      modelCalled:false,canInitiatePayment:false,externalEffect:false,disclaimer:'Resposta informativa baseada apenas em dados cadastrados no Nex Personal.'};
+  });
 }
