@@ -34,6 +34,9 @@ export function personalPgConnection(
  // Preserve credentials, database and channel binding, but require the
  // strongest standardized mode even when existing URLs say
  // sslmode=require, prefer, verify-ca or disable.
+ // Reject URL query overrides that could otherwise bypass hostname/TLS checks.
+ url.searchParams.delete('host');
+ url.searchParams.delete('ssl');
  url.searchParams.delete('uselibpqcompat');
  url.searchParams.set('sslmode','verify-full');
  return {connectionString:url.toString()};
