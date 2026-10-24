@@ -27,6 +27,8 @@ jobs:
         run: node scripts/smoke-nex-personal-session-resilience.mjs
       - name: Smoke test Personal marketplace independence and privacy
         run: node --experimental-strip-types scripts/smoke-nex-personal-marketplace.mjs
+      - name: Smoke test Nex Personal F-Insight isolated market research
+        run: node scripts/smoke-nex-personal-finsight.mjs
       - name: Smoke test Nex Personal CSV and OFX parser
         run: node --experimental-strip-types scripts/smoke-nex-personal-parser.mjs
       - name: Smoke test personal bill reminders and Brazil-local due dates
