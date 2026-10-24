@@ -28,7 +28,10 @@ assert.match(ui,/A comparação acontece apenas nesta aba, não é salva, compar
 assert.match(ui,/Nenhum rendimento ou preço de demonstração aparece como real/);
 assert.match(ui,/setLeft\(\{\.\.\.emptyDraft\}\);setRight\(\{\.\.\.emptyDraft\}\)/);
 assert.match(ui,/Nenhuma oferta foi carregada/);
-assert.match(ui,/partnerLive=Boolean\(catalog\?\.distributionEnabled===true&&catalog\?\.suitabilityVerified===true\)/);
+assert.match(ui,/partnerLive=Boolean\(catalog\?\.status==='open'&&catalog\?\.distributionEnabled===true&&catalog\?\.suitabilityVerified===true/);
+assert.match(ui,/<table className="np-brokerage-table">/);
+assert.match(ui,/<th scope="col">Proposta A<\/th><th scope="col">Proposta B<\/th>/);
+assert.match(ui,/\.\/personal-brokerage\.css/);
 assert.ok(!ui.includes('localStorage')&&!ui.includes('sessionStorage'),'Draft comparison must not persist');
 assert.ok(!ui.includes('fetch(API+\'/v1/personal/finsight/brokerage\',{method:\'POST\''),
  'There must be no outbound request with broker offer drafts');
