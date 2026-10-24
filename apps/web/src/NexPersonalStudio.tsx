@@ -41,7 +41,7 @@ async function request<T>(path:string,token:string,method='GET',data?:unknown):P
  let response:Response;
  try{response=await fetch(API+path,{method,headers:{authorization:'Bearer '+token,...(data!==undefined?{'content-type':'application/json'}:{})},
   ...(data!==undefined?{body:JSON.stringify(data)}:{})});}
- catch{throw new Error('Não foi possível conectar ao Nex Personal. Tente recarregar a página.');}
+ catch{throw new Error('Não foi possível conectar à Nexa. Tente recarregar a página.');}
  const body=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(body.message||body.error||'Não foi possível concluir esta ação.');
  return body as T;
@@ -271,7 +271,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
      </form></div>)}
   </Card>
   <Card title="Contas e assinaturas a vencer">
-   <p>Estes são lembretes. O Nex Personal não debita contas nem autoriza Pix automaticamente.</p>
+   <p>Estes são lembretes. Este espaço da Nexa não debita contas nem autoriza Pix automaticamente.</p>
    <p><strong>Próximos 30 dias:</strong> {formatMinor(data.totals.upcomingBillsMinor)} em lembretes com vencimento de hoje ou futuro.</p>
    {data.totals.pastDatedBillCount>0&&<p className="np-privacy-disclaimer" role="status">
     <strong>{data.totals.pastDatedBillCount} lembrete(s) com data anterior:</strong> {formatMinor(data.totals.pastDatedBillsMinor)} em valores declarados. Confira se já foram pagos; isso não significa inadimplência confirmada.
