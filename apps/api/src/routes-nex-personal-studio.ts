@@ -116,19 +116,40 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
         [input.accountId,owner]
       );
       if(!acc.rows.length)throw new ApiError(404,'manual_account_not_found','Conta não encontrada.');
-      // A weak key (same date/description/amount) is NOT a transaction identity.
-      // Preserve repeated legitimate charges in a file; only an identical batch
-      // reimport is idempotent when no bank FITID/reference was supplied.
+      // Keep every repeated charge: a weak description/date/amount cannot
+      // uniquely identify a bank posting. Make the *whole file* idempotent,
+      // even if rows are reordered by the bank, using a sorted multiset.
       const normalizedRows=input.rows.map(row=>[
         row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference||''
       ]);
-      const batchHash=createHash('sha256').update(JSON.stringify(normalizedRows)).digest('hex');
+      const rowSignatures=normalizedRows.map(row=>JSON.stringify(row));
+      const batchHash=createHash('sha256').update(JSON.stringify([...rowSignatures].sort())).digest('hex');
+      // Backward compatible with imports made using the first, order-sensitive
+      // batch key. Existing file reimports still skip their old fingerprints.
+      const legacyBatchHash=createHash('sha256').update(JSON.stringify(normalizedRows)).digest('hex');
+      const legacyFingerprints=input.rows.map((row,index)=>row.reference?null:createHash('sha256')
+        .update(['csv-batch-v2',input.accountId,legacyBatchHash,index].join('|')).digest('hex'));
+      const previous=await client.query<{fingerprint:string}>(
+        "select fingerprint from nex_personal.transactions where owner_user_id=$1 and account_id=$2 and fingerprint=any($3::text[])",
+        [owner,input.accountId,legacyFingerprints.filter((key):key is string=>key!==null)]
+      );
+      const legacySeen=new Set(previous.rows.map(r=>r.fingerprint));
+      const occurrences=new Map<string,number>();
       let imported=0,duplicates=0;
       for(const [index,row] of input.rows.entries()){
         const canonical=[input.accountId,row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference||''].join('|');
-        // Preserve legacy strong-reference fingerprint behavior for existing rows.
-        const key=row.reference?canonical:['csv-batch-v2',input.accountId,batchHash,index].join('|');
+        const signature=rowSignatures[index];
+        const occurrence=occurrences.get(signature)||0;
+        occurrences.set(signature,occurrence+1);
+        // Existing strong-reference fingerprints stay unchanged. When there is
+        // no reference, the row's ordinal among identical rows is stable even
+        // if the statement order changes.
+        const key=row.reference?canonical:['csv-batch-v3',input.accountId,batchHash,signature,occurrence].join('|');
         const fingerprint=createHash('sha256').update(key).digest('hex');
+        if(legacyFingerprints[index]&&legacySeen.has(legacyFingerprints[index]!)){
+          duplicates++;
+          continue;
+        }
         const enriched=enrichBankTransaction({source:'csv',accountRef:input.accountId,date:row.date,
           description:row.description,amountMinor:row.amountMinor,currency:'BRL',reference:row.reference});
         const result=await client.query(
@@ -145,7 +166,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       return {imported,duplicates};
     });
     return {...counts,source:'csv',verified:false,currentBalanceChanged:false,externalEffect:false,
-      note:'Referências bancárias identificam duplicatas. Sem referência, linhas iguais do mesmo arquivo são preservadas e a reimportação exata do arquivo é idempotente; arquivos diferentes com períodos sobrepostos podem duplicar lançamentos e exigem revisão.'};
+      note:'Referências bancárias identificam duplicatas. Sem referência, linhas iguais do arquivo são preservadas e reimportações com linhas reordenadas são idempotentes; arquivos diferentes com períodos sobrepostos ainda podem duplicar lançamentos e exigem revisão.'};
   });
 
   // Data supplied voluntarily for a read-only preview. No provider / wallet API is
