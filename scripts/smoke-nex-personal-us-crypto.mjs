@@ -19,6 +19,7 @@ for(const method of ['eth_sign','personal_sign','eth_signTypedData_v4','eth_send
 }
 await assert.rejects(walletReadRequest(wallet,'eth_call',[{to:a,data:balanceOfCallData(a)},'latest']),/Only native Polygon/);
 await assert.rejects(walletReadRequest(wallet,'eth_call',[{to:US_CRYPTO_USDC_POLYGON,data:'0x095ea7b3'},'latest']),/Only native Polygon/);
+await assert.rejects(walletReadRequest(wallet,'eth_call',[{to:US_CRYPTO_USDC_POLYGON,data:balanceOfCallData(a),value:'0x1'},'latest']),/Only native Polygon/);
 await walletReadRequest(wallet,'eth_call',[{to:US_CRYPTO_USDC_POLYGON,data:balanceOfCallData(a)},'latest']);
 assert.equal(calls.length,1,'Denied requests must never hit wallet provider');
 const review=buildReadOnlyCryptoReview({rawBalance:'1234567',address:a,observedAt:'2026-10-24T18:00:00.000Z'});
