@@ -10,7 +10,10 @@ const options = connectionString ? personalPgConnection(connectionString,process
 export const db = options ? new Pool({
   ...options,
   max: 10,
-  idleTimeoutMillis: 30_000
+  idleTimeoutMillis: 30_000,
+  // Only PF staging: fail a broken remote connection predictably and preserve
+  // errors for retry instead of waiting forever. PJ pool stays unchanged.
+  ...(process.env.NEX_PERSONAL_PREVIEW==='true'?{connectionTimeoutMillis:30_000}:{})
 }) : null;
 
 export async function query<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
