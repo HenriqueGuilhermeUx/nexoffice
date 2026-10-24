@@ -8,7 +8,8 @@
   "exports": {
     ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
     "./commerce": {"types": "./dist/commerce.d.ts", "import": "./dist/commerce.js"},
-    "./personal-etl": {"types": "./dist/personal-transaction-etl.d.ts", "import": "./dist/personal-transaction-etl.js"}
+    "./personal-etl": {"types": "./dist/personal-transaction-etl.d.ts", "import": "./dist/personal-transaction-etl.js"},
+    "./personal-recurring": {"types": "./dist/personal-recurring-expenses.d.ts", "import": "./dist/personal-recurring-expenses.js"}
   },
   "dependencies": {"@nexoffice/domain": "0.1.0"},
   "scripts": {
