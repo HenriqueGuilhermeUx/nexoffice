@@ -83,6 +83,27 @@ try{
  const rejectedSymbol=await call('/v1/personal/finsight/asset/BAD%3F','GET',undefined,token);
  assert.equal(rejectedSymbol.status,400,'Research symbol must be validated before any external request');
 
+ // Brokerage distribution is a planned capability only: no offers, partners,
+ // referrals, paid rankings, account opening or trading in PF preview.
+ const anonBrokerage=await call('/v1/personal/finsight/brokerage');
+ assert.equal(anonBrokerage.status,401,'Brokerage requires an authenticated PF session');
+ const brokerage=await call('/v1/personal/finsight/brokerage','GET',undefined,token);
+ assert.equal(brokerage.status,200,JSON.stringify(brokerage.body));
+ assert.equal(brokerage.body.status,'preparation');
+ assert.equal(brokerage.body.distributionEnabled,false);
+ assert.equal(brokerage.body.recommendationEnabled,false);
+ assert.equal(brokerage.body.suitabilityVerified,false);
+ assert.deepEqual(brokerage.body.partners,[]);
+ assert.deepEqual(brokerage.body.products,[]);
+ assert.equal(brokerage.body.leadSubmissionEnabled,false);
+ assert.equal(brokerage.body.accountOpeningEnabled,false);
+ assert.equal(brokerage.body.orderExecutionEnabled,false);
+ assert.equal(brokerage.body.customerDataShared,false);
+ assert.equal(brokerage.body.commissionDisclosureRequired,true);
+ assert.equal(brokerage.body.categories.length,6);
+ const forbiddenBrokerOrder=await call('/v1/personal/finsight/brokerage','POST',{action:'order',productId:'example'},token);
+ assert.equal(forbiddenBrokerOrder.status,404,'No brokerage mutation endpoint allowed');
+
  const agents=await call('/v1/personal/agents','GET',undefined,token);
  assert.equal(agents.status,200,JSON.stringify(agents.body));
  assert.equal(agents.body.agents.length,11,'Eleven specialist agents must be discoverable');
