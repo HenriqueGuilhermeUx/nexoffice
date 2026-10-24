@@ -5,6 +5,8 @@ import NexPersonalAgents,{type AgentId} from './NexPersonalAgents';
 import NexPersonalLifeOffice from './NexPersonalLifeOffice';
 import PersonalFInsight from './PersonalFInsight';
 import PersonalPrivacyCenter from './PersonalPrivacyCenter';
+import NexaCryptoHub from './NexaCryptoHub';
+import './nexa-life-rebrand.css';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 const TOKEN_KEY='nex.personal.token';
@@ -56,7 +58,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'agents'|'maya'|'privacy'>('office');
+  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'crypto'|'agents'|'maya'|'privacy'>('office');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [initialSpecialist,setInitialSpecialist]=useState<AgentId>('expenses');
   const [busy,setBusy]=useState(false);
@@ -150,7 +152,7 @@ export default function NexPersonal(){
 
   if(!ready)return <div className="np-root np-center">Carregando seu espaço pessoal…</div>;
   if(token&&!me)return <div className="np-root np-auth"><main className="np-auth-card">
-    <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
+    <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
     <h1>Não foi possível carregar seu espaço.</h1>
     <p>{error||'A conexão foi interrompida. Seu login continua salvo neste navegador.'}</p>
     <button className="np-primary" onClick={()=>void retryLoading()}>Tentar novamente</button>
@@ -158,7 +160,7 @@ export default function NexPersonal(){
   </main></div>;
   if(!token)return <div className="np-root np-auth">
     <main className="np-auth-card">
-      <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
+      <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
       <div className="np-auth-kicker">Sua vida mais simples. Seu tempo de volta.</div>
       <h1>Uma equipe para facilitar a sua vida.</h1>
       <p>Dinheiro, compras, planejamento, documentos, família e mais. Escolha o que importa para você. Seus dados permanecem separados e sob seu controle.</p>
@@ -168,7 +170,7 @@ export default function NexPersonal(){
         <label>E-mail<input name="email" type="email" autoComplete="email" required/></label>
         <label>Senha<input name="password" type="password" autoComplete={mode==='register'?'new-password':'current-password'} minLength={mode==='register'?8:1} required/></label>
         {error&&<div className="np-error" role="alert">{error} <button type="button" className="np-text-button" onClick={()=>void retryLoading()}>Tentar atualizar</button></div>}
-        <button className="np-primary" type="submit" disabled={busy}>{busy?'Processando…':mode==='register'?'Criar meu espaço':'Entrar no Nex Personal'}</button>
+        <button className="np-primary" type="submit" disabled={busy}>{busy?'Processando…':mode==='register'?'Criar meu espaço':'Entrar na Nexa'}</button>
       </form>
       <button className="np-text-button" onClick={()=>{setMode(mode==='register'?'login':'register');setError('');}}>
         {mode==='register'?'Já tenho uma conta':'Criar uma conta pessoal'}
@@ -178,25 +180,25 @@ export default function NexPersonal(){
   </div>;
 
   if(me&&!me.activated)return <div className="np-root np-auth"><main className="np-auth-card">
-    <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
+    <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
     <h1>Ative seu espaço pessoal</h1>
     <p>Sua identidade já existe. Vamos criar um contexto financeiro PF separado das suas empresas, sem copiar dados.</p>
     {error&&<div className="np-error" role="alert">{error}</div>}
-    <button className="np-primary" disabled={busy} onClick={()=>void activate()}>{busy?'Ativando…':'Ativar Nex Personal'}</button>
+    <button className="np-primary" disabled={busy} onClick={()=>void activate()}>{busy?'Ativando…':'Ativar meu espaço Nexa'}</button>
     <button className="np-text-button" onClick={logout}>Sair</button>
   </main></div>;
 
   const displayName=me?.user.name.split(' ')[0]||'';
   return <div className="np-root np-shell">
     <aside className="np-sidebar">
-      <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
+      <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['crypto','Cripto & Wallet'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
-      <div className="np-sidebar-bottom"><span>O Nex Personal não mantém custódia de dinheiro.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
+      <div className="np-sidebar-bottom"><span>Este espaço de organização não mantém custódia de dinheiro. A Nexa Wallet é um produto separado.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
     <main className="np-main">
-      <header className="np-top"><div><div className="np-kicker">NEX PERSONAL · SUA VIDA, UM SÓ LUGAR</div><h1>Olá, {displayName}.</h1><p>Sua vida mais simples. Seu tempo de volta.</p></div><span className="np-pill">Sem transferências reais</span></header>
+      <header className="np-top"><div><div className="np-kicker">NEXA · SUA VIDA, UM SÓ LUGAR</div><h1>Olá, {displayName}.</h1><p>Sua vida mais simples. Seu tempo de volta.</p></div><span className="np-pill">Sem transferências reais</span></header>
       {error&&<div className="np-error" role="alert">{error}</div>}
       {section==='office'&&<NexPersonalLifeOffice token={token} onOpenSection={setSection} onOpenAgent={(agent)=>{setInitialSpecialist(agent);setSection('agents');}}/>}
       {section==='today'&&<>
@@ -224,6 +226,7 @@ export default function NexPersonal(){
       {section==='market'&&<PersonalFInsight key={token} token={token}
         onOpenAgent={()=>{setInitialSpecialist('investments');setSection('agents');}}
         onOpenWealth={()=>setSection('wealth')}/>}
+      {section==='crypto'&&<NexaCryptoHub key={token}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
             {section==='maya'&&<NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
