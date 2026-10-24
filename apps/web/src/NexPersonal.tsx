@@ -3,6 +3,7 @@ import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
 import NexPersonalAgents,{type AgentId} from './NexPersonalAgents';
 import NexPersonalLifeOffice from './NexPersonalLifeOffice';
+import PersonalFInsight from './PersonalFInsight';
 import PersonalPrivacyCenter from './PersonalPrivacyCenter';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
@@ -55,7 +56,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy'>('office');
+  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'agents'|'maya'|'privacy'>('office');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [initialSpecialist,setInitialSpecialist]=useState<AgentId>('expenses');
   const [busy,setBusy]=useState(false);
@@ -190,7 +191,7 @@ export default function NexPersonal(){
     <aside className="np-sidebar">
       <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
       <div className="np-sidebar-bottom"><span>O Nex Personal não mantém custódia de dinheiro.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
@@ -220,6 +221,9 @@ export default function NexPersonal(){
       {section==='spending'&&<NexPersonalStudio key={token} view="spending" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='planning'&&<NexPersonalStudio key={token} view="planning" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='wealth'&&<NexPersonalStudio key={token} view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='market'&&<PersonalFInsight key={token} token={token}
+        onOpenAgent={()=>{setInitialSpecialist('investments');setSection('agents');}}
+        onOpenWealth={()=>setSection('wealth')}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
             {section==='maya'&&<NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
