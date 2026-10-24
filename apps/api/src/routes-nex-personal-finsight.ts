@@ -10,6 +10,7 @@ import type {FastifyInstance,FastifyRequest} from 'fastify';
 import {z} from 'zod';
 import {ApiError,authenticate} from './auth.js';
 import {query} from './db.js';
+import {verifyFInsightQuote} from './personal-finsight-quote.js';
 
 const symbolSchema=z.string().trim().toUpperCase().regex(/^[A-Z0-9.^-]{1,24}$/,'Símbolo inválido.');
 const upstreamPaths=['/api/internal/market-terminal/asset/','/api/internal/market-terminal/macro'] as const;
@@ -63,19 +64,8 @@ export async function registerNexPersonalFInsightRoutes(app:FastifyInstance){
   const symbol=symbolSchema.parse((req.params as {symbol:string}).symbol);
   const payload=await callMarket('/api/internal/market-terminal/asset/'+encodeURIComponent(symbol)+
    '?history=false&news=false&macro=false&sentiment=false');
-  const q=payload.quote;
-  // A finite price alone does not make a live quote. Reject wrong symbols,
-  // future-dated quotes and stale records; retain weekend/market-holiday room.
-  const observedAt=typeof q?.timestamp==='string'?Date.parse(q.timestamp):NaN;
-  const quoteAgeMs=Date.now()-observedAt;
-  const valid=q&&typeof q.provider==='string'&&q.provider==='finnhub'&&
-   String(q.symbol||'').trim().toUpperCase()===symbol&&
-   Number.isFinite(q.price)&&q.price>0&&Number.isFinite(observedAt)&&
-   quoteAgeMs>=-5*60_000&&quoteAgeMs<=7*24*60*60_000;
-  return {symbol,available:Boolean(valid),quote:valid?{
-    value:q.price,source:q.provider,observedAt:q.timestamp,
-    currency:'unspecified'
-   }:null,readOnly:true,externalEffect:false,
+  const verified=verifyFInsightQuote(payload.quote,symbol);
+  return {symbol,available:Boolean(verified),quote:verified,readOnly:true,externalEffect:false,
    note:valid?'Última cotação informada pelo provedor, com fonte e horário. Pode não ser em tempo real. Confirme na corretora antes de decidir.':
    'Cotação válida não disponível ou desatualizada. Não exibimos valores simulados ou sem data.'};
  });
