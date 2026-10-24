@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useState} from 'react';
+import {US_CRYPTO_CHAIN_ID,US_CRYPTO_USDC_POLYGON,assertValidWalletAddress,balanceOfCallData,decodeNativePolygonUsdcBalance,walletReadRequest} from './nex-personal-us-crypto-policy';
 
 /**
  * US preview: EIP-1193 READ ONLY wallet discovery.
@@ -7,13 +8,8 @@ import {useCallback,useEffect,useState} from 'react';
  */
 type Eip1193 = {request:(args:{method:string;params?:unknown[]})=>Promise<unknown>;on?:(event:string,cb:(value:any)=>void)=>void;removeListener?:(event:string,cb:(value:any)=>void)=>void};
 declare global {interface Window {ethereum?:Eip1193&{providers?:Eip1193[]}}}
-const POLYGON_CHAIN='0x89';
-const NATIVE_POLYGON_USDC='0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
-const BALANCE_OF_SELECTOR='70a08231';
-const ADDRESS=/^0x[0-9a-fA-F]{40}$/;
 type Connection={address:string;chainId:string;provider:Eip1193};
 type Balance={raw:string;checkedAt:string}|null;
-function tokenBalanceData(address:string){return '0x'+BALANCE_OF_SELECTOR+address.slice(2).toLowerCase().padStart(64,'0');}
 function displayUsdc(value:string){
  const n=BigInt(value),whole=n/1000000n,fraction=(n%1000000n).toString().padStart(6,'0').replace(/0+$/,'');
  return whole.toLocaleString('en-US')+(fraction?'.'+fraction:'')+' USDC';
@@ -53,15 +49,15 @@ export default function NexPersonalUSCrypto(){
    const provider=resolveInjectedProvider();
    if(!provider)throw Error('No compatible browser wallet detected. Install an official MetaMask, Rabby, Coinbase Wallet or Trust Wallet extension. QR/Reown is not active in this preview.');
    // Direct user gesture only; do not silently access account information.
-   const accounts=await provider.request({method:'eth_requestAccounts'});
+   const accounts=await walletReadRequest(provider,'eth_requestAccounts');
    const address=Array.isArray(accounts)?accounts[0]:null;
-   if(typeof address!=='string'||!ADDRESS.test(address))throw Error('The wallet did not return a valid EVM address.');
-   const chainId=await provider.request({method:'eth_chainId'});
-   if(typeof chainId!=='string'||chainId.toLowerCase()!==POLYGON_CHAIN){
+   assertValidWalletAddress(address);
+   const chainId=await walletReadRequest(provider,'eth_chainId');
+   if(typeof chainId!=='string'||chainId.toLowerCase()!==US_CRYPTO_CHAIN_ID){
     setStatus('Wrong network');throw Error('Connect Polygon mainnet (chain 137) in your wallet and retry. This preview never switches your network automatically.');
    }
-   const chainAgain=await provider.request({method:'eth_chainId'});
-   const accountsAgain=await provider.request({method:'eth_accounts'});
+   const chainAgain=await walletReadRequest(provider,'eth_chainId');
+   const accountsAgain=await walletReadRequest(provider,'eth_accounts');
    if(chainAgain!==chainId||!Array.isArray(accountsAgain)||!accountsAgain.some(a=>typeof a==='string'&&a.toLowerCase()===address.toLowerCase()))
      throw Error('Wallet account or chain changed during connection. Please retry.');
    setConnection({provider,address,chainId});
@@ -74,14 +70,13 @@ export default function NexPersonalUSCrypto(){
   if(!connection)return;
   setBusy(true);setError('');setBalance(null);
   try{
-   const chainBefore=await connection.provider.request({method:'eth_chainId'});
-   const active=await connection.provider.request({method:'eth_accounts'});
-   if(chainBefore!==POLYGON_CHAIN||!Array.isArray(active)||!active.some(a=>typeof a==='string'&&a.toLowerCase()===connection.address.toLowerCase()))throw Error('Active account or network changed. Reconnect first.');
-   const result=await connection.provider.request({method:'eth_call',params:[{to:NATIVE_POLYGON_USDC,data:tokenBalanceData(connection.address)},'latest']});
-   const chainAfter=await connection.provider.request({method:'eth_chainId'});
+   const chainBefore=await walletReadRequest(connection.provider,'eth_chainId');
+   const active=await walletReadRequest(connection.provider,'eth_accounts');
+   if(chainBefore!==US_CRYPTO_CHAIN_ID||!Array.isArray(active)||!active.some(a=>typeof a==='string'&&a.toLowerCase()===connection.address.toLowerCase()))throw Error('Active account or network changed. Reconnect first.');
+   const result=await walletReadRequest(connection.provider,'eth_call',[{to:US_CRYPTO_USDC_POLYGON,data:balanceOfCallData(connection.address)},'latest']);
+   const chainAfter=await walletReadRequest(connection.provider,'eth_chainId');
    if(chainAfter!==chainBefore)throw Error('Network changed during balance read.');
-   if(typeof result!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(result))throw Error('USDC read failed. No balance can be confirmed.');
-   setBalance({raw:BigInt(result).toString(),checkedAt:new Date().toISOString()});
+   setBalance({raw:decodeNativePolygonUsdcBalance(result).toString(),checkedAt:new Date().toISOString()});
   }catch(e){setBalance(null);setError(e instanceof Error?e.message:'Balance unavailable.');}
   finally{setBusy(false);}
  },[connection]);
