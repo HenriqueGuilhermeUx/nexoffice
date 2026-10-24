@@ -50,5 +50,12 @@ const privacy=[
  expense('2026-09-10','Consulta medico',5000,'Saúde')
 ];
 assert.equal(detectRecurringExpenses(privacy,'2026-10-23').patterns.length,0);
+const stale=[
+ expense('2026-02-10','Netflix assinatura',9900),
+ expense('2026-03-10','Netflix assinatura',9900),
+ expense('2026-04-10','Netflix assinatura',9900)
+];
+assert.equal(detectRecurringExpenses(stale,'2026-10-23').patterns.length,0,
+ 'An old cancelled service must not appear as an active monthly pattern.');
 assert.throws(()=>detectRecurringExpenses([],'2026-02-31'));
 console.log('Personal recurring: 3-month evidence, change signals, ambiguous payments and sensitive exclusion passed');
