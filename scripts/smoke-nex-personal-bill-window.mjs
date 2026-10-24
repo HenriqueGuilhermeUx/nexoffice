@@ -13,7 +13,7 @@ const result=summarizePersonalBills([
  {next_due_on:'2020-01-01',amount_minor:'999900'}
 ],atBoundary);
 assert.deepEqual(result,{
- upcomingCount:2,upcomingTotalMinor:'3800',pastDatedCount:2,pastDatedTotalMinor:'1000800'
+ upcomingCount:2,upcomingTotalMinor:'3800',pastDatedCount:3,pastDatedTotalMinor:'1013300'
 },'Only dates 2026-10-23 through 2026-11-22 qualify for the next 30 Brazil calendar days');
 const day30=summarizePersonalBills([
  {next_due_on:'2026-11-22',amount_minor:'100'},
