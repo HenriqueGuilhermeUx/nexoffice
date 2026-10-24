@@ -140,7 +140,11 @@ export default function NexPersonal(){
         clearLocalSession();
         setError('Sua sessão expirou. Entre novamente.');
       }else setError('Não conseguimos atualizar seus dados. Seu login continua salvo; tente novamente.');
-    }finally{setReady(true);}
+    }finally{
+      // An older retry may finish after logout or a different account login.
+      // Never mark the newer account's loading state as ready.
+      if(activeTokenRef.current===token)setReady(true);
+    }
   }
 
   if(!ready)return <div className="np-root np-center">Carregando seu espaço pessoal…</div>;
