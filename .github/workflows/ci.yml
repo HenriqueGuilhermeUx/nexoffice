@@ -28,7 +28,7 @@ jobs:
       - name: Smoke test Personal marketplace independence and privacy
         run: node --experimental-strip-types scripts/smoke-nex-personal-marketplace.mjs
       - name: Smoke test Nex Personal F-Insight isolated market research
-        run: node scripts/smoke-nex-personal-finsight.mjs
+        run: node --experimental-strip-types scripts/smoke-nex-personal-finsight.mjs
       - name: Smoke test Nex Personal future brokerage safety gates
         run: node scripts/smoke-nex-personal-brokerage.mjs
       - name: Smoke test Nex Personal CSV and OFX parser
