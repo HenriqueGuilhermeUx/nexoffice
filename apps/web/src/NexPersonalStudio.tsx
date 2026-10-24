@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import './nex-personal-studio.css';
-import {parsePersonalStatement, type StatementRow} from './PersonalStatementParser';
+import {parsePersonalStatement,cents, type StatementRow} from './PersonalStatementParser';
 
 type Section='money'|'spending'|'planning'|'wealth'|'maya';
 type ManualAccount={id:string;name:string;institution_name:string;available_minor:string|null;balance_as_of:string|null};
@@ -29,15 +29,8 @@ function formatMinor(v:string|null|undefined){
  }catch{return '—';}
 }
 function parseAmount(value:string){
- const raw=value.trim().replace(/R\$/gi,'').replace(/\s/g,'');
- if(!raw)throw new Error('Informe um valor.');
- let s=raw;
- if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
- else if(!/^-?\d+(\.\d{1,2})?$/.test(s))throw new Error('Valor inválido.');
- if(!/^-?\d{1,11}(\.\d{1,2})?$/.test(s))throw new Error('Use valores no formato 123,45.');
- const neg=s.startsWith('-');if(neg)s=s.slice(1);
- const [whole,decimal='']=s.split('.');
- return (neg?'-':'')+String(BigInt(whole)*100n+BigInt((decimal+'00').slice(0,2)));
+ // Financial forms must never interpret R$ 2.500,00 as R$ 2,50.
+ return cents(value,'pt-BR');
 }
 function signedAmount(value:string,direction:string){
  const n=BigInt(parseAmount(value)),absolute=n<0n?-n:n;
