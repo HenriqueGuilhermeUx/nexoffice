@@ -48,7 +48,7 @@ export default function PersonalPrivacyCenter({token}:{token:string}){
     <div><strong>Agentes executando ações em segundo plano</strong><span>{status.backgroundAgentActions?'Habilitados':'Desativados'}</span></div>
     <div><strong>Consultas automáticas de CPF e dívidas</strong><span>{status.serasaConnected?'Disponível':'Não conectadas'}</span></div>
    </div>:<p>{error||'Verificando as definições da sua conta…'}</p>}
-   <p className="np-privacy-disclaimer">Dados de conta e finanças cadastrados no Nex Personal ficam no banco privado da homologação, que é operado em infraestrutura de terceiros. **Não há criptografia ponta a ponta independente auditada nesta versão.** Administradores e prestadores autorizados podem ter acesso técnico sob controles de segurança. Nenhuma informação é vendida ou compartilhada automaticamente com outras empresas do grupo nesta versão.</p>
+   <p className="np-privacy-disclaimer">Dados de conta e finanças cadastrados no Nex Personal ficam no banco privado da homologação, que é operado em infraestrutura de terceiros. <strong>Não há criptografia ponta a ponta independente auditada nesta versão.</strong> Administradores e prestadores autorizados podem ter acesso técnico sob controles de segurança. Nenhuma informação é vendida ou compartilhada automaticamente com outras empresas do grupo nesta versão.</p>
   </section>
   <section className="np-panel">
    <h2>O que fica no servidor e o que fica só no navegador?</h2>
