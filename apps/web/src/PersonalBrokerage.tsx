@@ -1,4 +1,5 @@
 import {useEffect,useState,type FormEvent} from 'react';
+import './personal-brokerage.css';
 
 /** Educational comparison is local to the browser. No partner lead, order or
  * personal financial information is sent by this component. */
@@ -43,7 +44,7 @@ export default function PersonalBrokerage({token}:{token:string}){
   }
   setError('');setShowComparison(true);
  }
- const partnerLive=Boolean(catalog?.distributionEnabled===true&&catalog?.suitabilityVerified===true);
+ const partnerLive=Boolean(catalog?.status==='open'&&catalog?.distributionEnabled===true&&catalog?.suitabilityVerified===true&&catalog.partners.length>0&&catalog.products.length>0);
  return <section className="np-panel np-studio-card" aria-label="Corretoras e produtos de investimento">
   <span className="np-kicker">F-INSIGHT · FUTURO MARKETPLACE DE INVESTIMENTOS</span>
   <h2>Corretoras & Produtos</h2>
@@ -80,12 +81,19 @@ export default function PersonalBrokerage({token}:{token:string}){
   </form>
   {showComparison&&<div className="np-studio-preview" role="status">
    <h3>Quadro de comparação — dados declarados</h3>
-   <div className="np-line"><strong>Critério</strong><strong>Proposta A · Proposta B</strong></div>
-   {([
-    ['Instituição','provider'],['Produto','product'],['Categoria','family'],
-    ['Aplicação mínima','minimum'],['Taxas','fee'],['Liquidez','liquidity'],['Riscos','risks']
-   ] as Array<[string,keyof Draft]>).map(([label,key])=>
-    <div key={key} className="np-line"><strong>{label}</strong><span>{left[key]||'Não informado'} · {right[key]||'Não informado'}</span></div>)}
+   <div className="np-brokerage-table-scroll">
+    <table className="np-brokerage-table">
+     <caption>Comparação lado a lado das duas propostas informadas manualmente</caption>
+     <thead><tr><th scope="col">Critério</th><th scope="col">Proposta A</th><th scope="col">Proposta B</th></tr></thead>
+     <tbody>
+      {([
+       ['Instituição','provider'],['Produto','product'],['Categoria','family'],
+       ['Aplicação mínima','minimum'],['Taxas','fee'],['Liquidez','liquidity'],['Riscos','risks']
+      ] as Array<[string,keyof Draft]>).map(([label,key])=>
+       <tr key={key}><th scope="row">{label}</th><td>{left[key]||'Não informado'}</td><td>{right[key]||'Não informado'}</td></tr>)}
+     </tbody>
+    </table>
+   </div>
    <p><strong>Verifique no emissor e na corretora:</strong> documento oficial, tributação, garantias quando aplicáveis, liquidez real, custos totais e adequação ao seu perfil.</p>
    <p><small>A comparação acontece apenas nesta aba, não é salva, compartilhada ou enviada a parceiros. Sem pontuação ou escolha automática de vencedor.</small></p>
   </div>}
