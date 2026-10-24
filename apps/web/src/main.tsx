@@ -41,7 +41,11 @@ const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
 const personalRequested=/^\/personal\/?$/.test(location.pathname);
 const personalUSRequested=/^\/personal\/us\/?$/.test(location.pathname);
-const personalUSPreview=(import.meta as any).env?.VITE_NEX_PERSONAL_USA_PREVIEW==='true';
+// Host+feature double gate. Never trust a query parameter or a catch-all preview flag.
+const usaAllowedOrigin=String((import.meta as any).env?.VITE_NEX_PERSONAL_USA_PREVIEW_ORIGIN||'');
+const personalUSPreview=(import.meta as any).env?.VITE_NEX_PERSONAL_USA_PREVIEW==='true'
+  && /^https:\/\/[^/?#]+$/.test(usaAllowedOrigin)
+  && location.origin===usaAllowedOrigin;
 const personalPreview=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
 // Keep the old static preview bookmark working after moving to a single-origin
 // preview. This is a fixed Render hostname and cannot be user-controlled.
@@ -77,12 +81,12 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {personalPreview
+    {personalUSRequested
+      ? (personalUSPreview ? <NexPersonalUSA/> : <div role="status" style={{padding:40}}>Nex Personal USA preview is not enabled on this deployment.</div>)
+      : personalPreview
       ? <NexPersonal/>
       : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
-      : personalUSRequested
-        ? (personalUSPreview ? <NexPersonalUSA/> : <div role="status" style={{padding:40}}>Nex Personal USA preview is not enabled on this deployment.</div>)
       : personalRequested
         ? <NexPersonal/>
         : legalRequested
