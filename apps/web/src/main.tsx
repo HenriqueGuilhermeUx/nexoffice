@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import USPreview from './USPreview';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
@@ -37,6 +38,7 @@ const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
 const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
+const usRequested=location.pathname.replace(/\/$/,'')==='/us';
 
 const appSurface=<>
   <PlatformHandoffBootstrap/>
@@ -67,8 +69,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       ? <PublicMaterialView token={publicMaterialToken}/>
       : legalRequested
         ? <PublicLegalPage/>
-        : appRequested
-          ? appSurface
+        : usRequested
+          ? <USPreview/>
+          : appRequested
+            ? appSurface
           : <>
               <MarketingLanding/>
               <MarketingDiscoveryBridge/>
