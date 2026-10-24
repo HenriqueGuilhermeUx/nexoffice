@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {buildReadOnlyCryptoReview} from './nex-personal-us-agentic-contract';
+import {acceptedEIP6963Wallet,addAnnouncedUSWallet,legacyUSWallets,type DiscoveredUSWallet,type ReadOnlyEIP1193} from './nex-personal-us-wallet-discovery';
 import {US_CRYPTO_CHAIN_ID,US_CRYPTO_USDC_POLYGON,assertValidWalletAddress,balanceOfCallData,decodeNativePolygonUsdcBalance,walletReadRequest} from './nex-personal-us-crypto-policy';
 
 /**
@@ -7,23 +8,18 @@ import {US_CRYPTO_CHAIN_ID,US_CRYPTO_USDC_POLYGON,assertValidWalletAddress,balan
  * A browser connection is NOT an authenticated, verified, durable account binding.
  * Never request signatures, transactions, private keys, approvals or switches here.
  */
-type Eip1193 = {request:(args:{method:string;params?:unknown[]})=>Promise<unknown>;on?:(event:string,cb:(value:any)=>void)=>void;removeListener?:(event:string,cb:(value:any)=>void)=>void};
-declare global {interface Window {ethereum?:Eip1193&{providers?:Eip1193[]}}}
+declare global {interface Window {ethereum?:ReadOnlyEIP1193&{providers?:ReadOnlyEIP1193[]}}}
 export type SharedCryptoObservation={address:string;chainId:137;rawBalance:string;observedAt:string;sharedAt:string};
-type Connection={address:string;chainId:string;provider:Eip1193};
+type Connection={address:string;chainId:string;provider:ReadOnlyEIP1193};
 type Balance={raw:string;checkedAt:string}|null;
 function displayUsdc(value:string){
  const n=BigInt(value),whole=n/1000000n,fraction=(n%1000000n).toString().padStart(6,'0').replace(/0+$/,'');
  return whole.toLocaleString('en-US')+(fraction?'.'+fraction:'')+' USDC';
 }
-function resolveInjectedProvider():Eip1193|undefined{
- const candidate=window.ethereum;
- if(!candidate)return;
- const providers=candidate.providers?.filter(p=>typeof p?.request==='function');
- return providers?.[0] || (typeof candidate.request==='function'?candidate:undefined);
-}
 export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onShareReview?:(observation:SharedCryptoObservation)=>void;onRevokeReview?:()=>void}){
  const [connection,setConnection]=useState<Connection|null>(null);
+ const [detected,setDetected]=useState<DiscoveredUSWallet[]>([]);
+ const [selectedProviderId,setSelectedProviderId]=useState('');
  const [balance,setBalance]=useState<Balance>(null);
  const [status,setStatus]=useState('Not connected');
  const [busy,setBusy]=useState(false);
@@ -32,6 +28,16 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
  const operationRef=useRef(0);
  const [shared,setShared]=useState(false);
  const mayaReview=connection&&balance?buildReadOnlyCryptoReview({rawBalance:balance.raw,address:connection.address,observedAt:balance.checkedAt}):null;
+ useEffect(()=>{
+  const announce=(event:Event)=>{
+   const candidate=acceptedEIP6963Wallet((event as CustomEvent).detail);
+   if(candidate)setDetected(current=>addAnnouncedUSWallet(current,candidate));
+  };
+  window.addEventListener('eip6963:announceProvider',announce);
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+  setDetected(current=>current.length?current:legacyUSWallets(window.ethereum));
+  return ()=>window.removeEventListener('eip6963:announceProvider',announce);
+ },[]);
  const clear=useCallback(()=>{
   operationRef.current++;
   setConnection(null);setBalance(null);setStatus('Not connected');setShared(false);
@@ -56,8 +62,9 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
   const operation=++operationRef.current;
   setBusy(true);setError('');setBalance(null);setShared(false);onRevokeReview?.();
   try{
-   const provider=resolveInjectedProvider();
-   if(!provider)throw Error('No compatible browser wallet detected. Install an official MetaMask, Rabby, Coinbase Wallet or Trust Wallet extension. QR/Reown is not active in this preview.');
+   const selected=detected.find(w=>w.id===selectedProviderId);
+   const provider=selected?.provider;
+   if(!provider)throw Error('Select one of the detected wallet extensions before connecting. Reown QR sessions are not enabled in this preview.');
    // Direct user gesture only; do not silently access account information.
    const accounts=await walletReadRequest(provider,'eth_requestAccounts');
    const address=Array.isArray(accounts)?accounts[0]:null;
@@ -125,13 +132,20 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
    </div>
    <div className="npu-subpanel">
     <h3>Connect existing wallet</h3>
-    <p>MetaMask, Rabby, Coinbase Wallet or Trust Wallet through an installed EIP-1193 provider. Reown/WalletConnect QR requires separate approval.</p>
+    <p>Choose an installed EIP-6963 or legacy EIP-1193 wallet. Wallet labels are provided by browser extensions and are not verified identities. QR/Reown remains disabled.</p>
+    {!connection&&<label style={{width:'100%',fontSize:13,fontWeight:650}} htmlFor="npu-wallet-provider">Wallet extension
+      <select id="npu-wallet-provider" value={selectedProviderId} onChange={e=>setSelectedProviderId(e.target.value)} style={{display:'block',width:'100%',padding:12,marginTop:8,borderRadius:9,border:'1px solid #c2d5df',background:'#fff'}}>
+       <option value="">Select a wallet</option>
+       {detected.map(w=><option key={w.id} value={w.id}>{w.name} ({w.source==='eip6963'?'discovered':'legacy'})</option>)}
+      </select>
+      {detected.length===0&&<small>No compatible extension detected. Install an official wallet extension and reload.</small>}
+     </label>}
     {connection?<><div className="npu-code" title={connection.address}>{connection.address}</div><span className="npu-status">{status}</span>
      <div className="npu-wallet-amount">{balance?displayUsdc(balance.raw):'Balance unavailable'}</div>
      <small>{balance?'Read at '+new Date(balance.checkedAt).toLocaleString('en-US'):'Native Polygon USDC · chain 137'}</small>
      <div className="npu-buttons"><button type="button" disabled={busy} onClick={()=>void loadBalance()}>Refresh on-chain read</button><button type="button" onClick={()=>{clear();setError('');}}>Disconnect in app</button></div>
      {balance&&onShareReview&&<button type="button" className="npu-action" disabled={busy||shared} onClick={()=>void shareWithMaya()}>{shared?'Snapshot shared locally':'Share this snapshot with Maya'}</button>}
-    </>:<button className="npu-action" type="button" disabled={busy} onClick={()=>void connect()}>{busy?'Connecting…':'Connect browser wallet'}</button>}
+    </>:<button className="npu-action" type="button" disabled={busy||!detected.some(w=>w.id===selectedProviderId)} onClick={()=>void connect()}>{busy?'Connecting…':'Connect browser wallet'}</button>}
    </div>
   </div>
   {mayaReview&&<div className="npu-note" aria-label="Maya crypto preview"><strong>Maya · local crypto analysis</strong><p>{mayaReview.insights[0]}</p><p>{mayaReview.insights[1]}</p><small>Source: browser wallet Polygon RPC · No LLM or Nexa Agentics backend called · Execution denied.</small></div>}
