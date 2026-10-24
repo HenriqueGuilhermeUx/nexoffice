@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type FormEvent} from 'react';
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
 import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
 import NexPersonalAgents,{type AgentId} from './NexPersonalAgents';
@@ -19,15 +19,18 @@ type Account={id:string;institution_name:string;name:string;account_type:string;
 type Movement={id:string;description:string;amount_minor:string;currency:string;category:string|null;booked_at:string;institution_name:string};
 type Consent={id:string;purpose:string;status:string;created_at:string;expires_at:string|null};
 
+class PersonalRequestError extends Error {
+  constructor(message:string,readonly status:number){super(message);this.name='PersonalRequestError';}
+}
 async function request<T>(path:string,options:RequestInit={},token=sessionStorage.getItem(TOKEN_KEY)||''):Promise<T>{
   const headers=new Headers(options.headers||{});
   headers.set('content-type','application/json');
   if(token)headers.set('authorization','Bearer '+token);
   let response:Response;
   try{response=await fetch(API+path,{...options,headers});}
-  catch{throw new Error('Não foi possível conectar ao Nex Personal. Verifique sua conexão e tente novamente.');}
+  catch{throw new PersonalRequestError('Não foi possível conectar ao Nex Personal. Verifique sua conexão e tente novamente.',0);}
   const body=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(body.message||body.error||'Não foi possível carregar seus dados.');
+  if(!response.ok)throw new PersonalRequestError(body.message||body.error||'Não foi possível carregar seus dados.',response.status);
   return body as T;
 }
 function money(value:string|null|undefined,currency='BRL'){
@@ -45,6 +48,8 @@ function when(value:string|null|undefined){
 
 export default function NexPersonal(){
   const [token,setToken]=useState(()=>sessionStorage.getItem(TOKEN_KEY)||'');
+  // Async replies from an old account must never repopulate the new session.
+  const activeTokenRef=useRef(token);
   const [me,setMe]=useState<PersonalMe|null>(null);
   const [overview,setOverview]=useState<Overview|null>(null);
   const [accounts,setAccounts]=useState<Account[]>([]);
@@ -59,6 +64,7 @@ export default function NexPersonal(){
 
   const refresh=useCallback(async(currentToken:string)=>{
     const p=await request<PersonalMe>('/v1/personal/me',{},currentToken);
+    if(activeTokenRef.current!==currentToken)return;
     setMe(p);
     if(p.activated){
       const [ov,acc,mov,co]=await Promise.all([
@@ -67,15 +73,26 @@ export default function NexPersonal(){
         request<{transactions:Movement[]}>('/v1/personal/transactions',{},currentToken),
         request<{consents:Consent[]}>('/v1/personal/consents',{},currentToken)
       ]);
+      if(activeTokenRef.current!==currentToken)return;
       setOverview(ov);setAccounts(acc.accounts);setMovements(mov.transactions);setConsents(co.consents);
     }
   },[]);
 
   useEffect(()=>{
     if(!token){setReady(true);return;}
+    activeTokenRef.current=token;
     setReady(false);
-    void refresh(token).catch(()=>{
-      sessionStorage.removeItem(TOKEN_KEY);setToken('');setMe(null);setError('Entre novamente para acessar suas finanças.');
+    void refresh(token).then(()=>{
+      if(activeTokenRef.current===token)setError('');
+    }).catch((err:unknown)=>{
+      if(activeTokenRef.current!==token)return;
+      if(err instanceof PersonalRequestError&&err.status===401){
+        clearLocalSession();
+        setError('Sua sessão expirou. Entre novamente para acessar suas finanças.');
+      }else{
+        // Network failures / provider cold-starts do not invalidate tokens.
+        setError('Não conseguimos atualizar seus dados agora. Seu login foi mantido; tente novamente.');
+      }
     }).finally(()=>setReady(true));
   },[refresh,token]);
 
@@ -86,6 +103,7 @@ export default function NexPersonal(){
     const path=mode==='register'?'/v1/personal/auth/register':'/v1/auth/login';
     try{
       const response=await request<{token:string}>(path,{method:'POST',body:JSON.stringify(mode==='register'?{...payload,name:String(data.get('name')||''),...(PREVIEW?{previewInviteCode:String(data.get('previewInviteCode')||'')}:{} )}:payload)},'');
+      activeTokenRef.current=response.token;
       sessionStorage.setItem(TOKEN_KEY,response.token);setToken(response.token);
     }catch(err){setError(err instanceof Error?err.message:'Falha de autenticação.');}
     finally{setBusy(false);}
@@ -96,12 +114,43 @@ export default function NexPersonal(){
     catch(err){setError(err instanceof Error?err.message:'Não foi possível ativar o perfil.');}
     finally{setBusy(false);}
   }
+  function clearLocalSession(){
+    activeTokenRef.current='';
+    sessionStorage.removeItem(TOKEN_KEY);
+    setToken('');setMe(null);setOverview(null);setAccounts([]);setMovements([]);setConsents([]);
+  }
   function logout(){
-    if(token)void request('/v1/auth/logout',{method:'POST',body:'{}'},token).catch(()=>{});
-    sessionStorage.removeItem(TOKEN_KEY);setToken('');setMe(null);setOverview(null);setAccounts([]);setMovements([]);setConsents([]);
+    const endingToken=token;
+    clearLocalSession();
+    setError('');
+    if(endingToken)void request('/v1/auth/logout',{method:'POST',body:'{}'},endingToken)
+      .catch(()=>{
+        if(activeTokenRef.current==='')setError('Você saiu deste navegador, mas não foi possível confirmar a revogação da sessão no servidor.');
+      });
+  }
+  async function retryLoading(){
+    if(!token||busy)return;
+    setReady(false);setError('');
+    try{
+      await refresh(token);
+      if(activeTokenRef.current===token)setError('');
+    }catch(err){
+      if(activeTokenRef.current!==token)return;
+      if(err instanceof PersonalRequestError&&err.status===401){
+        clearLocalSession();
+        setError('Sua sessão expirou. Entre novamente.');
+      }else setError('Não conseguimos atualizar seus dados. Seu login continua salvo; tente novamente.');
+    }finally{setReady(true);}
   }
 
   if(!ready)return <div className="np-root np-center">Carregando seu espaço pessoal…</div>;
+  if(token&&!me)return <div className="np-root np-auth"><main className="np-auth-card">
+    <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
+    <h1>Não foi possível carregar seu espaço.</h1>
+    <p>{error||'A conexão foi interrompida. Seu login continua salvo neste navegador.'}</p>
+    <button className="np-primary" onClick={()=>void retryLoading()}>Tentar novamente</button>
+    <button className="np-text-button" onClick={logout}>Sair deste navegador</button>
+  </main></div>;
   if(!token)return <div className="np-root np-auth">
     <main className="np-auth-card">
       <div className="np-brand"><span className="np-mark">N</span> Nex <strong>Personal</strong></div>
