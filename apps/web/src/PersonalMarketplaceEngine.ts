@@ -19,11 +19,18 @@ function cents(raw:string,allowZero=false):bigint{
  return value;
 }
 export function parseBrlInput(value:string,allowZero=false):string{
- const clean=value.replace(/R\$/gi,'').trim().replace(/\s/g,'');
- const normalized=clean.includes(',')?clean.replace(/\./g,'').replace(',','.'):clean;
- if(!/^\d{1,10}(?:\.\d{1,2})?$/.test(normalized))throw Error('Informe um valor como 1.250,00.');
- const [whole,fraction='']=normalized.split('.');
- const minor=BigInt(whole)*100n+BigInt((fraction+'00').slice(0,2));
+ const clean=value.replace(/^\s*R\$\s*/i,'').trim().replace(/\s/g,'');
+ // pt-BR uses dot for thousands and comma for decimals. A lone dot cannot
+ // silently be treated as a decimal separator: 2.500 means R$ 2.500,00.
+ const parts=clean.split(',');
+ if(parts.length>2)throw Error('Use vírgula para centavos e ponto apenas para milhares (ex.: 1.250,50).');
+ const whole=parts[0];
+ if(!/^\d{1,10}$/.test(whole)&&!/^\d{1,3}(?:\.\d{3})+$/.test(whole))
+  throw Error('Informe um valor como 1.250,00; para centavos use vírgula.');
+ const fraction=parts.length===2?parts[1]:'';
+ if(parts.length===2&&!/^\d{1,2}$/.test(fraction))
+  throw Error('Informe um ou dois dígitos após a vírgula.');
+ const minor=BigInt(whole.replace(/\./g,''))*100n+BigInt((fraction+'00').slice(0,2));
  if(minor>limit||(!allowZero&&minor===0n))throw Error('Informe um valor válido para simulação.');
  return String(minor);
 }
