@@ -158,6 +158,29 @@ try{
  assert.equal(complete.body.scheduledPayment,false);
  const noTransfers=await call('/v1/personal/payments/pix',alice,'POST',{amountMinor:'100'});
  assert.equal(noTransfers.status,404,'No real financial movement endpoints allowed.');
+
+ // Reordering an otherwise identical statement must not duplicate real charges.
+ // Two identical store charges must remain two records, not one.
+ const shuffledStatement={accountId,rows:[
+   {date,description:'Padaria rua A',amountMinor:'-101'},
+   {date,description:'Padaria rua A',amountMinor:'-101'},
+   {date,description:'Farmacia rua B',amountMinor:'-215'}
+ ]};
+ const originalBatch=await call('/v1/personal/transactions/import',alice,'POST',shuffledStatement);
+ assert.equal(originalBatch.status,200,JSON.stringify(originalBatch.body));
+ assert.equal(originalBatch.body.imported,3,'Two legitimate matching purchases must both persist.');
+ const shifted={...shuffledStatement,rows:[
+   shuffledStatement.rows[2],shuffledStatement.rows[0],shuffledStatement.rows[1]
+ ]};
+ const shuffledAgain=await call('/v1/personal/transactions/import',alice,'POST',shifted);
+ assert.equal(shuffledAgain.status,200,JSON.stringify(shuffledAgain.body));
+ assert.equal(shuffledAgain.body.imported,0,'Reordering a statement cannot create extra transactions.');
+ assert.equal(shuffledAgain.body.duplicates,3);
+ const reorderedOriginal=await call('/v1/personal/transactions/import',alice,'POST',shuffledStatement);
+ assert.equal(reorderedOriginal.body.imported,0);
+ assert.equal(reorderedOriginal.body.duplicates,3);
+ assert.match(reorderedOriginal.body.note,/reordenadas/);
+
  console.log('Nex Personal P1 smoke: manual balances, import dedupe, planning, deterministic Maya and cross-user isolation OK');
 }finally{
  for(const userId of userIds)await db.query('delete from public.users where id=$1',[userId]);
