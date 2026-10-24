@@ -7,15 +7,46 @@ const safeDate=(raw:string):string=>{
  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)||Number.isNaN(Date.parse(iso))||new Date(iso).toISOString().slice(0,10)!==iso)fail('Data inválida: '+raw);
  return iso;
 };
-export function cents(input:string):string{
- let text=input.replace(/R\$/gi,'').replace(/\s/g,'').trim();
- if(text.includes(','))text=text.replace(/\./g,'').replace(',','.');
- if(!/^[+-]?\d{1,11}(\.\d{1,2})?$/.test(text))fail('Valor inválido: '+input);
- const negative=text.startsWith('-');
- text=text.replace(/^[+-]/,'');
- const [integer,decimal='']=text.split('.');
- const minor=BigInt(integer)*100n+BigInt((decimal+'00').slice(0,2));
- return String(negative?-minor:minor);
+/**
+ * CSV input can use documented bank exports with comma decimals (pt-BR)
+ * or a single dot followed by one/two decimal digits (US-style exports).
+ * A dot followed by THREE digits means a Brazilian thousands group:
+ * "2.500" is R$ 2,500.00, never R$ 2.50.
+ *
+ * Form inputs use strict pt-BR to reject ambiguous "2.50" typing.
+ * OFX uses the standard dot decimal marker with no thousands separators.
+ * All modes operate in integer centavos, never floating point.
+ */
+export function cents(input:string,format:'csv'|'pt-BR'|'ofx'='csv'):string{
+ const source=String(input||'').trim();
+ const raw=(format==='ofx'?source:source.replace(/^\s*R\$\s*/i,'')).replace(/\s/g,'');
+ const sign=raw.startsWith('-')?'-':'';
+ const amount=raw.replace(/^[+-]/,'');
+ if(!amount)fail('Valor vazio: informe um valor monetário.');
+ let integral='',fraction='';
+ if(format==='ofx'){
+  if(!/^\d{1,11}(?:\.\d{1,2})?$/.test(amount))fail('Valor OFX inválido: '+input);
+  [integral,fraction='']=amount.split('.');
+ }else if(amount.includes(',')){
+  if(!/^(?:\d{1,11}|\d{1,3}(?:\.\d{3})+),\d{1,2}$/.test(amount))
+   fail('Valor inválido: use ponto para milhares e vírgula para centavos.');
+  const parts=amount.split(',');
+  integral=parts[0].replace(/\./g,'');fraction=parts[1];
+ }else if(/^\d{1,3}(?:\.\d{3})+$/.test(amount)){
+  integral=amount.replace(/\./g,'');
+ }else if(format==='csv'&&/^\d{1,11}\.\d{1,2}$/.test(amount)){
+  // Some bank CSVs really export in en-US format: 12.30 is R$12,30.
+  [integral,fraction='']=amount.split('.');
+ }else if(/^\d{1,11}$/.test(amount)){
+  integral=amount;
+ }else{
+  fail(format==='pt-BR'
+   ?'Valor ambíguo: use vírgula para centavos (12,30) ou ponto só para milhares (2.500).'
+   :'Valor inválido: confira os separadores decimais do extrato.');
+ }
+ const minor=BigInt(integral)*100n+BigInt((fraction+'00').slice(0,2));
+ if(minor>9_999_999_999_999n)fail('Valor fora do limite permitido.');
+ return String(sign==='-'?-minor:minor);
 }
 const header=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');
 const splitCsvLine=(line:string,delimiter:string):string[]=>{
@@ -66,7 +97,7 @@ export function parsePersonalOfx(text:string):StatementRow[]{
   if(!/^\d{8}$/.test(posted))fail('Data OFX ausente ou inválida na transação '+(i+1));
   const description=(tag(block,'NAME')||tag(block,'MEMO')||tag(block,'TRNTYPE')||'').slice(0,120);
   if(description.length<2)fail('Descrição OFX ausente na transação '+(i+1));
-  const money=cents(tag(block,'TRNAMT'));
+  const money=cents(tag(block,'TRNAMT'),'ofx');
   if(money==='0')fail('Valor zero no OFX na transação '+(i+1));
   const fitid=tag(block,'FITID').slice(0,120);
   return {
