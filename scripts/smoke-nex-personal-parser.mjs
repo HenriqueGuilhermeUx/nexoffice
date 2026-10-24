@@ -15,7 +15,7 @@ assert.equal(cents('2.50','ofx'),'250','OFX decimal dot must still work');
 assert.equal(cents('-42.35','ofx'),'-4235');
 assert.throws(()=>cents('1,500','csv'),/inválido/);
 assert.throws(()=>cents('1.234,567','pt-BR'),/inválido/);
-assert.throws(()=>cents('100000000000','pt-BR'),/inválido|limite/);
+assert.throws(()=>cents('100000000000','pt-BR'),/ambíguo|inválido|limite/);
 
 assert.equal(cents('-12.30'),'-1230');
 assert.equal(cents('+2,50'),'250');
