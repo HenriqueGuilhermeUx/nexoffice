@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useState} from 'react';
+import {buildReadOnlyCryptoReview} from './nex-personal-us-agentic-contract';
 import {US_CRYPTO_CHAIN_ID,US_CRYPTO_USDC_POLYGON,assertValidWalletAddress,balanceOfCallData,decodeNativePolygonUsdcBalance,walletReadRequest} from './nex-personal-us-crypto-policy';
 
 /**
@@ -27,6 +28,7 @@ export default function NexPersonalUSCrypto(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [nonce,setNonce]=useState(0);
+ const mayaReview=connection&&balance?buildReadOnlyCryptoReview({rawBalance:balance.raw,address:connection.address,observedAt:balance.checkedAt}):null;
  const clear=useCallback(()=>{setConnection(null);setBalance(null);setStatus('Not connected');},[]);
  useEffect(()=>{
   if(!connection)return;
@@ -102,6 +104,7 @@ export default function NexPersonalUSCrypto(){
     </>:<button className="npu-action" type="button" disabled={busy} onClick={()=>void connect()}>{busy?'Connecting…':'Connect browser wallet'}</button>}
    </div>
   </div>
+  {mayaReview&&<div className="npu-note" aria-label="Maya crypto preview"><strong>Maya · local crypto analysis</strong><p>{mayaReview.insights[0]}</p><p>{mayaReview.insights[1]}</p><small>Source: browser wallet Polygon RPC · No LLM or Nexa Agentics backend called · Execution denied.</small></div>}
   {error&&<p className="npu-error" role="alert">{error}</p>}
   <div className="npu-note"><strong>Security boundary:</strong> The wallet extension remains the authority. No token approvals, transfers, swaps, staking, gas sponsorship, financial signing, automated blockchain action or internal crediting are available. 0% Nexa inbound fee is the proposal for future supported transfers, not an active service; network gas is separate.</div>
  </section>;
