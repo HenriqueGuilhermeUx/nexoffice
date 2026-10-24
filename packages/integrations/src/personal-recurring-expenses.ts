@@ -26,7 +26,7 @@ export type RecurringPattern={
   reason:string;
   externalEffect:false;
 };
-const excluded=/\b(pix|ted|doc|transferencia|saque|resgate|deposito|estorno|refund|cashback|cdb|usdc|btc|ethereum|ethereum|cripto|swap|bridge|token|carteira)\b/i;
+const excluded=/\b(pix|ted|doc|transferencia|saque|resgate|deposito|estorno|refund|cashback|cdb|usdc|btc|ethereum|cripto|swap|bridge|token|carteira)\b/i;
 const sensitive=/\b(clinica|clinico|hospital|farmacia|medico|psiquiatr|psicolog|laboratorio|terapia|aposta|bet|cassino|jogo|filho|crianca)\b/i;
 const accent=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function dateOf(value:string){
@@ -95,6 +95,7 @@ export function detectRecurringExpenses(items:ExpenseSample[],asOfDate:string,li
   if(months.length<3||months.some(m=>monthly.get(m)!.length!==1))continue;
   const last=months.slice(-3);
   if(last[2]-last[1]!==1||last[1]-last[0]!==1)continue;
+  if(todayMonth-last[2]>1)continue; // Do not present a lapsed service as ongoing.
   const triple=last.map(m=>monthly.get(m)![0]);
   const low=triple.reduce((a,b)=>a.amount<b.amount?a:b).amount;
   const high=triple.reduce((a,b)=>a.amount>b.amount?a:b).amount;
