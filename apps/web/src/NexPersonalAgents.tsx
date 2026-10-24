@@ -71,7 +71,7 @@ export default function NexPersonalAgents({token,initialAgent='expenses',onOpenS
  }
  return <div className="np-agents">
   <section className="np-agents-intro">
-   <span className="np-kicker">CENTRAL DE AGENTES · NEX PERSONAL</span>
+   <span className="np-kicker">CENTRAL DE AGENTES · NEXA</span>
    <h2>Sua equipe para a vida toda.</h2>
    <p>A Maya organiza tudo. Conheça cada especialista pelo nome e veja, logo abaixo, como ele pode ajudar você. Nesta homologação, as funções disponíveis são orientações, cálculos e análises com limitações claras.</p>
    <div className="np-agents-note"><strong>Maya · Coordenadora</strong><span>Escolha o especialista abaixo. Nenhum agente executa pagamentos, compras, investimentos ou assinaturas.</span></div>
