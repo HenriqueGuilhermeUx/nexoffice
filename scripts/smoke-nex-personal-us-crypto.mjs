@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {US_CRYPTO_CAPABILITIES,US_CRYPTO_CHAIN_ID,US_CRYPTO_USDC_POLYGON,balanceOfCallData,decodeNativePolygonUsdcBalance,walletReadRequest} from '../apps/web/src/nex-personal-us-crypto-policy.ts';
+import {buildReadOnlyCryptoReview} from '../apps/web/src/nex-personal-us-agentic-contract.ts';
 const a='0x1111111111111111111111111111111111111111';
 assert.equal(US_CRYPTO_CHAIN_ID,'0x89');
 assert.equal(US_CRYPTO_USDC_POLYGON,'0x3c499c542cef5e3811e1192ce70d8cc03d5c3359');
@@ -20,4 +21,15 @@ await assert.rejects(walletReadRequest(wallet,'eth_call',[{to:a,data:balanceOfCa
 await assert.rejects(walletReadRequest(wallet,'eth_call',[{to:US_CRYPTO_USDC_POLYGON,data:'0x095ea7b3'},'latest']),/Only native Polygon/);
 await walletReadRequest(wallet,'eth_call',[{to:US_CRYPTO_USDC_POLYGON,data:balanceOfCallData(a)},'latest']);
 assert.equal(calls.length,1,'Denied requests must never hit wallet provider');
-console.log('Nex Personal USA crypto read-only policy: PASS');
+const review=buildReadOnlyCryptoReview({rawBalance:'1234567',address:a,observedAt:'2026-10-24T18:00:00.000Z'});
+assert.equal(review.onchain.rawBalance,'1234567');
+assert.equal(review.onchain.ownerBindingVerified,false);
+assert.equal(review.bankBalanceUsd,null);
+assert.equal(review.combinedNetWorthUsd,null);
+assert.equal(review.ledgerBalanceUsd,null);
+assert.equal(review.canExecute,false);
+assert.equal(review.canSign,false);
+assert.equal(review.externalCall,false);
+assert.equal(review.authorizationScope,'none');
+assert.throws(()=>buildReadOnlyCryptoReview({rawBalance:'-1',address:a,observedAt:'2026-10-24T18:00:00.000Z'}));
+console.log('Nex Personal USA crypto and Maya read-only policies: PASS');
