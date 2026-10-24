@@ -2,6 +2,21 @@ import assert from 'node:assert/strict';
 import {parsePersonalStatement,parsePersonalCsv,parsePersonalOfx,cents} from '../apps/web/src/PersonalStatementParser.ts';
 
 assert.equal(cents('1.234,56'),'123456');
+assert.equal(cents('2.500'),'250000','CSV thousands separator must never become cents');
+assert.equal(cents('-2.500'),'-250000','Negative CSV grouping cannot shrink financial liabilities');
+assert.equal(cents('2.500','pt-BR'),'250000','Manual balance with dot groups equals R$2.500');
+assert.equal(cents('1.000.000,50','pt-BR'),'100000050');
+assert.equal(cents('12,30','pt-BR'),'1230');
+assert.equal(cents('0','pt-BR'),'0');
+assert.throws(()=>cents('12.30','pt-BR'),/ambíguo/,'Manual forms require comma decimals');
+assert.throws(()=>cents('1.2.3','pt-BR'));
+assert.throws(()=>cents('2.500','ofx'),/OFX inválido/,'OFX cannot confuse three fractional digits with grouping');
+assert.equal(cents('2.50','ofx'),'250','OFX decimal dot must still work');
+assert.equal(cents('-42.35','ofx'),'-4235');
+assert.throws(()=>cents('1,500','csv'),/inválido/);
+assert.throws(()=>cents('1.234,567','pt-BR'),/inválido/);
+assert.throws(()=>cents('100000000000','pt-BR'),/inválido|limite/);
+
 assert.equal(cents('-12.30'),'-1230');
 assert.equal(cents('+2,50'),'250');
 assert.throws(()=>cents('1.2.3'));
@@ -12,6 +27,8 @@ const csv=[
  '23/10/2026;Supermercado;-30,90;Alimentação;abc-1',
  '2026-10-22;"Loja; Venda";-2.000,50;Compras;abc-2'
 ].join('\n');
+const groupingCsv='data;descricao;valor\n2026-10-23;Assinatura anual;-2.500';
+assert.equal(parsePersonalCsv(groupingCsv)[0].amountMinor,'-250000','Bank CSV group separator is not a decimal dot');
 const rows=parsePersonalStatement(csv,'transacoes.csv');
 assert.equal(rows.length,2);
 assert.deepEqual(rows[0],{
