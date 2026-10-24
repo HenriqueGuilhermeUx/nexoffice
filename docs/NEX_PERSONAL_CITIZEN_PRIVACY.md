@@ -24,7 +24,11 @@ Checklists no navegador de contratos, cobranças, questões de condomínio e ass
 ## Segurança e confidencialidade
 - Cida, Recomeço e Lia não usam chamadas de API nem armazenamento local: cálculos e trechos ficam apenas na memória do navegador até fechar a aba.
 - Identidade, contas manuais, movimentações e preferências de outras áreas continuam armazenadas no PostgreSQL pessoal em nuvem. Não declarar criptografia ponta a ponta ou que administradores de infraestrutura jamais poderão acessar. O status é explicado claramente na tela Privacidade.
-- API de exportação autenticada e filtrada pelo usuário, no-cache e auditoria; dados empresariais, credenciais e sessões não fazem parte do arquivo.
+- API de exportação autenticada e filtrada pelo usuário, sem cache e com auditoria; dados empresariais, credenciais e sessões não fazem parte do arquivo.
+- **Projeções de colunas explicitamente autorizadas:** cada categoria tem sua lista fixa de campos. A exportação não usa `SELECT *`, de forma que uma futura coluna de `access_token`, `provider_secret` ou identificador interno não passe automaticamente para o arquivo.
+- A cópia inclui movimentações, saldo declarado, orçamento e metas, consentimentos e metadados de ações de auditoria do próprio usuário, mas não devolve referências opacas de conexão, identificadores internos do provedor de transações, hashes de deduplicação, senhas ou sessões.
+- Máximo de 5.000 registros por categoria, com indicação de categorias truncadas. Isso não é garantia de portabilidade legal integral nem substitui solicitação formal de acesso/retificação/exclusão.
+- Testes em banco descartável criam uma coluna de segredo simulada e um segundo titular: a exportação do primeiro não pode conter nenhum dos dois, nem utilizar a lista de colunas futura de forma implícita.
 - Na homologação, política CSP restritiva, execução de agentes financeiros reais desativada, separação de contextos de saúde e menores, e compartilhamento com empresas do grupo desligado.
 - Antes de liberar clientes reais: revisão de RLS, backups, MFA, criptografia de campos sensíveis, retenção, exclusão/portabilidade integral, logs, LGPD/DPIA, controle de acessos técnicos e auditoria independente.
 
