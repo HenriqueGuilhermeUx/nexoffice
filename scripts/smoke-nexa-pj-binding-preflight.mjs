@@ -121,6 +121,8 @@ for(const key of [
   'corporateWalletConnected','financialAccess','balancesVisible','pixEnabled',
   'cryptoEnabled','ssoAvailable','handoffTokenIssued','externalEffect'
 ])assert.equal(browserLinked.data[key],false,key+' must remain denied');
+assert.equal((await readCurrentWorkspace(expiredToken,workspaceId)).status,401,
+  'expired session must stay denied even after the PJ structural link appears');
 assert.equal(browserLinked.data.workspaceMembershipVerifiedByNexOffice,true);
 for(const pii of [merchantId,representativeUserId,workspaceId,nexofficeUserId,browserToken])
   assert.equal(JSON.stringify(browserLinked.data).includes(pii),false,
