@@ -30,7 +30,7 @@
 6. **Financial execution later:** explicit opt-in; KYC/KYT/AML and US federal/state legal evaluation; per-agent limits; user approval, two-person review where needed, immutable audit, idempotent outbox and reconciliation, kill switch, rollback and dispute flows. The current feature must stay read only until those gates are met.
 
 ## Safety / launch gates
-- Separate environment: `VITE_NEX_PERSONAL_USA_PREVIEW=true` **only on dedicated staging**; do not set in NexOffices or Brazilian production.
+- Separate environment: `VITE_NEX_PERSONAL_USA_PREVIEW=true` AND `VITE_NEX_PERSONAL_USA_PREVIEW_ORIGIN=https://<dedicated-usa-staging-host>` **only on dedicated staging**. Both values and the browser's actual origin must match. Do not set either on NexOffices or Brazilian production.
 - This branch is based on PR #86, intended to become a **draft PR stacked on the Nex Personal feature branch**, with NO merge/deploy or production data migration.
 - Run `node --experimental-strip-types scripts/smoke-nex-personal-us-crypto.mjs` (Node 24 per repository), `npm ci`, `npm run typecheck -w @nexoffice/web`, `npm run build`; review GitHub CI and independent manual browser test on Polygon. No real transfers during QA.
 - Confirm FinCEN/state regulatory classification, non-custodial control model, issuer/USDC disclosures, taxes, financial/privacy notices, privacy-preserving wallet linking and risks before any public USA marketing or live wallet onboarding.
@@ -50,3 +50,9 @@
 3. Integrate the vetted current Privy React SDK using `useCreateWallet` under explicit user action, and only after matching an existing wallet to avoid duplicate onboarding. Confirm recovery policy and SDK version against official documentation.
 4. Build EOA `personal_sign`/EIP-4361 or EIP-1271 verifiers in a dedicated server module. Transactional nonce consumption and a globally unique wallet-binding constraint must succeed before showing an external wallet as linked.
 5. Obtain US legal/compliance/security signoff prior to public onboarding or deposit services.
+
+## Multi-wallet UX / latest isolation
+- Supports EIP-6963 discovery with explicit wallet selection and EIP-1193 legacy fallback. Wallet extension names/RDNS are unverified self-reported labels. The app does not render externally supplied wallet icons or silently choose the first extension.
+- CI checks include `scripts/smoke-nex-personal-us-wallet-discovery.mjs` to reject untrusted announcement data and duplicate provider UUID replacement.
+- The US preview remains frontend-only until independent US identity and server verification are ready. The exact-origin flag is a deployment gate, **not a substitute for authentication**.
+- Failure in unrelated Nex Personal P0/F-Insight code can prevent CI; any branch-local fix must be reconciled with PR #86 after review without altering Brazilian production.
