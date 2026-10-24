@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type FormEvent} from 'react';
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
 import './nex-personal-studio.css';
 import {parsePersonalStatement,cents, type StatementRow} from './PersonalStatementParser';
 
@@ -51,6 +51,11 @@ function Card({title,children}:{title:string;children:React.ReactNode}){return <
 
 export default function NexPersonalStudio({view,token,onChanged}:{view:Section;token:string;onChanged:()=>void}){
  const [data,setData]=useState<Studio|null>(null);
+ // A response may arrive after the parent starts a new authenticated session.
+ // Never render studio data unless it belongs to the current token.
+ const [dataToken,setDataToken]=useState('');
+ const activeTokenRef=useRef(token);
+ activeTokenRef.current=token;
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
@@ -62,8 +67,21 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  const [mayaAnswer,setMayaAnswer]=useState('');
  const [recurring,setRecurring]=useState<RecurringResponse|null>(null);
  const [recurringError,setRecurringError]=useState('');
- const load=useCallback(async()=>{const next=await request<Studio>('/v1/personal/studio',token);setData(next);setError('');},[token]);
- useEffect(()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Erro ao carregar.')).finally(()=>setLoading(false));},[load]);
+ const load=useCallback(async()=>{
+  const next=await request<Studio>('/v1/personal/studio',token);
+  if(activeTokenRef.current!==token)return;
+  setData(next);setDataToken(token);setError('');
+ },[token]);
+ useEffect(()=>{
+  let active=true;
+  setLoading(true);
+  void load().catch(e=>{
+   if(active&&activeTokenRef.current===token)setError(e instanceof Error?e.message:'Erro ao carregar.');
+  }).finally(()=>{
+   if(active&&activeTokenRef.current===token)setLoading(false);
+  });
+  return ()=>{active=false;};
+ },[load,token]);
  useEffect(()=>{
   if(view!=='spending'||busy)return;
   let active=true;
@@ -111,7 +129,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
   finally{setBusy(false);}
  }
  if(loading)return <section className="np-panel">Preparando suas finanças pessoais…</section>;
- if(!data)return <section className="np-panel"><p>{error||'Dados ainda não disponíveis.'}</p><button className="np-primary" onClick={()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Falha de conexão.')).finally(()=>setLoading(false));}}>Tentar novamente</button></section>;
+ if(!data||dataToken!==token)return <section className="np-panel"><p>{error||'Dados ainda não disponíveis.'}</p><button className="np-primary" onClick={()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Falha de conexão.')).finally(()=>setLoading(false));}}>Tentar novamente</button></section>;
  const common=<>{error&&<p className="np-error" role="alert">{error}</p>}{notice&&<p className="np-studio-success" role="status">{notice}</p>}</>;
  return <div className="np-studio">
  {common}
