@@ -19,6 +19,8 @@ jobs:
       - run: npm run build
       - name: Smoke test bank and on-chain transaction ETL
         run: node scripts/smoke-nex-personal-etl.mjs
+      - name: Smoke test private recurring spending signals
+        run: node scripts/smoke-nex-personal-recurring.mjs
       - name: Smoke test Personal marketplace independence and privacy
         run: node --experimental-strip-types scripts/smoke-nex-personal-marketplace.mjs
       - name: Smoke test Nex Personal CSV and OFX parser
