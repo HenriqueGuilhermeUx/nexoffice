@@ -129,26 +129,31 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       // Backward compatible with imports made using the first, order-sensitive
       // batch key. Existing file reimports still skip their old fingerprints.
       const legacyBatchHash=createHash('sha256').update(JSON.stringify(normalizedRows)).digest('hex');
-      const legacyFingerprints=input.rows.map((row,index)=>row.reference?null:createHash('sha256')
-        .update(['csv-batch-v2',input.accountId,legacyBatchHash,index].join('|')).digest('hex'));
+      // Existing imports used a content-based fingerprint even for strong bank
+      // references. Recognize that legacy identity for unchanged reimports.
+      const legacyFingerprints=input.rows.map((row,index)=>createHash('sha256')
+        .update(row.reference
+          ?[input.accountId,row.date,row.description.toLowerCase().replace(/\\s+/g,' ').trim(),row.amountMinor,row.reference].join('|')
+          :['csv-batch-v2',input.accountId,legacyBatchHash,index].join('|')).digest('hex'));
       const previous=await client.query<{fingerprint:string}>(
         "select fingerprint from nex_personal.transactions where owner_user_id=$1 and account_id=$2 and fingerprint=any($3::text[])",
-        [owner,input.accountId,legacyFingerprints.filter((key):key is string=>key!==null)]
+        [owner,input.accountId,legacyFingerprints]
       );
       const legacySeen=new Set(previous.rows.map(r=>r.fingerprint));
       const occurrences=new Map<string,number>();
       let imported=0,duplicates=0;
       for(const [index,row] of input.rows.entries()){
-        const canonical=[input.accountId,row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference||''].join('|');
         const signature=rowSignatures[index];
         const occurrence=occurrences.get(signature)||0;
         occurrences.set(signature,occurrence+1);
-        // Existing strong-reference fingerprints stay unchanged. When there is
-        // no reference, the row's ordinal among identical rows is stable even
-        // if the statement order changes.
-        const key=row.reference?canonical:['csv-batch-v3',input.accountId,batchHash,signature,occurrence].join('|');
+        // A bank-provided reference is the strong identity within this account.
+        // Descriptions, dates and amounts can be corrected by the institution;
+        // reimporting such corrections must not double-count the posting.
+        // Without a reference, preserve legitimate repeated charges by ordinal.
+        const key=row.reference?['csv-ref-v4',input.accountId,row.reference].join('|')
+          :['csv-batch-v3',input.accountId,batchHash,signature,occurrence].join('|');
         const fingerprint=createHash('sha256').update(key).digest('hex');
-        if(legacyFingerprints[index]&&legacySeen.has(legacyFingerprints[index]!)){
+        if(legacySeen.has(legacyFingerprints[index])){
           duplicates++;
           continue;
         }
