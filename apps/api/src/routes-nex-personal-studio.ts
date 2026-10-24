@@ -294,7 +294,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       query<any>("select id,name,target_minor::text target_minor,saved_minor::text saved_minor,due_on,status from nex_personal.goals where owner_user_id=$1 order by created_at desc",[owner]),
       query<any>("select id,name,kind,category,amount_minor::text amount_minor,currency from nex_personal.wealth_items where owner_user_id=$1 order by created_at desc",[owner]),
       query<any>("select id,name,category,amount_minor::text amount_minor,next_due_on,interval_months,active from nex_personal.bills where owner_user_id=$1 and active=true order by next_due_on",[owner]),
-      query<any>("select coalesce(category,'Outros') category, sum(-amount_minor)::text spent_minor from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and (analysis_role is null or analysis_role='expense') and booked_at>=date_trunc('month',now() at time zone 'America/Sao_Paulo') and booked_at<date_trunc('month',now() at time zone 'America/Sao_Paulo')+interval '1 month' group by coalesce(category,'Outros') order by sum(-amount_minor) desc",[owner])
+      query<any>("select coalesce(category,'Outros') category, sum(-amount_minor)::text spent_minor from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and (analysis_role is null or analysis_role='expense') and booked_at>=date_trunc('month',now(),'America/Sao_Paulo') and booked_at<date_trunc('month',now()+interval '1 month','America/Sao_Paulo') group by coalesce(category,'Outros') order by sum(-amount_minor) desc",[owner])
     ]);
     const sum=(items:any[],select:(v:any)=>string)=>items.reduce((n,v)=>n+BigInt(select(v)),0n);
     const manualTotal=sum(accounts,r=>r.available_minor||'0');
@@ -388,7 +388,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
     const q=input.question.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     const [accountRows,spendingRows,bills,goals]=await Promise.all([
       query<any>("select count(*)::int qty,coalesce(sum(available_minor),0)::text total from nex_personal.accounts where owner_user_id=$1 and provider='manual' and currency='BRL' and status='active'",[owner]),
-      query<any>("select coalesce(sum(-amount_minor),0)::text spent_minor,coalesce(count(*),0)::int tx_count from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and (analysis_role is null or analysis_role='expense') and booked_at>=date_trunc('month',now() at time zone 'America/Sao_Paulo')",[owner]),
+      query<any>("select coalesce(sum(-amount_minor),0)::text spent_minor,coalesce(count(*),0)::int tx_count from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and (analysis_role is null or analysis_role='expense') and booked_at>=date_trunc('month',now(),'America/Sao_Paulo')",[owner]),
       query<any>("select name,amount_minor::text amount_minor,next_due_on,interval_months from nex_personal.bills where owner_user_id=$1 and active=true order by next_due_on limit 60",[owner]),
       query<any>("select name,target_minor::text target_minor,saved_minor::text saved_minor,due_on from nex_personal.goals where owner_user_id=$1 and status='active' order by created_at desc limit 20",[owner])
     ]);
