@@ -37,8 +37,9 @@ try{
    {date,description:'Netflix assinatura',amountMinor:'-3990'}]};
  const imported=await call('/v1/personal/transactions/import',alice,'POST',csv);
  assert.equal(imported.status,200,JSON.stringify(imported.body));
- assert.equal(imported.body.imported,1);
- assert.equal(imported.body.duplicates,1);
+ assert.equal(imported.body.imported,2,'Identical same-day charges without FITID must both survive.');
+ assert.equal(imported.body.duplicates,0);
+ assert.match(imported.body.note,/arquivos diferentes com períodos sobrepostos/i);
  const again=await call('/v1/personal/transactions/import',alice,'POST',csv);
  assert.equal(again.body.imported,0);
  assert.equal(again.body.duplicates,2);
@@ -126,7 +127,7 @@ try{
  assert.equal(studio.status,200,JSON.stringify(studio.body));
  assert.equal(studio.body.totals.manualAvailableMinor,'97500');
  assert.equal(studio.body.totals.declaredNetWorthMinor,'112500');
- assert.equal(studio.body.totals.spentMonthMinor,'7490');
+ assert.equal(studio.body.totals.spentMonthMinor,'11480');
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='budget'),'Real budget excess should be detected.');
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='bills'));
  assert.equal(studio.body.maya.externalModelCalled,false);
@@ -134,7 +135,7 @@ try{
 
  const maya=await call('/v1/personal/maya/ask',alice,'POST',{question:'Quanto gastei neste mês?'});
  assert.equal(maya.status,200,JSON.stringify(maya.body));
- assert.ok(maya.body.answer.includes('R$ 74,90'),JSON.stringify(maya.body));
+ assert.ok(maya.body.answer.includes('R$ 114,80'),JSON.stringify(maya.body));
  assert.equal(maya.body.modelCalled,false);
  assert.equal(maya.body.canInitiatePayment,false);
  const questionForBob=await call('/v1/personal/maya/ask',bob,'POST',{question:'Qual meu saldo?'});
