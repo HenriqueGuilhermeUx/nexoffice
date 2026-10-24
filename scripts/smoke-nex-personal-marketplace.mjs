@@ -5,6 +5,17 @@ import {
 } from '../apps/web/src/PersonalMarketplaceEngine.ts';
 
 assert.equal(parseBrlInput('2.500,75'),'250075');
+assert.equal(parseBrlInput('2.500'),'250000','2.500 in Brazil means two thousand five hundred, not two reais and fifty');
+assert.equal(parseBrlInput('1.000.000'),'100000000','Multiple thousands separators must not be interpreted as cents');
+assert.equal(parseBrlInput('R$ 1.250,5'),'125050');
+assert.equal(parseBrlInput('2500,75'),'250075');
+assert.equal(parseBrlInput('2500'),'250000');
+assert.equal(parseBrlInput('0,00',true),'0');
+assert.throws(()=>parseBrlInput('12.50'),/vírgula/,'A dot cannot ambiguously represent cents');
+assert.throws(()=>parseBrlInput('1,234'),/dois dígitos/);
+assert.throws(()=>parseBrlInput('12.3456'));
+assert.throws(()=>parseBrlInput('1.2.345'));
+
 assert.equal(parseBrlInput('0',true),'0');
 assert.equal(displayBrl(250075n),'R$ 2.500,75');
 assert.throws(()=>parseBrlInput('-2.500'));
