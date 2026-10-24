@@ -29,7 +29,7 @@ export default function PersonalMarketplaceLab(){
  const form=(q:FormQuote,change:(v:FormQuote)=>void)=>(
   <div className="np-market-quote" key={q.label}>
    <h4>{q.label}</h4>
-   <p>Preencha números de uma proposta que você recebeu. Não solicitamos seus documentos ou dados bancários.</p>
+   <p>Preencha números de uma proposta que você recebeu. Use ponto apenas para milhares e vírgula para centavos (ex.: 2.500 = R$ 2.500,00; 2.500,50 = R$ 2.500,50). Não solicitamos seus documentos ou dados bancários.</p>
    {field(q,change,'principal','Preço/valor de referência (R$)','Ex.: 20.000,00')}
    {field(q,change,'upfront','Entrada (R$)','Ex.: 2.000,00')}
    {field(q,change,'installments','Número de parcelas','Ex.: 12')}
