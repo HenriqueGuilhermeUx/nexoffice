@@ -7,7 +7,26 @@ import {query} from './db.js';
  * no PJ tables, third-party data, token hashes or external API credentials.
  * Explicitly not an E2EE claim or guaranteed complete legal portability export.
  */
-const TABLES=['consents','connections','accounts','transactions','budgets','goals','wealth_items','bills','life_preferences','life_intents'] as const;
+/**
+ * Export projections are purpose-built and fail closed. NEVER use "select *":
+ * a future provider_secret, access_token or provider credential column must not
+ * silently become part of the downloadable user snapshot.
+ * Amounts use text to preserve integer centavos without JSON float rounding.
+ */
+const EXPORT_FIELDS={
+ consents:'id,purpose,status,provider,partner_ref,data_scopes,granted_at,expires_at,revoked_at,created_at',
+ connections:'id,consent_id,provider,institution_name,status,last_synced_at,created_at,updated_at',
+ accounts:'id,connection_id,provider,institution_name,name,account_type,currency,current_minor::text current_minor,available_minor::text available_minor,balance_as_of,last_synced_at,status,created_at,updated_at',
+ transactions:'id,account_id,description,amount_minor::text amount_minor,currency,category,booked_at,imported_at,source,analysis_role,analysis_confidence,category_origin,analysis_rule',
+ budgets:'id,month,category,limit_minor::text limit_minor,created_at,updated_at',
+ goals:'id,name,target_minor::text target_minor,saved_minor::text saved_minor,due_on,status,created_at,updated_at',
+ wealth_items:'id,name,kind,category,amount_minor::text amount_minor,currency,updated_at,created_at',
+ bills:'id,name,amount_minor::text amount_minor,category,next_due_on,interval_months,active,created_at,updated_at',
+ life_preferences:'focus_areas,proactive_mode,updated_at',
+ life_intents:'id,kind,status,created_at,updated_at',
+ audit_events:'id,action,subject_type,subject_id,created_at'
+} as const;
+const TABLES=Object.keys(EXPORT_FIELDS) as Array<keyof typeof EXPORT_FIELDS>;
 const MAX_RECORDS_PER_TABLE=5000;
 
 async function owner(req:FastifyRequest){
@@ -36,7 +55,13 @@ export async function registerNexPersonalPrivacyRoutes(app:FastifyInstance){
   const truncated:string[]=[];
   for(const table of TABLES){
    // Fixed schema/table identifiers from internal constant, never user input.
-   const rows=await query<any>('select * from nex_personal.'+table+' where owner_user_id=$1 order by '+(table==='life_preferences'?'owner_user_id':table==='transactions'?'booked_at':'created_at')+' desc limit $2',[user.id,MAX_RECORDS_PER_TABLE+1]);
+   const orderBy=table==='life_preferences'?'owner_user_id':table==='transactions'?'booked_at':'created_at';
+   // All identifiers are from the above closed, in-code table and column lists.
+   const rows=await query<any>(
+     'select '+EXPORT_FIELDS[table]+' from nex_personal.'+table+
+     ' where owner_user_id=$1 order by '+orderBy+' desc limit $2',
+     [user.id,MAX_RECORDS_PER_TABLE+1]
+   );
    if(rows.length>MAX_RECORDS_PER_TABLE)truncated.push(table);
    snapshot[table]=rows.slice(0,MAX_RECORDS_PER_TABLE);
   }
@@ -47,6 +72,6 @@ export async function registerNexPersonalPrivacyRoutes(app:FastifyInstance){
   return {format:'nex_personal_owner_snapshot_v1',generatedAt:new Date().toISOString(),
    owner:{id:user.id,name:me[0]?.name,email:me[0]?.email,created_at:me[0]?.created_at},
    data:snapshot,truncatedTables:truncated,complete:truncated.length===0,
-   note:'Exportação parcial se uma categoria superar 5000 registros. Credenciais e sessões não incluídas. Dados locais não enviados ao servidor também não constam.'};
+   note:'Exportação parcial se uma categoria superar 5000 registros. Campos técnicos secretos, referências privadas de provedores, credenciais e sessões não são incluídos. Inclui ações de auditoria do próprio titular; dados locais não enviados ao servidor também não constam.'};
  });
 }
