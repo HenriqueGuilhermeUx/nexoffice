@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {parsePersonalStatement,parsePersonalCsv,parsePersonalOfx,cents} from '../apps/web/src/PersonalStatementParser.ts';
 
 assert.equal(cents('1.234,56'),'123456');
@@ -60,4 +61,8 @@ assert.equal(old.length,1);
 assert.equal(old[0].date,'2026-09-14');
 assert.equal(old[0].amountMinor,'15001');
 assert.throws(()=>parsePersonalOfx('<OFX><STMTTRN><TRNAMT>2</TRNAMT></STMTTRN></OFX>'),/Data OFX/);
+const studio=readFileSync('apps/web/src/NexPersonalStudio.tsx','utf8');
+assert.match(studio,/return cents\(value,'pt-BR'\)/,'All financial forms must use the strict pt-BR shared parser');
+assert.match(studio,/2\.500.*R\$ 2\.500,00/,'Manual value example must clarify thousands grouping');
+assert.match(studio,/OFX utiliza ponto para os centavos/,'Import screen must explain different OFX locale');
 console.log('Nex Personal local CSV and OFX parser: OK');
