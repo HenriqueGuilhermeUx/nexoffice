@@ -4,7 +4,7 @@ import PersonalMarketplaceLab from './PersonalMarketplaceLab';
 
 type Area='money'|'health'|'education'|'family'|'documents'|'work'|'shopping'|'travel'|'vehicle'|'investments'|'marketing'|'offers'|'public_services'|'debt_review'|'legal_support';
 type Kind='buy_car'|'trip'|'email'|'family_study'|'health_organize'|'investment_review'|'publish'|'documents'|'buy_phone'|'family_planning';
-type Route='money'|'spending'|'planning'|'wealth'|'agents'|'maya'|'privacy';
+type Route='money'|'spending'|'planning'|'wealth'|'market'|'agents'|'maya'|'privacy';
 type Agent='expenses'|'financial'|'planning'|'investments'|'shopping'|'simulations'|'payments'|'contracts'|'public_services'|'debt_review'|'legal_support';
 type Preferences={focus_areas:Area[];proactive_mode:'off'|'on_open'};
 type Intent={id:string;kind:Kind;status:'planned'|'done';created_at:string};
@@ -13,7 +13,7 @@ type Room={id:Area;title:string;emoji:string;agent:string;tagline:string;source:
 
 const ROOMS:ReadonlyArray<Room>=[
  {id:'money',title:'Meu dinheiro',emoji:'💳',agent:'Nina',tagline:'Organiza seu dinheiro e suas contas.',source:'Organização financeira pessoal',ready:true,description:'Organize saldos declarados, extratos, gastos e compromissos.',route:'money',tag:'Acessível'},
- {id:'investments',title:'Investimentos',emoji:'📈',agent:'Léo',tagline:'Revisa investimentos, taxas e riscos.',source:'Acompanhamento de patrimônio',ready:true,description:'Faça um diagnóstico inicial do patrimônio informado, sem cotações ou ordens.',route:'agents',tag:'Análise inicial'},
+ {id:'investments',title:'Investimentos',emoji:'📈',agent:'Léo',tagline:'Revisa investimentos, taxas e riscos.',source:'Pesquisa e organização patrimonial',ready:true,description:'Léo organiza sua análise; F-Insight oferece pesquisa sob demanda quando o conector seguro estiver habilitado.',route:'market',tag:'Pesquisa e análise inicial'},
  {id:'shopping',title:'Compras e crédito',emoji:'🛍️',agent:'Bia',tagline:'Compara compras, preços e parcelas.',source:'Comparação e simulação',ready:true,description:'Simule preços e parcelas. Comparação real de ofertas ainda depende de parceiros.',route:'agents',tag:'Simulador'},
  {id:'health',title:'Minha saúde',emoji:'🩺',agent:'Luna',tagline:'Ajuda a organizar seus cuidados de saúde.',source:'Central de cuidado e bem-estar',ready:false,description:'Visão futura de organização, consultas, documentos e cuidado, com proteção reforçada e autorização própria.',tag:'Integração planejada'},
  {id:'education',title:'Educação',emoji:'📚',agent:'Duda',tagline:'Apoia estudos, tarefas e aprendizado.',source:'Estudos e aprendizagem',ready:false,description:'Estudos e aprendizagem para adultos e apoio familiar, sem perfilar crianças.',tag:'Integração planejada'},
