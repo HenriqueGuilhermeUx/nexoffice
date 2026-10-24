@@ -54,7 +54,7 @@ export default function PersonalFInsight({token,onOpenAgent,onOpenWealth}:{
  }
  return <div className="np-studio">
   <section className="np-panel np-studio-card">
-   <span className="np-kicker">NEX PERSONAL · INTELIGÊNCIA DE INVESTIMENTOS</span>
+   <span className="np-kicker">NEXA · INTELIGÊNCIA DE INVESTIMENTOS</span>
    <h2>Investimentos & Mercados · F-Insight</h2>
    <p>Léo ajuda a entender riscos, patrimônio e investimentos. O F-Insight acrescenta pesquisa de mercado independente, com fontes e horários identificados.</p>
    <p><strong>Sem ordens, recomendações personalizadas ou conexão automática com bancos, carteiras ou contas do F-Insight.</strong></p>
@@ -65,7 +65,7 @@ export default function PersonalFInsight({token,onOpenAgent,onOpenWealth}:{
   </section>
 
   <section className="np-panel np-studio-card">
-   <h2>Pesquisa F-Insight no Nex Personal</h2>
+   <h2>Pesquisa F-Insight na Nexa</h2>
    <p>Consulte dados informativos sem compartilhar identidade, saldos, histórico, posições ou preferências financeiras entre os produtos.</p>
    {status?.configured===true?<p role="status">Conector habilitado para consulta sob demanda. A disponibilidade dos provedores pode variar.</p>:
     <p role="status">Integração de dados em preparação. O painel permanece seguro e não mostra cotações de demonstração.</p>}
@@ -103,7 +103,7 @@ export default function PersonalFInsight({token,onOpenAgent,onOpenWealth}:{
    <h2>F-Insight completo</h2>
    <p>Radar avançado, watchlist, alertas, gráficos e ferramentas profissionais continuam na plataforma independente. Ao abri-la, você estará em outro produto, com login e política de privacidade próprios.</p>
    <a className="np-studio-secondary" href="https://f-insight.org/" target="_blank" rel="noopener noreferrer">Abrir F-Insight em nova aba ↗</a>
-   <p><small>Nenhum dado do Nex Personal ou credencial de acesso é enviado por este link.</small></p>
+   <p><small>Nenhum dado deste espaço Nexa ou credencial de acesso é enviado por este link.</small></p>
   </section>
  </div>;
 }
