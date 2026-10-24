@@ -116,10 +116,19 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
         [input.accountId,owner]
       );
       if(!acc.rows.length)throw new ApiError(404,'manual_account_not_found','Conta não encontrada.');
+      // A weak key (same date/description/amount) is NOT a transaction identity.
+      // Preserve repeated legitimate charges in a file; only an identical batch
+      // reimport is idempotent when no bank FITID/reference was supplied.
+      const normalizedRows=input.rows.map(row=>[
+        row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference||''
+      ]);
+      const batchHash=createHash('sha256').update(JSON.stringify(normalizedRows)).digest('hex');
       let imported=0,duplicates=0;
-      for(const row of input.rows){
+      for(const [index,row] of input.rows.entries()){
         const canonical=[input.accountId,row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference||''].join('|');
-        const fingerprint=createHash('sha256').update(canonical).digest('hex');
+        // Preserve legacy strong-reference fingerprint behavior for existing rows.
+        const key=row.reference?canonical:['csv-batch-v2',input.accountId,batchHash,index].join('|');
+        const fingerprint=createHash('sha256').update(key).digest('hex');
         const enriched=enrichBankTransaction({source:'csv',accountRef:input.accountId,date:row.date,
           description:row.description,amountMinor:row.amountMinor,currency:'BRL',reference:row.reference});
         const result=await client.query(
@@ -136,7 +145,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       return {imported,duplicates};
     });
     return {...counts,source:'csv',verified:false,currentBalanceChanged:false,externalEffect:false,
-      note:'Duplicatas idênticas (data, descrição e valor) são ignoradas. Use referência diferente para lançamentos distintos com os mesmos dados.'};
+      note:'Referências bancárias identificam duplicatas. Sem referência, linhas iguais do mesmo arquivo são preservadas e a reimportação exata do arquivo é idempotente; arquivos diferentes com períodos sobrepostos podem duplicar lançamentos e exigem revisão.'};
   });
 
   // Data supplied voluntarily for a read-only preview. No provider / wallet API is
