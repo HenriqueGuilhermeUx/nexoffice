@@ -29,10 +29,12 @@ No backend F-Insight, a feature atual depende da flag `INTERNAL_MARKET_TERMINAL_
 ## Proteção dos dados e qualidade
 1. Toda consulta exige autenticação PF e perfil ativo. Nenhum CPF, saldo, transação, watchlist, token PF, empresa ou vínculo de identidade segue para o fornecedor.
 2. A pesquisa de ativo e macro só é disparada por clique explícito do usuário; a tela não envia requests de mercado automaticamente.
-3. HTTPS obrigatório na configuração e timeouts de 8s; resposta externa passa por allowlist de campos, sem proxy indiscriminado.
-4. Sem números fictícios. **Atenção:** módulos legados do F-Insight ainda contêm dados simulados/fallback `BRAZILIAN_STOCKS` e `fallbackMacro` em outros caminhos. Não reutilizá-los nesta integração.
-5. Watchlist pessoal sincronizada, alertas com identificação, carteira personalizada, F-Insight Agent contextual e Quant são fases posteriores dependentes de consentimento, controles de fornecedor e termos de uso dos dados.
-6. Não inferir recomendação de investimento; mostrar fonte e timestamp; respeitar limites de licenciamento e redistribuição de cotações.
+3. HTTPS obrigatório na configuração e timeouts de 8s; redirecionamentos externos bloqueados (`redirect:'error'`) para não encaminhar credenciais; resposta JSON exigida e filtrada por allowlist, sem proxy indiscriminado.
+4. Cotações apenas da fonte Finnhub, com símbolo correspondente, preço positivo finito e horário válido (até 7 dias de idade e no máximo 5 minutos no futuro). A informação pode estar defasada; nunca afirmar que é tempo real e não inventar a moeda do ativo.
+5. Datas dos indicadores do Banco Central aceitas no formato DD/MM/AAAA. O conteúdo ainda deve ser confrontado com as séries oficiais e seus períodos de referência.
+6. Sem números fictícios. **Atenção:** módulos legados do F-Insight ainda contêm dados simulados/fallback `BRAZILIAN_STOCKS` e `fallbackMacro` em outros caminhos. Não reutilizá-los nesta integração.
+7. Watchlist pessoal sincronizada, alertas com identificação, carteira personalizada, F-Insight Agent contextual e Quant são fases posteriores dependentes de consentimento, controles de fornecedor e termos de uso dos dados.
+8. Não inferir recomendação de investimento; mostrar fonte e timestamp; respeitar limites de licenciamento e redistribuição de cotações.
 
 ## Critérios de homologação
 - CI no HEAD **exato** aprovado, inclusive novo `scripts/smoke-nex-personal-finsight.mjs` e testes do preview.
@@ -40,6 +42,9 @@ No backend F-Insight, a feature atual depende da flag `INTERNAL_MARKET_TERMINAL_
 - Testar com serviço/credencial interna **não produtivos ou somente leitura**, documentando disponibilidade real e falhas de provedor sem preços falsos.
 - Navegador real em desktop/mobile: sala Investimentos 2D abre seção, Léo permanece acessível, status mostra preparação até habilitar, nenhuma transferência pessoal, link F-Insight abre separado.
 - Sem merge, sem publicação no Render e sem ligação PF/PJ até comprovar CI e E2E. `PR #86` permanece DRAFT.
+
+## Bloqueio de CI em 24/10/2026
+O GitHub Actions falhou repetidamente antes da atribuição de runner ou início de qualquer etapa. O acompanhamento de correção está na [issue #89](https://github.com/HenriqueGuilhermeUx/nexoffice/issues/89). O verificador puro de cotação passou em teste local isolado, mas nem o build completo nem a homologação E2E podem ser considerados aprovados.
 
 ## Próximas fases (não ativadas)
 Radar multiativo, histórico/gráficos licenciados, watchlist interna PF, alertas, comparadores, research via F-Insight Agent e integração consentida com dados PF. F-Insight Professional para assessores/escritórios segue ambiente separado.
