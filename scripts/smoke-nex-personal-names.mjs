@@ -7,7 +7,7 @@ const api=readFileSync('apps/api/src/routes-nex-personal-agents.ts','utf8');
 const citizen=readFileSync('apps/web/src/PersonalCitizenAgents.tsx','utf8');
 
 const rooms={
- money:'Nina', investments:'Léo',shopping:'Bia',health:'Luna',education:'Duda',
+ money:'Nina', investments:'Léo',crypto:'Nico',shopping:'Bia',health:'Luna',education:'Duda',
  documents:'Mel',work:'Zoe',travel:'Kai',vehicle:'Max',family:'Luca',
  marketing:'Gabi',offers:'Noah',public_services:'Theo',debt_review:'Joca',legal_support:'Bella'
 };
@@ -16,9 +16,9 @@ const agents={
  simulations:'Ben',payments:'Ravi',contracts:'Mel',public_services:'Theo',
  debt_review:'Joca',legal_support:'Bella'
 };
-assert.equal(Object.keys(rooms).length,15);
+assert.equal(Object.keys(rooms).length,16);
 assert.equal(Object.keys(agents).length,11);
-assert.equal(new Set(Object.values(rooms)).size,15,'room names must be distinct');
+assert.equal(new Set(Object.values(rooms)).size,16,'room names must be distinct');
 assert.equal(new Set(Object.values(agents)).size,11,'available agent names must be distinct');
 
 for(const [id,name] of Object.entries(rooms)){
@@ -42,4 +42,4 @@ assert.match(citizen,/JOCA · DÍVIDAS E NEGOCIAÇÃO/);
 assert.match(citizen,/BELLA · ORIENTAÇÃO JURÍDICA INICIAL/);
 assert.doesNotMatch(office,/agent:'Cida'|agent:'Recomeço'|agent:'Equipe saúde'|agent:'Tutor pessoal'/);
 assert.doesNotMatch(web,/name:'Cida'|name:'Recomeço'|name:'Atlas'|name:'Norte'|name:'Clara'/);
-console.log('Nex Personal branding: 15 unique person-first rooms with concise taglines and 11 matched agent names OK');
+console.log('Nex Personal branding: 16 unique Nexa life rooms with concise taglines and 11 matched agent names OK');
