@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {acceptedEIP6963Wallet,addAnnouncedUSWallet,legacyUSWallets} from '../apps/web/src/nex-personal-us-wallet-discovery.ts';
+const w1={request:async()=>[]},w2={request:async()=>[]};
+const uuid='aabbccdd-1111-4111-8111-abcdefabcdef';
+const detail={info:{uuid,name:'Example Wallet',rdns:'com.example.wallet',icon:'data:image/svg+xml,<script/>'},provider:w1};
+const accepted=acceptedEIP6963Wallet(detail);
+assert.ok(accepted);
+assert.equal(accepted.source,'eip6963');
+assert.equal(accepted.name,'Example Wallet');
+assert.equal(Object.hasOwn(accepted,'icon'),false,'untrusted extension image must not enter UI');
+assert.equal(acceptedEIP6963Wallet({...detail,info:{...detail.info,uuid:'not-a-uuid'}}),null);
+assert.equal(acceptedEIP6963Wallet({...detail,info:{...detail.info,name:'Bad\nWallet'}}),null);
+assert.equal(acceptedEIP6963Wallet({...detail,provider:{}}),null);
+const first=addAnnouncedUSWallet([],accepted);
+assert.equal(addAnnouncedUSWallet(first,{...accepted,provider:w2})[0].provider,w1,'collision must not overwrite provider');
+assert.equal(legacyUSWallets({request:w1.request,providers:[w1,w2]}).length,2);
+assert.equal(legacyUSWallets(undefined).length,0);
+console.log('Nex Personal USA EIP-6963 wallet discovery: PASS');
