@@ -64,6 +64,13 @@ sql(`INSERT INTO auth_sessions(user_id,token_hash,expires_at)
  VALUES ('${nexofficeUserId}'::uuid,'${tokenHash}',now()+interval '1 hour')`);
 assert.equal((await readCurrentWorkspace('',workspaceId)).status,401,
   'anonymous browsers cannot inspect Nexa PJ link state');
+// An expired independently authenticated session cannot inspect PJ readiness.
+const expiredToken=randomBytes(32).toString('base64url');
+const expiredHash=createHash('sha256').update(expiredToken).digest('hex');
+sql(`INSERT INTO auth_sessions(user_id,token_hash,expires_at)
+ VALUES ('${nexofficeUserId}'::uuid,'${expiredHash}',now()-interval '1 minute')`);
+assert.equal((await readCurrentWorkspace(expiredToken,workspaceId)).status,401,
+  'expired browser session must not inspect the PJ workspace');
 assert.equal((await readCurrentWorkspace('bad-token',workspaceId)).status,401,
   'invalid bearer tokens cannot inspect corporate link state');
 const beforeBinding=await readCurrentWorkspace(browserToken,workspaceId);
