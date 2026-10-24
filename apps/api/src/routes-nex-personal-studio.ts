@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {ApiError,authenticate} from './auth.js';
 import {query,transaction} from './db.js';
 import {enrichBankTransaction,previewEnrichment} from '@nexoffice/integrations/personal-etl';
+import {detectRecurringExpenses} from '@nexoffice/integrations/personal-recurring';
 
 const id=z.string().uuid();
 const amount=z.string().regex(/^-?\d{1,13}$/,'Informe um valor válido em centavos.');
@@ -322,6 +323,25 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
         note:'Patrimônio parcial e informativo. Valores de metas não são somados novamente ao patrimônio.'},
       externalEffect:false
     };
+  });
+
+  // Personal insights only; we never send transaction narratives to marketers
+  // or external models. Excludes unreviewed transfers and sensitive categories.
+  app.get('/v1/personal/transactions/recurring-patterns',async req=>{
+    const owner=await ownerOf(req);
+    const rows=await query<{
+      booked_day:string;description:string;category:string|null;amount_minor:string;
+      analysis_role:'expense'|'income'|'excluded_internal'|'review'|null
+    }>(
+      "select to_char(booked_at at time zone 'America/Sao_Paulo','YYYY-MM-DD') booked_day,description,category,amount_minor::text amount_minor,analysis_role from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and analysis_role='expense' and booked_at>=now()-interval '14 months' order by booked_at desc limit 1800",
+      [owner]
+    );
+    const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const result=detectRecurringExpenses(rows.map(r=>({
+      bookedAt:r.booked_day,description:r.description,category:r.category,
+      amountMinor:r.amount_minor,analysisRole:r.analysis_role
+    })),date,8);
+    return {...result,analysisScope:'authenticated_personal_finances',persisted:false};
   });
 
   app.patch('/v1/personal/transactions/:id/classification',async req=>{
