@@ -25,7 +25,8 @@ API futura de referência: https://www.alchemy.com/docs/data/transfers-api/trans
 
 ## Correção, precisão e segurança
 - Não misturar dados de outros produtos do conglomerado; carteiras Nexa/Privy só vinculadas voluntariamente com prova de controle e permissão de leitura.
-- Quando referência bancária forte faltar, duas compras idênticas no mesmo dia **não devem ser descartadas automaticamente**. O importador legado CSV ainda tem essa limitação: tratamento separado antes de ampliar o uso.
+- Sem referência bancária forte, o importador preserva duas compras idênticas no mesmo arquivo. Um hash do **multiconjunto de linhas** torna a reimportação do mesmo arquivo idempotente mesmo após reordenação; a posição relativa entre cobranças idênticas é mantida por contador de ocorrências. A estratégia anterior (batch-v2) continua reconhecida na reimportação exata, preservando compatibilidade.
+- **Limitação residual:** arquivos diferentes mas parcialmente sobrepostos ainda podem duplicar movimentações sem referência. Arquivos antigos batch-v2 reordenados não podem ser reconhecidos retroativamente sem informações adicionais. Expor a revisão ao usuário antes de assumir identidade bancária; não comparar apenas data/valor/descrição para descartar um lançamento.
 - Nenhuma informação privada de gastos é compartilhada com marketing, agentes externos ou outros usuários.
 - Correções pessoais prevalecem sobre regras automáticas, com auditoria e proveniência; nenhuma IA deve inventar classificação bancária verificada.
 - Gates para feeds reais: consentimentos, webhooks idempotentes, confirmação de endereço, antifraude, row-level security, revogação, políticas de retenção, reconciliação, FX, taxas e backups.
