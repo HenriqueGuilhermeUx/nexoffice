@@ -97,6 +97,12 @@ assert.equal((await readCurrentWorkspace(browserToken,randomUUID())).status,403,
 
 const original=await call(path,{merchantId,representativeUserId,workspaceId},auth);
 assert.equal(original.data.bindingMatches,false,'legacy nexa origin may not be treated as nexa-pj');
+const genericHandoffDenied=await call('/v1/platform/handoff',{
+  sourceProduct:'nexa-pj',externalWorkspaceRef:merchantId,
+  externalUserSubject:representativeUserId,email,
+},{'x-nexoffice-key':legacyKey});
+assert.equal(genericHandoffDenied.status,400,
+  'legacy generic federation must never issue a Nexa PJ session');
 const sourceDenied=await call('/v1/platform/provision',{
   sourceProduct:'nexa-pj',externalWorkspaceRef:merchantId,
   businessName:'Must fail',ownerEmail:email,externalUserSubject:representativeUserId,
