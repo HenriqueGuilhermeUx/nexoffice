@@ -39,9 +39,11 @@ async function callMarket(path:string){
   throw new ApiError(400,'market_path_not_allowed','Operação indisponível.');
  let response:Response;
  try{
-  response=await fetch(cfg.base+path,{method:'GET',headers:{accept:'application/json','x-finsight-internal-key':cfg.key},signal:AbortSignal.timeout(8_000)});
+  response=await fetch(cfg.base+path,{method:'GET',headers:{accept:'application/json','x-finsight-internal-key':cfg.key},redirect:'error',signal:AbortSignal.timeout(8_000)});
  }catch{throw new ApiError(502,'finsight_unavailable','O F-Insight está indisponível. Nenhum dado demonstrativo será exibido.');}
  if(!response.ok)throw new ApiError(502,'finsight_research_unavailable','A pesquisa do F-Insight não está disponível no momento.');
+ if(!String(response.headers.get('content-type')||'').toLowerCase().includes('application/json'))
+  throw new ApiError(502,'finsight_unexpected_content','O F-Insight não retornou uma resposta JSON válida.');
  const text=await response.text();
  if(text.length>128_000)throw new ApiError(502,'finsight_response_too_large','Pesquisa indisponível.');
  try{return JSON.parse(text) as Record<string,any>;}
@@ -62,15 +64,20 @@ export async function registerNexPersonalFInsightRoutes(app:FastifyInstance){
   const payload=await callMarket('/api/internal/market-terminal/asset/'+encodeURIComponent(symbol)+
    '?history=false&news=false&macro=false&sentiment=false');
   const q=payload.quote;
+  // A finite price alone does not make a live quote. Reject wrong symbols,
+  // future-dated quotes and stale records; retain weekend/market-holiday room.
+  const observedAt=typeof q?.timestamp==='string'?Date.parse(q.timestamp):NaN;
+  const quoteAgeMs=Date.now()-observedAt;
   const valid=q&&typeof q.provider==='string'&&q.provider==='finnhub'&&
-   Number.isFinite(q.price)&&q.price>0&&typeof q.timestamp==='string'&&
-   Number.isFinite(Date.parse(q.timestamp));
+   String(q.symbol||'').trim().toUpperCase()===symbol&&
+   Number.isFinite(q.price)&&q.price>0&&Number.isFinite(observedAt)&&
+   quoteAgeMs>=-5*60_000&&quoteAgeMs<=7*24*60*60_000;
   return {symbol,available:Boolean(valid),quote:valid?{
     value:q.price,source:q.provider,observedAt:q.timestamp,
     currency:'unspecified'
    }:null,readOnly:true,externalEffect:false,
-   note:valid?'Cotação informativa com fonte e horário. Confirme no provedor antes de decidir.':
-   'Cotação verificada indisponível. Não exibimos valores simulados ou sem data.'};
+   note:valid?'Última cotação informada pelo provedor, com fonte e horário. Pode não ser em tempo real. Confirme na corretora antes de decidir.':
+   'Cotação válida não disponível ou desatualizada. Não exibimos valores simulados ou sem data.'};
  });
 
  app.get('/v1/personal/finsight/macro',async req=>{
