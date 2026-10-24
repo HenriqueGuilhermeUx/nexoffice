@@ -71,6 +71,7 @@ export function cleanTransactionDescription(raw:string){
   .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g,'[documento]')
   .replace(/\b(?:\d[ -]?){13,19}\b/g,'[cartão]')
   .replace(/\b(?:0x)?[a-f0-9]{64}\b/gi,'[hash]')
+  .replace(/\b0x[a-f0-9]{40}\b/gi,'[carteira]')
   .replace(/\s+/g,' ').trim()||'Movimentação';
 }
 function validDate(s:string){
@@ -177,7 +178,11 @@ export function enrichEvmTransfer(input:EvmInput):NormalizedTransaction{
  if(input.status!=='confirmed'){
   treatment='review';confidence='low';reason='Movimento pendente ou revertido; não contabilizar como liquidado.';
  }
- const idKey='evm|'+input.chainId+'|'+input.txHash.toLowerCase()+'|'+input.logIndex+'|'+(input.contractAddress?.toLowerCase()||'native')+'|'+action;
+ // Classifier labels (transfer/swap/bridge/reward) must not change event identity:
+ // the same token log must not be counted twice when providers disagree on its meaning.
+ // Network gas is a separate economic event from a native-value transfer.
+ const eventKind=action==='gas'?'gas':'transfer';
+ const idKey='evm|'+input.chainId+'|'+input.txHash.toLowerCase()+'|'+input.logIndex+'|'+(input.contractAddress?.toLowerCase()||'native')+'|'+eventKind;
  return {source:'onchain',displayDescription:action==='gas'?'Taxa de rede':'Atividade on-chain · '+input.symbol,
   category,treatment,confidence,reason,requiresReview:treatment==='review'||confidence==='low',
   fingerprint:digest(idKey),strongReference:true,provenance:'wallet_transfer_unverified',
