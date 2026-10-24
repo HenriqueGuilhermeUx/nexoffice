@@ -23,6 +23,8 @@ assert.match(source,/if\(activeTokenRef\.current!==currentToken\)return;/);
 assert.match(source,/activeTokenRef\.current='';/);
 assert.match(source,/activeTokenRef\.current=response\.token/);
 assert.match(source,/if\(activeTokenRef\.current===token\)setReady\(true\)/);
+assert.match(source,/older retry may finish after logout/i);
+assert.match(source,/if\(activeTokenRef\.current===token\)setReady\(true\);\s*}\s*}\s*if\(!ready\)/);
 
 // Remote sign-out might fail; do not silently pretend server-side session
 // revocation succeeded if the device goes offline.
