@@ -9,8 +9,8 @@
  * CI may use disposable, local PostgreSQL without TLS ONLY when BOTH CI=true
  * and NEX_PERSONAL_PREVIEW_CI=true. Never allow that exception in Render.
  */
-export type PersonalDbEnvironment=Pick<NodeJS.ProcessEnv,
- 'NEX_PERSONAL_PREVIEW'|'NEX_PERSONAL_PREVIEW_CI'|'CI'|'DATABASE_SSL'>;
+export type PersonalDbEnvironment=Partial<Pick<NodeJS.ProcessEnv,
+ 'NEX_PERSONAL_PREVIEW'|'NEX_PERSONAL_PREVIEW_CI'|'CI'|'DATABASE_SSL'>>;
 export type PersonalDbConnection={connectionString:string;ssl?:{rejectUnauthorized:false}};
 
 export function personalPgConnection(
