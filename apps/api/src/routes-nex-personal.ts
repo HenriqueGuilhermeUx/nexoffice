@@ -84,7 +84,7 @@ export async function registerNexPersonalRoutes(app:FastifyInstance){
     );
     const row=metrics[0],complete=row.account_count>0 && row.account_count===row.fresh_brl_count;
     const expenses=await query<any>(
-      "select coalesce(sum(-amount_minor),0)::text spent_minor from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and (analysis_role is null or analysis_role='expense') and booked_at>=date_trunc('month',now())",
+      "select coalesce(sum(-amount_minor),0)::text spent_minor from nex_personal.transactions where owner_user_id=$1 and currency='BRL' and amount_minor<0 and (analysis_role is null or analysis_role='expense') and booked_at>=date_trunc('month',now(),'America/Sao_Paulo') and booked_at<date_trunc('month',now()+interval '1 month','America/Sao_Paulo')",
       [owner]
     );
     return {
