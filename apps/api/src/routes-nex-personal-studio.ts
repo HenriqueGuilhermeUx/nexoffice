@@ -133,7 +133,7 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       // references. Recognize that legacy identity for unchanged reimports.
       const legacyFingerprints=input.rows.map((row,index)=>createHash('sha256')
         .update(row.reference
-          ?[input.accountId,row.date,row.description.toLowerCase().replace(/\\s+/g,' ').trim(),row.amountMinor,row.reference].join('|')
+          ?[input.accountId,row.date,row.description.toLowerCase().replace(/\s+/g,' ').trim(),row.amountMinor,row.reference].join('|')
           :['csv-batch-v2',input.accountId,legacyBatchHash,index].join('|')).digest('hex'));
       const previous=await client.query<{fingerprint:string}>(
         "select fingerprint from nex_personal.transactions where owner_user_id=$1 and account_id=$2 and fingerprint=any($3::text[])",
