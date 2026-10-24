@@ -12,6 +12,15 @@ Simulação local no navegador de entrada, parcelas e custo nominal do acordo. C
 ### Lia — Orientação jurídica inicial
 Checklists no navegador de contratos, cobranças, questões de condomínio e assuntos trabalhistas. Não determina validade, prescrição, probabilidade de êxito, nem produz representação judicial. Integração futura à plataforma jurídica depende de autorização, qualidade das fontes e revisão por profissional habilitado.
 
+## Banco PostgreSQL: transporte obrigatório com verificação de certificado
+
+- Nex Personal na homologação pública requer modo PostgreSQL sslmode=verify-full, inclusive quando o URL do Neon originalmente contém sslmode=require/prefer/verify-ca/disable.
+- O modo escolhido verifica cadeia do certificado e nome do servidor (hostname); não é criptografia ponta a ponta de dados nem eliminação do acesso de operadores autorizados.
+- Em produção da homologação, DATABASE_SSL=true não pode resultar em rejectUnauthorized=false. O módulo `apps/api/src/personal-preview-db-config.ts` é aplicado tanto à pool de API quanto ao cliente de migrações.
+- Exceção limitada: CI com **CI=true e NEX_PERSONAL_PREVIEW_CI=true** pode conectar a um Postgres de testes sem TLS. O ambiente do Render não ativa essa exceção; conexão local fora desse contexto é recusada.
+- A configuração anterior de outros módulos PJ permanece inalterada nesta PR para evitar alterações transversais sem auditoria. Essa proteção não substitui análise de segredos, criptografia em repouso, MFA, retenção e resposta a incidentes.
+- Smoke de segurança: `scripts/smoke-nex-personal-db-tls.mjs`, executado em todo CI PR.
+
 ## Segurança e confidencialidade
 - Cida, Recomeço e Lia não usam chamadas de API nem armazenamento local: cálculos e trechos ficam apenas na memória do navegador até fechar a aba.
 - Identidade, contas manuais, movimentações e preferências de outras áreas continuam armazenadas no PostgreSQL pessoal em nuvem. Não declarar criptografia ponta a ponta ou que administradores de infraestrutura jamais poderão acessar. O status é explicado claramente na tela Privacidade.
