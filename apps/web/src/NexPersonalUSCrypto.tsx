@@ -74,7 +74,7 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
    setConnection({provider,address,chainId});
    setStatus('Browser-only connection · not linked to your Nex account');
    setNonce(n=>n+1);
-  }catch(e){if(operation===operationRef.current){clear();setError(e instanceof Error?e.message:'Wallet connection unavailable.');}}
+  }catch(e){if(operation===operationRef.current){clear();setError(e instanceof Error?e.message:'Wallet connection unavailable.');setBusy(false);}}
   finally{if(operation===operationRef.current)setBusy(false);}
  }
  const loadBalance=useCallback(async()=>{
