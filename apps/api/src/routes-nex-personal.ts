@@ -14,7 +14,7 @@ const registration=z.object({
 async function personalOwner(req:Parameters<typeof authenticate>[0]):Promise<string>{
   const user=await authenticate(req);
   const rows=await query<{user_id:string}>('select user_id from nex_personal.profiles where user_id=$1 limit 1',[user.id]);
-  if(!rows.length)throw new ApiError(409,'personal_activation_required','Ative seu perfil Nex Personal antes de continuar.');
+  if(!rows.length)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nexa antes de continuar.');
   return user.id;
 }
 
