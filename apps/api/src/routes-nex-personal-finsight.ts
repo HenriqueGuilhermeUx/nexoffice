@@ -66,7 +66,7 @@ export async function registerNexPersonalFInsightRoutes(app:FastifyInstance){
    '?history=false&news=false&macro=false&sentiment=false');
   const verified=verifyFInsightQuote(payload.quote,symbol);
   return {symbol,available:Boolean(verified),quote:verified,readOnly:true,externalEffect:false,
-   note:valid?'Última cotação informada pelo provedor, com fonte e horário. Pode não ser em tempo real. Confirme na corretora antes de decidir.':
+   note:verified?'Última cotação informada pelo provedor, com fonte e horário. Pode não ser em tempo real. Confirme na corretora antes de decidir.':
    'Cotação válida não disponível ou desatualizada. Não exibimos valores simulados ou sem data.'};
  });
 
