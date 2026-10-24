@@ -31,7 +31,7 @@ async function request<T>(path:string,options:RequestInit={},token=sessionStorag
   if(token)headers.set('authorization','Bearer '+token);
   let response:Response;
   try{response=await fetch(API+path,{...options,headers});}
-  catch{throw new PersonalRequestError('Não foi possível conectar ao Nex Personal. Verifique sua conexão e tente novamente.',0);}
+  catch{throw new PersonalRequestError('Não foi possível conectar à Nexa. Verifique sua conexão e tente novamente.',0);}
   const body=await response.json().catch(()=>({}));
   if(!response.ok)throw new PersonalRequestError(body.message||body.error||'Não foi possível carregar seus dados.',response.status);
   return body as T;
