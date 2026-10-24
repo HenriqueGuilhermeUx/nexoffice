@@ -1,0 +1,25 @@
+.np-citizen-tool{display:grid;gap:14px;margin-top:13px;min-width:0}
+.np-citizen-privacy{background:#edf7f2;color:#245844;border:1px solid #c7e5d6;padding:14px 16px;border-radius:13px;font-size:12px;line-height:1.65}
+.np-citizen-privacy strong{margin:0 4px}
+.np-citizen-lead h3{font-size:19px;margin:9px 0!important;line-height:1.3}
+.np-citizen-lead p{font-size:13px;line-height:1.6}
+.np-citizen-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.np-citizen-form label{display:grid;gap:6px;font-weight:700;font-size:12px;color:#4b657a;min-width:0}
+.np-citizen-form select,.np-citizen-form input,.np-citizen-form textarea{width:100%;background:white;min-width:0;border-radius:10px;border:1px solid #c9d9e7;padding:12px 11px;font:inherit;color:#163849}
+.np-citizen-form textarea,.np-citizen-draft textarea{resize:vertical;line-height:1.6;font-size:13px}
+.np-citizen-wide{grid-column:1/-1}
+.np-citizen-form .np-primary{align-self:end;min-height:43px}
+.np-citizen-result{padding:19px 20px;background:#f0f6fe;border:1px solid #d5e3f4;border-radius:13px;color:#2e4e63;font-size:13px}
+.np-citizen-result h3{margin:0 0 12px!important;font-size:18px}
+.np-citizen-result ol,.np-citizen-result ul{display:grid;gap:10px;line-height:1.65;padding-left:22px;margin:12px 0}
+.np-citizen-result p{font-size:13px;line-height:1.7}
+.np-citizen-warning{border-left:3px solid #d4a854;padding:8px 11px;background:#fff8ea;font-size:12px!important}
+.np-citizen-links{display:flex;flex-wrap:wrap;gap:10px}
+.np-citizen-official-link{display:inline-flex;gap:6px;align-items:center;color:#1354b8!important;font-weight:700;font-size:12px;background:#f3f8ff;border:1px solid #d1e2fa;border-radius:10px;padding:11px;text-decoration:none;line-height:1.3}
+.np-citizen-official-link:hover{text-decoration:underline}
+.np-citizen-small{color:#718494;font-size:11px!important;line-height:1.6!important}
+.np-citizen-draft{border:1px solid #d5e3f0;border-radius:12px;padding:16px;background:#f7fbff;display:grid;gap:10px}
+.np-citizen-draft>div{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;font-size:13px}
+.np-citizen-draft textarea{width:100%;border:1px solid #c7d6e4;border-radius:9px;padding:13px;white-space:pre-wrap;background:white;color:#143044}
+.np-citizen-draft small{font-size:11px;color:#61788c}
+@media(max-width:600px){.np-citizen-form{grid-template-columns:1fr}.np-citizen-wide{grid-column:auto}.np-citizen-tool{margin:0}}

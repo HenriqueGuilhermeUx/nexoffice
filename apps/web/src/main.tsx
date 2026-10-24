@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import NexPersonal from './NexPersonal';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
@@ -37,6 +38,16 @@ const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
 const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
+const personalRequested=/^\/personal\/?$/.test(location.pathname);
+const personalPreview=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
+// Keep the old static preview bookmark working after moving to a single-origin
+// preview. This is a fixed Render hostname and cannot be user-controlled.
+if(personalPreview
+  && (import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN!=='true'
+  && location.hostname==='nex-personal-preview.onrender.com'){
+  location.replace('https://nex-personal-preview-api.onrender.com/');
+}
+
 
 const appSurface=<>
   <PlatformHandoffBootstrap/>
@@ -63,9 +74,13 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {publicMaterialToken
+    {personalPreview
+      ? <NexPersonal/>
+      : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
-      : legalRequested
+      : personalRequested
+        ? <NexPersonal/>
+        : legalRequested
         ? <PublicLegalPage/>
         : appRequested
           ? appSurface

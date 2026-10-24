@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {evaluateFgcExposure,parsePositiveBrl,formatBrl,prepareBankFeeLetter} from '../apps/web/src/PersonalFinancialReview.ts';
+
+const value=parsePositiveBrl('280.000,00');
+assert.equal(value,28000000n);
+assert.equal(formatBrl(value),'R$ 280.000,00');
+const eligible=evaluateFgcExposure('CDB',value);
+assert.equal(eligible.aboveOrdinaryLimit,true);
+assert.equal(eligible.excessMinor,3000000n);
+assert.equal(eligible.verifiedEligibility,false);
+assert.equal(eligible.verifiedCoverage,false);
+const within=evaluateFgcExposure('LCI',parsePositiveBrl('100.000,00'));
+assert.equal(within.aboveOrdinaryLimit,false);
+const noFgc=evaluateFgcExposure('Fundo de investimento',value);
+assert.equal(noFgc.candidate,false);
+assert.equal(noFgc.excessMinor,0n);
+for(const v of ['-100','0','28,00,00','Infinity',''])assert.throws(()=>parsePositiveBrl(v));
+const mail=prepareBankFeeLetter({bank:'Banco Exemplo',product:'Fundo X',feePercent:'3',yieldCdiPercent:'90'});
+assert.match(mail,/3%/);
+assert.match(mail,/90% do CDI/);
+assert.match(mail,/se o percentual de retorno informado já é líquido/i);
+assert.match(mail,/risco e liquidez comparáveis/i);
+assert.doesNotMatch(mail,/compre imediatamente|rendimento garantido/i);
+assert.throws(()=>prepareBankFeeLetter({bank:'',product:'A',feePercent:'3',yieldCdiPercent:'90'}));
+console.log('Lume: educational FGC limits and fair-bank-fee request passed');
