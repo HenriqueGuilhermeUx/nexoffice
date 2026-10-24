@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import pg from 'pg';
+import {personalPgConnection} from './personal-preview-db-config.js';
 
 const migrationPaths=[
  'infra/personal-preview/001_identity.sql',
@@ -13,7 +14,7 @@ const migrationPaths=[
 export async function runPersonalPreviewMigrations(){
  const url=String(process.env.DATABASE_URL||'');
  if(!url)throw new Error('A dedicated personal preview DATABASE_URL is required');
- const client=new pg.Client({connectionString:url,ssl:process.env.DATABASE_SSL==='true'?{rejectUnauthorized:false}:undefined});
+ const client=new pg.Client(personalPgConnection(url,process.env));
  await client.connect();
  try{
   const visible=await client.query<{table_name:string}>(
