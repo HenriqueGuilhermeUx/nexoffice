@@ -154,4 +154,11 @@ assert.equal(revokedBrowser.status,403,
 const revoked=await call(path,{merchantId,representativeUserId,workspaceId},auth);
 assert.equal(revoked.data.bindingMatches,false,'revoked membership must invalidate preflight');
 
+// Revoking the independently authenticated session must deny access regardless
+// of company binding or membership state. All changes are local CI-only.
+sql(`DELETE FROM auth_sessions WHERE token_hash='${tokenHash}'`);
+assert.equal((await readCurrentWorkspace(browserToken,otherWorkspaceId)).status,401,
+  'revoked session must not access even an otherwise authorized workspace');
+assert.equal((await readCurrentWorkspace(browserToken,workspaceId)).status,401,
+  'revoked session must not inspect any corporate linkage');
 console.log('PASS: dedicated PJ backchannel and tenant-scoped browser preflight, PF/PJ and cross-workspace isolation, revocation, no tokens, money or corporate authority.');
