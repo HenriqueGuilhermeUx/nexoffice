@@ -33,6 +33,15 @@ API futura de referência: https://www.alchemy.com/docs/data/transfers-api/trans
 - Disponível na área Gastos, com linguagem de incerteza, último valor informado e data da última movimentação, sem emitir alertas fora do aplicativo.
 - Testes unitários e de isolamento por usuário: `scripts/smoke-nex-personal-recurring.mjs` e `scripts/smoke-nex-personal-studio.mjs`. Sem notificações automáticas ou cancelamento.
 
+## Valores monetários — precisão sem pontos flutuantes
+
+- Todas as conversões são feitas com `BigInt` em centavos, sem ponto flutuante.
+- No **formulário manual**, aplicar formato brasileiro estrito: `2.500` significa **R$ 2.500,00**, `2.500,50` significa **R$ 2.500,50** e `12.30` é recusado com orientação para usar `12,30`. A regra é compartilhada por saldos, despesas, contas a pagar, orçamentos e metas.
+- No **CSV**, reconhecer agrupamento brasileiro (`2.500` → 250.000 centavos), vírgula decimal (`12,30` → 1.230 centavos) e formatos de exportação bancária com ponto decimal de uma ou duas casas (`12.30` → 1.230 centavos). Rejeitar agrupamentos inválidos em vez de tentar adivinhar.
+- No **OFX**, interpretar ponto como separador decimal (`-42.35` → -4.235 centavos). OFX com mais de duas casas decimais ou agrupamentos inválidos é recusado.
+- Entradas inválidas ou acima do limite compatível com o valor financeiro armazenado geram erro antes de qualquer gravação. Testes: `scripts/smoke-nex-personal-parser.mjs`.
+- Importação continua exigindo prévia e confirmação humana, pois arquivos de origem desconhecida podem ter convenções incomuns. O cliente deve validar valores relevantes na prévia.
+
 ## Correção, precisão e segurança
 - Não misturar dados de outros produtos do conglomerado; carteiras Nexa/Privy só vinculadas voluntariamente com prova de controle e permissão de leitura.
 - Sem referência bancária forte, o importador preserva duas compras idênticas no mesmo arquivo. Um hash do **multiconjunto de linhas** torna a reimportação do mesmo arquivo idempotente mesmo após reordenação; a posição relativa entre cobranças idênticas é mantida por contador de ocorrências. A estratégia anterior (batch-v2) continua reconhecida na reimportação exata, preservando compatibilidade.
