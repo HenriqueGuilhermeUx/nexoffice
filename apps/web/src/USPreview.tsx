@@ -15,6 +15,16 @@ export default function USPreview() {
     const previousTitle = document.title;
     const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
     const previousDescription = description?.content;
+    // Keep unapproved US previews out of public search indexes.
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const createdRobots = !robots;
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.name = 'robots';
+      document.head.appendChild(robots);
+    }
+    const previousRobots = robots.content;
+    robots.content = 'noindex,nofollow';
     document.documentElement.lang = 'en-US';
     document.title = "NexOffice USA | Alternative Ventures";
     if (description) description.content = "Business operations + AI — a United States localization preview.";
@@ -22,6 +32,8 @@ export default function USPreview() {
       document.documentElement.lang = previousLang;
       document.title = previousTitle;
       if (description && previousDescription !== undefined) description.content = previousDescription;
+      if (createdRobots) robots.remove();
+      else robots.content = previousRobots;
     };
   }, []);
 
