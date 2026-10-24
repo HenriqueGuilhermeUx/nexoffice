@@ -1,5 +1,6 @@
-import {useState} from 'react';
-import NexPersonalUSCrypto from './NexPersonalUSCrypto';
+import {useCallback,useState} from 'react';
+import NexPersonalUSCrypto,{type SharedCryptoObservation} from './NexPersonalUSCrypto';
+import {buildReadOnlyCryptoReview} from './nex-personal-us-agentic-contract';
 import './nex-personal-us.css';
 
 type Tab='overview'|'agentics'|'crypto'|'marketplace';
@@ -11,6 +12,10 @@ const specialists=[
 ] as const;
 export default function NexPersonalUSA(){
  const [tab,setTab]=useState<Tab>('overview');
+ const [mayaSnapshot,setMayaSnapshot]=useState<SharedCryptoObservation|null>(null);
+ const shareSnapshot=useCallback((snapshot:SharedCryptoObservation)=>{setMayaSnapshot(snapshot);setTab('agentics');},[]);
+ const revokeSnapshot=useCallback(()=>setMayaSnapshot(null),[]);
+ const cryptoReview=mayaSnapshot?buildReadOnlyCryptoReview({rawBalance:mayaSnapshot.rawBalance,address:mayaSnapshot.address,observedAt:mayaSnapshot.observedAt}):null;
  return <div className="npu-root">
   <aside className="npu-side" aria-label="Nex Personal USA navigation">
    <div className="npu-brand"><span className="npu-symbol">N</span><div><strong>Nex Personal</strong><small>UNITED STATES</small></div></div>
@@ -37,8 +42,19 @@ export default function NexPersonalUSA(){
    {tab==='agentics'&&<div className="npu-stack">
     <section className="npu-panel"><span className="npu-kicker">NEXA AGENTICS · USA ADAPTER</span><h2>Maya and your financial agents.</h2><p>This is a product preview, not a live connection to the Nexa Agentics runtime. The source engine stays on its own branch and tenant. No agent can authorize a transaction, sign with Privy or change a wallet.</p><div className="npu-tiles">{specialists.map(s=><div key={s.name}><small>{s.role}</small><strong>{s.name}</strong><span>{s.description}</span></div>)}</div></section>
     <section className="npu-panel"><h3>Execution firewall</h3><p>Default deny: no user- or agent-initiated transfers, payments, trading, swaps, withdrawals, token approvals or delegation. Future actions require US-specific identity, verified owner, consent, allowlist, limits, independent approval and reconciliation.</p></section>
+    <section className="npu-panel" aria-label="Local wallet review">
+     <span className="npu-kicker">MAYA · YOUR EXPLICITLY SHARED DATA</span><h2>Crypto portfolio review</h2>
+     {!cryptoReview?<p>No wallet data was shared with Maya. You can opt in to a local snapshot on the Crypto Wallets page. No data is transmitted to Nexa Agentics.</p>:<>
+      <div className="npu-tiles"><div><small>Source</small><strong>Polygon · native USDC</strong><span>Browser RPC, not a verified Nex Personal account link</span></div>
+       <div><small>Observed</small><strong>{new Date(mayaSnapshot!.observedAt).toLocaleString('en-US')}</strong><span>Historical snapshot · not a live position</span></div>
+       <div><small>Shared locally</small><strong>{new Date(mayaSnapshot!.sharedAt).toLocaleString('en-US')}</strong><span>Not persisted on the server</span></div></div>
+      {cryptoReview.insights.map((insight,i)=><p key={i}>{insight}</p>)}
+      <div className="npu-buttons"><button type="button" onClick={revokeSnapshot}>Revoke Maya snapshot</button></div>
+      <small>Deterministic local review. Owner binding unverified; execution, advice, signing and withdrawals unavailable.</small>
+     </>}
+    </section>
    </div>}
-   {tab==='crypto'&&<NexPersonalUSCrypto/>}
+   {tab==='crypto'&&<NexPersonalUSCrypto onShareReview={shareSnapshot} onRevokeReview={revokeSnapshot}/>}
    {tab==='marketplace'&&<section className="npu-panel"><span className="npu-kicker">PARTNER MARKETPLACE</span><h2>Relevant options, never hidden incentives.</h2><p>Banking, credit, brokerage and investment partners will be reviewed individually for US licensing, suitability, disclosures and commissions. Financial data won't be sold. No products are currently distributed from this preview.</p><div className="npu-tiles"><div><small>BANKING</small><strong>Coming later</strong><span>Plaid provides data aggregation, not a bank account</span></div><div><small>INVESTMENTS</small><strong>Research first</strong><span>F-Insight USA adaptation pending</span></div><div><small>PARTNERS</small><strong>Legal review</strong><span>No transactions or referrals active</span></div></div></section>}
    <footer className="npu-footer">Nex Personal USA · Separate preview · Crypto wallet connections are local browser sessions only · Not financial or investment advice</footer>
   </main>
