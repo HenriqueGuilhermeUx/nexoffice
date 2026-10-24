@@ -50,6 +50,12 @@ try{
  ]});
  assert.equal(referenceImport.status,200,JSON.stringify(referenceImport.body));
  assert.equal(referenceImport.body.imported,2,'Distinct OFX FITIDs must retain otherwise-identical same-day charges.');
+ const correctedReference=await call('/v1/personal/transactions/import',alice,'POST',{accountId,rows:[
+  {date,description:'Compra OFX corrigida pelo banco',amountMinor:'-550',reference:'bank-operation-a'}
+ ]});
+ assert.equal(correctedReference.status,200,JSON.stringify(correctedReference.body));
+ assert.equal(correctedReference.body.imported,0,'Same FITID with corrected amount/description must not double-count.');
+ assert.equal(correctedReference.body.duplicates,1);
 
  const invalid=await call('/v1/personal/transactions/import',bob,'POST',{accountId,rows:csv.rows});
  assert.equal(invalid.status,404,'Different user cannot import to another account.');
