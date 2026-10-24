@@ -26,6 +26,12 @@ assert.match(api,/dataSharing:false,accountLinking:false,portfolioImported:false
 assert.match(api,/row\.source!=='Banco Central do Brasil - SGS'/);
 assert.match(api,/verifyFInsightQuote\(payload\.quote,symbol\)/);
 assert.match(api,/redirect:'error'/);
+assert.ok(api.includes('!/^[0-9]{2}[/][0-9]{2}[/][0-9]{4}$/.test(row.date)'),
+ 'BCB DD/MM/YYYY guard must be a syntactically valid regex literal');
+const bcbDate=/^[0-9]{2}[/][0-9]{2}[/][0-9]{4}$/;
+assert.ok(bcbDate.test('24/10/2026'));
+assert.ok(!bcbDate.test('2026-10-24'));
+assert.ok(!bcbDate.test('invalid-date'));
 assert.match(api,/finsight_unexpected_content/);
 assert.match(api,/Number\.isFinite\(Date\.parse\(q\.timestamp\)\)/);
 assert.ok(!api.includes('workspaceContext('),'PF must never reuse PJ workspace credentials');
