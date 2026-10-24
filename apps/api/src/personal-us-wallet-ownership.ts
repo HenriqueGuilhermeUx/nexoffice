@@ -67,6 +67,21 @@ export async function assessPersonalUSWalletProof(input:{
     now<issued||now>=expiry||expiry-issued>US_EXTERNAL_WALLET_MAX_CHALLENGE_MS)
    throw Error('CHALLENGE_EXPIRED');
  if(!/^[0-9a-f]{64}$/.test(c.nonceHash)||typeof c.expectedMessage!=='string')throw Error('MALFORMED_CHALLENGE');
+ // Reconstruct server-authoritative SIWE fields. A forged message cannot silently
+ // change nonce, origin, chain, account, issue time, expiry or request identifier.
+ const nonce=/\\nNonce: ([0-9a-f]{64})\\n/.exec(c.expectedMessage)?.[1];
+ if(!nonce||hashUSWalletChallengeNonce(nonce)!==c.nonceHash)throw Error('MALFORMED_CHALLENGE');
+ const {domain}=validOrigin(c.origin);
+ const expected=[
+  domain+' wants you to sign in with your Ethereum account:',
+  c.address,'',
+  'Link this wallet to your Nex Personal USA account. This signature does not authorize a transaction.','',
+  'URI: '+c.origin,
+  'Version: 1','Chain ID: 137',
+  'Nonce: '+nonce,'Issued At: '+c.issuedAt,'Expiration Time: '+c.expiresAt,
+  'Request ID: '+c.id
+ ].join('\\n');
+ if(expected!==c.expectedMessage)throw Error('MALFORMED_CHALLENGE');
  if(input.signedMessage!==c.expectedMessage)throw Error('CHALLENGE_MESSAGE_MISMATCH');
  if(typeof input.signature!=='string'||!/^0x[0-9a-fA-F]{130,}$/.test(input.signature))throw Error('INVALID_SIGNATURE_FORMAT');
  if(!input.verifier)throw Error('SIGNATURE_VERIFIER_UNAVAILABLE');
