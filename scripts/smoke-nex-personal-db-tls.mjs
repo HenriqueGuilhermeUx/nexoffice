@@ -5,12 +5,14 @@ import {personalPgConnection} from '../apps/api/src/personal-preview-db-config.t
 const database='postgresql://neon_user:pa%40ss%3Aword@ep-unit-test.neon.tech:5432/nex_personal_preview';
 const preview={NEX_PERSONAL_PREVIEW:'true',CI:'false',NEX_PERSONAL_PREVIEW_CI:'false',DATABASE_SSL:'true'};
 for(const mode of ['require','prefer','verify-ca','disable']){
- const raw=database+'?sslmode='+mode+'&channel_binding=require&uselibpqcompat=true';
+ const raw=database+'?sslmode='+mode+'&channel_binding=require&uselibpqcompat=true&ssl=0&host=localhost';
  const x=personalPgConnection(raw,preview);
  const parsed=new URL(x.connectionString);
  assert.equal(parsed.searchParams.get('sslmode'),'verify-full','always verify host and CA');
  assert.equal(parsed.searchParams.get('channel_binding'),'require','keep channel binding');
  assert.equal(parsed.searchParams.has('uselibpqcompat'),false,'no weaker libpq alias');
+ assert.equal(parsed.searchParams.has('ssl'),false,'cannot override SSL mode with ssl=0');
+ assert.equal(parsed.searchParams.has('host'),false,'query cannot override verified hostname');
  assert.equal(parsed.password,'pa%40ss%3Aword');
  assert.equal(x.ssl,undefined,'never set rejectUnauthorized=false for Personal');
 }
