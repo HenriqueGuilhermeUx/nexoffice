@@ -80,6 +80,7 @@ jobs:
       WEB_APP_URL: http://localhost:5173
       NEXOFFICE_EXTERNAL_ACTIONS: "false"
       NEXOFFICE_INTERNAL_KEY: "platform-smoke-key"
+      NEXA_PJ_BINDING_PREFLIGHT_KEY: "ci-only-nexa-pj-separate-binding-key-2026"
       NEXOFFICE_ADMIN_EMAILS: "admin-smoke@nexoffice.test"
       NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
     steps:
@@ -170,6 +171,8 @@ jobs:
         run: node scripts/smoke-statement-import.mjs
       - name: Smoke test AV platform provisioning
         run: node scripts/smoke-platform.mjs
+      - name: Smoke test Nexa PJ dedicated read-only company binding
+        run: node scripts/smoke-nexa-pj-binding-preflight.mjs
       - name: Smoke test AV vertical bridge SDK
         run: node scripts/smoke-platform-sdk.mjs
       - name: Smoke test health data firewall

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import NexaPjAccessGate from './NexaPjAccessGate';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
@@ -35,7 +36,17 @@ const queryMaterial=new URLSearchParams(location.search).get('material')||'';
 const publicMaterialToken=/^[0-9a-f-]{36}$/i.test(pathMaterial||queryMaterial)?(pathMaterial||queryMaterial):'';
 const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
-const appRequested=params.has('app')||handoffRequested;
+const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
+const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
+if(nexaPjBuild){
+ document.documentElement.classList.add('nexa-pj-theme');
+ document.title='Nexa PJ — Gestão empresarial e Conta Nexa';
+ document.querySelector('meta[name="description"]')?.setAttribute('content','Nexa PJ: gestão empresarial, CRM, ERP, automações e Conta Nexa em um só lugar.');
+ document.querySelector('meta[property="og:site_name"]')?.setAttribute('content','Nexa PJ');
+ document.querySelector('meta[property="og:title"]')?.setAttribute('content','Nexa PJ — Gestão empresarial e Conta Nexa');
+ document.querySelector('meta[property="og:description"]')?.setAttribute('content','Nexa PJ: gestão empresarial e operações financeiras conectadas.');
+ document.querySelector('link[rel="canonical"]')?.setAttribute('href','https://trynexa.com.br/pj');
+}
 const legalRequested=params.has('legal');
 
 const appSurface=<>
@@ -63,7 +74,9 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {publicMaterialToken
+    {nexaPjBuild
+      ? <NexaPjAccessGate/>
+      : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
       : legalRequested
         ? <PublicLegalPage/>

@@ -52,7 +52,7 @@ export default function DocumentWorkspaceCenter(){
       <article><i>↑</i><b>Upload & assinatura</b><p>Envie um documento já pronto e escolha os signatários sem recriar o conteúdo.</p><small>Arquivo bruto permanece no cofre documental seguro.</small></article>
       <article><i>✓</i><b>Assinaturas</b><p>Eletrônica para o dia a dia ou ICP-Brasil quando precisar de certificado digital.</p><small>A modalidade não muda o consumo da franquia.</small></article>
       <article><i>◈</i><b>Inteligência</b><p>Dora encontra partes, valores, obrigações, renovações, vencimentos e alertas.</p><small>O arquivo bruto continua protegido fora da camada operacional.</small></article>
-      <article><i>⚡</i><b>Fluxos documentais</b><p>Receba, extraia, revise, aprove e arquive documentos como processos.</p><small>Automação documental disponível por trás da experiência.</small></article>
+      <article><i>⚡</i><b>DocFlow · Fluxos documentais</b><p>Receba, extraia, revise, aprove e arquive documentos como processos.</p><small>Acompanhe os fluxos de documentos e as etapas disponíveis neste workspace; nenhuma aprovação é concedida automaticamente.</small></article>
       <article><i>#</i><b>Validação & certificados</b><p>Hashes e evidências verificáveis permanecem no cofre documental seguro.</p><small>A infraestrutura técnica não precisa aparecer para o cliente.</small></article>
     </div>
 
