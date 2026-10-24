@@ -1,4 +1,5 @@
 import {useEffect,useState,type FormEvent} from 'react';
+import PersonalBrokerage from './PersonalBrokerage';
 
 /**
  * Nex Personal research surface. The market bridge is separate from PF finances.
@@ -95,6 +96,8 @@ export default function PersonalFInsight({token,onOpenAgent,onOpenWealth}:{
     <small>Dados obtidos em {when(macro.fetchedAt)}. Séries podem ter datas de referência diferentes.</small>
    </div>}
   </section>
+
+  <PersonalBrokerage token={token}/>
 
   <section className="np-panel np-studio-card">
    <h2>F-Insight completo</h2>
