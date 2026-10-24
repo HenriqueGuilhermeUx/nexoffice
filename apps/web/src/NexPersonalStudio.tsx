@@ -10,6 +10,8 @@ type Goal={id:string;name:string;target_minor:string;saved_minor:string;due_on:s
 type Wealth={id:string;name:string;kind:'asset'|'liability';category:string;amount_minor:string};
 type Bill={id:string;name:string;amount_minor:string;next_due_on:string;interval_months:number};
 type Insight={kind:string;title:string;detail:string;source:string};
+type RecurringPattern={displayName:string;category:string;occurrences:number;monthlyAmountMinor:string;firstDate:string;latestDate:string;amountChangeMinor:string;increaseDetected:boolean;confidence:'medium';reason:string};
+type RecurringResponse={patterns:RecurringPattern[];candidateCount:number;note:string;marketingUsed:false;externalEffect:false;providerConnected:false};
 type Studio={
  accounts:ManualAccount[];transactions:RecordTx[];budgets:Budget[];
  goals:Goal[];wealth:Wealth[];bills:Bill[];
@@ -65,8 +67,18 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  const [csvName,setCsvName]=useState('');
  const [mayaQuestion,setMayaQuestion]=useState('');
  const [mayaAnswer,setMayaAnswer]=useState('');
+ const [recurring,setRecurring]=useState<RecurringResponse|null>(null);
+ const [recurringError,setRecurringError]=useState('');
  const load=useCallback(async()=>{const next=await request<Studio>('/v1/personal/studio',token);setData(next);setError('');},[token]);
  useEffect(()=>{setLoading(true);void load().catch(e=>setError(e instanceof Error?e.message:'Erro ao carregar.')).finally(()=>setLoading(false));},[load]);
+ useEffect(()=>{
+  if(view!=='spending'||busy)return;
+  let active=true;
+  void request<RecurringResponse>('/v1/personal/transactions/recurring-patterns',token)
+   .then(r=>{if(active){setRecurring(r);setRecurringError('');}})
+   .catch(e=>{if(active){setRecurring(null);setRecurringError(e instanceof Error?e.message:'Recorrências indisponíveis.');}});
+  return ()=>{active=false;};
+ },[view,token,busy]);
  const accountId=selectedAccount||data?.accounts[0]?.id||'';
  async function action(path:string,method:string,payload?:unknown,success='Informações salvas.'){
   setBusy(true);setError('');setNotice('');
@@ -195,6 +207,19 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
     <p>Open Finance e blockchain: adaptadores de prévia preparados, mas <strong>sem banco ou carteira conectados</strong> nesta homologação. Quantidades cripto não são convertidas ficticiamente para reais.</p>
    </Card>
   <div className="np-studio-summary"><div>Gastos registrados no mês<strong>{formatMinor(data.totals.spentMonthMinor)}</strong><small>Parcial: depende do que foi importado ou digitado</small></div></div>
+  <Card title="Mila · Possíveis gastos recorrentes">
+   <p>A Mila procura cobranças parecidas em pelo menos três meses consecutivos. É apenas um padrão estatístico nos seus extratos, não uma assinatura confirmada. Nenhum dado vai para publicidade ou parceiros.</p>
+   {recurringError?<p className="np-error" role="status">{recurringError}</p>:recurring===null?<p>Conferindo padrões dos seus lançamentos…</p>:
+     recurring.patterns.length===0?<p>Ainda não encontramos recorrências com evidência suficiente. Continue importando extratos e confira suas assinaturas pelo banco.</p>:
+     recurring.patterns.map((p,i)=><div className="np-line" key={p.displayName+'-'+i}>
+       <span><strong>{p.displayName}</strong>
+       <small>{p.category} · {p.occurrences} meses observados · Última cobrança: {p.latestDate.slice(8,10)+'/'+p.latestDate.slice(5,7)+'/'+p.latestDate.slice(0,4)}</small>
+       <small>{p.increaseDetected?'Possível aumento de '+formatMinor(p.amountChangeMinor)+' no período observado.':'Valores e datas semelhantes nos últimos meses.'}</small>
+       </span>
+       <strong>{formatMinor(p.monthlyAmountMinor)}</strong>
+     </div>)}
+   <small>{recurring?.note||'A análise utiliza apenas as transações do seu espaço pessoal autenticado.'}</small>
+  </Card>
   <Card title="Gastos por categoria">
    {data.spentByCategory.length===0?<p>Adicione movimentações para acompanhar seus gastos.</p>:data.spentByCategory.map(t=><div className="np-line" key={t.category}><span>{t.category}</span><strong>{formatMinor(t.spent_minor)}</strong></div>)}
   </Card>
