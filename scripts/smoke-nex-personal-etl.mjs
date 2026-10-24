@@ -63,7 +63,7 @@ assert.equal(sameLogDifferentLabels.items[0].duplicateCandidate,true,
 assert.notEqual(enrichEvmTransfer({...tx,action:'gas',logIndex:12}).fingerprint,
  enrichEvmTransfer({...tx,action:'transfer',logIndex:12}).fingerprint,
  'Network gas and asset transfer remain separate economic events');
-assert.match(cleanTransactionDescription('PIX para 0x'+'f'.repeat(40)),/\\[carteira\\]/,
+assert.match(cleanTransactionDescription('PIX para 0x'+'f'.repeat(40)),/\[carteira\]/,
  'Preview must not display full external wallet addresses');
 const gas=enrichEvmTransfer({...tx,from:wallet,to:other,action:'gas',logIndex:10});
 assert.equal(gas.category,'Taxas');assert.equal(gas.treatment,'expense');
