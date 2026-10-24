@@ -61,8 +61,25 @@ const splitCsvLine=(line:string,delimiter:string):string[]=>{
  if(inside)fail('Arquivo CSV com aspas não fechadas.');
  return [...parts,current.trim()];
 };
+// A quoted CSV field may contain newlines. Split complete records, not lines.
+const csvRecords=(source:string):string[]=>{
+ const input=source.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n');
+ const records:string[]=[];let record='',quoted=false;
+ for(let i=0;i<input.length;i++){
+  const char=input[i];
+  if(char==='"'){
+   if(quoted&&input[i+1]==='"'){record+='""';i++;continue;}
+   quoted=!quoted;
+  }
+  if(char==='\n'&&!quoted){if(record.trim())records.push(record);record='';}
+  else record+=char;
+ }
+ if(quoted)fail('Arquivo CSV com aspas não fechadas.');
+ if(record.trim())records.push(record);
+ return records;
+};
 export function parsePersonalCsv(text:string):StatementRow[]{
- const lines=text.replace(/^\uFEFF/,'').replace(/\r/g,'').split('\n').filter(x=>x.trim());
+ const lines=csvRecords(text);
  if(lines.length<2)fail('CSV vazio: inclua cabeçalho e pelo menos uma movimentação.');
  if(lines.length>251)fail('Importe no máximo 250 transações por vez.');
  const delimiter=lines[0].includes(';')?';':',';
