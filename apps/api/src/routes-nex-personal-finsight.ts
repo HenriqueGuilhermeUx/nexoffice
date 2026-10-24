@@ -82,7 +82,7 @@ export async function registerNexPersonalFInsightRoutes(app:FastifyInstance){
   const indicators=authorized.flatMap(meta=>{
    const row=snapshot[meta.id];
    if(!row||row.code!==meta.code||row.source!=='Banco Central do Brasil - SGS'||
-      !Number.isFinite(row.value)||typeof row.date!=='string'||!/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(row.date))return [];
+      !Number.isFinite(row.value)||typeof row.date!=='string'||!/^[0-9]{2}[/][0-9]{2}[/][0-9]{4}$/.test(row.date))return [];
    return [{id:meta.id,label:meta.label,value:row.value,unit:String(row.unit||''),date:row.date,source:row.source}];
   });
   return {provider:'f-insight',source:'Banco Central do Brasil - SGS',indicators,
