@@ -29,6 +29,8 @@ jobs:
         run: node --experimental-strip-types scripts/smoke-nex-personal-marketplace.mjs
       - name: Smoke test Nex Personal CSV and OFX parser
         run: node --experimental-strip-types scripts/smoke-nex-personal-parser.mjs
+      - name: Smoke test personal bill reminders and Brazil-local due dates
+        run: node --experimental-strip-types scripts/smoke-nex-personal-bill-window.mjs
       - name: Smoke test Nex Personal FGC and bank-fee draft
         run: node --experimental-strip-types scripts/smoke-nex-personal-financial-review.mjs
       - name: Smoke test private civic, debt and legal tools
