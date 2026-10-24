@@ -147,6 +147,10 @@ try{
  const bill=await call('/v1/personal/bills',alice,'POST',{name:'Conta de luz',amountMinor:'6500',nextDueOn:date,intervalMonths:1});
  assert.equal(bill.status,200);
  assert.equal(bill.body.scheduledPayment,false);
+ const pastBill=await call('/v1/personal/bills',alice,'POST',{name:'Lembrete antigo para revisão',amountMinor:'9999',nextDueOn:'2020-01-15',intervalMonths:0});
+ assert.equal(pastBill.status,200,JSON.stringify(pastBill.body));
+ assert.equal(pastBill.body.scheduledPayment,false);
+
 
  const studio=await call('/v1/personal/studio',alice);
  assert.equal(studio.status,200,JSON.stringify(studio.body));
@@ -155,6 +159,12 @@ try{
  assert.equal(studio.body.totals.spentMonthMinor,'11480');
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='budget'),'Real budget excess should be detected.');
  assert.ok(studio.body.maya.insights.some(x=>x.kind==='bills'));
+ assert.equal(studio.body.totals.pastDatedBillCount,1);
+ assert.equal(studio.body.totals.pastDatedBillsMinor,'9999');
+ assert.equal(studio.body.totals.upcomingBillsMinor,'6500','Old reminders must not inflate next 30 days');
+ assert.ok(studio.body.maya.insights.some(x=>x.kind==='past_dated_bills'));
+ assert.match(studio.body.maya.insights.find(x=>x.kind==='past_dated_bills').detail,/não é confirmação de dívida vencida/);
+
  assert.equal(studio.body.maya.externalModelCalled,false);
  assert.equal(studio.body.provenance.verifiedBanking,false);
 
