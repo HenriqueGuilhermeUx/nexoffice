@@ -35,7 +35,12 @@ if(process.env.NEXOFFICE_DATABASE_SCOPE!=='nex-personal-preview')throw new Error
 if(process.env.NODE_ENV!=='production')throw new Error('NODE_ENV=production required for public-facing staging');
 if(process.env.AUTO_MIGRATE!=='true'&&!isolatedCi)throw new Error('AUTO_MIGRATE=true required for isolated preview bootstrapping.');
 
-if(process.env.AUTO_MIGRATE==='true')await runPersonalPreviewMigrations();
+if(process.env.AUTO_MIGRATE==='true'){
+ // No connection details or personal data in startup logs.
+ console.info('personal_preview_migration_check_start');
+ await runPersonalPreviewMigrations();
+ console.info('personal_preview_migration_check_complete');
+}
 const app=Fastify({logger:{level:'warn'},bodyLimit:512*1024});
 const rate=new Map<string,{start:number;count:number}>();
 function checkRate(key:string,limit:number,windowMs:number){
