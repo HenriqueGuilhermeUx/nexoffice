@@ -6,6 +6,7 @@ const life=readFileSync('apps/api/src/routes-nex-personal-life.ts','utf8');
 const crypto=readFileSync('apps/web/src/NexaCryptoHub.tsx','utf8');
 const css=readFileSync('apps/web/src/nexa-life-rebrand.css','utf8');
 const names=readFileSync('scripts/smoke-nex-personal-names.mjs','utf8');
+const previewBuild=readFileSync('scripts/build-personal-preview-web.mjs','utf8');
 
 assert.match(app,/<strong>Nexa<\/strong>/);
 assert.doesNotMatch(app,/Nex <strong>Personal<\/strong>/);
@@ -20,6 +21,10 @@ assert.match(names,/Object.keys\(rooms\).length,16/);
 assert.match(css,/#06111f/);
 assert.match(css,/#31d7ff/);
 assert.match(css,/#218bff/);
+assert.match(previewBuild,/if\(process\.env\.NEX_PERSONAL_PREVIEW==='true'\)/);
+assert.match(previewBuild,/Nexa — Sua vida, um só lugar/);
+assert.match(previewBuild,/apps\/web\/dist\/index\.html/);
+assert.ok(!previewBuild.includes("writeFileSync(resolve(root,'apps/web/index.html')"));
 assert.match(crypto,/const WALLET_PORTAL='https:\/\/trynexa\.com\.br\/portal\/'/);
 assert.match(crypto,/const WALLET_SIGNUP='https:\/\/trynexa\.com\.br\/cadastro'/);
 assert.match(crypto,/target="_blank" rel="noopener noreferrer"/);
