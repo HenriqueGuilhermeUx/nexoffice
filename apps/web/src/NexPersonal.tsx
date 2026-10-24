@@ -216,12 +216,12 @@ export default function NexPersonal(){
             <div className="np-account-list">{accounts.slice(0,6).map(a=><div key={a.id} className="np-line"><span><strong>{a.institution_name}</strong><small>{a.name}</small></span><span><strong>{a.manually_reported?money(a.available_minor,a.currency):a.fresh?money(a.available_minor,a.currency):'Aguardando atualização'}</strong><small>{a.manually_reported?'Informado por você':'Atualizado em '+when(a.balance_as_of)}</small></span></div>)}</div>}
         </section>
       </>}
-      {section==='money'&&<NexPersonalStudio view="money" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='spending'&&<NexPersonalStudio view="spending" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='planning'&&<NexPersonalStudio view="planning" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='wealth'&&<NexPersonalStudio view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='money'&&<NexPersonalStudio key={token} view="money" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='spending'&&<NexPersonalStudio key={token} view="spending" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='planning'&&<NexPersonalStudio key={token} view="planning" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='wealth'&&<NexPersonalStudio key={token} view="wealth" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
-            {section==='maya'&&<NexPersonalStudio view="maya" token={token} onChanged={()=>void refresh(token)}/>}
+            {section==='maya'&&<NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>}
       {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
     </main>
   </div>;
