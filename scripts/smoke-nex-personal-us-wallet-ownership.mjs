@@ -21,6 +21,8 @@ const verifier=async()=>{verifyCalls++;return {verified:true,recoveredAddress:a,
 await assert.rejects(assessPersonalUSWalletProof({...input,authenticatedSubject:'us_subject_other',verifier}),/OWNER_SCOPE_DENIED/);
 await assert.rejects(assessPersonalUSWalletProof({...input,trustedOrigin:'https://other.example.test',verifier}),/ORIGIN_MISMATCH/);
 await assert.rejects(assessPersonalUSWalletProof({...input,signedMessage:'fraud',verifier}),/CHALLENGE_MESSAGE_MISMATCH/);
+await assert.rejects(assessPersonalUSWalletProof({...input,challenge:{...issued.challenge,nonceHash:'0'.repeat(64)},verifier}),/MALFORMED_CHALLENGE/);
+await assert.rejects(assessPersonalUSWalletProof({...input,challenge:{...issued.challenge,address:'0x2222222222222222222222222222222222222222'},verifier}),/MALFORMED_CHALLENGE/);
 await assert.rejects(assessPersonalUSWalletProof({...input,now:new Date(now.getTime()+US_EXTERNAL_WALLET_MAX_CHALLENGE_MS),verifier}),/CHALLENGE_EXPIRED/);
 assert.equal(verifyCalls,0,'early rejects must not reach signature verifier');
 await assert.rejects(assessPersonalUSWalletProof({...input,verifier:async()=>({verified:false,recoveredAddress:a,verificationType:'eoa'})}),/WALLET_SIGNATURE_UNVERIFIED/);
