@@ -48,7 +48,7 @@ export default function PersonalBrokerage({token}:{token:string}){
  return <section className="np-panel np-studio-card" aria-label="Corretoras e produtos de investimento">
   <span className="np-kicker">F-INSIGHT · FUTURO MARKETPLACE DE INVESTIMENTOS</span>
   <h2>Corretoras & Produtos</h2>
-  <p>O Nex Personal poderá reunir produtos de instituições parceiras, exibindo as condições e os riscos de cada alternativa. Por enquanto, explore os critérios e compare propostas que você já recebeu — sem encaminhar dados a nenhuma corretora.</p>
+  <p>A Nexa poderá reunir produtos de instituições parceiras, exibindo as condições e os riscos de cada alternativa. Por enquanto, explore os critérios e compare propostas que você já recebeu — sem encaminhar dados a nenhuma corretora.</p>
   {!partnerLive&&<p role="status" className="np-privacy-disclaimer"><strong>Parcerias em preparação.</strong> Ainda não temos ofertas contratáveis ou instituições parceiras habilitadas neste ambiente. Nenhum rendimento ou preço de demonstração aparece como real.</p>}
   {error&&<p className="np-error" role="alert">{error}</p>}
   <h3>O que considerar antes de escolher?</h3>
