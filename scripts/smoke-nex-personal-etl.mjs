@@ -51,6 +51,20 @@ assert.equal(swapped.treatment,'excluded_internal','Swap legs must not be record
 const pending=enrichEvmTransfer({...tx,status:'pending'});
 assert.equal(pending.treatment,'review');assert.equal(pending.metadata.confirmed,false);
 assert.notEqual(enrichEvmTransfer({...tx,logIndex:2}).fingerprint,enrichEvmTransfer({...tx,logIndex:3}).fingerprint);
+const sameLogDifferentLabels=previewEnrichment([
+ {...tx,action:'transfer',logIndex:12},{...tx,action:'swap',logIndex:12},
+ {...tx,action:'bridge',logIndex:12}
+]);
+assert.equal(sameLogDifferentLabels.items[0].fingerprint,sameLogDifferentLabels.items[1].fingerprint,
+ 'Same on-chain event must retain one canonical identity even if classifiers disagree');
+assert.equal(sameLogDifferentLabels.items[1].fingerprint,sameLogDifferentLabels.items[2].fingerprint);
+assert.equal(sameLogDifferentLabels.items[0].duplicateCandidate,true,
+ 'Multiple classifier views of the same log require reconciliation, not double counting');
+assert.notEqual(enrichEvmTransfer({...tx,action:'gas',logIndex:12}).fingerprint,
+ enrichEvmTransfer({...tx,action:'transfer',logIndex:12}).fingerprint,
+ 'Network gas and asset transfer remain separate economic events');
+assert.match(cleanTransactionDescription('PIX para 0x'+'f'.repeat(40)),/\\[carteira\\]/,
+ 'Preview must not display full external wallet addresses');
 const gas=enrichEvmTransfer({...tx,from:wallet,to:other,action:'gas',logIndex:10});
 assert.equal(gas.category,'Taxas');assert.equal(gas.treatment,'expense');
 assert.equal(gas.unit,'USDC','Do not silently convert native units to BRL');
