@@ -18,7 +18,7 @@ const currency=z.literal('BRL').default('BRL');
 async function ownerOf(req:FastifyRequest):Promise<string>{
   const user=await authenticate(req);
   const profile=await query<{user_id:string}>('select user_id from nex_personal.profiles where user_id=$1',[user.id]);
-  if(!profile.length)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nex Personal primeiro.');
+  if(!profile.length)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nexa primeiro.');
   return user.id;
 }
 function monthKey(date:string){
@@ -426,6 +426,6 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       evidence=[];
     }
     return {answer,evidence,verifiedBanking:false,source:'user_declared_or_imported',
-      modelCalled:false,canInitiatePayment:false,externalEffect:false,disclaimer:'Resposta informativa baseada apenas em dados cadastrados no Nex Personal.'};
+      modelCalled:false,canInitiatePayment:false,externalEffect:false,disclaimer:'Resposta informativa baseada apenas em dados cadastrados neste espaço Nexa.'};
   });
 }
