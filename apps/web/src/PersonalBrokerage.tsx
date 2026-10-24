@@ -3,9 +3,9 @@ import {useEffect,useState,type FormEvent} from 'react';
 /** Educational comparison is local to the browser. No partner lead, order or
  * personal financial information is sent by this component. */
 type Category={id:string;label:string;focus:string};
-type Brokerage={status:'preparation';distributionEnabled:false;recommendationEnabled:false;
- suitabilityVerified:false;partners:unknown[];products:unknown[];leadSubmissionEnabled:false;
- accountOpeningEnabled:false;orderExecutionEnabled:false;customerDataShared:false;
+type Brokerage={status:'preparation'|'open';distributionEnabled:boolean;recommendationEnabled:boolean;
+ suitabilityVerified:boolean;partners:unknown[];products:unknown[];leadSubmissionEnabled:boolean;
+ accountOpeningEnabled:boolean;orderExecutionEnabled:boolean;customerDataShared:boolean;
  commissionDisclosureRequired:true;categories:Category[];note:string};
 type Draft={provider:string;product:string;family:string;minimum:string;fee:string;liquidity:string;risks:string};
 const emptyDraft:Draft={provider:'',product:'',family:'',minimum:'',fee:'',liquidity:'',risks:''};
