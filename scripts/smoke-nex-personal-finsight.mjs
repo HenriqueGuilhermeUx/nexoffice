@@ -33,7 +33,7 @@ assert.ok(bcbDate.test('24/10/2026'));
 assert.ok(!bcbDate.test('2026-10-24'));
 assert.ok(!bcbDate.test('invalid-date'));
 assert.match(api,/finsight_unexpected_content/);
-assert.match(api,/Number\.isFinite\(Date\.parse\(q\.timestamp\)\)/);
+assert.match(readFileSync('apps/api/src/personal-finsight-quote.ts','utf8'),/Number\.isFinite\(at\)/);
 assert.ok(!api.includes('workspaceContext('),'PF must never reuse PJ workspace credentials');
 assert.ok(!api.includes('FINSIGHT_SERVICE_KEY'),'PF must not reuse PJ bridge credentials');
 assert.ok(!api.includes('SELECT *')&&!api.includes('select *'),'No personal data export to research provider');
