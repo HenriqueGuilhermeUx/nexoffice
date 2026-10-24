@@ -104,7 +104,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
  return <div className="np-life">
   <div className="np-life-hero">
    <div>
-    <div className="np-kicker">NEX PERSONAL · SISTEMA OPERACIONAL DA VIDA</div>
+    <div className="np-kicker">NEXA · SISTEMA OPERACIONAL DA SUA VIDA</div>
     <h2>Entre. Escolha um ambiente. Resolva sua vida.</h2>
     <p>Seu escritório pessoal em 2D. A Maya direciona cada necessidade a um especialista, sem misturar seus dados entre empresas.</p>
    </div>
@@ -171,7 +171,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
       }}/>{room.title}</label>)}
      </div>
      <label className="np-life-proactive"><input type="checkbox" checked={proactive==='on_open'} onChange={e=>setProactive(e.target.checked?'on_open':'off')}/>
-      Mostrar lembretes e sugestões quando eu abrir o Nex Personal (sem notificações externas)</label>
+      Mostrar lembretes e sugestões quando eu abrir a Nexa (sem notificações externas)</label>
      <button type="button" className="np-primary" disabled={busy} onClick={()=>void savePreferences()}>Salvar minhas escolhas</button>
     </div>}
     {!selecting&&<div className="np-life-selected-areas">{(data?.preferences.focus_areas||[]).length?
