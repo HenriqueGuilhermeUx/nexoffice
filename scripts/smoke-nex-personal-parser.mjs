@@ -28,6 +28,14 @@ const csv=[
  '23/10/2026;Supermercado;-30,90;Alimentação;abc-1',
  '2026-10-22;"Loja; Venda";-2.000,50;Compras;abc-2'
 ].join('\n');
+const multilineCsv='data;descricao;valor;referencia\r\n2026-10-23;"Compra em\r\nloja";-10,50;ml-1\r\n2026-10-24;"Mercado ""Bom""";-2,00;ml-2';
+const multilineRows=parsePersonalCsv(multilineCsv);
+assert.equal(multilineRows.length,2,'Quoted newlines must not count as extra transactions');
+assert.equal(multilineRows[0].description,'Compra em\nloja');
+assert.equal(multilineRows[0].amountMinor,'-1050');
+assert.equal(multilineRows[0].reference,'ml-1');
+assert.equal(multilineRows[1].description,'Mercado "Bom"');
+assert.throws(()=>parsePersonalCsv('data;descricao;valor\n2026-10-23;"Compra\nsem fechamento;-2,00'),/aspas não fechadas/);
 const groupingCsv='data;descricao;valor\n2026-10-23;Assinatura anual;-2.500';
 assert.equal(parsePersonalCsv(groupingCsv)[0].amountMinor,'-250000','Bank CSV group separator is not a decimal dot');
 const rows=parsePersonalStatement(csv,'transacoes.csv');
