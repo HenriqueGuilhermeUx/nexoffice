@@ -35,7 +35,14 @@ const notCi=personalPgConnection(database,{NEX_PERSONAL_PREVIEW:'false',DATABASE
 assert.deepEqual(notCi,{connectionString:database,ssl:{rejectUnauthorized:false}},'legacy PJ behavior intentionally unchanged');
 const db=readFileSync('apps/api/src/db.ts','utf8');
 const migrations=readFileSync('apps/api/src/personal-preview-migrations.ts','utf8');
+const server=readFileSync('apps/api/src/server-personal.ts','utf8');
 assert.match(db,/personalPgConnection\(connectionString,process\.env\)/);
 assert.match(migrations,/personalPgConnection\(url,process\.env\)/);
 assert.doesNotMatch(migrations,/rejectUnauthorized:\s*false/);
+assert.match(migrations,/connectionTimeoutMillis:30_000/);
+assert.match(migrations,/query_timeout:30_000/);
+assert.match(db,/NEX_PERSONAL_PREVIEW==='true'\?\{connectionTimeoutMillis:30_000\}:\{\}/);
+assert.match(server,/personal_preview_migration_check_start/);
+assert.match(server,/personal_preview_migration_check_complete/);
+
 console.log('Nex Personal TLS: enforce verify-full and channel binding without modifying PJ or CI.');
