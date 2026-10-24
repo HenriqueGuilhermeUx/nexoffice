@@ -42,7 +42,7 @@ assert.ok(!api.includes("app.post(")&&!api.includes("app.put(")&&!api.includes("
 assert.match(ui,/status\?\.configured!==true/);
 assert.match(ui,/Sem ordens, recomendações personalizadas ou conexão automática/);
 assert.match(ui,/target="_blank" rel="noopener noreferrer"/);
-assert.match(ui,/Nenhum dado do Nex Personal ou credencial de acesso é enviado/);
+assert.match(ui,/Nenhum dado deste espaço Nexa ou credencial de acesso é enviado/);
 assert.ok(!ui.includes('FINSIGHT_PERSONAL_INTERNAL_KEY'),'Provider secrets never reach browser');
 assert.ok(!ui.includes('localStorage.'),'No F-Insight identity stored in browser');
 
