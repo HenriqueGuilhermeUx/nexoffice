@@ -118,6 +118,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
  {view==='money'&&<>
   <Card title="Contas que você informa">
    <p>Comece sem conectar bancos. Os saldos abaixo são declarações suas, não são certificados pelas instituições.</p>
+    <p><small>Valores em reais: ponto separa milhares e vírgula separa centavos. Ex.: <strong>2.500</strong> = R$ 2.500,00 e <strong>2.500,50</strong> = R$ 2.500,50.</small></p>
    {data.accounts.map(a=><div className="np-line" key={a.id}><span><strong>{a.name}</strong><small>{a.institution_name} · Informada por você</small></span><strong>{formatMinor(a.available_minor)}</strong></div>)}
    <form className="np-studio-form" onSubmit={e=>submit(e,f=>({path:'/v1/personal/manual-accounts',method:'POST',payload:{
     name:field(f,'name'),institutionName:field(f,'institutionName')||undefined,balanceMinor:parseAmount(field(f,'balance'))
@@ -151,7 +152,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
    </form>
   </Card>}
   {data.accounts.length>0&&<Card title="Importar extrato CSV ou OFX">
-   <p>Importe CSV (<strong>data;descricao;valor</strong>, com despesas negativas) ou OFX. Confira a prévia; sua posição de saldo informado não será alterada.</p>
+   <p>Importe CSV (<strong>data;descricao;valor</strong>, com despesas negativas) ou OFX. Em CSV, <strong>2.500</strong> significa R$ 2.500,00; CSVs que usam ponto decimal de uma ou duas casas também são aceitos, como 12.30. OFX utiliza ponto para os centavos. Confira a prévia antes de confirmar; seu saldo declarado não será alterado.</p>
    <div className="np-studio-form">
     <label>Conta de destino<select value={accountId} onChange={e=>{setSelectedAccount(e.target.value);setCsv([]);}}>{data.accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
     <label>Arquivo CSV<input type="file" accept=".csv,.ofx,text/csv,application/x-ofx" onChange={e=>void readFile(e.currentTarget.files?.[0])}/></label>
