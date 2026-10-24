@@ -65,7 +65,7 @@ export default function PersonalPrivacyCenter({token}:{token:string}){
   </section>
   <section className="np-panel">
    <h2>Baixe uma cópia do seu espaço</h2>
-   <p>Gere um arquivo JSON com seus registros pessoais disponíveis na homologação. Não inclui senhas, tokens, sessões ou informações de outros aplicativos. O arquivo é protegido apenas pelos recursos do dispositivo onde você o salvar.</p>
+   <p>Gere um arquivo JSON com seus registros pessoais disponíveis na homologação, incluindo o histórico de ações de auditoria do seu perfil. Não inclui senhas, tokens, sessões, identificadores técnicos privados de provedores nem informações de outros aplicativos. O arquivo é protegido apenas pelos recursos do dispositivo onde você o salvar.</p>
    <button className="np-primary" type="button" onClick={()=>void exportData()} disabled={busy}>{busy?'Preparando…':'Exportar meus dados pessoais'}</button>
    <p className="np-footnote">A exportação possui limite técnico de 5.000 registros por categoria e informa se foi truncada; não substitui um procedimento formal de portabilidade ou exclusão sob a LGPD.</p>
    {notice&&<p className="np-studio-success" role="status">{notice}</p>}
