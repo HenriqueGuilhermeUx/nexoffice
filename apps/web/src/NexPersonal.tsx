@@ -93,7 +93,7 @@ export default function NexPersonal(){
         // Network failures / provider cold-starts do not invalidate tokens.
         setError('Não conseguimos atualizar seus dados agora. Seu login foi mantido; tente novamente.');
       }
-    }).finally(()=>setReady(true));
+    }).finally(()=>{if(activeTokenRef.current===token)setReady(true);});
   },[refresh,token]);
 
   async function submitAuth(e:FormEvent<HTMLFormElement>){
@@ -162,7 +162,7 @@ export default function NexPersonal(){
         {mode==='register'&&PREVIEW&&<label>Código de convite para homologação<input name="previewInviteCode" type="password" autoComplete="off" minLength={8} maxLength={128} required/></label>}
         <label>E-mail<input name="email" type="email" autoComplete="email" required/></label>
         <label>Senha<input name="password" type="password" autoComplete={mode==='register'?'new-password':'current-password'} minLength={mode==='register'?8:1} required/></label>
-        {error&&<div className="np-error" role="alert">{error}</div>}
+        {error&&<div className="np-error" role="alert">{error} <button type="button" className="np-text-button" onClick={()=>void retryLoading()}>Tentar atualizar</button></div>}
         <button className="np-primary" type="submit" disabled={busy}>{busy?'Processando…':mode==='register'?'Criar meu espaço':'Entrar no Nex Personal'}</button>
       </form>
       <button className="np-text-button" onClick={()=>{setMode(mode==='register'?'login':'register');setError('');}}>
