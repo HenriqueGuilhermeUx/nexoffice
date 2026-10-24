@@ -32,7 +32,9 @@ export async function walletReadRequest(provider:Eip1193Provider,method:WalletRe
  if(method==='eth_call'){
   if(!Array.isArray(params)||params.length!==2||params[1]!=='latest')throw Error('Invalid read-only RPC call');
   const call=params[0] as {to?:unknown;data?:unknown}|null;
-  if(!call||typeof call!=='object'||typeof call.to!=='string'||call.to.toLowerCase()!==US_CRYPTO_USDC_POLYGON||
+  if(!call||typeof call!=='object'||Array.isArray(call)||
+   Object.keys(call).some(key=>key!=='to'&&key!=='data')||
+   typeof call.to!=='string'||call.to.toLowerCase()!==US_CRYPTO_USDC_POLYGON||
    typeof call.data!=='string'||!/^0x70a08231[0-9a-f]{64}$/.test(call.data))
      throw Error('Only native Polygon USDC balanceOf is permitted');
  }else if(params?.length)throw Error('No parameters permitted for this wallet method');
