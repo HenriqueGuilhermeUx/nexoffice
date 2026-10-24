@@ -39,7 +39,7 @@ const catalog=[
 async function personalOwner(req:FastifyRequest){
  const user=await authenticate(req);
  const profile=await query<{user_id:string}>('select user_id from nex_personal.profiles where user_id=$1',[user.id]);
- if(!profile.length)throw new ApiError(409,'personal_activation_required','Ative o Nex Personal para continuar.');
+ if(!profile.length)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nexa para continuar.');
  return user.id;
 }
 export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
