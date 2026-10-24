@@ -153,7 +153,7 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
    </div>
    {csv.length>0&&<div className="np-studio-preview"><strong>Prévia: {csvName} — {csv.length} movimentos</strong>
     {csv.slice(0,5).map((r,i)=><div className="np-line" key={i}><span>{r.date} · {r.description}</span><strong>{formatMinor(r.amountMinor)}</strong></div>)}
-    <p>{csv.length>5?'Exibindo as primeiras cinco linhas. ':''}Duplicatas são identificadas por data, valor, descrição e referência bancária quando disponível. Lançamentos idênticos sem identificador podem ser confundidos.</p>
+    <p>{csv.length>5?'Exibindo as primeiras cinco linhas. ':''}Com identificador bancário, transações repetidas são reconhecidas. Sem identificador, duas compras iguais no mesmo arquivo são preservadas; reimportar exatamente o mesmo arquivo não as duplica. <strong>Arquivos diferentes com períodos sobrepostos podem repetir lançamentos:</strong> confira o extrato antes de confirmar.</p>
     <button className="np-primary" onClick={()=>void importCsv()} disabled={busy}>Confirmar importação</button>
    </div>}
   </Card>}
