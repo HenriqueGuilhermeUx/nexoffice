@@ -13,6 +13,7 @@ import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
 import {registerNexPersonalLifeRoutes} from './routes-nex-personal-life.js';
 import {registerNexPersonalPrivacyRoutes} from './routes-nex-personal-privacy.js';
 import {registerNexPersonalFInsightRoutes} from './routes-nex-personal-finsight.js';
+import {registerNexPersonalBrokerageRoutes} from './routes-nex-personal-brokerage.js';
 import {registerPersonalPreviewStatic} from './personal-preview-static.js';
 
 if(process.env.NEX_PERSONAL_PREVIEW!=='true')throw new Error('NEX_PERSONAL_PREVIEW=true required for isolated preview');
@@ -103,6 +104,7 @@ await registerNexPersonalAgentsRoutes(app);
 await registerNexPersonalLifeRoutes(app);
 await registerNexPersonalPrivacyRoutes(app);
 await registerNexPersonalFInsightRoutes(app);
+await registerNexPersonalBrokerageRoutes(app);
 await registerPersonalPreviewStatic(app);
 
 app.setErrorHandler((error,req,reply)=>{
