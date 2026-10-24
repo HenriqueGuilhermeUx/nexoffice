@@ -30,4 +30,15 @@ assert.match(source,/if\(activeTokenRef\.current===token\)setReady\(true\);\s*}\
 // revocation succeeded if the device goes offline.
 assert.match(source,/não foi possível confirmar a revogação da sessão no servidor/i);
 
+// The finance studio has its own asynchronous loads: switching tokens must
+// not surface a previous account's responses, CSV preview or local Maya state.
+const studio=readFileSync('apps/web/src/NexPersonalStudio.tsx','utf8');
+assert.match(studio,/const activeTokenRef=useRef\(token\)/);
+assert.match(studio,/if\(activeTokenRef\.current!==token\)return;/);
+assert.match(studio,/setDataToken\(token\)/);
+assert.match(studio,/!data\|\|dataToken!==token/);
+assert.match(studio,/if\(active&&activeTokenRef\.current===token\)setLoading\(false\)/);
+assert.equal((source.match(/<NexPersonalStudio key=\{token\} view="/g)||[]).length,5,
+ 'Each studio view must remount on an account change to clear local draft state');
+
 console.log('Nex Personal session resilience: 401-only invalidation, retry on outage, old response fencing, honest logout notice OK');
