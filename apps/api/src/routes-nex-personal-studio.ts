@@ -5,6 +5,7 @@ import {ApiError,authenticate} from './auth.js';
 import {query,transaction} from './db.js';
 import {enrichBankTransaction,previewEnrichment} from '@nexoffice/integrations/personal-etl';
 import {detectRecurringExpenses} from '@nexoffice/integrations/personal-recurring';
+import {summarizePersonalBills} from './personal-bill-window.js';
 
 const id=z.string().uuid();
 const amount=z.string().regex(/^-?\d{1,13}$/,'Informe um valor válido em centavos.');
@@ -297,17 +298,17 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
     const spent=sum(spentByCategory,r=>r.spent_minor);
     const spentMap=new Map<string,bigint>(spentByCategory.map(r=>[r.category,BigInt(r.spent_minor)]));
     const budgetItems=budgets.map(b=>({...b,spent_minor:String(spentMap.get(b.category)||0n)}));
-    const upcoming=bills.filter(b=>{
-      const d=new Date(b.next_due_on).getTime()-Date.now();
-      return d<=30*86400000;
-    });
-    const upcomingTotal=sum(upcoming,r=>r.amount_minor);
+    // Due dates are calendar dates in Brazil, not timestamps. Older reminders
+    // need review and must NOT inflate the "next 30 days" amount.
+    const billSummary=summarizePersonalBills(bills);
     const insights:Array<{kind:string;title:string;detail:string;source:string}>=[];
     for(const b of budgetItems)if(BigInt(b.spent_minor)>BigInt(b.limit_minor))
       insights.push({kind:'budget',title:'Orçamento ultrapassado: '+b.category,
         detail:'Gastos registrados: '+b.spent_minor+' centavos, limite informado: '+b.limit_minor+' centavos.',source:'transactions_and_manual_budget'});
-    if(upcoming.length)insights.push({kind:'bills',title:'Compromissos nos próximos 30 dias',
-      detail:upcoming.length+' lembrete(s) totalizando '+String(upcomingTotal)+' centavos.',source:'user_scheduled_bills'});
+    if(billSummary.upcomingCount)insights.push({kind:'bills',title:'Compromissos nos próximos 30 dias',
+      detail:billSummary.upcomingCount+' lembrete(s) totalizando '+billSummary.upcomingTotalMinor+' centavos.',source:'user_scheduled_bills'});
+    if(billSummary.pastDatedCount)insights.push({kind:'past_dated_bills',title:'Lembretes com vencimento anterior',
+      detail:billSummary.pastDatedCount+' lembrete(s) com data passada somam '+billSummary.pastDatedTotalMinor+' centavos declarados. Confira se já foram pagos; não é confirmação de dívida vencida.',source:'user_scheduled_bills'});
     if(accounts.length)insights.push({kind:'balance',title:'Saldo declarado',
       detail:'O total de '+String(manualTotal)+' centavos vem de contas preenchidas por você. Não há verificação bancária.',source:'user_declared_accounts'});
     if(!accounts.length&&!transactions.length)insights.push({kind:'start',title:'Comece com seus próprios dados',
@@ -317,7 +318,8 @@ export async function registerNexPersonalStudioRoutes(app:FastifyInstance){
       totals:{manualAvailableMinor:String(manualTotal),spentMonthMinor:String(spent),
         declaredAssetsMinor:String(assets),declaredLiabilitiesMinor:String(liabilities),
         declaredNetWorthMinor:String(manualTotal+assets-liabilities),
-        upcomingBillsMinor:String(upcomingTotal)},
+        upcomingBillsMinor:billSummary.upcomingTotalMinor,
+        pastDatedBillsMinor:billSummary.pastDatedTotalMinor,pastDatedBillCount:billSummary.pastDatedCount},
       maya:{mode:'deterministic_insights',externalModelCalled:false,insights},
       provenance:{accounts:'user_declared',expenses:'entered_or_imported',verifiedBanking:false,
         note:'Patrimônio parcial e informativo. Valores de metas não são somados novamente ao patrimônio.'},
