@@ -1,11 +1,14 @@
 import pg from 'pg';
+import {personalPgConnection} from './personal-preview-db-config.js';
 
 const {Pool} = pg;
 const connectionString = process.env.DATABASE_URL;
+// In the isolated personal preview TLS/hostname verification is mandatory.
+// Business/PJ pool configuration is deliberately unchanged.
+const options = connectionString ? personalPgConnection(connectionString,process.env) : null;
 
-export const db = connectionString ? new Pool({
-  connectionString,
-  ssl: String(process.env.DATABASE_SSL || 'false') === 'true' ? {rejectUnauthorized: false} : undefined,
+export const db = options ? new Pool({
+  ...options,
   max: 10,
   idleTimeoutMillis: 30_000
 }) : null;
