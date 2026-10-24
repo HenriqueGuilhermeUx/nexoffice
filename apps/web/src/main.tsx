@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import NexPersonal from './NexPersonal';
+import NexPersonalUSA from './NexPersonalUSA';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
 import ShellUXEnhancements from './ShellUXEnhancements';
@@ -39,6 +40,8 @@ const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('
 const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
 const personalRequested=/^\/personal\/?$/.test(location.pathname);
+const personalUSRequested=/^\/personal\/us\/?$/.test(location.pathname);
+const personalUSPreview=(import.meta as any).env?.VITE_NEX_PERSONAL_USA_PREVIEW==='true';
 const personalPreview=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
 // Keep the old static preview bookmark working after moving to a single-origin
 // preview. This is a fixed Render hostname and cannot be user-controlled.
@@ -78,6 +81,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       ? <NexPersonal/>
       : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
+      : personalUSRequested
+        ? (personalUSPreview ? <NexPersonalUSA/> : <div role="status" style={{padding:40}}>Nex Personal USA preview is not enabled on this deployment.</div>)
       : personalRequested
         ? <NexPersonal/>
         : legalRequested
