@@ -67,6 +67,22 @@ try{
  assert.equal(studio.body.totals.manualAvailableMinor,'10000');
  assert.equal(studio.body.provenance.verifiedBanking,false);
 
+ // F-Insight research is optional and must never connect to a market provider
+ // without the separate PF-only backend configuration.
+ const anonymousFInsight=await call('/v1/personal/finsight/status');
+ assert.equal(anonymousFInsight.status,401);
+ const finsightStatus=await call('/v1/personal/finsight/status','GET',undefined,token);
+ assert.equal(finsightStatus.status,200,JSON.stringify(finsightStatus.body));
+ assert.equal(finsightStatus.body.configured,false);
+ assert.equal(finsightStatus.body.readOnly,true);
+ assert.equal(finsightStatus.body.dataSharing,false);
+ assert.equal(finsightStatus.body.accountLinking,false);
+ assert.equal(finsightStatus.body.portfolioImported,false);
+ const unavailableMarket=await call('/v1/personal/finsight/asset/AAPL','GET',undefined,token);
+ assert.equal(unavailableMarket.status,409,'Research provider must be disabled by default');
+ const rejectedSymbol=await call('/v1/personal/finsight/asset/BAD%3F','GET',undefined,token);
+ assert.equal(rejectedSymbol.status,400,'Research symbol must be validated before any external request');
+
  const agents=await call('/v1/personal/agents','GET',undefined,token);
  assert.equal(agents.status,200,JSON.stringify(agents.body));
  assert.equal(agents.body.agents.length,11,'Eleven specialist agents must be discoverable');
