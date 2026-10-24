@@ -30,7 +30,7 @@ function connection(){
 async function requirePersonal(req:FastifyRequest){
  const user=await authenticate(req);
  const result=await query<{user_id:string}>('select user_id from nex_personal.profiles where user_id=$1',[user.id]);
- if(result.length===0)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nex Personal.');
+ if(result.length===0)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nexa.');
 }
 
 async function callMarket(path:string){
