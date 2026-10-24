@@ -107,6 +107,30 @@ try{
  });
  assert.equal(confirmedOwn.status,200);
 
+ // Mila's recurrence analysis is read-only and must not expose a second user.
+ const previousMonthDay=(offset)=>new Date(Date.UTC(
+   new Date().getUTCFullYear(),new Date().getUTCMonth()-offset,10
+ )).toISOString().slice(0,10);
+ for(const [monthsAgo,amountMinor] of [[3,'-10000'],[2,'-10100'],[1,'-11000']]){
+   const inserted=await call('/v1/personal/transactions/manual',alice,'POST',{
+     accountId,description:'Netflix assinatura',amountMinor,bookedOn:previousMonthDay(monthsAgo),applyToBalance:false
+   });
+   assert.equal(inserted.status,200,JSON.stringify(inserted.body));
+ }
+ const recurring=await call('/v1/personal/transactions/recurring-patterns',alice);
+ assert.equal(recurring.status,200,JSON.stringify(recurring.body));
+ assert.equal(recurring.body.patterns.length,1,JSON.stringify(recurring.body));
+ assert.equal(recurring.body.patterns[0].confidence,'medium');
+ assert.equal(recurring.body.patterns[0].monthlyAmountMinor,'11000');
+ assert.equal(recurring.body.marketingUsed,false);
+ assert.equal(recurring.body.providerConnected,false);
+ assert.equal(recurring.body.persisted,false);
+ const bobRecurring=await call('/v1/personal/transactions/recurring-patterns',bob);
+ assert.equal(bobRecurring.status,200);
+ assert.equal(bobRecurring.body.patterns.length,0,'Pattern data belongs only to the authenticated user.');
+ const anonymousRecurring=await call('/v1/personal/transactions/recurring-patterns','');
+ assert.equal(anonymousRecurring.status,401);
+
  const budget=await call('/v1/personal/budgets',alice,'POST',{month,category:'Alimentação',limitMinor:'2000'});
  assert.equal(budget.status,200);
  const goal=await call('/v1/personal/goals',alice,'POST',{name:'Reserva',targetMinor:'200000',savedMinor:'12000'});
