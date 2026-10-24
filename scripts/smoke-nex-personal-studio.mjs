@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 
 if(!process.env.DATABASE_URL)throw new Error('Disposable Postgres database required.');
@@ -180,6 +180,26 @@ try{
  assert.equal(reorderedOriginal.body.imported,0);
  assert.equal(reorderedOriginal.body.duplicates,3);
  assert.match(reorderedOriginal.body.note,/reordenadas/);
+
+ // Compatibility: an unchanged file first imported under the previous v2
+ // key must remain idempotent after rolling out the v3 fingerprint strategy.
+ const legacyRow={date,description:'Registro historico de teste',amountMinor:'-317'};
+ const legacyNormalized=[[date,legacyRow.description.toLowerCase().replace(/\s+/g,' ').trim(),legacyRow.amountMinor,'']];
+ const legacyBatchHash=createHash('sha256').update(JSON.stringify(legacyNormalized)).digest('hex');
+ const oldFingerprint=createHash('sha256').update(
+   ['csv-batch-v2',accountId,legacyBatchHash,0].join('|')
+ ).digest('hex');
+ await db.query(
+  "insert into nex_personal.transactions(owner_user_id,account_id,provider_transaction_ref,description,amount_minor,currency,category,booked_at,source,fingerprint) values($1,$2,$3,$4,$5,'BRL','Outros',$6::date + interval '12 hours','csv',$7)",
+  [userIds[0],accountId,'csv-'+oldFingerprint,legacyRow.description,legacyRow.amountMinor,date,oldFingerprint]
+ );
+ const legacyImport=await call('/v1/personal/transactions/import',alice,'POST',{
+  accountId,rows:[legacyRow]
+ });
+ assert.equal(legacyImport.status,200,JSON.stringify(legacyImport.body));
+ assert.equal(legacyImport.body.imported,0,'A legacy order-sensitive import must not be reinserted.');
+ assert.equal(legacyImport.body.duplicates,1);
+
 
  console.log('Nex Personal P1 smoke: manual balances, import dedupe, planning, deterministic Maya and cross-user isolation OK');
 }finally{
