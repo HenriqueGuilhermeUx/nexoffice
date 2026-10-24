@@ -113,13 +113,14 @@ try{
  )).toISOString().slice(0,10);
  for(const [monthsAgo,amountMinor] of [[3,'-10000'],[2,'-10100'],[1,'-11000']]){
    const inserted=await call('/v1/personal/transactions/manual',alice,'POST',{
-     accountId,description:'Netflix assinatura',amountMinor,bookedOn:previousMonthDay(monthsAgo),applyToBalance:false
+     accountId,description:'Spotify assinatura',amountMinor,bookedOn:previousMonthDay(monthsAgo),applyToBalance:false
    });
    assert.equal(inserted.status,200,JSON.stringify(inserted.body));
  }
  const recurring=await call('/v1/personal/transactions/recurring-patterns',alice);
  assert.equal(recurring.status,200,JSON.stringify(recurring.body));
  assert.equal(recurring.body.patterns.length,1,JSON.stringify(recurring.body));
+ assert.match(recurring.body.patterns[0].displayName,/Spotify/i,'Double-booked Netflix must not be mistaken for a stable subscription');
  assert.equal(recurring.body.patterns[0].confidence,'medium');
  assert.equal(recurring.body.patterns[0].monthlyAmountMinor,'11000');
  assert.equal(recurring.body.marketingUsed,false);
