@@ -35,3 +35,18 @@
 - Run `node --experimental-strip-types scripts/smoke-nex-personal-us-crypto.mjs` (Node 24 per repository), `npm ci`, `npm run typecheck -w @nexoffice/web`, `npm run build`; review GitHub CI and independent manual browser test on Polygon. No real transfers during QA.
 - Confirm FinCEN/state regulatory classification, non-custodial control model, issuer/USDC disclosures, taxes, financial/privacy notices, privacy-preserving wallet linking and risks before any public USA marketing or live wallet onboarding.
 - Inbound fee proposal **0%** for supported wallet-to-wallet USDC transfers in Nexa Brasil/Global. US fee policy has not been authorized; do not advertise a live free US transfer. Network gas always separate.
+
+## 2026-10-24 — implementation follow-up (draft only)
+- The browser EIP-1193 USDC snapshot can now be explicitly shared with Maya as **historical, in-session, local data only**. No automatic background data transmission to agents or persistence occurs. A revoke action clears the shared snapshot; a new connection/refresh invalidates it.
+- Async wallet reads re-check the address and chain after a network response; account/chain changes invalidate pending reads. Raw RPC `eth_call` is restricted to native Polygon USDC `balanceOf` with no additional transaction parameters.
+- `apps/api/src/personal-us-wallet-ownership.ts` prepares EIP-4361 challenge construction and fail-closed assessment. **No route**; real secp256k1/EIP-1271 verifier and atomic nonce consumption are still REQUIRED.
+- `apps/api/src/personal-us-privy-onboarding.ts` validates candidate evidence from a dedicated US Privy project (authenticated subject, embedded EVM wallet, user control, recovery, no delegated signers). **No Privy SDK calls or wallet creation**; authoritative provider-side evidence and account binding remain REQUIRED.
+- `docs/sql/nex-personal-us-wallet-identity-review-only.sql` describes a physically isolated US identity/wallet schema with RLS FORCE and no grants/policies. **It has not been executed** and is deliberately not part of automatic migrations.
+- `scripts/smoke-nex-personal-us-wallet-ownership.mjs` tests forgery, replay window, wrong identity/origin, missing signer verification and Privy cross-project evidence; the mocked signature verifier in these tests is explicitly NOT an EOA verifier.
+
+### Required for Privy USA activation
+1. Create a **dedicated US Privy app/project**, configure allowed origins, recovery and user-controlled authorization keys/policy in the Privy dashboard. Do not reuse the Brazil/Global application's keys or customer identities.
+2. Establish a separate US identity provider and database environment. Verify Privy auth tokens **server side**, associating the Privy user and wallet only with an authenticated US subject.
+3. Integrate the vetted current Privy React SDK using `useCreateWallet` under explicit user action, and only after matching an existing wallet to avoid duplicate onboarding. Confirm recovery policy and SDK version against official documentation.
+4. Build EOA `personal_sign`/EIP-4361 or EIP-1271 verifiers in a dedicated server module. Transactional nonce consumption and a globally unique wallet-binding constraint must succeed before showing an external wallet as linked.
+5. Obtain US legal/compliance/security signoff prior to public onboarding or deposit services.
