@@ -16,7 +16,7 @@ type Studio={
  accounts:ManualAccount[];transactions:RecordTx[];budgets:Budget[];
  goals:Goal[];wealth:Wealth[];bills:Bill[];
  spentByCategory:Array<{category:string;spent_minor:string}>;
- totals:{manualAvailableMinor:string;spentMonthMinor:string;declaredAssetsMinor:string;declaredLiabilitiesMinor:string;declaredNetWorthMinor:string;upcomingBillsMinor:string};
+ totals:{manualAvailableMinor:string;spentMonthMinor:string;declaredAssetsMinor:string;declaredLiabilitiesMinor:string;declaredNetWorthMinor:string;upcomingBillsMinor:string;pastDatedBillsMinor:string;pastDatedBillCount:number};
  maya:{mode:string;externalModelCalled:boolean;insights:Insight[]};
  provenance:{accounts:string;expenses:string;verifiedBanking:boolean;note:string};
 };
@@ -254,6 +254,10 @@ export default function NexPersonalStudio({view,token,onChanged}:{view:Section;t
   </Card>
   <Card title="Contas e assinaturas a vencer">
    <p>Estes são lembretes. O Nex Personal não debita contas nem autoriza Pix automaticamente.</p>
+   <p><strong>Próximos 30 dias:</strong> {formatMinor(data.totals.upcomingBillsMinor)} em lembretes com vencimento de hoje ou futuro.</p>
+   {data.totals.pastDatedBillCount>0&&<p className="np-privacy-disclaimer" role="status">
+    <strong>{data.totals.pastDatedBillCount} lembrete(s) com data anterior:</strong> {formatMinor(data.totals.pastDatedBillsMinor)} em valores declarados. Confira se já foram pagos; isso não significa inadimplência confirmada.
+   </p>}
    <form className="np-studio-form" onSubmit={e=>submit(e,f=>({path:'/v1/personal/bills',method:'POST',payload:{
     name:field(f,'name'),amountMinor:parseAmount(field(f,'amount')),
     nextDueOn:field(f,'due'),intervalMonths:Number(field(f,'interval'))
