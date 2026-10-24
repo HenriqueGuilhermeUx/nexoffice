@@ -10,7 +10,7 @@ import {query} from './db.js';
 async function requireActivePersonal(req:FastifyRequest){
  const user=await authenticate(req);
  const rows=await query<{user_id:string}>('select user_id from nex_personal.profiles where user_id=$1',[user.id]);
- if(!rows.length)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nex Personal.');
+ if(!rows.length)throw new ApiError(409,'personal_activation_required','Ative seu espaço Nexa.');
 }
 
 // Product discovery content here is educational, NOT a financial product catalog.
