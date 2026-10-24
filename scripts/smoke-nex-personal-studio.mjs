@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 
@@ -6,6 +7,31 @@ if(!process.env.DATABASE_URL)throw new Error('Disposable Postgres database requi
 const host='http://127.0.0.1:'+String(process.env.PORT||4000);
 const db=new pg.Client({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_SSL==='true'?{rejectUnauthorized:false}:undefined});
 await db.connect();
+
+ // Regression: month boundaries must use the Sao Paulo calendar, not the DB's GMT timezone.
+ const monthBoundaries=await db.query(`with instants(instant) as (
+  values ('2026-10-01 01:30+00'::timestamptz),('2026-11-01 02:30+00'::timestamptz)
+ ) select to_char(instant at time zone 'America/Sao_Paulo','YYYY-MM') local_month,
+ date_trunc('month',instant,'America/Sao_Paulo') month_start,
+ date_trunc('month',instant+interval '1 month','America/Sao_Paulo') month_end
+ from instants order by instant`);
+ assert.deepEqual(monthBoundaries.rows.map(row=>({
+  month:row.local_month,start:new Date(row.month_start).toISOString(),end:new Date(row.month_end).toISOString()
+ })),[
+  {month:'2026-09',start:'2026-09-01T03:00:00.000Z',end:'2026-10-01T03:00:00.000Z'},
+  {month:'2026-10',start:'2026-10-01T03:00:00.000Z',end:'2026-11-01T03:00:00.000Z'}
+ ],'Month rollover must follow America/Sao_Paulo, even when UTC has crossed midnight');
+ const studioRoute=readFileSync('apps/api/src/routes-nex-personal-studio.ts','utf8');
+ const overviewRoute=readFileSync('apps/api/src/routes-nex-personal.ts','utf8');
+ for(const source of [studioRoute,overviewRoute]){
+  assert.ok(source.includes("booked_at>=date_trunc('month',now(),'America/Sao_Paulo')"),
+   'Monthly expenses must use an explicit Sao Paulo timestamptz boundary');
+ }
+ assert.ok(studioRoute.includes("booked_at<date_trunc('month',now()+interval '1 month','America/Sao_Paulo')"),
+  'Studio must exclude transactions outside the local calendar month');
+ assert.ok(overviewRoute.includes("booked_at<date_trunc('month',now()+interval '1 month','America/Sao_Paulo')"),
+  'Overview must use the same month end as Studio');
+
 const userIds=[];
 async function call(path,token,method='GET',data){
  const response=await fetch(host+path,{method,headers:{...(data!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},
