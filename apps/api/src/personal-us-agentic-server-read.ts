@@ -1,4 +1,5 @@
 import type {USWalletPool,USWalletClient} from './personal-us-wallet-binding-store.js';
+import {assertPersonalUSDedicatedDatabase} from './personal-us-database-scope.js';
 import {
  evaluatePersonalUSAgenticRead,
  type USAgenticTrustDecision, type USAgenticReadTrustFacts
@@ -72,10 +73,7 @@ export async function assessServerUSAgenticRead(input:{
   await client.query("SET LOCAL statement_timeout = '8000ms'");
   // Defense in depth: even an accidentally supplied NexOffice/Brazil connection
   // must fail before reading or contacting the RPC provider.
-  const db=await client.query<{database:string}>('SELECT current_database() AS database');
-  if(db.rows.length!==1||
-     !/^nex_personal_us(?:_[a-z0-9_]+)?$/.test(db.rows[0].database))
-   throw Error('US_AGENTIC_WRONG_DATABASE');
+  await assertPersonalUSDedicatedDatabase(client);
   // FOR SHARE places shared row locks without application-data mutations;
   // it conflicts with revocation updates of the owner, wallet or consent.
   // PostgreSQL does not allow FOR SHARE in a READ ONLY transaction.
