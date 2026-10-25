@@ -1,11 +1,12 @@
 /** NexOffices USA browser QA: a real rendered preview with fictional tasks only. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 const base = 'http://127.0.0.1:4184';
-const server = spawn('npx', ['vite', 'preview', '--host', '127.0.0.1', '--port', '4184', '--strictPort'], {
+const server = spawn(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', '4184', '--strictPort'], {
   cwd: 'apps/web',
   env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:65535' },
   stdio: ['ignore', 'pipe', 'pipe'],
