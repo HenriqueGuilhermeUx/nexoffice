@@ -37,7 +37,7 @@ contract CIWallet1271 {
  }
 }`;
 const compilerInput={language:'Solidity',sources:{'CIWallet1271.sol':{content:src}},
- settings:{optimizer:{enabled:true,runs:200},
+ settings:{evmVersion:'paris',optimizer:{enabled:true,runs:200},
   outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}};
 const compiled=JSON.parse(solc.compile(JSON.stringify(compilerInput)));
 const compileErrors=(compiled.errors||[]).filter(e=>e.severity==='error');
@@ -45,10 +45,13 @@ assert.equal(compileErrors.length,0,compileErrors.map(e=>e.formattedMessage).joi
 const artifact=compiled.contracts['CIWallet1271.sol'].CIWallet1271;
 const bytecode='0x'+artifact.evm.bytecode.object;
 const deployment=await wallet.deployContract({
- abi:artifact.abi,bytecode,args:[signer.address],account:deployer
+ // Solidity 0.8.30 defaults to newer opcodes than some local EVMs support;
+ // target Paris explicitly and use a bounded, generous local-only gas limit.
+ abi:artifact.abi,bytecode,args:[signer.address],account:deployer,gas:2_000_000n
 });
 const receipt=await provider.waitForTransactionReceipt({hash:deployment,timeout:30000});
-assert.equal(receipt.status,'success');
+assert.equal(receipt.status,'success',
+ `Local ERC-1271 deploy reverted: gasUsed=${receipt.gasUsed} status=${receipt.status}`);
 assert.ok(receipt.contractAddress,'ERC-1271 fixture not deployed');
 const contractAddress=receipt.contractAddress;
 const deployed=await provider.getBytecode({address:contractAddress});
