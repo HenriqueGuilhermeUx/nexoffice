@@ -1,4 +1,5 @@
 import {createHash,randomUUID} from 'node:crypto';
+import {assertPersonalUSDedicatedDatabase} from './personal-us-database-scope.js';
 import {preparePrivyUSWalletBinding,type VerifiedUSPrivyWalletEvidence} from './personal-us-privy-onboarding.js';
 import {verifyPrivyUSAccessSession,type OfficialPrivyUSVerifyAccessToken,type VerifiedPrivyUSSession} from './personal-us-privy-session.js';
 import {
@@ -32,6 +33,7 @@ async function transaction<T>(pool:USWalletPool,fn:(client:USWalletClient)=>Prom
  let started=false;
  try{
   await client.query('BEGIN');started=true;
+  await assertPersonalUSDedicatedDatabase(client);
   const value=await fn(client);
   await client.query('COMMIT');started=false;
   return value;
