@@ -131,6 +131,10 @@ jobs:
         env:
           NEX_PERSONAL_US_PG_CI: "true"
         run: node scripts/smoke-nex-personal-us-wallet-postgres.mjs
+      - name: Validate USA Maya short-lived read consent and revocation in PostgreSQL
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-agentic-consent-postgres.mjs
       - name: Apply database schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
