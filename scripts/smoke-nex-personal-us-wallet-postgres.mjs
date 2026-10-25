@@ -45,6 +45,25 @@ try{
  const origin='https://personal-us-ci.example.test';
  await usPool.query(`INSERT INTO nex_personal_us.profiles(id,auth_subject,status)
  VALUES($1,$2,'active'),($3,$4,'active'),($5,$6,'active')`,[a,userA,b,userB,c,userC]);
+ // Role-level proof: even with explicit SELECT/INSERT grants, FORCE RLS and
+ // no policies keep US customer profiles invisible/unwritable to ordinary roles.
+ await usPool.query('CREATE ROLE npu_wallet_ci_restricted NOLOGIN');
+ await usPool.query('GRANT USAGE ON SCHEMA nex_personal_us TO npu_wallet_ci_restricted');
+ await usPool.query('GRANT SELECT,INSERT ON nex_personal_us.profiles TO npu_wallet_ci_restricted');
+ const restricted=await usPool.connect();
+ try {
+  await restricted.query('BEGIN');
+  await restricted.query('SET LOCAL ROLE npu_wallet_ci_restricted');
+  const hidden=await restricted.query('SELECT count(*)::int AS n FROM nex_personal_us.profiles');
+  assert.equal(hidden.rows[0].n,0,'RLS must hide records despite table SELECT grant');
+  await assert.rejects(
+   restricted.query("INSERT INTO nex_personal_us.profiles(id,auth_subject,status) VALUES($1,'us_subject_rogue','active')",[randomUUID()]),
+   /row-level security policy/);
+ } finally {
+  await restricted.query('ROLLBACK');
+  restricted.release();
+ }
+
  async function challenge(subject){
   return issuePersistedUSWalletChallenge({
    pool:usPool,authenticatedUSSubject:subject,walletAddress:addr,
