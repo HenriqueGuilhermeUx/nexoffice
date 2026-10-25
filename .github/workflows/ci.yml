@@ -35,6 +35,8 @@ jobs:
         run: node --experimental-strip-types scripts/smoke-nex-personal-us-wallet-ownership.mjs
       - name: Smoke test isolated Privy USA access-token verification seam
         run: node scripts/smoke-nex-personal-us-privy-session.mjs
+      - name: Smoke test Nex Personal USA Maya read-only Trust policy
+        run: node scripts/smoke-nex-personal-us-agentic-trust.mjs
       - name: Smoke test US wallet atomic linkage and revocation
         run: node scripts/smoke-nex-personal-us-wallet-binding.mjs
       - name: Smoke test Nex Personal F-Insight isolated market research
