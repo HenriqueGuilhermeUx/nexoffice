@@ -137,6 +137,10 @@ jobs:
         env:
           NEX_PERSONAL_US_PG_CI: "true"
         run: node scripts/smoke-nex-personal-us-agentic-consent-postgres.mjs
+      - name: Assert US wallets and Maya cannot be read or written by untrusted PostgreSQL roles
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-rls-least-privilege.mjs
       - name: Apply database schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
