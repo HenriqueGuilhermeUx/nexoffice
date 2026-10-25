@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {issuePersonalUSWalletChallenge} from '../apps/api/src/personal-us-wallet-ownership.ts';
-import {bindVerifiedUSExternalWallet,revokeUSWalletBinding} from '../apps/api/src/personal-us-wallet-binding-store.ts';
+import {issuePersonalUSWalletChallenge} from '../apps/api/dist/personal-us-wallet-ownership.js';
+import {bindVerifiedUSExternalWallet,revokeUSWalletBinding} from '../apps/api/dist/personal-us-wallet-binding-store.js';
 const owner='us_subject_12345',origin='https://personal-us.example.test',address='0x1111111111111111111111111111111111111111';
 const now=new Date('2026-10-25T00:00:00.000Z');
 const created=issuePersonalUSWalletChallenge({ownerSubject:owner,address,trustedOrigin:origin,now});
