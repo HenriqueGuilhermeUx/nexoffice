@@ -309,8 +309,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_PASSWORD: nexoffice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NPU_REAL_CRYPTO_CI: "true"
+      DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nexoffice
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -322,3 +337,5 @@ jobs:
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund viem@2.57.10
       - name: Verify real ephemeral EOA ECDSA signatures against the USA adapter
         run: node scripts/smoke-nex-personal-us-real-viem.mjs
+      - name: Bind real ephemeral EOA signature atomically in throwaway USA PostgreSQL
+        run: node scripts/smoke-nex-personal-us-real-binding.mjs
