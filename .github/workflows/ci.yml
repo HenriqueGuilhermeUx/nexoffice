@@ -365,3 +365,40 @@ jobs:
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @privy-io/node@0.36.0
       - name: Validate ephemeral ES256 JWTs using Privy's official verifier
         run: node --experimental-strip-types scripts/smoke-nex-personal-us-official-privy-crypto.mjs
+
+  # Ephemeral EVM only: deployed test contract, fake local gas, no public RPC.
+  us_wallet_erc1271_local_chain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NPU_LOCAL_ERC1271_CI: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Build internal packages and USA verification adapter
+        run: |
+          npm run build -w @nexoffice/domain
+          npm run build -w @nexoffice/integrations
+          npm run build -w @nexoffice/api
+      - name: Install exact isolated local-chain test packages
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund viem@2.57.10 ganache@7.9.2 solc@0.8.30
+      - name: Start disposable Polygon-id Ganache chain
+        run: |
+          ./node_modules/.bin/ganache --server.host 127.0.0.1 --server.port 8545 --chain.chainId 137 --wallet.totalAccounts 2 --miner.blockTime 0 > /tmp/npu-erc1271-ganache.log 2>&1 &
+          echo $! > /tmp/npu-erc1271-ganache.pid
+          for i in {1..30}; do
+            if node --input-type=module -e "let r=await fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})});let j=await r.json();if(j.result!=='0x89')process.exit(1)" >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/npu-erc1271-ganache.log
+          exit 1
+      - name: Verify deployed ERC-1271 smart-wallet signatures on local chain
+        run: node scripts/smoke-nex-personal-us-erc1271-local.mjs
+      - name: Stop local EVM
+        if: always()
+        run: |
+          if [ -f /tmp/npu-erc1271-ganache.pid ]; then kill "$(cat /tmp/npu-erc1271-ganache.pid)" || true; fi
