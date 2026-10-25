@@ -155,6 +155,21 @@ try{
  });
  assert.equal(falseChain.decision.decision,'deny');
  assert.equal(falseChain.rawUsdcBalance,null);
+ // Slow or stuck RPC cannot indefinitely lock a wallet or consent row.
+ let observedAbort=false;
+ await assert.rejects(assessServerUSAgenticRead({
+  ...readInput,rpcTimeoutMs:40,
+  fetchUSDCFromTrustedServer:(_address,signal)=>new Promise((_resolve,reject)=>{
+   signal?.addEventListener('abort',()=>{
+    observedAbort=true;
+    reject(Error('RPC_CANCELLED'));
+   },{once:true});
+  })
+ }),/US_AGENTIC_RPC_TIMEOUT/);
+ assert.equal(observedAbort,true,'Timed-out provider must receive abort');
+ await assert.rejects(assessServerUSAgenticRead({
+  ...readInput,rpcTimeoutMs:10
+ }),/US_AGENTIC_READ_CONTEXT_INVALID/);
  // Permission may expire while a permitted server RPC is in progress:
  // the response MUST fail closed and suppress the balance.
  await pool.query(`UPDATE nex_personal_us.wallet_agentic_read_consents
