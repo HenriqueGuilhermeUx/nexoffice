@@ -23,6 +23,7 @@ await admin.connect();
 let usPool;
 try{
  await assert.rejects(admin.query(sql),/US wallet migration denied/);
+ await admin.query('ROLLBACK'); // Restore session after explicit BEGIN rejected by guard.
  const leaked=await admin.query("SELECT to_regnamespace('nex_personal_us') AS schema");
  assert.equal(leaked.rows[0].schema,null,'US schema must not appear in business test DB');
  await admin.query('CREATE DATABASE nex_personal_us_ci');
