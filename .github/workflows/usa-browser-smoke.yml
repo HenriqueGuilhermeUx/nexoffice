@@ -10,6 +10,9 @@ on:
       - 'apps/web/src/USSalesPipeline.css'
       - 'apps/web/src/main.tsx'
       - 'scripts/usa-browser-smoke.mjs'
+      - 'scripts/usa-standalone-browser.mjs'
+      - 'apps/web/vite.usa.config.ts'
+      - 'apps/web/usa-preview/**'
       - '.github/workflows/usa-browser-smoke.yml'
   workflow_dispatch:
 permissions:
@@ -37,3 +40,17 @@ jobs:
         env:
           VITE_API_URL: http://127.0.0.1:65535
         run: node scripts/usa-browser-smoke.mjs
+      - name: Build US-only static staging package
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: cd apps/web && npx vite build --config vite.usa.config.ts
+      - name: Verify standalone USA bundle in Chromium
+        run: node scripts/usa-standalone-browser.mjs
+      - name: Archive nonproduction static preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexoffices-usa-standalone-preview
+          path: apps/web/dist-usa/
+          if-no-files-found: error
+          retention-days: 7
+
