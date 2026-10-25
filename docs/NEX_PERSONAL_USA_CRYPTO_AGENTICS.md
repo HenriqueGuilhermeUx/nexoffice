@@ -56,3 +56,10 @@
 - CI checks include `scripts/smoke-nex-personal-us-wallet-discovery.mjs` to reject untrusted announcement data and duplicate provider UUID replacement.
 - The US preview remains frontend-only until independent US identity and server verification are ready. The exact-origin flag is a deployment gate, **not a substitute for authentication**.
 - Failure in unrelated Nex Personal P0/F-Insight code can prevent CI; any branch-local fix must be reconciled with PR #86 after review without altering Brazilian production.
+
+## 2026-10-25 — atomic wallet ownership store (stage 2)
+- `apps/api/src/personal-us-wallet-binding-store.ts` implements transactional consumption of a verified challenge and binding insert with owner scope, `SELECT ... FOR UPDATE`, nonce/message digest checks and audit events in one transaction. It includes owner-scoped revocation. No HTTP route or shared/business DB import is permitted.
+- `scripts/smoke-nex-personal-us-wallet-binding.mjs` exercises compiled store behavior with a **mock database only**: wrong owner, message tampering, invalid signature, wrong origin, successful binding, replay refusal, revocation and simulated unique-address collision rollback.
+- SQL review file checks `current_database()` matches `nex_personal_us` (or `nex_personal_us_...`) before any DDL. Existing Nexa or NexOffices databases must never be used.
+- The SQL schema remains **REVIEW ONLY**, not provisioned and not included in migrations. Real PostgreSQL multi-client contention tests, RLS role/policy review, verified EOA/EIP-1271 crypto, stable dedicated US identity and US Privy project are required before any binding endpoint or real wallet creation. No server-facing method is active.
+- The separate Nex Personal P0 base PR #86 currently has unrelated DocWallet/NextGen/onboarding/product-discovery smoke checks failing; those should not be "fixed" in the US wallet PR by changing BR/business features.
