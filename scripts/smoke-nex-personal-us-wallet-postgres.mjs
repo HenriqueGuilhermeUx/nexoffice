@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import pg from 'pg';
-import {issuePersistedUSWalletChallenge,bindVerifiedUSExternalWallet,revokeUSWalletBinding} from '../apps/api/dist/personal-us-wallet-binding-store.js';
+import {issuePersistedUSWalletChallenge,bindVerifiedUSExternalWallet,bindVerifiedUSPrivyWallet,revokeUSWalletBinding} from '../apps/api/dist/personal-us-wallet-binding-store.js';
 
 /** Runs exclusively in GitHub Actions' disposable localhost PostgreSQL 16.
  * Verifier below is a synthetic test double, NOT actual EOA/EIP-1271 verification.
@@ -90,7 +90,38 @@ try{
  const all=await Promise.all([challenge(userC),challenge(userC),challenge(userC)]);
  assert.equal(new Set(all.map(x=>x.challengeId)).size,3);
  await assert.rejects(challenge(userC),/US_CHALLENGE_RATE_LIMITED/);
- console.log('USA wallet PG16: SQL guard, RLS, challenge issuance limit, atomic nonce races, uniqueness, rollback and revocation PASS');
+ const privyAddress='0x3333333333333333333333333333333333333333';
+ const evidence={projectId:'us-privy-ci-project',userId:'did:privy:us-alpha',
+  walletId:'wallet-ci-alpha',address:privyAddress,
+  linkedToAuthenticatedSubject:userA,chainType:'ethereum',walletType:'embedded',
+  control:'user',recoveryConfigured:true,additionalSigners:[],
+  verifiedAt:new Date(Date.now()-1000).toISOString()};
+ const privyArgs={
+   pool:usPool,authenticatedUSSubject:userA,dedicatedUSPrivyProjectId:evidence.projectId,
+   loadVerifiedEvidence:async()=>evidence,now:new Date()
+ };
+ await assert.rejects(bindVerifiedUSPrivyWallet({
+  ...privyArgs,dedicatedUSPrivyProjectId:'br-privy-project'
+ }),/PRIVY_PROJECT_MISMATCH/);
+ await assert.rejects(bindVerifiedUSPrivyWallet({
+  ...privyArgs,loadVerifiedEvidence:async()=>({...evidence,additionalSigners:['delegated']})
+ }),/PRIVY_DELEGATED_SIGNERS_PRESENT/);
+ await assert.rejects(bindVerifiedUSPrivyWallet({
+  ...privyArgs,authenticatedUSSubject:userB
+ }),/PRIVY_IDENTITY_NOT_LINKED/);
+ const embedded=await bindVerifiedUSPrivyWallet(privyArgs);
+ assert.equal(embedded.executionAllowed,false);
+ assert.equal(embedded.delegatedAgentSigningAllowed,false);
+ const stored=await usPool.query("SELECT privy_project_id,privy_wallet_id,source FROM nex_personal_us.wallet_bindings WHERE id=$1",[embedded.bindingId]);
+ assert.equal(stored.rows[0].privy_project_id,evidence.projectId);
+ assert.equal(stored.rows[0].source,'privy');
+ await assert.rejects(bindVerifiedUSPrivyWallet({
+  ...privyArgs,loadVerifiedEvidence:async()=>({...evidence,walletId:'wallet-ci-duplicate-address'})
+ }),/duplicate key value violates unique constraint/);
+ const revokePrivy=await revokeUSWalletBinding({pool:usPool,authenticatedUSSubject:userA,
+  bindingId:embedded.bindingId,now:new Date()});
+ assert.equal(revokePrivy.revoked,true);
+ console.log('USA wallet PG16: SQL guard, RLS, challenge limit, nonce races, address uniqueness, audit/revoke and Privy project isolation PASS');
 }finally{
  if(usPool)await usPool.end();
  await admin.end();
