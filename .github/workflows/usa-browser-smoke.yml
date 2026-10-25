@@ -6,6 +6,8 @@ on:
       - 'apps/web/src/USPreview.tsx'
       - 'apps/web/src/USWorkbench.tsx'
       - 'apps/web/src/USWorkbench.css'
+      - 'apps/web/src/USSalesPipeline.tsx'
+      - 'apps/web/src/USSalesPipeline.css'
       - 'apps/web/src/main.tsx'
       - 'scripts/usa-browser-smoke.mjs'
       - '.github/workflows/usa-browser-smoke.yml'
