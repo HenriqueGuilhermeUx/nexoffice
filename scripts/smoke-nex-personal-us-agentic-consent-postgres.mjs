@@ -26,6 +26,15 @@ try{
  await admin.query('ROLLBACK');
  assert.equal((await admin.query(
   "SELECT to_regclass('nex_personal_us.wallet_agentic_read_consents') AS relation")).rows[0].relation,null);
+ // Server-side runtime must reject the wrong pool, independently of DDL guards.
+ const wrongDbPool=new pg.Pool({connectionString:root.toString(),max:1});
+ try{
+  await assert.rejects(assessServerUSAgenticRead({
+   pool:wrongDbPool,authenticatedUSSubject:'us_subject_wrong_db',
+   consentId:randomUUID(),now:new Date(),
+   fetchUSDCFromTrustedServer:async()=>{throw Error('RPC_MUST_NEVER_BE_REACHED');}
+  }),/US_AGENTIC_WRONG_DATABASE/);
+ }finally{await wrongDbPool.end();}
  const url=new URL(root);url.pathname='/nex_personal_us_ci';
  pool=new pg.Pool({connectionString:url.toString(),max:4});
  await pool.query(sql);
