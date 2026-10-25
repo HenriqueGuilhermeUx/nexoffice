@@ -31,6 +31,17 @@ const evaluated=await assessPersonalUSWalletProof({...input,verifier});
 assert.equal(evaluated.readyForAtomicConsume,true);
 assert.equal(evaluated.ownerSubject,subject);
 assert.equal(verifyCalls,1);
+await assert.rejects(assessPersonalUSWalletProof({...input,
+ signature:'0x'+'bb'.repeat(10),verifier}),/INVALID_EOA_SIGNATURE_LENGTH/);
+const contractProof=await assessPersonalUSWalletProof({...input,
+ signature:'0x'+'bb'.repeat(10),verifier:async()=>({
+  verified:true,recoveredAddress:a,verificationType:'erc1271'
+ })});
+assert.equal(contractProof.verificationType,'erc1271');
+await assert.rejects(assessPersonalUSWalletProof({...input,
+ signature:'0x'+'bb'.repeat(4097),verifier}),/INVALID_SIGNATURE_FORMAT/);
+await assert.rejects(assessPersonalUSWalletProof({...input,
+ signature:'0xabc',verifier}),/INVALID_SIGNATURE_FORMAT/);
 // A verifier stub is not cryptographic verification. The app exposes NO HTTP route
 // and NO wallet binding until a real EOA/EIP-1271 verifier + atomic DB gates exist.
 const evidence={
