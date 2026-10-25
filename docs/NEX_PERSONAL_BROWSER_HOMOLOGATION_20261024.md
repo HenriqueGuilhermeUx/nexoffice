@@ -21,8 +21,8 @@
 | E2E-03 | Cadastro/login | Registrar apenas testador permitido; entrar, recarregar e sair | Fluxo concluído, navegação disponível, logout local imediato |
 | E2E-04 | Sessão | Simular falha transitória da API e depois reconexão | Token da aba preservado, opção de tentar novamente, sem logout falso |
 | E2E-05 | Privacidade | Abrir em dois testadores de homologação, separando sessões | Nenhum saldo, extrato, preferência ou exportação de outro titular |
-| E2E-06 | Escritório | Abrir cada um dos 15 cartões e voltar ao mapa | Nomes, especialistas, detalhes, indicação de disponibilidade e navegação corretos |
-| E2E-07 | Ambientes em evolução | Abrir as salas planejadas | Não oferecer conexão falsa nem ação externa; apresentar limites e próximos passos |
+| E2E-06 | Escritório | Abrir cada um dos 16 cartões (incluindo Cripto & Wallet/Nico) e voltar ao mapa | Nomes, especialistas, detalhes, indicação de disponibilidade e navegação corretos |
+| E2E-07 | Ambientes em evolução e Nico | Abrir as salas planejadas e Cripto & Wallet; verificar handoff externo em aba separada | Não anunciar integrações futuras como ativas; Nico deve exigir login próprio na Nexa Wallet, sem transmitir token, sessão ou dados pessoais do Nex Personal |
 | E2E-08 | Mobile/a11y | 390×844, 360×800 e teclado | Sem overflow horizontal crítico; foco visível; botões acionáveis; texto legível |
 | E2E-09 | Conta manual | Criar conta fictícia e informar saldo `2.500` | R$ 2.500,00 como dado declarado, jamais saldo bancário confirmado |
 | E2E-10 | Transações | Registrar receita/despesa com e sem ajuste explícito do saldo | Sinal correto; saldo só altera quando autorizado |
@@ -32,18 +32,18 @@
 | E2E-14 | Mila e Maya | Usar movimentações sintéticas recorrentes e não recorrentes | Inferências com ressalvas; sem assinatura, reajuste ou obrigação confirmados |
 | E2E-15 | Noah | Digitar duas propostas simuladas | Somente valores inseridos; sem ofertas bancárias inventadas, pré-aprovação ou afirmação de CET |
 | E2E-16 | Exportação | Baixar JSON do próprio testador e inspecionar | Apenas campos permitidos, metadados de auditoria; sem sessão, senha, provedor privado ou outro titular |
-| E2E-17 | Restrições | Tentar acessar rotas empresariais ou executar Pix | Rotas indisponíveis; zero movimentação real |
+| E2E-17 | Restrições | Tentar acessar rotas empresariais ou executar Pix/ações financeiras da Wallet no Nex Personal | Rotas e ações indisponíveis no PF; zero movimentação real, sem compartilhar sessão com PJ ou Wallet |
 | E2E-18 | Recuperação | Recarregar, alternar abas, entrar/sair e retornar após falha | Sem vazamento de estado de sessão, travamento ou dados de usuário anterior |
 
 ## Inventário do escritório, conferido no código da branch (não confundir com teste visual)
 
 **Recursos com experiência disponível na homologação (`ready: true`):**
-Meu dinheiro (Nina), Investimentos (Léo), Compras e crédito (Bia), Documentos (Mel), Oportunidades (Noah), Serviços públicos (Theo), Resolver dívidas (Joca), Entender direitos (Bella).
+Meu dinheiro (Nina), Investimentos (Léo), Cripto & Wallet (Nico, apenas acesso externo com login próprio), Compras e crédito (Bia), Documentos (Mel), Oportunidades (Noah), Serviços públicos (Theo), Resolver dívidas (Joca), Entender direitos (Bella).
 
 **Ambientes/jornadas em evolução (`ready: false`):**
 Minha saúde (Luna), Educação (Duda), Meu dia (Zoe), Viagens e lazer (Kai), Mobilidade (Max), Casa e família (Luca), Criação e mídia (Gabi).
 
-**Critério obrigatório:** os 15 cartões podem existir sem que todos tenham integração transacional. Mostrar limite funcional honestamente, sem anunciar serviço futuro como ativo.
+**Critério obrigatório:** os 16 cartões podem existir sem que todos tenham integração transacional. Mostrar limite funcional honestamente, sem anunciar serviço futuro como ativo.
 
 ## Modelo de evidência por execução
 
