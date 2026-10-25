@@ -22,4 +22,14 @@ assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(preview), "US pre
 assert.ok(!/fetch\s*\(/.test(preview), "US preview must not call Brazilian backend APIs");
 assert.ok(css.includes(".avus"), "Styles must use a US-specific namespace");
 assert.ok(!/^\s*(body|html|:root|\*)\s*\{/m.test(css), "US preview styles must not redefine global selectors");
+
+const operational = read("apps/web/src/USWorkbench.tsx");
+assert.ok(operational.includes("browser-only demonstration"), "USWorkbench.tsx expected capability missing: browser-only demonstration");
+assert.ok(operational.includes("Add sample task"), "USWorkbench.tsx expected capability missing: Add sample task");
+assert.ok(operational.includes("Reset board"), "USWorkbench.tsx expected capability missing: Reset board");
+assert.ok(operational.includes("No accounts"), "USWorkbench.tsx expected capability missing: No accounts");
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(operational), "Operational US preview must not call backend APIs");
+assert.ok(!/localStorage\s*\.|sessionStorage\s*\./.test(operational), "Demo should not persist potentially identifying visitor input");
+assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(operational), "Demo must not send visitors to Brazilian account activation");
+
 console.log("PASS: nexoffice US preview route, language, copy, branding, isolation and CSS namespace");
