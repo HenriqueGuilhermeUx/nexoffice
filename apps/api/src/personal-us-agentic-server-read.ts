@@ -123,8 +123,8 @@ export async function assessServerUSAgenticRead(input:{
      input.fetchUSDCFromTrustedServer(row.wallet_address,controller.signal));
    const timeout=new Promise<never>((_,reject)=>{
      timeoutHandle=setTimeout(()=>{
-       controller.abort();
        reject(Error('US_AGENTIC_RPC_TIMEOUT'));
+       controller.abort();
      },input.rpcTimeoutMs??6000);
    });
    observed=await Promise.race([providerResult,timeout]);
