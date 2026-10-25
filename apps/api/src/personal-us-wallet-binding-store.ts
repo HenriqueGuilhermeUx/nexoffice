@@ -198,15 +198,17 @@ export async function bindVerifiedUSPrivyWallet(input:{
  if(!/^[a-zA-Z0-9:_-]{8,150}$/.test(input.authenticatedUSSubject)||
     !Number.isFinite(input.now.getTime())||typeof input.loadVerifiedEvidence!=='function')
    throw Error('INVALID_US_PRIVY_BIND_INPUT');
- // Trusted adapter must validate issuer/signature/audience/project server-side and
- // fetch wallets for the US Privy user: never accept JSON evidence from a browser.
- const evidence=await input.loadVerifiedEvidence();
- const candidate=preparePrivyUSWalletBinding({
-  authenticatedUSSubject:input.authenticatedUSSubject,
-  dedicatedUSPrivyProjectId:input.dedicatedUSPrivyProjectId,
-  verified:evidence,now:input.now
- });
+ // The transaction performs its physical USA DB guard before requesting any
+ // Privy wallet evidence. Wrongly wired Brazil/NexOffice pools fail closed
+ // before provider-side wallet lookup and without any database changes.
  return transaction(input.pool,async client=>{
+  // Only server-verified provider evidence may be accepted; never browser JSON.
+  const evidence=await input.loadVerifiedEvidence();
+  const candidate=preparePrivyUSWalletBinding({
+   authenticatedUSSubject:input.authenticatedUSSubject,
+   dedicatedUSPrivyProjectId:input.dedicatedUSPrivyProjectId,
+   verified:evidence,now:input.now
+  });
   const owner=await client.query<{id:string;status:string}>(`
    SELECT id,status FROM nex_personal_us.profiles
     WHERE auth_subject=$1 FOR UPDATE`,[candidate.subject]);
