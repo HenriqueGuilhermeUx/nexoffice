@@ -41,3 +41,19 @@ An English local-only task board was added to `/us`: a fictional action inbox, s
 - `/us` includes a browser-only task command center demo with fictional task creation, assignment, status changes, metrics and reset.
 - This demo has no workspace authentication, persistent customer records, billing, banking, US tax handling or API calls.
 - A full GitHub web build passes; preexisting smoke tests that assert Brazilian content remain separate work and must not be weakened inside the USA branch.
+
+
+## Independent, deployable US-only static preview (no Brazil app bundle)
+
+The USA branch now includes a **dedicated Vite entrypoint** at `apps/web/usa-preview/index.html`, with `apps/web/usa-preview/main.tsx` importing only the US interactive components. The standalone Vite config lives at `apps/web/vite.usa.config.ts`; it deliberately excludes the Brazilian application entrypoint and its router.
+
+CI builds the standalone frontend with:
+
+```sh
+cd apps/web
+npx vite build --config vite.usa.config.ts
+```
+
+This creates `apps/web/dist-usa/`. The USA browser workflow then tests the built standalone site in Chromium, examines its output for selected prohibited Brazilian integration strings and archives only `dist-usa/` as the short-lived `nexoffices-usa-standalone-preview` GitHub Actions artifact. The included `_redirects` is intended for a future **separate**, approved preview host; it does not change existing production URLs or deployments.
+
+**Release gate:** no NexOffices USA public staging URL is validated yet. Do not claim the artifact is already deployed. Publishing requires an isolated site configured to serve `dist-usa`, explicit build-source mapping to this US feature branch, no inherited Brazil secrets, external URL verification, and approval after all required US QA. The original NexOffices web build and four preexisting Brazilian copy-assertion failures are distinct from this standalone package. Keep PR #91 draft, and never resolve those failures by relaxing Brazilian tests without a separate root-cause review.
