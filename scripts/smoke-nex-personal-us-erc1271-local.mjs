@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import solc from 'solc';
 import {
- createPublicClient,createWalletClient,http,recoverMessageAddress,
+ createPublicClient,createWalletClient,http,recoverMessageAddress,hashMessage,parseAbi,
 } from 'viem';
 import {polygon} from 'viem/chains';
 import {generatePrivateKey,privateKeyToAccount} from 'viem/accounts';
@@ -56,11 +56,17 @@ assert.ok(deployed&&deployed!=='0x','Contract code must exist on local chain');
 const message='Nex Personal USA EIP-4361 wallet owner proof on local chain';
 const validSignature=await signer.signMessage({message});
 const invalidSignature=await stranger.signMessage({message});
+const erc1271Abi=parseAbi(['function isValidSignature(bytes32 digest, bytes sig) view returns (bytes4)']);
+async function verify1271AtDeployedContract({address,message,signature}){
+  const magic=await provider.readContract({address,abi:erc1271Abi,
+    functionName:'isValidSignature',args:[hashMessage(message),signature]});
+  return magic==='0x1626ba7e';
+}
 const adapter=createUSPolygonWalletSignatureVerifier({
  getChainId:()=>provider.getChainId(),
  getBytecode:({address})=>provider.getBytecode({address}),
  recoverMessageAddress:({message,signature})=>recoverMessageAddress({message,signature}),
- verifyMessage:({address,message,signature})=>provider.verifyMessage({address,message,signature})
+ verifyMessage:verify1271AtDeployedContract
 });
 const valid=await adapter({
  message,signature:validSignature,expectedAddress:contractAddress,chainId:137
@@ -75,7 +81,7 @@ const altered=await adapter({
  message:message+' TAMPERED',signature:validSignature,expectedAddress:contractAddress,chainId:137
 });
 assert.equal(altered.verified,false,'Changed message must fail');
-const directInvalid=await provider.verifyMessage({
+const directInvalid=await verify1271AtDeployedContract({
  address:contractAddress,message,signature:invalidSignature
 });
 assert.equal(directInvalid,false);
