@@ -39,6 +39,8 @@ jobs:
         run: node scripts/smoke-nex-personal-us-wallet-viem-verifier.mjs
       - name: Smoke test Nex Personal USA Maya read-only Trust policy
         run: node scripts/smoke-nex-personal-us-agentic-trust.mjs
+      - name: Smoke test pinned Polygon native USDC read-only server RPC
+        run: node scripts/smoke-nex-personal-us-polygon-usdc-reader.mjs
       - name: Smoke test US wallet atomic linkage and revocation
         run: node scripts/smoke-nex-personal-us-wallet-binding.mjs
       - name: Smoke test Nex Personal F-Insight isolated market research
