@@ -21,7 +21,7 @@ try{
  await assert.rejects(admin.query(sql),/USA Agentics consent schema denied/);
  await admin.query('ROLLBACK');
  assert.equal((await admin.query(
-  "SELECT to_regclass('nex_personal_us.wallet_agentic_read_consents') AS table")).rows[0].table,null);
+  "SELECT to_regclass('nex_personal_us.wallet_agentic_read_consents') AS relation")).rows[0].relation,null);
  const url=new URL(root);url.pathname='/nex_personal_us_ci';
  pool=new pg.Pool({connectionString:url.toString(),max:4});
  await pool.query(sql);
@@ -46,7 +46,7 @@ try{
     'did:privy:consent-test-'+randomUUID(),'wallet-'+randomUUID(),new Date().toISOString()
   ]);
  const gesture=()=>({approvalId:randomUUID(),subject:owner,bindingId,
-  approvedAt:new Date().toISOString(),capability:USA_AGENTIC_READ_CAPABILITY,
+  approvedAt:new Date(Date.now()-1000).toISOString(),capability:USA_AGENTIC_READ_CAPABILITY,
   source:'server_authenticated_explicit_gesture'});
  const args={pool,authenticatedUSSubject:owner,bindingId,now:new Date(),
   verifyExplicitGesture:async()=>gesture()};
