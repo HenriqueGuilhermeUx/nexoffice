@@ -117,8 +117,32 @@ try{
  const wrong=await revokeUSAgenticWalletRead({pool,authenticatedUSSubject:stranger,
   consentId:first.consentId,now:new Date()});
  assert.equal(wrong.revoked,false);
- assert.equal((await revokeUSAgenticWalletRead({pool,authenticatedUSSubject:owner,
-  consentId:first.consentId,now:new Date()})).revoked,true);
+ // Hold the server's shared DB read lock while a revocation starts.
+ // Revocation must not overtake an in-flight authorized observation.
+ let openReadGate;
+ let markObservationStarted;
+ const observationStarted=new Promise(resolve=>{markObservationStarted=resolve;});
+ const readGate=new Promise(resolve=>{openReadGate=resolve;});
+ const inFlightRead=assessServerUSAgenticRead({
+  ...readInput,fetchUSDCFromTrustedServer:async address=>{
+   markObservationStarted();
+   await readGate;
+   return trustedRPC(address);
+  }
+ });
+ await observationStarted;
+ let revokeFinished=false;
+ const inFlightRevoke=revokeUSAgenticWalletRead({
+  pool,authenticatedUSSubject:owner,consentId:first.consentId,now:new Date()
+ }).then(result=>{revokeFinished=true;return result;});
+ try {
+  await new Promise(resolve=>setTimeout(resolve,80));
+  assert.equal(revokeFinished,false,
+    'Revocation must wait for the in-flight owner-bound read');
+ }finally{openReadGate();}
+ const [heldRead,heldRevoke]=await Promise.all([inFlightRead,inFlightRevoke]);
+ assert.equal(heldRead.decision.decision,'allow_read');
+ assert.equal(heldRevoke.revoked,true);
  assert.equal((await revokeUSAgenticWalletRead({pool,authenticatedUSSubject:owner,
   consentId:first.consentId,now:new Date()})).revoked,false);
  const revoked=(await pool.query(`SELECT revoked_at
@@ -127,7 +151,7 @@ try{
  const revokedRead=await assessServerUSAgenticRead(readInput);
  assert.equal(revokedRead.decision.decision,'deny');
  assert.equal(revokedRead.rawUsdcBalance,null);
- assert.equal(rpcCalls,1,'Revoked consent must not issue another chain RPC');
+ assert.equal(rpcCalls,2,'Revoked consent must not issue another chain RPC');
  assert.equal(evaluatePersonalUSAgenticRead({...reviewFacts,consent:{
   ...reviewFacts.consent,revokedAt:revoked.revoked_at.toISOString()
  }}).decision,'deny');
