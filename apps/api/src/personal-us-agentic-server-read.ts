@@ -1,6 +1,6 @@
 import type {USWalletPool,USWalletClient} from './personal-us-wallet-binding-store.js';
 import {
- evaluatePersonalUSAgenticRead,USA_AGENTIC_ALLOWED_TOKEN,
+ evaluatePersonalUSAgenticRead,
  type USAgenticTrustDecision, type USAgenticReadTrustFacts
 } from './personal-us-agentic-trust.js';
 
@@ -59,7 +59,9 @@ export async function assessServerUSAgenticRead(input:{
  const client:USWalletClient=await input.pool.connect();
  let started=false;
  try{
-  await client.query('BEGIN READ ONLY ISOLATION LEVEL READ COMMITTED');
+  // PostgreSQL row-locking SELECT ... FOR SHARE is not permitted in a
+  // READ ONLY transaction. This transaction uses BEGIN but writes no records.
+  await client.query('BEGIN');
   started=true;
   // FOR SHARE avoids writing rows in a read-only transaction and conflicts
   // with FOR UPDATE revocation of the owner, wallet, or consent.
