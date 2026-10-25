@@ -33,6 +33,10 @@ try {
   page.on('pageerror', error => scriptErrors.push(error.message));
   await page.goto(base + '/us', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.getByRole('heading', { name: 'See how a business command center could work.' }).waitFor();
+  // US routes must never fall back into the Brazilian authenticated app or legal page.
+  await page.goto(base + '/us?app&legal&material=11111111-1111-4111-8111-111111111111', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: 'See how a business command center could work.' }).waitFor();
+
   assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
 
