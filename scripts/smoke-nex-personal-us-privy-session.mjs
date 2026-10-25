@@ -10,13 +10,15 @@ const base={bearerToken:token,usaPrivyAppId:'privy-us-dedicated',
 const claims={app_id:base.usaPrivyAppId,user_id:'did:privy:us-preview',
  session_id:'privy-session-123',issuer:base.expectedIssuer,issued_at:unix-120,expiration:unix+600};
 let trustedInvocations=0;
-const fakeSDK=async args=>{trustedInvocations++;assert.equal(args.app_id,base.usaPrivyAppId);
- assert.equal(args.verification_key,base.verificationKey);return claims;};
+let actualSDKArguments=null;
+const fakeSDK=async args=>{trustedInvocations++;actualSDKArguments=args;return claims;};
 const session=await verifyPrivyUSAccessSession({...base,verifyAccessToken:fakeSDK});
 assert.equal(session.appId,base.usaPrivyAppId);
 assert.equal(session.userId,claims.user_id);
 assert.equal(session.verification,'official_privy_server_sdk');
 assert.equal(trustedInvocations,1);
+assert.equal(actualSDKArguments.app_id,base.usaPrivyAppId);
+assert.equal(actualSDKArguments.verification_key,base.verificationKey);
 await assert.rejects(verifyPrivyUSAccessSession(base),/US_PRIVY_SDK_VERIFIER_NOT_CONFIGURED/);
 await assert.rejects(verifyPrivyUSAccessSession({...base,bearerToken:'not-a-jwt',verifyAccessToken:fakeSDK}),/MALFORMED/);
 await assert.rejects(verifyPrivyUSAccessSession({...base,usaPrivyAppId:'br-project',verifyAccessToken:fakeSDK}),/CLAIMS_INVALID/);
