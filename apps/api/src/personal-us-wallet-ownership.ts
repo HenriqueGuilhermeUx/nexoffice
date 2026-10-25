@@ -83,7 +83,9 @@ export async function assessPersonalUSWalletProof(input:{
  ].join('\n');
  if(expected!==c.expectedMessage)throw Error('MALFORMED_CHALLENGE');
  if(input.signedMessage!==c.expectedMessage)throw Error('CHALLENGE_MESSAGE_MISMATCH');
- if(typeof input.signature!=='string'||!/^0x[0-9a-fA-F]{130,}$/.test(input.signature))throw Error('INVALID_SIGNATURE_FORMAT');
+ if(typeof input.signature!=='string'||input.signature.length>8194||
+    !/^0x(?:[0-9a-fA-F]{2}){1,4096}$/.test(input.signature))
+   throw Error('INVALID_SIGNATURE_FORMAT');
  if(!input.verifier)throw Error('SIGNATURE_VERIFIER_UNAVAILABLE');
  const verified=await input.verifier({message:c.expectedMessage,signature:input.signature,
    expectedAddress:c.address,chainId:c.chainId});
@@ -91,6 +93,8 @@ export async function assessPersonalUSWalletProof(input:{
     verified.recoveredAddress.toLowerCase()!==c.address.toLowerCase()||
     !['eoa','erc1271'].includes(verified.verificationType))
    throw Error('WALLET_SIGNATURE_UNVERIFIED');
+ if(verified.verificationType==='eoa'&&input.signature.length!==132)
+   throw Error('INVALID_EOA_SIGNATURE_LENGTH');
  // Not a durable binding: caller MUST atomically consume nonce and enforce global
  // uniqueness across users; otherwise this result must NOT be accepted as linked.
  return {ownerSubject:c.ownerSubject,chainId:137,address:c.address,
