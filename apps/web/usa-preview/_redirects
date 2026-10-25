@@ -1,0 +1,3 @@
+# Static US-only preview. No links or fallback into the Brazilian site.
+/us /index.html 200
+/us/* /index.html 200
