@@ -69,8 +69,9 @@ export async function assessServerUSAgenticRead(input:{
   if(db.rows.length!==1||
      !/^nex_personal_us(?:_[a-z0-9_]+)?$/.test(db.rows[0].database))
    throw Error('US_AGENTIC_WRONG_DATABASE');
-  // FOR SHARE avoids writing rows in a read-only transaction and conflicts
-  // with FOR UPDATE revocation of the owner, wallet, or consent.
+  // FOR SHARE places shared row locks without application-data mutations;
+  // it conflicts with revocation updates of the owner, wallet or consent.
+  // PostgreSQL does not allow FOR SHARE in a READ ONLY transaction.
   const result=await client.query<ReadRow>(`
    SELECT p.auth_subject AS subject,p.status,p.id AS profile_id,
           b.id AS binding_id,b.owner_profile_id AS binding_owner_id,
