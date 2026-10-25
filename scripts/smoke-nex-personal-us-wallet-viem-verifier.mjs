@@ -34,6 +34,10 @@ r=await createUSPolygonWalletSignatureVerifier(provider({
  getBytecode:async()=> '0x60006000',verifyMessage:async()=>false
 }))(input);
 assert.equal(r.verified,false);
+r=await createUSPolygonWalletSignatureVerifier(provider({
+ getBytecode:async()=> '0x60006000',verifyMessage:async()=> 'true'
+}))(input);
+assert.equal(r.verified,false,'Truthy nonboolean ERC-1271 response must never authorize');
 await assert.rejects(createUSPolygonWalletSignatureVerifier(provider())({
  ...input,chainId:1
 }),/US_VIEM_PROOF_ARGUMENTS_INVALID/);
