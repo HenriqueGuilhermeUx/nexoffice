@@ -63,6 +63,12 @@ export async function assessServerUSAgenticRead(input:{
   // READ ONLY transaction. This transaction uses BEGIN but writes no records.
   await client.query('BEGIN');
   started=true;
+  // Defense in depth: even an accidentally supplied NexOffice/Brazil connection
+  // must fail before reading or contacting the RPC provider.
+  const db=await client.query<{database:string}>('SELECT current_database() AS database');
+  if(db.rows.length!==1||
+     !/^nex_personal_us(?:_[a-z0-9_]+)?$/.test(db.rows[0].database))
+   throw Error('US_AGENTIC_WRONG_DATABASE');
   // FOR SHARE avoids writing rows in a read-only transaction and conflicts
   // with FOR UPDATE revocation of the owner, wallet, or consent.
   const result=await client.query<ReadRow>(`
