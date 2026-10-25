@@ -65,12 +65,12 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {publicMaterialToken
-      ? <PublicMaterialView token={publicMaterialToken}/>
-      : legalRequested
-        ? <PublicLegalPage/>
-        : usRequested
-          ? <USPreview/>
+    {usRequested
+      ? <USPreview/>
+      : publicMaterialToken
+        ? <PublicMaterialView token={publicMaterialToken}/>
+        : legalRequested
+          ? <PublicLegalPage/>
           : appRequested
             ? appSurface
           : <>
