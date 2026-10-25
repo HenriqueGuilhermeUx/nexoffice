@@ -48,6 +48,12 @@ if(process.env.NEX_PERSONAL_PREVIEW==='true'){
     if(!pattern.test(html))throw new Error('Expected isolated preview branding marker was not found: '+pattern);
     html=html.replace(pattern,replacement);
   }
+  // The isolated homologation login is publicly reachable but invitation-only:
+  // prevent crawlers from indexing this staging application as the real Nexa.
+  if(!html.includes('name="robots"')){
+    html=html.replace('</head>',
+      '  <meta name="robots" content="noindex, nofollow, noarchive" />\\n  </head>');
+  }
   // The live site must be published on its own domain before this canonical
   // becomes authoritative; no address migration is performed by this build.
   writeFileSync(htmlPath,html,'utf8');
