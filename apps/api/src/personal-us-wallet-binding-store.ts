@@ -53,7 +53,8 @@ export async function bindVerifiedUSExternalWallet(input:{
    throw Error('INVALID_BIND_INPUT');
  if(!Number.isFinite(input.now.getTime()))throw Error('INVALID_BIND_TIME');
  return transaction(input.pool,async client=>{
-  // FOR UPDATE ensures only one request can consume this nonce for this account.
+  // Lock both challenge AND profile. Suspension/revocation of owner identity
+  // must not race a verified signature into an active wallet binding.
   const result=await client.query<ChallengeRow>(`
    SELECT c.id, c.owner_profile_id, p.auth_subject AS owner_subject, p.status AS profile_status,
           c.chain_id,c.wallet_address,c.trusted_origin,c.nonce_sha256,c.message_sha256,
@@ -61,7 +62,7 @@ export async function bindVerifiedUSExternalWallet(input:{
    FROM nex_personal_us.wallet_ownership_challenges c
    JOIN nex_personal_us.profiles p ON p.id=c.owner_profile_id
    WHERE c.id=$1 AND p.auth_subject=$2 AND p.status='active'
-   FOR UPDATE OF c`,[input.challengeId,input.authenticatedUSSubject]);
+   FOR UPDATE OF c,p`,[input.challengeId,input.authenticatedUSSubject]);
   if(result.rows.length!==1)throw Error('US_CHALLENGE_NOT_FOUND');
   const row=result.rows[0];
   if(row.consumed_at||row.profile_status!=='active'||row.chain_id!==137||
