@@ -17,6 +17,7 @@ class MockClient{
  async query(sql,params=[]){
   const s=sql.trim();this.statements.push(s);
   if(s==='BEGIN'){this.temp=clone(this.store.state);return {rows:[],rowCount:null};}
+  if(s==='SELECT current_database() AS database')return {rows:[{database:this.store.database}],rowCount:1};
   if(s==='COMMIT'){this.store.state=this.temp;this.temp=null;return {rows:[],rowCount:null};}
   if(s==='ROLLBACK'){this.temp=null;return {rows:[],rowCount:null};}
   if(s.includes('SELECT c.id')&&s.includes('wallet_ownership_challenges')){
@@ -50,10 +51,22 @@ class MockClient{
  release(){this.released=true;}
 }
 class MockPool{
- constructor(){this.state={row:clone(row),bindings:[],events:[]};this.clients=[];}
+ constructor(database='nex_personal_us_ci'){this.database=database;this.state={row:clone(row),bindings:[],events:[]};this.clients=[];}
  async connect(){const c=new MockClient(this);this.clients.push(c);return c;}
 }
 const verifier=async()=>({verified:true,recoveredAddress:address,verificationType:'eoa'});
+const wrongDbPool=new MockPool('nexoffice');
+await assert.rejects(bindVerifiedUSExternalWallet({
+ pool:wrongDbPool,authenticatedUSSubject:owner,challengeId:row.id,
+ trustedOrigin:origin,signedMessage:created.message,signature:'0x'+'aa'.repeat(65),
+ verifier:async()=>({verified:true,recoveredAddress:address,verificationType:'eoa'}),
+ now:new Date(now.getTime()+1000)
+}),/US_WALLET_WRONG_DATABASE/);
+assert.equal(wrongDbPool.state.row.consumed_at,null);
+assert.deepEqual(wrongDbPool.state.bindings,[]);
+assert.deepEqual(wrongDbPool.state.events,[]);
+assert.ok(wrongDbPool.clients.every(c=>c.released));
+
 const input={pool:new MockPool(),authenticatedUSSubject:owner,challengeId:row.id,
  trustedOrigin:origin,signedMessage:created.message,signature:'0x'+'aa'.repeat(65),
  verifier,now:new Date(now.getTime()+1000)};
