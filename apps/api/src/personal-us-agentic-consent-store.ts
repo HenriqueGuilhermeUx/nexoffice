@@ -1,4 +1,5 @@
 import {createHash,randomUUID} from 'node:crypto';
+import {assertPersonalUSDedicatedDatabase} from './personal-us-database-scope.js';
 import type {USWalletPool,USWalletClient} from './personal-us-wallet-binding-store.js';
 
 /**
@@ -21,6 +22,7 @@ async function withUSConsentTransaction<T>(pool:USWalletPool,fn:(client:USWallet
  const client=await pool.connect();let begun=false;
  try{
   await client.query('BEGIN');begun=true;
+  await assertPersonalUSDedicatedDatabase(client);
   const value=await fn(client);
   await client.query('COMMIT');begun=false;
   return value;
