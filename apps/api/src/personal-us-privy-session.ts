@@ -27,6 +27,8 @@ export async function verifyPrivyUSAccessSession(input:{
     !input.verificationKey?.trim()||input.verificationKey.length>8000||
     !input.expectedIssuer?.trim()||input.expectedIssuer.length>250)
    throw Error('US_PRIVY_CONFIGURATION_MISSING');
+ // Privy's official JWT issuer is fixed; do not allow a deployment to substitute one.
+ if(input.expectedIssuer!=='privy.io')throw Error('US_PRIVY_ISSUER_CONFIGURATION_INVALID');
  if(!Number.isFinite(input.now?.getTime()))throw Error('US_PRIVY_CLOCK_INVALID');
  // Tokens never enter logs, errors, audit, LLM or customer-facing responses.
  if(typeof input.bearerToken!=='string'||input.bearerToken.length>8192||
