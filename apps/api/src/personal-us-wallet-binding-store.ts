@@ -1,4 +1,5 @@
 import {createHash,randomUUID} from 'node:crypto';
+import {preparePrivyUSWalletBinding,type VerifiedUSPrivyWalletEvidence} from './personal-us-privy-onboarding.js';
 import {
   assessPersonalUSWalletProof,issuePersonalUSWalletChallenge,
   type USWalletChallenge,type USWalletSignatureVerifier
@@ -175,5 +176,55 @@ export async function issuePersistedUSWalletChallenge(input:{
    [randomUUID(),owner.rows[0].id,input.walletAddress,sha256(issued.message)]);
   return {challengeId:issued.challenge.id,message:issued.message,
     expiresAt:issued.challenge.expiresAt,executionAllowed:false};
+ });
+}
+
+/** Persist a user-controlled embedded wallet ONLY after a trusted SERVER Privy
+ * adapter has authenticated its project/user/wallet evidence. No HTTP routes,
+ * SDK, secrets or client-supplied evidence are wired to this candidate contract.
+ */
+export async function bindVerifiedUSPrivyWallet(input:{
+ pool:USWalletPool;authenticatedUSSubject:string;dedicatedUSPrivyProjectId:string;
+ loadVerifiedEvidence:()=>Promise<VerifiedUSPrivyWalletEvidence>;
+ now:Date
+}):Promise<{
+  bindingId:string;ownerSubject:string;walletAddress:string;source:'privy';
+  executionAllowed:false;delegatedAgentSigningAllowed:false
+}>{
+ if(!/^[a-zA-Z0-9:_-]{8,150}$/.test(input.authenticatedUSSubject)||
+    !Number.isFinite(input.now.getTime())||typeof input.loadVerifiedEvidence!=='function')
+   throw Error('INVALID_US_PRIVY_BIND_INPUT');
+ // Trusted adapter must validate issuer/signature/audience/project server-side and
+ // fetch wallets for the US Privy user: never accept JSON evidence from a browser.
+ const evidence=await input.loadVerifiedEvidence();
+ const candidate=preparePrivyUSWalletBinding({
+  authenticatedUSSubject:input.authenticatedUSSubject,
+  dedicatedUSPrivyProjectId:input.dedicatedUSPrivyProjectId,
+  verified:evidence,now:input.now
+ });
+ return transaction(input.pool,async client=>{
+  const owner=await client.query<{id:string;status:string}>(`
+   SELECT id,status FROM nex_personal_us.profiles
+    WHERE auth_subject=$1 FOR UPDATE`,[candidate.subject]);
+  if(owner.rows.length!==1||owner.rows[0].status!=='active')
+    throw Error('US_IDENTITY_NOT_ACTIVE');
+  const id=randomUUID();
+  const inserted=await client.query<{id:string}>(`
+   INSERT INTO nex_personal_us.wallet_bindings
+    (id,owner_profile_id,source,wallet_address,chain_id,privy_project_id,
+      privy_user_id,privy_wallet_id,verified_at)
+   VALUES($1,$2,'privy',$3,137,$4,$5,$6,$7) RETURNING id`,
+   [id,owner.rows[0].id,candidate.address,candidate.projectId,
+    candidate.privyUserId,candidate.privyWalletId,candidate.verifiedAt]);
+  if(inserted.rowCount!==1||inserted.rows[0]?.id!==id)
+    throw Error('US_PRIVY_BINDING_NOT_SAVED');
+  await client.query(`
+   INSERT INTO nex_personal_us.wallet_security_events
+    (id,owner_profile_id,event_type,subject_wallet_address,evidence_digest_sha256)
+   VALUES($1,$2,'binding.created',$3,$4)`,
+   [randomUUID(),owner.rows[0].id,candidate.address,
+    sha256(candidate.projectId+':'+candidate.privyWalletId)]);
+  return {bindingId:id,ownerSubject:candidate.subject,walletAddress:candidate.address,
+   source:'privy',executionAllowed:false,delegatedAgentSigningAllowed:false};
  });
 }
