@@ -58,14 +58,14 @@ export function evaluatePersonalUSAgenticRead(facts:USAgenticReadTrustFacts|unde
     expiry<=now||expiry<=issued||expiry-issued>15*60_000)
   return DENY('CONSENT_EXPIRED_OR_TOO_BROAD');
  if(obs.source!=='trusted_server_polygon_rpc'||obs.chainId!==137||
-    obs.tokenAddress?.toLowerCase()!==USA_AGENTIC_ALLOWED_TOKEN||
-    obs.walletAddress?.toLowerCase()!==binding.address.toLowerCase()||
+    typeof obs.tokenAddress!=='string'||obs.tokenAddress.toLowerCase()!==USA_AGENTIC_ALLOWED_TOKEN||
+    typeof obs.walletAddress!=='string'||obs.walletAddress.toLowerCase()!==binding.address.toLowerCase()||
     obs.decimals!==6)
   return DENY('ONCHAIN_PROVENANCE_INVALID');
  const at=ts(obs.observedAt);
  if(!Number.isFinite(at)||at>now||now-at>2*60_000)
   return DENY('ONCHAIN_OBSERVATION_STALE');
- if(typeof obs.rawBalance!=='string'||!INTEGER.test(obs.rawBalance)||
+ if(typeof obs.rawBalance!=='string'||obs.rawBalance.length>78||!INTEGER.test(obs.rawBalance)||
     BigInt(obs.rawBalance)>2n**256n-1n)
   return DENY('ONCHAIN_AMOUNT_INVALID');
  return {decision:'allow_read',reason:'EXPLICIT_US_READ_ONLY',
