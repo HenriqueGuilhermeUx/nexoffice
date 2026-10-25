@@ -31,3 +31,7 @@ US accounting, sales tax, ACH, finance, banking and billing integrations are def
 - [ ] Enable US activation only after region-scoped auth, infrastructure, data residency and entitlements are validated.
 
 **Do not merge, publish, or redirect Brazilian traffic automatically.**
+
+## Operational browser-only demonstration (2026-10-25)
+
+An English local-only task board was added to `/us`: a fictional action inbox, status changes, task creation and reset. No user, business or payment details are sent to the Brazilian API. This is not US accounting, taxation, billing or financial functionality. Separate preexisting Brazil UX contract test failures must not be silenced by this PR.
