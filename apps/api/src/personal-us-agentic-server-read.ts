@@ -111,6 +111,15 @@ export async function assessServerUSAgenticRead(input:{
    chainObservation:observed as USAgenticReadTrustFacts['chainObservation'],
    now:input.now
   };
+  // Do not leak a balance if the consent expired during a slow chain lookup.
+  // The evaluation must use the wall clock at completion, not the request's
+  // earlier time snapshot (which could be close to the expiry boundary).
+  const completedAt=Date.now();
+  if(completedAt>=Date.parse(iso(row.expires_at))){
+   await client.query('COMMIT');started=false;
+   return rejected('US_AGENTIC_DB_CONSENT_EXPIRED');
+  }
+  facts.now=new Date(completedAt);
   const decision=evaluatePersonalUSAgenticRead(facts);
   await client.query('COMMIT');started=false;
   return {
