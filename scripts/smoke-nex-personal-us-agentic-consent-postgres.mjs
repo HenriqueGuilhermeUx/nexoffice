@@ -116,6 +116,20 @@ try{
  });
  assert.equal(falseChain.decision.decision,'deny');
  assert.equal(falseChain.rawUsdcBalance,null);
+ // Permission may expire while a permitted server RPC is in progress:
+ // the response MUST fail closed and suppress the balance.
+ await pool.query(`UPDATE nex_personal_us.wallet_agentic_read_consents
+  SET expires_at=now()+interval '100 milliseconds' WHERE id=$1`,[first.consentId]);
+ const slow=await assessServerUSAgenticRead({
+  ...readInput,fetchUSDCFromTrustedServer:async address=>{
+   await new Promise(resolve=>setTimeout(resolve,250));
+   return trustedRPC(address);
+  }
+ });
+ assert.equal(slow.decision.decision,'deny');
+ assert.equal(slow.rawUsdcBalance,null,'Expired consent must not expose a late RPC result');
+ await pool.query(`UPDATE nex_personal_us.wallet_agentic_read_consents
+  SET expires_at=$1 WHERE id=$2`,[issued.expires_at,first.consentId]);
  const wrong=await revokeUSAgenticWalletRead({pool,authenticatedUSSubject:stranger,
   consentId:first.consentId,now:new Date()});
  assert.equal(wrong.revoked,false);
@@ -150,10 +164,11 @@ try{
  const revoked=(await pool.query(`SELECT revoked_at
    FROM nex_personal_us.wallet_agentic_read_consents WHERE id=$1`,[first.consentId])).rows[0];
  assert.ok(revoked.revoked_at);
+ const callsBeforeRevokedRead=rpcCalls;
  const revokedRead=await assessServerUSAgenticRead(readInput);
  assert.equal(revokedRead.decision.decision,'deny');
  assert.equal(revokedRead.rawUsdcBalance,null);
- assert.equal(rpcCalls,2,'Revoked consent must not issue another chain RPC');
+ assert.equal(rpcCalls,callsBeforeRevokedRead,'Revoked consent must not issue another chain RPC');
  assert.equal(evaluatePersonalUSAgenticRead({...reviewFacts,consent:{
   ...reviewFacts.consent,revokedAt:revoked.revoked_at.toISOString()
  }}).decision,'deny');
@@ -176,12 +191,13 @@ try{
  assert.equal((await revokeUSWalletBinding({
   pool,authenticatedUSSubject:owner,bindingId,now:new Date()
  })).revoked,true);
+ const callsBeforeRevokedWalletRead=rpcCalls;
  const revokedWalletRead=await assessServerUSAgenticRead({
   ...readInput,consentId:lastConsent.consentId,now:new Date()
  });
  assert.equal(revokedWalletRead.decision.decision,'deny');
  assert.equal(revokedWalletRead.rawUsdcBalance,null);
- assert.equal(rpcCalls,3,'Revoked wallet must not cause an on-chain RPC');
+ assert.equal(rpcCalls,callsBeforeRevokedWalletRead,'Revoked wallet must not cause an on-chain RPC');
  const events=await pool.query(`SELECT event_type FROM nex_personal_us.wallet_security_events
   WHERE owner_profile_id=$1 AND event_type LIKE 'agentic.%'`,[profileId]);
  assert.equal(events.rows.filter(x=>x.event_type==='agentic.read.authorized').length,4);
