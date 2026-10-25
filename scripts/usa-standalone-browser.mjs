@@ -12,7 +12,7 @@ const redirects = readFileSync(join(output, '_redirects'), 'utf8');
 const usIndex = readFileSync(join(output, 'us', 'index.html'), 'utf8');
 const crawlerRules = readFileSync(join(output, 'robots.txt'), 'utf8');
 assert.equal(usIndex, html, 'Render /us/ must render the exact isolated USA app');
-assert.match(crawlerRules, /Disallow: \\//);
+assert.ok(crawlerRules.split('\n').some(line => line.trim() === 'Disallow: /'), 'Crawler rules must disallow all staging paths');
 
 const headers = readFileSync(join(output, '_headers'), 'utf8');
 assert.match(headers, /X-Robots-Tag: noindex, nofollow/);
