@@ -6,6 +6,8 @@ import {authorizeUSAgenticWalletRead,revokeUSAgenticWalletRead}
  from '../apps/api/dist/personal-us-agentic-consent-store.js';
 import {evaluatePersonalUSAgenticRead,USA_AGENTIC_ALLOWED_TOKEN,USA_AGENTIC_READ_CAPABILITY}
  from '../apps/api/dist/personal-us-agentic-trust.js';
+import {assessServerUSAgenticRead}
+ from '../apps/api/dist/personal-us-agentic-server-read.js';
 
 if(process.env.NEX_PERSONAL_US_PG_CI!=='true')throw Error('US_AGENTIC_CI_FLAG_MISSING');
 const root=new URL(String(process.env.DATABASE_URL||''));
@@ -80,6 +82,38 @@ try{
    observedAt:new Date().toISOString()},now:new Date()
  };
  assert.equal(evaluatePersonalUSAgenticRead(reviewFacts).decision,'allow_read');
+ // Crucially, production-style authorization consults owner+binding+grant
+ // *inside PostgreSQL*, not from any browser-supplied trust booleans.
+ let rpcCalls=0;
+ const trustedRPC=async requestedAddress=>{
+   rpcCalls++;
+   assert.equal(requestedAddress.toLowerCase(),addr.toLowerCase());
+   return {chainId:137,tokenAddress:USA_AGENTIC_ALLOWED_TOKEN,
+    walletAddress:addr,rawBalance:'42000000',decimals:6,
+    source:'trusted_server_polygon_rpc',observedAt:new Date().toISOString()};
+ };
+ const readInput={pool,authenticatedUSSubject:owner,
+  consentId:first.consentId,now:new Date(),fetchUSDCFromTrustedServer:trustedRPC};
+ const read=await assessServerUSAgenticRead(readInput);
+ assert.equal(read.decision.decision,'allow_read');
+ assert.equal(read.rawUsdcBalance,'42000000');
+ assert.equal(read.executionAllowed,false);
+ assert.equal(rpcCalls,1);
+ const nonOwner=await assessServerUSAgenticRead({
+  ...readInput,authenticatedUSSubject:stranger
+ });
+ assert.equal(nonOwner.decision.decision,'deny');
+ assert.equal(nonOwner.rawUsdcBalance,null);
+ assert.equal(rpcCalls,1,'Non-owner must never reach the trusted RPC');
+ const falseChain=await assessServerUSAgenticRead({
+  ...readInput,fetchUSDCFromTrustedServer:async()=>({
+   chainId:1,tokenAddress:USA_AGENTIC_ALLOWED_TOKEN,walletAddress:addr,
+   rawBalance:'42000000',decimals:6,source:'trusted_server_polygon_rpc',
+   observedAt:new Date().toISOString()
+  })
+ });
+ assert.equal(falseChain.decision.decision,'deny');
+ assert.equal(falseChain.rawUsdcBalance,null);
  const wrong=await revokeUSAgenticWalletRead({pool,authenticatedUSSubject:stranger,
   consentId:first.consentId,now:new Date()});
  assert.equal(wrong.revoked,false);
@@ -90,6 +124,10 @@ try{
  const revoked=(await pool.query(`SELECT revoked_at
    FROM nex_personal_us.wallet_agentic_read_consents WHERE id=$1`,[first.consentId])).rows[0];
  assert.ok(revoked.revoked_at);
+ const revokedRead=await assessServerUSAgenticRead(readInput);
+ assert.equal(revokedRead.decision.decision,'deny');
+ assert.equal(revokedRead.rawUsdcBalance,null);
+ assert.equal(rpcCalls,1,'Revoked consent must not issue another chain RPC');
  assert.equal(evaluatePersonalUSAgenticRead({...reviewFacts,consent:{
   ...reviewFacts.consent,revokedAt:revoked.revoked_at.toISOString()
  }}).decision,'deny');
