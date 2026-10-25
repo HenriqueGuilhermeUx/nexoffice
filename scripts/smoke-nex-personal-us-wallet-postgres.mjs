@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import pg from 'pg';
-import {issuePersistedUSWalletChallenge,bindVerifiedUSExternalWallet,bindVerifiedUSPrivyWallet,revokeUSWalletBinding} from '../apps/api/dist/personal-us-wallet-binding-store.js';
+import {issuePersistedUSWalletChallenge,bindVerifiedUSExternalWallet,bindVerifiedUSPrivyWallet,bindPrivyUSAfterServerSession,revokeUSWalletBinding} from '../apps/api/dist/personal-us-wallet-binding-store.js';
 
 /** Runs exclusively in GitHub Actions' disposable localhost PostgreSQL 16.
  * Verifier below is a synthetic test double, NOT actual EOA/EIP-1271 verification.
@@ -128,7 +128,30 @@ try{
  await assert.rejects(bindVerifiedUSPrivyWallet({
   ...privyArgs,authenticatedUSSubject:userB
  }),/PRIVY_IDENTITY_NOT_LINKED/);
- const embedded=await bindVerifiedUSPrivyWallet(privyArgs);
+ const jwt='eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJkaWQ6cHJpdnk6dXMtYWxwaGEifQ.c2ln';
+ const unix=Math.floor(Date.now()/1000);
+ const serverArgs={
+  pool:usPool,authenticatedUSSubject:userA,bearerToken:jwt,
+  dedicatedUSPrivyProjectId:evidence.projectId,
+  verificationKey:'CI-SYNTHETIC-KEY-NOT-VALID-FOR-USERS',
+  expectedIssuer:'privy-issuer-ci',
+  verifyAccessToken:async()=>({
+   app_id:evidence.projectId,issuer:'privy-issuer-ci',issued_at:unix-30,
+   expiration:unix+600,session_id:'privy-session-ci',user_id:evidence.userId
+  }),
+  resolveUSPrivyUserId:async subject=>subject===userA?evidence.userId:'different-privy-account',
+  fetchVerifiedUSWalletEvidence:async()=>evidence,now:new Date()
+ };
+ await assert.rejects(bindPrivyUSAfterServerSession({
+  ...serverArgs,resolveUSPrivyUserId:async()=> 'did:privy:br-account'
+ }),/US_PRIVY_SESSION_NOT_LINKED_TO_OWNER/);
+ await assert.rejects(bindPrivyUSAfterServerSession({
+  ...serverArgs,fetchVerifiedUSWalletEvidence:async()=>({...evidence,userId:'did:privy:another-user'})
+ }),/US_PRIVY_PROVIDER_USER_MISMATCH/);
+ await assert.rejects(bindPrivyUSAfterServerSession({
+  ...serverArgs,dedicatedUSPrivyProjectId:'privy-br-not-usa'
+ }),/US_PRIVY_TOKEN_CLAIMS_INVALID/);
+ const embedded=await bindPrivyUSAfterServerSession(serverArgs);
  assert.equal(embedded.executionAllowed,false);
  assert.equal(embedded.delegatedAgentSigningAllowed,false);
  const stored=await usPool.query("SELECT privy_project_id,privy_wallet_id,source FROM nex_personal_us.wallet_bindings WHERE id=$1",[embedded.bindingId]);
