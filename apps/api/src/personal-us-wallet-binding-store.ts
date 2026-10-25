@@ -1,5 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {preparePrivyUSWalletBinding,type VerifiedUSPrivyWalletEvidence} from './personal-us-privy-onboarding.js';
+import {verifyPrivyUSAccessSession,type OfficialPrivyUSVerifyAccessToken,type VerifiedPrivyUSSession} from './personal-us-privy-session.js';
 import {
   assessPersonalUSWalletProof,issuePersonalUSWalletChallenge,
   type USWalletChallenge,type USWalletSignatureVerifier
@@ -226,5 +227,49 @@ export async function bindVerifiedUSPrivyWallet(input:{
     sha256(candidate.projectId+':'+candidate.privyWalletId)]);
   return {bindingId:id,ownerSubject:candidate.subject,walletAddress:candidate.address,
    source:'privy',executionAllowed:false,delegatedAgentSigningAllowed:false};
+ });
+}
+
+/** USA Privy auth + wallet attestation orchestrator — STILL NOT ROUTED.
+ * Signature verification uses the official Privy server SDK, injected by the
+ * future isolated USA service; a separate trusted identity store must map
+ * the authenticated US consumer to the Privy DID. No frontend JSON may be
+ * used to supply provider wallets or user ownership evidence.
+ */
+export async function bindPrivyUSAfterServerSession(input:{
+ pool:USWalletPool;
+ authenticatedUSSubject:string;
+ bearerToken:string;
+ dedicatedUSPrivyProjectId:string;verificationKey:string;expectedIssuer:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ resolveUSPrivyUserId:(authenticatedSubject:string)=>Promise<string>;
+ fetchVerifiedUSWalletEvidence:(session:VerifiedPrivyUSSession)=>Promise<VerifiedUSPrivyWalletEvidence>;
+ now:Date
+}):Promise<{
+  bindingId:string;ownerSubject:string;walletAddress:string;source:'privy';
+  executionAllowed:false;delegatedAgentSigningAllowed:false
+}>{
+ if(typeof input.resolveUSPrivyUserId!=='function'||
+    typeof input.fetchVerifiedUSWalletEvidence!=='function')
+   throw Error('US_PRIVY_SERVER_ADAPTERS_MISSING');
+ const session=await verifyPrivyUSAccessSession({
+  bearerToken:input.bearerToken,usaPrivyAppId:input.dedicatedUSPrivyProjectId,
+  verificationKey:input.verificationKey,expectedIssuer:input.expectedIssuer,
+  verifyAccessToken:input.verifyAccessToken,now:input.now
+ });
+ // This lookup MUST derive from an authenticated US session and an existing
+ // dedicated US identity table, not from an untrusted request body.
+ const expectedPrivyUserId=await input.resolveUSPrivyUserId(input.authenticatedUSSubject);
+ if(!expectedPrivyUserId||session.userId!==expectedPrivyUserId)
+   throw Error('US_PRIVY_SESSION_NOT_LINKED_TO_OWNER');
+ return bindVerifiedUSPrivyWallet({
+  pool:input.pool,authenticatedUSSubject:input.authenticatedUSSubject,
+  dedicatedUSPrivyProjectId:input.dedicatedUSPrivyProjectId,now:input.now,
+  loadVerifiedEvidence:async()=>{
+   const evidence=await input.fetchVerifiedUSWalletEvidence(session);
+   if(evidence.userId!==session.userId)
+     throw Error('US_PRIVY_PROVIDER_USER_MISMATCH');
+   return evidence;
+  }
  });
 }
