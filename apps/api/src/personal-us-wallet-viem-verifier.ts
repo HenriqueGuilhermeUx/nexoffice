@@ -37,7 +37,7 @@ export function createUSPolygonWalletSignatureVerifier(provider:USAEthereumViemV
   let verificationType:'eoa'|'erc1271'='eoa';
   if(bytecode&&bytecode!=='0x'){
    verificationType='erc1271';
-   verified=await provider.verifyMessage({address,message,signature:sig});
+   verified=(await provider.verifyMessage({address,message,signature:sig}))===true;
   }else{
    // An EOA signature is exactly 65 bytes; smart-wallet counterfactuals remain denied.
    if(sig.length!==132)throw Error('US_VIEM_INVALID_EOA_SIGNATURE');
