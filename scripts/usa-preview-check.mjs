@@ -14,6 +14,9 @@ assert.ok(entry.includes("USPreview") || entry.includes("UsLanding"), "US previe
 assert.ok(entry.includes("'/us'"), "Expected existing route or US gate: '/us'");
 assert.ok(entry.includes("appSurface"), "Expected existing route or US gate: appSurface");
 assert.ok(entry.includes("/us"), "US preview must have an isolated route");
+assert.ok(entry.indexOf('{usRequested') < entry.indexOf(': publicMaterialToken'), "US route must win over Brazilian public material query tokens");
+assert.ok(entry.indexOf('{usRequested') < entry.indexOf(': legalRequested'), "US route must win over Brazilian legal query routes");
+
 assert.ok(preview.includes("en-US"), "US preview must set document language");
 assert.ok(preview.includes("Alternative Ventures"), "US brand attribution missing");
 assert.match(preview, /preview/i, "US preview must identify non-live scope");
