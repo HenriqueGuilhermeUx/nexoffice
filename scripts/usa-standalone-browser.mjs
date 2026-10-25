@@ -9,6 +9,11 @@ import { chromium } from 'playwright';
 const output = 'apps/web/dist-usa';
 const html = readFileSync(join(output, 'index.html'), 'utf8');
 const redirects = readFileSync(join(output, '_redirects'), 'utf8');
+const headers = readFileSync(join(output, '_headers'), 'utf8');
+assert.match(headers, /X-Robots-Tag: noindex, nofollow/);
+assert.match(headers, /connect-src 'none'/);
+assert.match(headers, /frame-ancestors 'none'/);
+
 assert.match(html, /<html lang="en-US">/);
 assert.match(html, /noindex,nofollow/);
 assert.match(redirects, /\/us\s+\/index\.html\s+200/);
@@ -46,6 +51,18 @@ try {
   await page.getByText('Demo customer request').waitFor();
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
   assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
+  const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+  assert.match(policy, /connect-src 'none'/);
+  const blockedByCsp = await page.evaluate(async () => {
+    try {
+      await fetch('/blocked-csp-check');
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  assert.equal(blockedByCsp, true, 'Standalone preview must block even same-origin fetches');
+
   assert.deepEqual(errors, [], 'Standalone runtime JavaScript errors');
   assert.deepEqual(backend, [], 'Standalone made an external backend request');
   console.log('PASS: deployable NexOffices USA-only static bundle, standalone CRM and network isolation');
