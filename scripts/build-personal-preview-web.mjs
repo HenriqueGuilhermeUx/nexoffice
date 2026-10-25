@@ -52,7 +52,7 @@ if(process.env.NEX_PERSONAL_PREVIEW==='true'){
   // prevent crawlers from indexing this staging application as the real Nexa.
   if(!html.includes('name="robots"')){
     html=html.replace('</head>',
-      '  <meta name="robots" content="noindex, nofollow, noarchive" />\\n  </head>');
+      '  <meta name="robots" content="noindex, nofollow, noarchive" /></head>');
   }
   // The live site must be published on its own domain before this canonical
   // becomes authoritative; no address migration is performed by this build.
