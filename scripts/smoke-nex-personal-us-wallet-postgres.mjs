@@ -134,9 +134,9 @@ try{
   pool:usPool,authenticatedUSSubject:userA,bearerToken:jwt,
   dedicatedUSPrivyProjectId:evidence.projectId,
   verificationKey:'CI-SYNTHETIC-KEY-NOT-VALID-FOR-USERS',
-  expectedIssuer:'privy-issuer-ci',
+  expectedIssuer:'privy.io',
   verifyAccessToken:async()=>({
-   app_id:evidence.projectId,issuer:'privy-issuer-ci',issued_at:unix-30,
+   app_id:evidence.projectId,issuer:'privy.io',issued_at:unix-30,
    expiration:unix+600,session_id:'privy-session-ci',user_id:evidence.userId
   }),
   resolveUSPrivyUserId:async subject=>subject===userA?evidence.userId:'different-privy-account',
