@@ -9,6 +9,11 @@ import { chromium } from 'playwright';
 const output = 'apps/web/dist-usa';
 const html = readFileSync(join(output, 'index.html'), 'utf8');
 const redirects = readFileSync(join(output, '_redirects'), 'utf8');
+const usIndex = readFileSync(join(output, 'us', 'index.html'), 'utf8');
+const crawlerRules = readFileSync(join(output, 'robots.txt'), 'utf8');
+assert.equal(usIndex, html, 'Render /us/ must render the exact isolated USA app');
+assert.match(crawlerRules, /Disallow: \\//);
+
 const headers = readFileSync(join(output, '_headers'), 'utf8');
 assert.match(headers, /X-Robots-Tag: noindex, nofollow/);
 assert.match(headers, /connect-src 'none'/);
@@ -42,6 +47,9 @@ try {
   page.on('request', r=>{
     if (/supabase\.co|onrender\.com|\/api\//i.test(r.url())) backend.push(r.url());
   });
+  await page.goto('http://127.0.0.1:4186/us/', {waitUntil:'domcontentloaded'});
+  await page.getByRole('heading', {name:'One place to keep the business moving.'}).waitFor();
+  assert.equal(new URL(page.url()).pathname, '/us/', 'Render staging must support direct /us/ loading');
   await page.goto('http://127.0.0.1:4186/', {waitUntil:'domcontentloaded'});
   await page.getByRole('heading', {name:'See how a business command center could work.'}).waitFor();
   await page.getByRole('heading', {name:'Keep every next step visible.'}).waitFor();
