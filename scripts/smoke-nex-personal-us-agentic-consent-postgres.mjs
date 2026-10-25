@@ -8,6 +8,8 @@ import {evaluatePersonalUSAgenticRead,USA_AGENTIC_ALLOWED_TOKEN,USA_AGENTIC_READ
  from '../apps/api/dist/personal-us-agentic-trust.js';
 import {assessServerUSAgenticRead}
  from '../apps/api/dist/personal-us-agentic-server-read.js';
+import {revokeUSWalletBinding}
+ from '../apps/api/dist/personal-us-wallet-binding-store.js';
 
 if(process.env.NEX_PERSONAL_US_PG_CI!=='true')throw Error('US_AGENTIC_CI_FLAG_MISSING');
 const root=new URL(String(process.env.DATABASE_URL||''));
@@ -166,6 +168,20 @@ try{
  await assert.rejects(authorizeUSAgenticWalletRead({
   ...args,now:new Date(),verifyExplicitGesture:async()=>gesture()
  }),/US_AGENTIC_ACTIVE_CONSENT_LIMIT/);
+ const lastConsent=permits[0];
+ const activeRead=await assessServerUSAgenticRead({
+  ...readInput,consentId:lastConsent.consentId,now:new Date()
+ });
+ assert.equal(activeRead.decision.decision,'allow_read');
+ assert.equal((await revokeUSWalletBinding({
+  pool,authenticatedUSSubject:owner,bindingId,now:new Date()
+ })).revoked,true);
+ const revokedWalletRead=await assessServerUSAgenticRead({
+  ...readInput,consentId:lastConsent.consentId,now:new Date()
+ });
+ assert.equal(revokedWalletRead.decision.decision,'deny');
+ assert.equal(revokedWalletRead.rawUsdcBalance,null);
+ assert.equal(rpcCalls,3,'Revoked wallet must not cause an on-chain RPC');
  const events=await pool.query(`SELECT event_type FROM nex_personal_us.wallet_security_events
   WHERE owner_profile_id=$1 AND event_type LIKE 'agentic.%'`,[profileId]);
  assert.equal(events.rows.filter(x=>x.event_type==='agentic.read.authorized').length,4);
