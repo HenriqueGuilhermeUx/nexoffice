@@ -35,3 +35,9 @@ US accounting, sales tax, ACH, finance, banking and billing integrations are def
 ## Operational browser-only demonstration (2026-10-25)
 
 An English local-only task board was added to `/us`: a fictional action inbox, status changes, task creation and reset. No user, business or payment details are sent to the Brazilian API. This is not US accounting, taxation, billing or financial functionality. Separate preexisting Brazil UX contract test failures must not be silenced by this PR.
+
+## Interactive preview inventory
+
+- `/us` includes a browser-only task command center demo with fictional task creation, assignment, status changes, metrics and reset.
+- This demo has no workspace authentication, persistent customer records, billing, banking, US tax handling or API calls.
+- A full GitHub web build passes; preexisting smoke tests that assert Brazilian content remain separate work and must not be weakened inside the USA branch.
