@@ -343,3 +343,21 @@ jobs:
         run: node scripts/smoke-nex-personal-us-real-viem.mjs
       - name: Bind real ephemeral EOA signature atomically in throwaway USA PostgreSQL
         run: node scripts/smoke-nex-personal-us-real-binding.mjs
+
+  # Isolated official Privy SDK JWT verification; synthetic ES256 test key only.
+  us_wallet_official_privy_cryptography:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NPU_OFFICIAL_PRIVY_CRYPTO_CI: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Install exact official Privy Node SDK for isolated JWT test
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @privy-io/node@0.36.0
+      - name: Validate ephemeral ES256 JWTs using Privy's official verifier
+        run: node --experimental-strip-types scripts/smoke-nex-personal-us-official-privy-crypto.mjs
