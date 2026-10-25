@@ -35,7 +35,20 @@ try{
    pool:wrongDbPool,authenticatedUSSubject:'us_subject_wrong_db',
    consentId:randomUUID(),now:new Date(),
    fetchUSDCFromTrustedServer:async()=>{throw Error('RPC_MUST_NEVER_BE_REACHED');}
-  }),/US_AGENTIC_WRONG_DATABASE/);
+  }),/US_WALLET_WRONG_DATABASE/);
+  const testSubject='us_subject_wrong_db',testBinding=randomUUID();
+  await assert.rejects(authorizeUSAgenticWalletRead({
+   pool:wrongDbPool,authenticatedUSSubject:testSubject,bindingId:testBinding,
+   now:new Date(),verifyExplicitGesture:async()=>({
+    approvalId:randomUUID(),subject:testSubject,bindingId:testBinding,
+    approvedAt:new Date(Date.now()-1000).toISOString(),
+    capability:USA_AGENTIC_READ_CAPABILITY,source:'server_authenticated_explicit_gesture'
+   })
+  }),/US_WALLET_WRONG_DATABASE/);
+  await assert.rejects(revokeUSAgenticWalletRead({
+   pool:wrongDbPool,authenticatedUSSubject:testSubject,
+   consentId:randomUUID(),now:new Date()
+  }),/US_WALLET_WRONG_DATABASE/);
  }finally{await wrongDbPool.end();}
  const url=new URL(root);url.pathname='/nex_personal_us_ci';
  pool=new pg.Pool({connectionString:url.toString(),max:4});
