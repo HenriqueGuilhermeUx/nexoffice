@@ -38,8 +38,8 @@ const crmStyles = read("apps/web/src/USSalesPipeline.css");
 assert.ok(preview.includes("<USSalesPipeline />"), "CRM example must be mounted in US preview only");
 assert.ok(crm.includes("No customer or commercial information is saved or transmitted."), "CRM data disclaimer missing");
 assert.ok(crm.includes("initial") || crm.includes("samples"), "CRM must use fictional examples only");
-assert.ok(!/(fetch|XMLHttpRequest)\\s*\\(/.test(crm), "US CRM cannot call a backend");
-assert.ok(!/localStorage\\s*\\.|sessionStorage\\s*\\./.test(crm), "US CRM cannot store customer data");
+assert.ok(!crm.includes('fetch(') && !crm.includes('XMLHttpRequest('), 'US CRM cannot call a backend');
+assert.ok(!crm.includes('localStorage.') && !crm.includes('sessionStorage.'), 'US CRM cannot store customer data');
 assert.ok(crmStyles.includes(".avus .avsp"), "US CRM CSS must be namespaced");
 
 console.log("PASS: nexoffice US preview route, language, copy, branding, isolation and CSS namespace");
