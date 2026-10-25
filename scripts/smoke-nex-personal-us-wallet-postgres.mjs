@@ -24,6 +24,27 @@ let usPool;
 try{
  await assert.rejects(admin.query(sql),/US wallet migration denied/);
  await admin.query('ROLLBACK'); // Restore session after explicit BEGIN rejected by guard.
+ // Runtime guard independently blocks wallet commands against a business DB,
+ // including legitimate-looking subjects and IDs, before any profile lookup.
+ const nonUsPool=new pg.Pool({connectionString:root,max:2});
+ try{
+  await assert.rejects(issuePersistedUSWalletChallenge({
+   pool:nonUsPool,authenticatedUSSubject:'us_subject_wrong_db',
+   walletAddress:'0x1111111111111111111111111111111111111111',
+   trustedOrigin:'https://personal-us-ci.example.test',now:new Date()
+  }),/US_WALLET_WRONG_DATABASE/);
+  await assert.rejects(revokeUSWalletBinding({
+   pool:nonUsPool,authenticatedUSSubject:'us_subject_wrong_db',
+   bindingId:randomUUID(),now:new Date()
+  }),/US_WALLET_WRONG_DATABASE/);
+  await assert.rejects(bindVerifiedUSExternalWallet({
+   pool:nonUsPool,authenticatedUSSubject:'us_subject_wrong_db',
+   challengeId:randomUUID(),trustedOrigin:'https://personal-us-ci.example.test',
+   signedMessage:'placeholder',signature:'0x'+'ab'.repeat(65),
+   verifier:async()=>({verified:true,recoveredAddress:'0x1111111111111111111111111111111111111111',
+    verificationType:'eoa'}),now:new Date()
+  }),/US_WALLET_WRONG_DATABASE/);
+ }finally{await nonUsPool.end();}
  const leaked=await admin.query("SELECT to_regnamespace('nex_personal_us') AS schema");
  assert.equal(leaked.rows[0].schema,null,'US schema must not appear in business test DB');
  await admin.query('CREATE DATABASE nex_personal_us_ci');
