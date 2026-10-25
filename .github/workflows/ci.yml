@@ -302,3 +302,23 @@ jobs:
         run: |
           cat /tmp/nexoffice-api.log || true
           cat /tmp/nex-personal-preview-api.log || true
+
+  # Isolated job, no project keys or database; viem is PINNED and ephemeral.
+  # Does not alter package.json/package-lock or shipped production artifacts.
+  us_wallet_real_cryptography:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NPU_REAL_CRYPTO_CI: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build -w @nexoffice/api
+      - name: Install exact viem version for ephemeral real-ECDSA test only
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund viem@2.57.10
+      - name: Verify real ephemeral EOA ECDSA signatures against the USA adapter
+        run: node scripts/smoke-nex-personal-us-real-viem.mjs
