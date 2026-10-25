@@ -121,6 +121,10 @@ jobs:
           node-version: 24
       - run: npm ci
       - run: npm run build
+      - name: Validate Nex Personal USA wallet isolation on disposable PostgreSQL 16
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-wallet-postgres.mjs
       - name: Apply database schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
