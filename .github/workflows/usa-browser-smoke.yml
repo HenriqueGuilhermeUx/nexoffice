@@ -1,0 +1,37 @@
+name: NexOffices USA isolated browser QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/src/USPreview.tsx'
+      - 'apps/web/src/USWorkbench.tsx'
+      - 'apps/web/src/USWorkbench.css'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/usa-browser-smoke.mjs'
+      - '.github/workflows/usa-browser-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  usa-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install existing workspace dependencies
+        run: npm install --include=dev
+      - name: Install test-only browser dependency
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.57.0
+      - name: Build isolated web frontend
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: npm run build --workspace=@nexoffice/web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run USA preview browser checks
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: node scripts/usa-browser-smoke.mjs
