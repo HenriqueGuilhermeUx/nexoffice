@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
+import pg from 'pg';
+import {issuePersistedUSWalletChallenge,bindVerifiedUSExternalWallet,revokeUSWalletBinding}
+ from '../apps/api/dist/personal-us-wallet-binding-store.js';
 import solc from 'solc';
 import {
  createPublicClient,createWalletClient,http,recoverMessageAddress,hashMessage,parseAbi,
@@ -96,4 +101,70 @@ const invalidShort=await adapter({
  message,signature:shortContractSignature,expectedAddress:contractAddress,chainId:137
 });
 assert.equal(invalidShort.verified,false,'ERC-1271 must allow variable bytes but reject invalid proofs');
-console.log('PASS: deployed local ERC-1271 wallet accepted genuine signer, denied strangers/tampering and invalid chain');
+// End-to-end test: this deployed ERC-1271 proof must bind atomically to
+// its USA owner on a brand-new disposable PostgreSQL database. No customer data.
+const root=new URL(String(process.env.DATABASE_URL||''));
+if(root.protocol!=='postgresql:'||root.hostname!=='127.0.0.1'||
+   root.port!=='5432'||root.pathname!=='/nexoffice')
+ throw Error('US_ERC1271_CI_REFUSES_NON_DISPOSABLE_DB');
+const admin=new pg.Client({connectionString:root.toString()});
+await admin.connect();
+let usPool;
+try{
+ await admin.query('CREATE DATABASE nex_personal_us_erc1271_ci');
+ const usURL=new URL(root);
+ usURL.pathname='/nex_personal_us_erc1271_ci';
+ usPool=new pg.Pool({connectionString:usURL.toString(),max:3,connectionTimeoutMillis:3000});
+ const ddl=await readFile(new URL('../docs/sql/nex-personal-us-wallet-identity-review-only.sql',import.meta.url),'utf8');
+ await usPool.query(ddl);
+ const owner='us_erc1271_ci_owner';
+ await usPool.query("INSERT INTO nex_personal_us.profiles(id,auth_subject,status) VALUES($1,$2,'active')",
+  [randomUUID(),owner]);
+ const origin='https://nex-personal-erc1271-ci.example.test';
+ const challenge=await issuePersistedUSWalletChallenge({
+  pool:usPool,authenticatedUSSubject:owner,walletAddress:contractAddress,
+  trustedOrigin:origin,now:new Date()
+ });
+ const signed=await signer.signMessage({message:challenge.message});
+ const tampered=await stranger.signMessage({message:challenge.message});
+ const bindingArgs={pool:usPool,authenticatedUSSubject:owner,
+  challengeId:challenge.challengeId,trustedOrigin:origin,
+  signedMessage:challenge.message,signature:signed,verifier:adapter,now:new Date()};
+ await assert.rejects(bindVerifiedUSExternalWallet({
+  ...bindingArgs,signature:tampered
+ }),/WALLET_SIGNATURE_UNVERIFIED/);
+ const nonceAfterInvalid=await usPool.query(
+  'SELECT consumed_at FROM nex_personal_us.wallet_ownership_challenges WHERE id=$1',
+  [challenge.challengeId]);
+ assert.equal(nonceAfterInvalid.rows[0].consumed_at,null,'Invalid ERC-1271 proof must not consume nonce');
+ await assert.rejects(bindVerifiedUSExternalWallet({
+  ...bindingArgs,authenticatedUSSubject:'us_erc1271_wrong_owner'
+ }),/US_CHALLENGE_NOT_FOUND/);
+ const linked=await bindVerifiedUSExternalWallet(bindingArgs);
+ assert.equal(linked.executionAllowed,false);
+ assert.equal(linked.source,'external');
+ assert.equal(linked.walletAddress.toLowerCase(),contractAddress.toLowerCase());
+ const rows=await usPool.query(
+  'SELECT wallet_address,proof_challenge_id FROM nex_personal_us.wallet_bindings WHERE id=$1',
+  [linked.walletBindingId]);
+ assert.equal(rows.rows.length,1);
+ assert.equal(rows.rows[0].wallet_address.toLowerCase(),contractAddress.toLowerCase());
+ assert.equal(rows.rows[0].proof_challenge_id,challenge.challengeId);
+ await assert.rejects(bindVerifiedUSExternalWallet(bindingArgs),/US_CHALLENGE_INVALID/);
+ assert.equal((await usPool.query('SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings')).rows[0].n,1,
+  'ERC-1271 signature replay must not create another binding');
+ const revoked=await revokeUSWalletBinding({
+  pool:usPool,authenticatedUSSubject:owner,bindingId:linked.walletBindingId,now:new Date()
+ });
+ assert.equal(revoked.revoked,true);
+ assert.equal(revoked.executionAllowed,false);
+ const audit=await usPool.query(
+  "SELECT event_type FROM nex_personal_us.wallet_security_events WHERE event_type IN ('challenge.issued','challenge.consumed','binding.created','binding.revoked')");
+ assert.deepEqual(audit.rows.map(x=>x.event_type).sort(),
+  ['binding.created','binding.revoked','challenge.consumed','challenge.issued']);
+}finally{
+ if(usPool)await usPool.end();
+ await admin.end();
+}
+console.log('PASS: deployed local ERC-1271 real signer + isolated PostgreSQL US nonce, bind, anti-replay and revoke');
+
