@@ -8,6 +8,8 @@ import {evaluatePersonalUSAgenticRead,USA_AGENTIC_ALLOWED_TOKEN,USA_AGENTIC_READ
  from '../apps/api/dist/personal-us-agentic-trust.js';
 import {assessServerUSAgenticRead}
  from '../apps/api/dist/personal-us-agentic-server-read.js';
+import {assessPersonalUSNativeUSDCRead}
+ from '../apps/api/dist/personal-us-agentic-polygon-read.js';
 import {revokeUSWalletBinding}
  from '../apps/api/dist/personal-us-wallet-binding-store.js';
 
@@ -110,6 +112,34 @@ try{
  assert.equal(read.rawUsdcBalance,'42000000');
  assert.equal(read.executionAllowed,false);
  assert.equal(rpcCalls,1);
+ // End-to-end composition: this service never takes a caller-provided token or
+ // contract address; the observation always targets native Circle USDC.
+ let usdcContractReads=0;
+ const client={
+  getChainId:async()=>137,
+  getBlockNumber:async()=>12345n,
+  readContract:async call=>{
+   usdcContractReads++;
+   assert.equal(call.address.toLowerCase(),USA_AGENTIC_ALLOWED_TOKEN);
+   assert.equal(call.functionName,'balanceOf');
+   assert.deepEqual(call.args,[addr]);
+   assert.equal(call.blockNumber,12345n);
+   return 5000000n;
+  }
+ };
+ const pinnedRead=await assessPersonalUSNativeUSDCRead({
+  pool,authenticatedUSSubject:owner,consentId:first.consentId,
+  polygonClient:client,now:new Date()
+ });
+ assert.equal(pinnedRead.decision.decision,'allow_read');
+ assert.equal(pinnedRead.rawUsdcBalance,'5000000');
+ assert.equal(usdcContractReads,1);
+ const pinnedWrongOwner=await assessPersonalUSNativeUSDCRead({
+  pool,authenticatedUSSubject:stranger,consentId:first.consentId,
+  polygonClient:client,now:new Date()
+ });
+ assert.equal(pinnedWrongOwner.decision.decision,'deny');
+ assert.equal(usdcContractReads,1,'No RPC when owner is not authorized');
  const nonOwner=await assessServerUSAgenticRead({
   ...readInput,authenticatedUSSubject:stranger
  });
