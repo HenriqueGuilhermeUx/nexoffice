@@ -30,8 +30,10 @@ export function preparePrivyUSWalletBinding(input:{
  if(!/^[a-zA-Z0-9:_-]{8,150}$/.test(authenticatedUSSubject))throw Error('INVALID_US_IDENTITY');
  if(!dedicatedUSPrivyProjectId||dedicatedUSPrivyProjectId.length>128||verified?.projectId!==dedicatedUSPrivyProjectId)
    throw Error('PRIVY_PROJECT_MISMATCH');
- if(!verified.userId||!verified.walletId||
-    verified.linkedToAuthenticatedSubject!==authenticatedUSSubject)throw Error('PRIVY_IDENTITY_NOT_LINKED');
+ if(typeof verified.userId!=='string'||!/^did:privy:[a-zA-Z0-9:_-]{3,200}$/.test(verified.userId)||
+    typeof verified.walletId!=='string'||verified.walletId.length<3||verified.walletId.length>255||
+    verified.linkedToAuthenticatedSubject!==authenticatedUSSubject)
+   throw Error('PRIVY_IDENTITY_NOT_LINKED');
  if(!ADDRESS.test(verified.address)||verified.chainType!=='ethereum'||
     verified.walletType!=='embedded'||verified.control!=='user'||verified.recoveryConfigured!==true)
    throw Error('PRIVY_WALLET_NOT_USER_OWNED');
