@@ -1,0 +1,61 @@
+/** NexOffices USA browser QA: a real rendered preview with fictional tasks only. */
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { chromium } from 'playwright';
+
+const base = 'http://127.0.0.1:4184';
+const server = spawn('npx', ['vite', 'preview', '--host', '127.0.0.1', '--port', '4184', '--strictPort'], {
+  cwd: 'apps/web',
+  env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:65535' },
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+let output = '';
+for (const stream of [server.stdout, server.stderr]) stream.on('data', bytes => { output += String(bytes).slice(-2400); });
+let browser;
+try {
+  let started = false;
+  for (let retry = 0; retry < 60; retry++) {
+    if (server.exitCode !== null) throw new Error('Preview process ended: ' + output);
+    try { if ((await fetch(base + '/us')).ok) { started = true; break; } }
+    catch { /* waiting for local server */ }
+    await sleep(500);
+  }
+  assert.ok(started, 'Vite production preview failed to start: ' + output);
+  browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const backendRequests = [];
+  const scriptErrors = [];
+  page.on('request', request => {
+    if (/onrender\.com|supabase\.co|\/api\//i.test(request.url())) backendRequests.push(request.url());
+  });
+  page.on('pageerror', error => scriptErrors.push(error.message));
+  await page.goto(base + '/us', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.getByRole('heading', { name: 'See how a business command center could work.' }).waitFor();
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
+  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
+
+  const metric = async index => Number((await page.locator('.avnw-metrics strong').nth(index).innerText()).trim());
+  assert.equal(await metric(0), 3);
+  assert.equal(await metric(1), 2);
+  assert.equal(await metric(2), 1);
+  await page.getByLabel('Task description').fill('Review fictional US contract');
+  await page.getByLabel('Team owner').selectOption('Operations');
+  await page.getByRole('button', { name: 'Add sample task' }).click();
+  await page.getByText('Review fictional US contract').waitFor();
+  assert.equal(await metric(0), 4);
+  assert.equal(await metric(1), 3);
+  const target = page.locator('.avnw-list article').last();
+  await target.getByLabel('Stage').selectOption('Completed');
+  assert.equal(await metric(1), 2);
+  assert.equal(await metric(2), 2);
+  await page.getByRole('button', { name: 'Reset board' }).click();
+  assert.equal(await metric(0), 3);
+  assert.equal(await page.getByText('Review fictional US contract').count(), 0);
+  assert.equal(backendRequests.length, 0, 'US preview contacted a Brazilian API: ' + backendRequests.join(', '));
+  assert.deepEqual(scriptErrors, [], 'Unexpected browser runtime errors');
+  console.log('PASS: NexOffices USA mobile task board, role labels, local mutation, reset and no BR API calls');
+} finally {
+  await browser?.close();
+  server.kill('SIGTERM');
+}
