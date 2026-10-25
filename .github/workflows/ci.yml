@@ -332,7 +332,11 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
-      - run: npm run build -w @nexoffice/api
+      - name: Build internal domain, integrations, then USA API
+        run: |
+          npm run build -w @nexoffice/domain
+          npm run build -w @nexoffice/integrations
+          npm run build -w @nexoffice/api
       - name: Install exact viem version for ephemeral real-ECDSA test only
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund viem@2.57.10
       - name: Verify real ephemeral EOA ECDSA signatures against the USA adapter
