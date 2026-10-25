@@ -1,6 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {
-  assessPersonalUSWalletProof,
+  assessPersonalUSWalletProof,issuePersonalUSWalletChallenge,
   type USWalletChallenge,type USWalletSignatureVerifier
 } from './personal-us-wallet-ownership.js';
 
@@ -132,5 +132,48 @@ export async function revokeUSWalletBinding(input:{
    VALUES($1,$2,'binding.revoked',$3)`,
    [randomUUID(),binding.owner_profile_id,binding.wallet_address]);
   return {revoked:true,executionAllowed:false};
+ });
+}
+
+/** Issue and persist server-authoritative US wallet challenge under owner lock.
+ * There is deliberately no HTTP route and no connection to Brazil's database.
+ * The signed message is returned only to the already-authenticated US subject.
+ */
+export async function issuePersistedUSWalletChallenge(input:{
+  pool:USWalletPool;authenticatedUSSubject:string;walletAddress:string;
+  trustedOrigin:string;now:Date
+}):Promise<{challengeId:string;message:string;expiresAt:string;executionAllowed:false}>{
+ if(!/^[a-zA-Z0-9:_-]{8,150}$/.test(input.authenticatedUSSubject)||
+    !ACCOUNT.test(input.walletAddress)||!Number.isFinite(input.now.getTime()))
+   throw Error('INVALID_US_CHALLENGE_INPUT');
+ return transaction(input.pool,async client=>{
+  const owner=await client.query<{id:string;status:string}>(`
+   SELECT id,status FROM nex_personal_us.profiles
+    WHERE auth_subject=$1 FOR UPDATE`,[input.authenticatedUSSubject]);
+  if(owner.rows.length!==1||owner.rows[0].status!=='active')throw Error('US_IDENTITY_NOT_ACTIVE');
+  const active=await client.query<{amount:number}>(`
+   SELECT count(*)::int AS amount FROM nex_personal_us.wallet_ownership_challenges
+    WHERE owner_profile_id=$1 AND consumed_at IS NULL AND expires_at>$2`,
+   [owner.rows[0].id,input.now.toISOString()]);
+  if(Number(active.rows[0]?.amount??0)>=3)throw Error('US_CHALLENGE_RATE_LIMITED');
+  const issued=issuePersonalUSWalletChallenge({
+   ownerSubject:input.authenticatedUSSubject,address:input.walletAddress,
+   trustedOrigin:input.trustedOrigin,now:input.now
+  });
+  await client.query(`
+   INSERT INTO nex_personal_us.wallet_ownership_challenges
+    (id,owner_profile_id,chain_id,wallet_address,trusted_origin,
+      nonce_sha256,message_sha256,issued_at,expires_at)
+   VALUES($1,$2,137,$3,$4,$5,$6,$7,$8)`,
+   [issued.challenge.id,owner.rows[0].id,input.walletAddress,issued.challenge.origin,
+    issued.challenge.nonceHash,sha256(issued.message),
+    issued.challenge.issuedAt,issued.challenge.expiresAt]);
+  await client.query(`
+   INSERT INTO nex_personal_us.wallet_security_events
+    (id,owner_profile_id,event_type,subject_wallet_address,evidence_digest_sha256)
+   VALUES($1,$2,'challenge.issued',$3,$4)`,
+   [randomUUID(),owner.rows[0].id,input.walletAddress,sha256(issued.message)]);
+  return {challengeId:issued.challenge.id,message:issued.message,
+    expiresAt:issued.challenge.expiresAt,executionAllowed:false};
  });
 }
