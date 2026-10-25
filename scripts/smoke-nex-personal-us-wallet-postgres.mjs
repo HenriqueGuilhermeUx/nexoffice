@@ -44,6 +44,17 @@ try{
    verifier:async()=>({verified:true,recoveredAddress:'0x1111111111111111111111111111111111111111',
     verificationType:'eoa'}),now:new Date()
   }),/US_WALLET_WRONG_DATABASE/);
+  let providerLookups=0;
+  await assert.rejects(bindVerifiedUSPrivyWallet({
+   pool:nonUsPool,authenticatedUSSubject:'us_subject_wrong_db',
+   dedicatedUSPrivyProjectId:'us-project-test',
+   loadVerifiedEvidence:async()=>{
+    providerLookups++;
+    throw Error('PRIVY_LOOKUP_MUST_NOT_RUN_ON_NON_US_DB');
+   },
+   now:new Date()
+  }),/US_WALLET_WRONG_DATABASE/);
+  assert.equal(providerLookups,0,'Foreign DB must fail before Privy wallet lookup');
  }finally{await nonUsPool.end();}
  const leaked=await admin.query("SELECT to_regnamespace('nex_personal_us') AS schema");
  assert.equal(leaked.rows[0].schema,null,'US schema must not appear in business test DB');
