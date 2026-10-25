@@ -46,11 +46,14 @@ function deny(reason:string):USAgenticTrustDecision{
 }
 export async function assessServerUSAgenticRead(input:{
   pool:USWalletPool;authenticatedUSSubject:string;consentId:string;now:Date;
-  fetchUSDCFromTrustedServer:(address:string)=>Promise<ServerObservedUSDC>
+  fetchUSDCFromTrustedServer:(address:string,signal?:AbortSignal)=>Promise<ServerObservedUSDC>;
+  rpcTimeoutMs?:number
 }):Promise<USServerReadResult>{
  if(!SUBJECT.test(input.authenticatedUSSubject)||!UUID.test(input.consentId)||
     !(input.now instanceof Date)||!Number.isFinite(input.now.getTime())||
-    typeof input.fetchUSDCFromTrustedServer!=='function')
+    typeof input.fetchUSDCFromTrustedServer!=='function'||
+    (input.rpcTimeoutMs!==undefined&&(!Number.isInteger(input.rpcTimeoutMs)||
+      input.rpcTimeoutMs<20||input.rpcTimeoutMs>8000)))
    throw Error('US_AGENTIC_READ_CONTEXT_INVALID');
  const rejected=(reason:string):USServerReadResult=>({
    decision:deny(reason),rawUsdcBalance:null,ownerWalletAddress:null,
@@ -63,6 +66,10 @@ export async function assessServerUSAgenticRead(input:{
   // READ ONLY transaction. This transaction uses BEGIN but writes no records.
   await client.query('BEGIN');
   started=true;
+  // Explicit bounds also protect wallet/consent revocation against indefinitely
+  // waiting PostgreSQL row locks from an interrupted or overloaded service.
+  await client.query("SET LOCAL lock_timeout = '5000ms'");
+  await client.query("SET LOCAL statement_timeout = '8000ms'");
   // Defense in depth: even an accidentally supplied NexOffice/Brazil connection
   // must fail before reading or contacting the RPC provider.
   const db=await client.query<{database:string}>('SELECT current_database() AS database');
@@ -105,7 +112,26 @@ export async function assessServerUSAgenticRead(input:{
   }
   // Fetch only from the server-bound RPC adapter; never accept an observation
   // supplied by a browser, assistant tool, wallet extension or URL argument.
-  const observed=await input.fetchUSDCFromTrustedServer(row.wallet_address);
+  // Holding shared US owner/consent locks indefinitely is unsafe: RPC reads
+  // are bounded and cancellable. Even a callback that ignores abort cannot
+  // extend the lock because Promise.race rejects and rolls back this txn.
+  const controller=new AbortController();
+  let timeoutHandle:ReturnType<typeof setTimeout>|undefined;
+  let observed:ServerObservedUSDC;
+  try{
+   const providerResult=Promise.resolve().then(()=>
+     input.fetchUSDCFromTrustedServer(row.wallet_address,controller.signal));
+   const timeout=new Promise<never>((_,reject)=>{
+     timeoutHandle=setTimeout(()=>{
+       controller.abort();
+       reject(Error('US_AGENTIC_RPC_TIMEOUT'));
+     },input.rpcTimeoutMs??6000);
+   });
+   observed=await Promise.race([providerResult,timeout]);
+  }finally{
+   if(timeoutHandle!==undefined)clearTimeout(timeoutHandle);
+   controller.abort();
+  }
   const facts:USAgenticReadTrustFacts={
    usSession:{subject:row.subject,verifiedByUSServer:true,status:'active'},
    walletBinding:{id:row.binding_id,ownerSubject:row.subject,address:row.wallet_address,
