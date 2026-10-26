@@ -93,7 +93,7 @@ export default function PersonalCitizenAgents({agent}:{agent:CitizenAgent}){
     <textarea readOnly value={draft} rows={14} aria-label="Solicitação formal ao credor"/>
     <small>Nenhuma mensagem foi enviada. Confirme o credor em canal oficial; não efetue Pix a intermediários desconhecidos.</small>
    </div>}
-   <p className="np-citizen-small">O relatório SCR do Registrato mostra dívidas bancárias declaradas ao BC, mas pode ter defasagem. A Serasa exibe somente acordos efetivamente oferecidos por parceiros. Nenhum dos serviços foi conectado ao Nex Personal.</p>
+   <p className="np-citizen-small">O relatório SCR do Registrato mostra dívidas bancárias declaradas ao BC, mas pode ter defasagem. A Serasa exibe somente acordos efetivamente oferecidos por parceiros. Nenhum desses serviços está conectado automaticamente à Nexa.</p>
   </>}
   {agent==='legal_support'&&<>
    <div className="np-citizen-lead"><span className="np-kicker">BELLA · ORIENTAÇÃO JURÍDICA INICIAL</span><h3>Entenda o assunto antes de tomar uma decisão.</h3><p>Revisão inicial de pontos de atenção em contratos, cobranças, condomínio e trabalho. A tecnologia jurídica do grupo poderá integrar esta experiência depois de uma revisão de segurança.</p></div>
