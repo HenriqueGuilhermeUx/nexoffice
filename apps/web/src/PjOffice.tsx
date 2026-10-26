@@ -25,11 +25,16 @@ const areas=[
 ] as const;
 
 type View='conta-nexa'|'crm'|'finance'|'operations'|'agenda'|'documents'|'marketing'|'team';
-export function PjOffice2D({navigate}:{navigate:(view:View)=>void}){
+export function PjOffice2D({navigate,vertical}:{navigate:(view:View)=>void;vertical?:string}){
+  const preferred=({legal:['documents','agenda','crm'],health:['agenda','documents','finance'],condo:['finance','operations','documents'],commerce:['crm','finance','marketing']} as Record<string,string[]>)[vertical||'']||[];
+  const orderedAreas=[...areas].sort((a,b)=>{
+    const ai=preferred.indexOf(a.id),bi=preferred.indexOf(b.id);
+    return (ai<0?99:ai)-(bi<0?99:bi);
+  });
   return <section className="pj-office-page" aria-label="Visão escritório 2D">
     <div className="pj-office-intro"><p className="eyebrow">ESCRITÓRIO 2D</p><h2>Seu negócio, setor por setor.</h2><p>Selecione uma área para abrir seu módulo. As salas são um mapa de navegação, não uma representação de presença ou de operações em tempo real.</p></div>
     <div className="pj-office-map" role="group" aria-label="Áreas do escritório">
-      {areas.map(a=><button key={a.id} type="button" className="pj-office-room" onClick={()=>navigate(a.id)} aria-label={`Abrir ${a.label}`}>
+      {orderedAreas.map(a=><button key={a.id} type="button" className="pj-office-room" onClick={()=>navigate(a.id)} aria-label={`Abrir ${a.label}`}>
         <span aria-hidden="true" className="pj-office-symbol">{a.symbol}</span><strong>{a.label}</strong><small>{a.detail}</small><span className="pj-office-open">Abrir área →</span>
       </button>)}
     </div>
