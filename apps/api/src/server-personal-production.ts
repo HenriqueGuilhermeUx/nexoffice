@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import {z} from 'zod';
 import {query} from './db.js';
 import {ApiError,issueSession,revokeSession,verifyPassword} from './auth.js';
+import {requireLifeosProductionSchema} from './nexa-lifeos-prod-schema-ready.js';
 import {registerNexPersonalRoutes} from './routes-nex-personal.js';
 import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
 import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
@@ -85,18 +86,31 @@ app.addHook('onRequest',async(req,reply)=>{
   throw new ApiError(503,'registration_not_open','Cadastro Nexa em preparação.');
  if(req.method==='POST'&&req.url.split('?')[0]==='/v1/auth/login')
   limitLogin(req.ip);
+ // Do not expose any PF user data to a request before confirming the LIVE
+ // database's RLS and least-privilege role. No test/preview bypass exists.
+ const route=req.url.split('?')[0];
+ if(req.method!=='OPTIONS'&&route.startsWith('/v1/personal/')
+   &&route!=='/v1/personal/auth/register'){
+   const bearer=String(req.headers.authorization||'');
+   if(!bearer.startsWith('Bearer '))throw new ApiError(401,'unauthorized','Sessão necessária.');
+   await requireLifeosProductionSchema();
+ }
+ if(req.method==='POST'&&route==='/v1/auth/logout')
+   await requireLifeosProductionSchema();
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 const email=z.string().trim().email().transform(v=>v.toLowerCase());
 app.get('/health/live',async()=>({status:'ok',service:'nexa-lifeos-prod-api'}));
 app.get('/health',async()=>{
- // Readiness requires a reachable dedicated PostgreSQL database.
- await query('select 1 as available');
+ // A reachable database alone is insufficient: every expected PF table
+ // must have enforced RLS, reviewed policies and a least-privilege DB role.
+ await requireLifeosProductionSchema();
  return {status:'ok',service:'nexa-lifeos-prod-api',
   externalFinancialActions:false,walletTokenBridge:false,publicSignup:false};
 });
 app.post('/v1/auth/login',async req=>{
  const input=z.object({email,password:z.string().min(1).max(256)}).strict().parse(req.body);
+ await requireLifeosProductionSchema();
  const rows=await query<{id:string;name:string;email:string;password_hash:string;status:string}>(
   'select id,name,email,password_hash,status from public.users where lower(email)=$1 limit 1',
   [input.email]
