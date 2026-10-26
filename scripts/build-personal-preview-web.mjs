@@ -42,7 +42,11 @@ if(process.env.NEX_PERSONAL_PREVIEW==='true'){
     [/<meta name="twitter:description" content="[^"]*"\s*\/>/,
       '<meta name="twitter:description" content="Maya, dinheiro, investimentos, cripto e uma experiência Nexa para seu dia a dia." />'],
     [/<title>[^<]*<\/title>/,
-      '<title>Nexa — Sua vida, um só lugar</title>']
+      '<title>Nexa — Sua vida, um só lugar</title>'],
+    [/<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"\s*\/>/,
+      '<link rel="icon" type="image/svg+xml" href="/nexa-logo.svg" />'],
+    [/<link rel="shortcut icon" href="\/favicon\.svg"\s*\/>/,
+      '<link rel="shortcut icon" href="/nexa-logo.svg" />']
   ];
   for(const [pattern,replacement] of replacements){
     if(!pattern.test(html))throw new Error('Expected isolated preview branding marker was not found: '+pattern);
