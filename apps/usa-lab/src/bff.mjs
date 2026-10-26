@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { createUSOIDCLabFlow, newUSLabBrowserBinding } from './auth-flow.mjs';
 
 const bindingName = 'us_lab_oidc_binding';
-const sessionName = 'us_lab_session';
+const sessionName = 'us_lab_oidc_session';
 const noStoreHeaders = Object.freeze({
   'Cache-Control':'no-store, max-age=0',
   'Pragma':'no-cache',
