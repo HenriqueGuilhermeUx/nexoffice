@@ -49,3 +49,17 @@ Após `npm run build`, execute `node scripts/smoke-nexa-lifeos-prod-server.mjs`.
 O workflow de integração executa `scripts/rehearse-nexa-lifeos-prod-ddl-ci.mjs` com `NEXA_LIFEOS_SCHEMA_REHEARSAL=true`. O script exige também `CI=true`, `GITHUB_ACTIONS=true`, `DATABASE_URL` local em `127.0.0.1:5432/nexoffice` e ausência de flags de produção/preview. Cria `nexa_lifeos_schema_rehearsal_ci` **somente no contêiner PostgreSQL efêmero do runner**, aplica as cinco DDLs em transações, comprova a presença de tabelas PF, verifica que o esquema `public` possui apenas `users` e `auth_sessions`, com zero usuários e sessões, e informa quantas tabelas PF usam RLS. O runner descartará esse banco após o job.
 
 Este teste **não é migração autorizada de produção**; caso a contagem de RLS seja insuficiente, a estratégia de menor privilégio/isolamento e as políticas de acesso devem ser projetadas e homologadas antes de qualquer aplicação a um banco real.
+
+
+## Bloqueio estrutural: Row-Level Security antes de usuários reais (26/10/2026)
+
+**Resultado da revisão do DDL:** as cinco migrações herdadas de homologação ainda não contêm comandos `ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY` nem `CREATE POLICY`. Elas **não estão aprovadas para aplicação em produção**. Mesmo uma API que filtre `owner_user_id` em consultas não substitui controle efetivo de acesso no banco.
+
+Foi implementado `scripts/audit-nexa-lifeos-prod-schema.mjs`, que permanece **offline por padrão**. Executar `node --test scripts/smoke-nexa-lifeos-prod-schema-audit.mjs` usa somente metadados fictícios e testa aprovação parcial e 12 bloqueios. Se e somente se houver banco PF realmente dedicado e já revisado, configurar `NEXA_LIFEOS_SCHEMA_AUDIT=true` junto ao contrato de ambiente e executar a auditoria: consulta **somente catálogos PostgreSQL** e nega:
+- PF table sem RLS habilitado **e forçado**; ausência de política; política `PUBLIC USING(true)`; `users`/`auth_sessions` sem RLS;
+- role da API com `SUPERUSER`, `BYPASSRLS`, `CREATEDB`, `CREATEROLE` ou propriedade de tabela sensível;
+- tabelas de NexOffices PJ/Wallet em `public` ou tabelas PF obrigatórias ausentes.
+
+**A auditoria é necessária, não suficiente**: ainda não prova que cada política limita efetivamente registros ao usuário autenticado. Precisaremos implementar contexto de identidade por transação (de modo a não confiar em valores enviados pelo navegador), separar roles administrativas/migração da role da API e testar contas A/B em cada endpoint sob leituras/gravações cruzadas. Políticas de `users`/`auth_sessions` devem permitir autenticação e revogação por serviços legítimos sem abrir leitura a outros usuários.
+
+**Não ligar `api-life.trynexa.com.br`, nem criar cadastros ou migrar contas** antes de aprovar esse modelo, RLS em Postgres descartável, testes de identidade, LGPD, rate limit compartilhado e backups. A PR permanece rascunho e não altera dados reais.
