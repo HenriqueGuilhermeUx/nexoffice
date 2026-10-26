@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import './USDocumentReviews.css';
 
 type ReviewStage = 'Draft' | 'In review' | 'Needs changes' | 'Approved';
@@ -18,6 +18,7 @@ export default function USDocumentReviews() {
   const [title, setTitle] = useState('');
   const [reviewer, setReviewer] = useState<Reviewer>('Operations');
   const [history, setHistory] = useState<Activity[]>([]);
+  const nextActivity = useRef(0);
   const [message, setMessage] = useState('This is a local simulation; no file is uploaded or signed.');
 
   const approved = reviews.filter(row => row.stage === 'Approved').length;
@@ -29,7 +30,7 @@ export default function USDocumentReviews() {
     if (!cleaned) return;
     const nextId = Math.max(...reviews.map(row => row.id), 0) + 1;
     setReviews(previous => [...previous, { id: nextId, title: cleaned, reviewer, stage: 'Draft' }]);
-    setHistory(previous => [{ id: nextId * 1000, description: 'Created fictional document: ' + cleaned }, ...previous].slice(0, 6));
+    setHistory(previous => [{ id: ++nextActivity.current, description: 'Created fictional document: ' + cleaned }, ...previous].slice(0, 6));
     setTitle('');
     setMessage('Added locally. No document file or customer record was created.');
   }
@@ -39,7 +40,7 @@ export default function USDocumentReviews() {
     if (!document || document.stage === stage) return;
     setReviews(previous => previous.map(row => row.id === id ? { ...row, stage } : row));
     setHistory(previous => [{
-      id: id * 1000 + previous.length + 1,
+      id: ++nextActivity.current,
       description: document.title + ': ' + document.stage + ' → ' + stage,
     }, ...previous].slice(0, 6));
     setMessage('Review stage updated in this browser only. No legal approval or e-signature occurred.');
@@ -48,6 +49,7 @@ export default function USDocumentReviews() {
   function reset() {
     setReviews(examples);
     setHistory([]);
+    nextActivity.current = 0;
     setTitle('');
     setReviewer('Operations');
     setMessage('Sample review queue reset.');
