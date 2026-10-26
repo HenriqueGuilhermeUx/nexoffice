@@ -43,3 +43,16 @@ No novo painel `NexaCryptoHub.tsx`:
 - PR #24: build Netlify completo, validação de rotas, PWA/Service Worker, preservação de `/portal`, `/cadastro`, `/admin`, `/global`, `/pj`, `/api/v1/*`; conferir que o domínio Wallet ainda não está aliased e que o main atual segue intocado.
 - Domain go-live: adicionar DNS/alias e verificar TLS, origens Privy e backend, cookie/localStorage isolation, autenticação antiga e recuperação da carteira **mesmo endereço** no host novo; só então atualizar CTAs ou redirecionamentos.
 - Rollback: manter deploy atual Netlify, rota Wallet antiga, backend inalterado e PRs em DRAFT até confirmação. Não exigir reinstalação/limpeza de dados dos aplicativos.
+
+## Atualização de execução — 25/10/2026 (substitui o status histórico de 24/10)
+
+**A marca e o site principal foram publicados**, preservando Wallet e clientes:
+- `trynexa.com.br/`: Nexa unificada; `/meu-espaco`: apresentação do Life OS por convite; `/wallet`: landing Wallet antiga; `/portal`: portal legado dos clientes.
+- `wallet.trynexa.com.br`: DNS/TLS/landing ativos. Autenticação e PWA **não liberados no novo host**. As rotas de login, cadastro, recuperação de senha, React Portal e `wallet-v148.html` redirecionam provisoriamente por **HTTP 302** ao domínio original. A landing nova não anuncia manifesto nem registra SW na origem ainda não homologada.
+- O último deploy publicado e verificado do site anterior à presente atualização era `6ade994cab7b7df5489d7589` (`nexa-site`, SHA `b29a31542364510a6ea7589ae557449ad239a044`). As mudanças subsequentes são acompanhadas na issue #25 do `nexa-site`; não inferir liberação de Wallet a partir do HTTP 200.
+- Consulta somente leitura ao app público Privy `cmpen2gm3007v0cjswjlyefji` confirmou que `https://wallet.trynexa.com.br` **não está em `allowed_domains`**. O React Privy no novo domínio também havia recebido `403`/CSP antes do fallback. Check automatizado em PR #34 do `nexa-site`; **a ação administrativa no dashboard Privy ainda é necessária**. A falta de origem autorizada impede SSO/migração.
+- Life OS isolado `nex-personal-preview-api.onrender.com` está LIVE no commit `95ea8f8faee5f84278ec5d70de170ed6df52c6a4` (`dep-dbf75ndg1s2s73enput0`), com allowlist e código de convite. Banco de testes dedicado, sem migração de Wallet/cliente. Esta branch/PR #86 permanece draft; atualizações mais novas do código necessitam CI verde e novo deploy **somente no preview**.
+- A tela de login do Life OS em homologação agora informa explicitamente que **contas de teste não usam as credenciais da Wallet** e oferece link ao portal oficial. Essa separação não será necessária como experiência final quando houver SSO homologado; não criar SSO implícito.
+- Não houve alteração nos usuários Wallet, carteira Privy, `privyWalletId`, `walletAddress`, saldos, KYC, Pix/USDC, tesouraria ou ledger. Nenhuma liberação de cliente no domínio Wallet será realizada sem testar a mesma identidade e endereço de carteira já existente.
+
+**Ordem da próxima liberação:** autorização de origem no mesmo Privy App → consulta pública `allowed_domains` positiva → teste anônimo de iframe sem 403/CSP → E2E de usuário já existente e mesma carteira → plano de rollback → revisão independente dos 302 e da instalação PWA. A PR #86 do Life OS não precisa esperar essa migração para continuar evoluindo em homologação.
