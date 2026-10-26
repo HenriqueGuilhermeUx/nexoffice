@@ -258,9 +258,9 @@ try{
  }finally{attackerClient.release();}
  console.log('PASS: dedicated USA NOLOGIN service minimal DML + FORCE RLS untrusted row denial');
 }finally{
+ // The CI PostgreSQL service container is destroyed after this job.
+ // Force-dropping a database races with pg-pool idle clients and emits
+ // unhandled SQLSTATE 57P01 despite successful privilege assertions.
  if(pool)await pool.end();
- try{await admin.query('DROP DATABASE IF EXISTS '+database+' WITH (FORCE)');}catch{}
- try{await admin.query('DROP ROLE IF EXISTS '+attacker);}catch{}
- try{await admin.query('DROP ROLE IF EXISTS '+service);}catch{}
  await admin.end();
 }
