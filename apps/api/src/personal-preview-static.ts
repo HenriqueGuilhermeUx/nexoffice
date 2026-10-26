@@ -52,7 +52,15 @@ export async function registerPersonalPreviewStatic(app:FastifyInstance){
     }
   });
   app.get('/favicon.ico',async(_req,reply)=>{
-    try{return reply.type('image/x-icon').send(await readFile(resolve(root,'favicon.ico')));}
-    catch{return reply.code(404).send({error:'not_found'});}
+    // Browsers may request this legacy path even when the preview HTML points to
+    // /nexa-logo.svg. Missing assets must return 404, never a 500 response.
+    try{
+      const icon=await readFile(resolve(root,'favicon.ico'));
+      return reply.type('image/x-icon').send(icon);
+    }catch(err){
+      if((err as NodeJS.ErrnoException).code==='ENOENT')
+        return reply.code(404).type('application/json').send({error:'not_found'});
+      throw err;
+    }
   });
 }
