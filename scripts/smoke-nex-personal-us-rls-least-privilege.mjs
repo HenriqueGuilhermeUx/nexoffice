@@ -97,9 +97,9 @@ try{
  assert.equal(profileCheck.rows[0].status,'active','Untrusted role must not alter protected owner');
  console.log('PASS: USA profiles/wallets/consents FORCE RLS deny an untrusted role, even under broad DML grants');
 }finally{
+ // Only a disposable GitHub Actions PostgreSQL service is used here.
+ // Avoid DROP DATABASE WITH FORCE: it terminates pg-pool idle sockets and
+ // may cause a late uncaught 57P01 error even after all RLS checks pass.
  if(pool)await pool.end();
- // Stop with a disposable-cluster-only role; never create roles outside CI.
- try{await admin.query('DROP DATABASE IF EXISTS '+dbName+' WITH (FORCE)');}catch{}
- try{await admin.query('DROP ROLE IF EXISTS '+roleName);}catch{}
  await admin.end();
 }
