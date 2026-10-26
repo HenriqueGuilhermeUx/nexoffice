@@ -17,6 +17,12 @@ export default function PlatformHandoffBootstrap(){
     const params=new URLSearchParams(location.hash.replace(/^#/,''));
     const code=params.get('handoff');
     if(!code)return;
+    // Generic NexOffice handoff is not authority to open a Nexa PJ session.
+    if(platformName==='Nexa PJ'){
+      setActive(true);
+      setMessage('Acesso empresarial integrado ainda não habilitado. Utilize a abertura PJ para solicitar autorização.');
+      return;
+    }
     setActive(true);
     void (async()=>{
       try{
