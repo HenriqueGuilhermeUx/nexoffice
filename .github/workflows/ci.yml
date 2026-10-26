@@ -43,6 +43,15 @@ jobs:
         run: node scripts/smoke-nex-personal-names.mjs
       - name: Check unified Nexa brand and isolated crypto Wallet handoff
         run: node scripts/smoke-nexa-brand-crypto.mjs
+      - name: Validate dedicated Nexa PF production environment and DB TLS without credentials
+        run: |
+          node --test scripts/smoke-nexa-lifeos-prod-env.mjs
+          node --experimental-strip-types --test scripts/smoke-nexa-lifeos-prod-db.mjs
+          node scripts/plan-nexa-lifeos-prod-migrations.mjs
+          if node scripts/check-nexa-lifeos-prod-env.mjs; then
+            echo "PF production config incorrectly passed without approval or production credentials"
+            exit 1
+          fi
       - name: Verify future main-domain Life OS route without opening login or finance
         run: |
           node scripts/smoke-nexa-lifeos-public-path.mjs
