@@ -50,3 +50,9 @@ node scripts/smoke-nexa-lifeos-production-backend.mjs
 ```
 
 Status: **engenharia de isolamento e API de espera implementadas; produção NÃO provisionada, NÃO conectada e NÃO liberada**.
+
+## Revisão reprodutível do esquema PF (sem banco conectado)
+
+`scripts/check-nexa-lifeos-production-migrations.mjs` revisa, por SHA-256 fixado, **cinco arquivos SQL**: identidade privada `001_identity.sql`, fundação `046`, planejamento `047`, Life OS `048` e enriquecimento `049`. Falha se um byte do arquivo mudar ou se surgirem `DROP TABLE`, `TRUNCATE`, `DELETE FROM`, `UPDATE`, `GRANT`, `REVOKE` ou alterações fora de `public.users`, `public.auth_sessions` e `nex_personal.*`. Também impede alterações futuras não revisadas. Executa **zero comandos SQL**, não recebe URL de banco e não pede privilégios.
+
+A verificação local retornou `NEXA_LIFEOS_PF_MIGRATIONS_PINNED_READ_ONLY_PASS`. Isso **não prova** que migrações executariam com sucesso em banco vazio: ainda será necessário ensaio com papel de privilégios mínimos, autorização explícita do DBA, avaliação de `pgcrypto`, plano de reversão e validação em PostgreSQL do mesmo tipo/versão usado em produção. Os hashes são uma barreira de revisão, não assinatura de segurança independente.
