@@ -265,6 +265,11 @@ jobs:
           node --input-type=module -e "import {runPersonalPreviewMigrations} from './apps/api/dist/personal-preview-migrations.js'; try{await runPersonalPreviewMigrations(); process.exitCode=1;}catch(e){if(!String(e.message).includes('REFUSING preview migration')){console.error(e.message);process.exitCode=1;}else{console.log('Existing business DB rejected safely.');}}"
       - name: Create disposable Nex Personal database
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nex_personal_preview_ci'
+      - name: Rehearse Nexa Life OS schema only inside disposable GitHub CI PostgreSQL
+        env:
+          NEXA_LIFEOS_SCHEMA_REHEARSAL: "true"
+        run: node scripts/rehearse-nexa-lifeos-prod-ddl-ci.mjs
+
       - name: Start isolated Nex Personal preview API
         env:
           NEX_PERSONAL_PREVIEW: "true"
