@@ -164,6 +164,11 @@ export default function NexPersonal(){
       <div className="np-auth-kicker">Sua vida mais simples. Seu tempo de volta.</div>
       <h1>Uma equipe para facilitar a sua vida.</h1>
       <p>Dinheiro, compras, planejamento, documentos, família e mais. Escolha o que importa para você. Seus dados permanecem separados e sob seu controle.</p>
+      {PREVIEW&&<aside className="np-preview-auth-notice" role="note" aria-label="Homologação Meu Espaço Nexa">
+        <strong>Meu Espaço Nexa · acesso de testes por convite</strong>
+        <p>Este ambiente é separado da Nexa Wallet. A conta de teste daqui não acessa sua carteira Privy, seus saldos ou seu histórico cripto. Não use a senha da Wallet no cadastro de homologação.</p>
+        <a href="https://trynexa.com.br/portal/" target="_blank" rel="noopener noreferrer">Acessar minha Nexa Wallet original ↗</a>
+      </aside>}
       <form onSubmit={submitAuth}>
         {mode==='register'&&<label>Seu nome<input name="name" type="text" autoComplete="name" required minLength={2}/></label>}
         {mode==='register'&&PREVIEW&&<label>Código de convite para homologação<input name="previewInviteCode" type="password" autoComplete="off" minLength={8} maxLength={128} required/></label>}
