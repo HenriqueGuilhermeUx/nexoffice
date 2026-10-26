@@ -48,6 +48,7 @@ try {
   await page.getByLabel('Team owner').selectOption('Operations');
   await page.getByRole('button', { name: 'Add sample task' }).click();
   await page.getByText('Review fictional US contract').waitFor();
+  assert.ok((await page.locator('.avhub-events article').count()) >= 1, 'Task creation must appear in shared activity feed');
   assert.equal(await metric(0), 4);
   assert.equal(await metric(1), 3);
   const target = page.locator('.avnw-list article').last();
@@ -63,6 +64,7 @@ try {
   await page.getByLabel('Opportunity title').fill('Sample US proposal');
   await page.getByLabel('Fictional organization').fill('Example Consulting');
   await page.getByRole('button', { name: 'Add sample opportunity' }).click();
+  assert.ok((await page.locator('.avhub-events article').count()) >= 2, 'CRM must report activity to the shared feed');
   assert.equal(await opportunities.count(), 4);
   await page.getByLabel('Sample US proposal stage').selectOption('Won');
   const wonCount = page.locator('.avsp-stats article').last().locator('strong');
@@ -85,6 +87,9 @@ try {
   await page.getByLabel('Reviewer team').selectOption('Legal');
   await page.getByRole('button', { name: 'Add sample document' }).click();
   assert.equal(await reviews.count(), 4);
+  await page.getByLabel('Filter demo activity').selectOption('Documents');
+  assert.ok((await page.locator('.avhub-events article').count()) >= 1, 'Document review must report to the shared feed');
+  await page.getByLabel('Filter demo activity').selectOption('All');
   assert.equal(await docMetric(0), 4);
   await page.getByLabel('Example US review checklist review stage').selectOption('In review');
   assert.equal(await docMetric(1), 2);
@@ -99,6 +104,7 @@ try {
   await page.getByRole('button', { name: 'Add sample document' }).click();
   assert.equal(await reviews.count(), 4);
   await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.locator('.avhub-events article').count(), 0, 'Shared workflow must not persist after page reload');
   await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
   assert.equal(await page.locator('.avdr-list article').count(), 3);
   assert.equal(await page.getByText('Ephemeral review').count(), 0);

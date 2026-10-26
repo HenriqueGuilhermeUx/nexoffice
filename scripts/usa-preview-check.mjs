@@ -67,4 +67,17 @@ assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(agentDemo), "USA coordination demo
 assert.ok(!/(localStorage|sessionStorage|indexedDB)\s*[.\[]/.test(agentDemo), "USA coordination demo cannot persist inputs");
 assert.ok(agentCss.includes(".avus .avcb"), "Coordination styles must be scoped to the US preview");
 
+const activity = read("apps/web/src/USSharedActivity.tsx");
+const activityCss = read("apps/web/src/USSharedActivity.css");
+assert.ok(preview.includes("<USActivityProvider>") && preview.includes("<USActivityCenter />"), "Shared activity must be isolated to US preview");
+for (const module of [operational, crm, docReviews]) {
+  assert.ok(module.includes("useUSActivity"), "All fictional US modules must publish into the same in-memory activity feed");
+}
+for (const token of ["Clear demo activity", "Modules represented", "No sample changes yet"]) {
+  assert.ok(activity.includes(token), "Missing integrated activity panel: " + token);
+}
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(activity), "Shared US workflow cannot call remote APIs");
+assert.ok(!/(localStorage|sessionStorage|indexedDB)\s*[.\[]/.test(activity), "Shared US workflow must not persist events");
+assert.ok(activityCss.includes(".avus .avhub"), "Shared activity CSS must be namespaced");
+
 console.log("PASS: nexoffice US preview route, language, copy, branding, isolation and CSS namespace");

@@ -78,3 +78,7 @@ This creates `apps/web/dist-usa/`. The USA browser workflow then tests the built
 ## Rule-based coordination brief (USA sandbox)
 
 The USA-only staging offers a fourth illustrative pillar: a fixed, rules-based sample coordination brief across Operations, Sales and Documents. This is **not** a connected agentic AI system, real inference or a paid US service. Users may prepare a synthetic list of priorities and mark examples reviewed, with no persistent data or network access. The local browser CI asserts review/reset and no persistence; no Brazilian integration is imported.
+
+## Cross-module sample activity feed (USA only)
+
+The US-only React preview now shares a volatile local event feed between task creation/stage changes, fictional CRM opportunities and illustrative document reviews. This links on-screen interactions **only inside the same browser session**. There is no persistence, backend, webhook, e-signature, customer record, billing or agent execution. A separate Activity Feed section filters these sample changes and gives deterministic next-step guidance. It must pass static no-network checks, Chromium cross-module tests and public staging smoke tests before release.

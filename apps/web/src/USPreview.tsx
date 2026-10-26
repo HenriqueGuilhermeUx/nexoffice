@@ -4,6 +4,7 @@ import USWorkbench from './USWorkbench';
 import USSalesPipeline from './USSalesPipeline';
 import USDocumentReviews from './USDocumentReviews';
 import USCoordinationBrief from './USCoordinationBrief';
+import { USActivityProvider, USActivityCenter } from './USSharedActivity';
 
 /** An isolated en-US marketing preview; never connects to Brazil product APIs. */
 const features = [
@@ -45,7 +46,7 @@ export default function USPreview() {
     <div className="avus">
       <header className="avus-header">
         <a className="avus-wordmark" href="/us/" aria-label="NexOffices USA home">NexOffices<span>USA</span></a>
-        <nav aria-label="Page navigation"><a href="#features">Capabilities</a><a href="#sample-tasks">Try tasks</a><a href="#sample-crm">Try CRM</a><a href="#sample-documents">Review docs</a><a href="#sample-agent">Sample agent</a><a href="#release">US availability</a></nav>
+        <nav aria-label="Page navigation"><a href="#features">Capabilities</a><a href="#sample-tasks">Try tasks</a><a href="#sample-crm">Try CRM</a><a href="#sample-documents">Review docs</a><a href="#sample-agent">Sample agent</a><a href="#sample-activity">Activity feed</a><a href="#release">US availability</a></nav>
       </header>
       <main>
         <section className="avus-hero">
@@ -70,10 +71,13 @@ export default function USPreview() {
           <h2>A powerful foundation, being prepared for the US.</h2>
           <div className="avus-grid">{features.map((feature, index) => <article key={feature.title}><span>0{index + 1}</span><h3>{feature.title}</h3><p>{feature.copy}</p></article>)}</div>
         </section>
-        <USWorkbench />
-        <USSalesPipeline />
-        <USDocumentReviews />
-        <USCoordinationBrief />
+        <USActivityProvider>
+          <USWorkbench />
+          <USSalesPipeline />
+          <USDocumentReviews />
+          <USCoordinationBrief />
+          <USActivityCenter />
+        </USActivityProvider>
         <section id="release" className="avus-release">
           <p className="avus-eyebrow">US readiness</p>
           <h2>Localization in progress</h2>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import './USWorkbench.css';
+import { useUSActivity } from './USSharedActivity';
 
 type TaskStatus = 'To do' | 'In progress' | 'Completed';
 type Task = { id: number; title: string; owner: string; status: TaskStatus };
@@ -14,6 +15,7 @@ export default function USWorkbench() {
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState('Sales');
   const [note, setNote] = useState('');
+  const { publish } = useUSActivity();
 
   const counts = {
     open: tasks.filter(task => task.status !== 'Completed').length,
@@ -26,6 +28,7 @@ export default function USWorkbench() {
     if (!title.trim()) return;
     const id = Math.max(0, ...tasks.map(task => task.id)) + 1;
     setTasks(previous => previous.concat({ id, title: title.trim(), owner, status: 'To do' }));
+    publish({ source: 'Tasks', title: title.trim(), action: 'Fictional task created for ' + owner });
     setTitle(''); setNote('Added locally. Reload the page to clear demo changes.');
   }
 
@@ -47,7 +50,7 @@ export default function USWorkbench() {
           <strong>{task.title}</strong>
           <div><span>{task.owner}</span>
             <label>Stage
-              <select value={task.status} onChange={e => setTasks(old => old.map(item => item.id === task.id ? { ...item, status: e.target.value as TaskStatus } : item))}>
+              <select value={task.status} onChange={e => { const stage = e.target.value as TaskStatus; setTasks(old => old.map(item => item.id === task.id ? { ...item, status: stage } : item)); publish({ source: 'Tasks', title: task.title, action: 'Fictional task stage: ' + stage }); }}>
                 <option>To do</option><option>In progress</option><option>Completed</option>
               </select>
             </label>

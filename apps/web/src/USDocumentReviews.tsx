@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import './USDocumentReviews.css';
+import { useUSActivity } from './USSharedActivity';
 
 type ReviewStage = 'Draft' | 'In review' | 'Needs changes' | 'Approved';
 type Reviewer = 'Operations' | 'Sales' | 'Legal';
@@ -19,6 +20,7 @@ export default function USDocumentReviews() {
   const [reviewer, setReviewer] = useState<Reviewer>('Operations');
   const [history, setHistory] = useState<Activity[]>([]);
   const nextActivity = useRef(0);
+  const { publish } = useUSActivity();
   const [message, setMessage] = useState('This is a local simulation; no file is uploaded or signed.');
 
   const approved = reviews.filter(row => row.stage === 'Approved').length;
@@ -31,6 +33,7 @@ export default function USDocumentReviews() {
     const nextId = Math.max(...reviews.map(row => row.id), 0) + 1;
     setReviews(previous => [...previous, { id: nextId, title: cleaned, reviewer, stage: 'Draft' }]);
     setHistory(previous => [{ id: ++nextActivity.current, description: 'Created fictional document: ' + cleaned }, ...previous].slice(0, 6));
+    publish({ source: 'Documents', title: cleaned, action: 'Fictional document assigned to ' + reviewer });
     setTitle('');
     setMessage('Added locally. No document file or customer record was created.');
   }
@@ -43,6 +46,7 @@ export default function USDocumentReviews() {
       id: ++nextActivity.current,
       description: document.title + ': ' + document.stage + ' → ' + stage,
     }, ...previous].slice(0, 6));
+    publish({ source: 'Documents', title: document.title, action: 'Fictional review stage: ' + stage });
     setMessage('Review stage updated in this browser only. No legal approval or e-signature occurred.');
   }
 

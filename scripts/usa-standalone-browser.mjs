@@ -57,6 +57,7 @@ try {
   await page.getByLabel('Fictional organization').fill('Example Corporation');
   await page.getByRole('button', {name:'Add sample opportunity'}).click();
   await page.getByText('Demo customer request').waitFor();
+  assert.ok((await page.locator('.avhub-events article').count()) > 0, 'Live CRM sample must report to the integrated feed');
   // The US-only deployable artifact must include the document review experience.
   await page.getByRole('heading', {name:'Know exactly what needs review.'}).waitFor();
   await page.getByLabel('Fictional document title').fill('Fictional policy outline');
@@ -75,6 +76,7 @@ try {
   await page.getByLabel('Fictional NDA review review stage').selectOption('In review');
   assert.equal(await page.locator('.avdr-list article').count(), 4);
   await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.locator('.avhub-events article').count(), 0, 'Standalone integrated demo must not persist');
   await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
   assert.equal(await page.locator('.avdr-list article').count(), 3, 'Review input cannot persist');
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
