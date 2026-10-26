@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import './USPreview.css';
 import USWorkbench from './USWorkbench';
 import USSalesPipeline from './USSalesPipeline';
+import USDocumentReviews from './USDocumentReviews';
 
 /** An isolated en-US marketing preview; never connects to Brazil product APIs. */
 const features = [
@@ -70,6 +71,7 @@ export default function USPreview() {
         </section>
         <USWorkbench />
         <USSalesPipeline />
+        <USDocumentReviews />
         <section id="release" className="avus-release">
           <p className="avus-eyebrow">US readiness</p>
           <h2>Localization in progress</h2>
