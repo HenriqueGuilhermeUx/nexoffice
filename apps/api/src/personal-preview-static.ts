@@ -40,6 +40,17 @@ export async function registerPersonalPreviewStatic(app:FastifyInstance){
       throw err;
     }
   });
+  // Only the official Nexa mark is exposed at the preview's root. Do not
+  // expose the NexOffices PJ favicon or other public build files by wildcard.
+  app.get('/nexa-logo.svg',async(_req,reply)=>{
+    try{
+      const logo=await readFile(resolve(root,'nexa-logo.svg'));
+      return reply.type('image/svg+xml').header('cache-control','public, max-age=3600').send(logo);
+    }catch(err){
+      if((err as NodeJS.ErrnoException).code==='ENOENT')return reply.code(404).send({error:'not_found'});
+      throw err;
+    }
+  });
   app.get('/favicon.ico',async(_req,reply)=>{
     try{return reply.type('image/x-icon').send(await readFile(resolve(root,'favicon.ico')));}
     catch{return reply.code(404).send({error:'not_found'});}
