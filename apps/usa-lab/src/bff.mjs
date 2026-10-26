@@ -100,7 +100,7 @@ export async function startUSOIDCBFF({
           return res.end();
         }catch{return fail(res,401,'callback_rejected',{'Set-Cookie':bindingCookie('',0)});}
       }
-      const actor=store.resolveSession(extract(req,sessionName));
+      const actor=store.resolveSession(extract(req,sessionName),'OIDC');
       if(!actor)return fail(res,401,'authentication_required');
       if(pathname==='/lab/oidc/result'&&method==='GET'){
         return send(res,200,{authenticated:true,region:'US',orgId:actor.orgId,userId:actor.userId});
