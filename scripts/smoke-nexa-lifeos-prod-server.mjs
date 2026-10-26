@@ -10,6 +10,15 @@ const contextLock=readFileSync('apps/api/src/nexa-lifeos-prod-user-context.ts','
 assert.match(contextLock,/requireVerifiedLifeosUserContext\(\):never/);
 assert.doesNotMatch(contextLock,/process\.env|CI|BYPASS|MOCK|return true/i);
 assert.match(productionSource,/requireVerifiedLifeosUserContext\(\);/);
+const privacySource=readFileSync('apps/api/src/routes-nex-personal-privacy.ts','utf8');
+const agentsSource=readFileSync('apps/api/src/routes-nex-personal-agents.ts','utf8');
+const finsightSource=readFileSync('apps/api/src/routes-nex-personal-finsight.ts','utf8');
+assert.match(privacySource,/NEXA_LIFEOS_ENV==='production'/);
+assert.match(privacySource,/Dados da conta Nexa são armazenados no serviço pessoal dedicado/);
+assert.match(privacySource,/Dados da conta ficam no servidor isolado da homologação/);
+assert.match(agentsSource,/deterministic_read_only/);
+assert.match(agentsSource,/Nenhum Pix, boleto ou pagamento real é iniciado por este módulo Nexa/);
+assert.match(finsightSource,/O F-Insight ainda não está conectado a esta conta Nexa/);
 assert.match(sharedSource,/if\(options\.registrationEnabled!==false\)app\.post\('\/v1\/personal\/auth\/register'/);
 assert.match(productionSource,/registerNexPersonalRoutes\(app,\{registrationEnabled:false\}\)/);
 assert.doesNotMatch(productionSource,/registerNexPersonalRoutes\(app\);/);
