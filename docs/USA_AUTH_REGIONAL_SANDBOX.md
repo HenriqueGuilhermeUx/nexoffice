@@ -60,3 +60,12 @@ No laboratório, o início de login é protegido por verificação da origem HTT
 O servidor não implementa cadastro público nem faz qualquer requisição externa. `apps/usa-lab/test/bff.test.mjs` verifica dois tenants com dados fictícios, cookies, sessão, replay, prova de navegador trocada, origem falsa, Host/proxy e restrição de acesso entre organizações.
 
 **Importante:** em produção seria obrigatório rodar HTTPS com cookies `Secure`, gestão distribuída de sessão e `state`, provedor OIDC real, descoberta/JWKS de origem autenticada e rotativa, revogação e monitoramento, proteção anti-CSRF aprovada para o fluxo, recuperação de conta e revisão de ameaças. Nada disso está ativado; o staging público do Render permanece estático e **não carrega este servidor**.
+
+
+## Proteção adicional das sessões OIDC no BFF de testes
+
+As sessões agora possuem uma classificação explícita (`PASSWORD` ou `OIDC`) no banco temporário, impedindo que uma sessão criada pelo login de senha do laboratório seja aceita como autenticação OIDC. O BFF exige `OIDC` nas rotas autenticadas.
+
+Para sessões OIDC, cada acesso também exige que a vinculação entre `issuer`, `subject`, usuário e organização US ainda exista e esteja autorizada. A função de teste `revokeOIDCSubject` remove o vínculo e invalida o acesso com tokens anteriormente emitidos; ela **não é exposta em HTTP**. Os testes cobrem substituição de cookies, revogação de vínculo e isolamento entre duas empresas fictícias.
+
+Permanece uma implementação local de homologação: não há login real, serviço externo, migração de banco existente, provedor contratado ou API publicamente disponível.
