@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {evaluateLifeosSchema} from './audit-nexa-lifeos-prod-schema.mjs';
+import {readFileSync} from 'node:fs';
 const pfNames=['profiles','accounts','transactions','consents','life_preferences'];
 const mk=(name,schema='nex_personal',extras={})=>({
  name,schema,rls:true,forceRls:true,owner:'schema_owner',...extras
@@ -32,4 +33,16 @@ for(const [description,value] of [
  ['role create privilege',{role:{...good.role,rolcreaterole:true}}],
 ])test('fail closed: '+description,()=>{
  assert.throws(()=>evaluateLifeosSchema({...good,...value}),Error);
+});
+
+test('production API enforces schema readiness before login and authenticated PF access',()=>{
+ const server=readFileSync('apps/api/src/server-personal-production.ts','utf8');
+ const guard=readFileSync('apps/api/src/nexa-lifeos-prod-schema-ready.ts','utf8');
+ assert.match(server,/import \{requireLifeosProductionSchema\} from '\.\/nexa-lifeos-prod-schema-ready\.js'/);
+ assert.match(server,/if\(!bearer\.startsWith\('Bearer '\)\)throw new ApiError\(401/);
+ assert.match(server,/await requireLifeosProductionSchema\(\);/);
+ assert.match(server,/await requireLifeosProductionSchema\(\);[\s\S]{0,300}const rows=await query/);
+ assert.match(guard,/evaluateLifeosSchema\(\{tables,policies,role:role\[0\]\}\)/);
+ assert.match(guard,/throw new ApiError\(503,'schema_not_ready'/);
+ assert.doesNotMatch(guard,/NEXA_LIFEOS_SCHEMA_AUDIT_SKIP|NEXA_LIFEOS_CI_BYPASS/);
 });
