@@ -25,7 +25,7 @@ export function citizenGuide(task:CitizenTask,city:string,state:string):CitizenG
     'Confira os documentos pedidos, especialmente certidão de nascimento ou casamento, e outras exigências da unidade.',
     'Compareça na data indicada e mantenha o protocolo. A primeira emissão da CIN é gratuita; verifique regras para segunda via.'],
    officialLinks:[{title:'Onde emitir e agendar sua CIN — gov.br',url:'https://www.gov.br/governodigital/pt-br/identidade/cin/duvidas-frequentes-sobre-a-cin-campanha'}],
-   caution:'O Nex Personal não agenda a CIN, não solicita CPF e nunca deve pedir sua senha gov.br.'};
+   caution:'A Nexa não agenda a CIN, não solicita CPF e nunca deve pedir sua senha gov.br.'};
   case 'construction':return {
    title:'Como solicitar alvará de construção em '+place,
    steps:['Consulte a Prefeitura de '+place+' na área Urbanismo, Obras ou Licenciamento de Construções.',
