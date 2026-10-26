@@ -31,6 +31,10 @@ GRANT USAGE ON SCHEMA nex_personal_us TO npu_us_wallet_service;
 -- Explicit, minimal SQL privileges. Never grant ALL, DELETE, TRUNCATE, or
 -- default table privileges; profile creation and status change are separate.
 GRANT SELECT ON nex_personal_us.profiles TO npu_us_wallet_service;
+-- PostgreSQL row-level SELECT ... FOR UPDATE / FOR SHARE requires UPDATE
+-- permission on at least one column. Only the benign updated_at timestamp is
+-- writable here, NEVER status, auth_subject or identity ownership fields.
+GRANT UPDATE (updated_at) ON nex_personal_us.profiles TO npu_us_wallet_service;
 GRANT SELECT,INSERT ON nex_personal_us.wallet_ownership_challenges TO npu_us_wallet_service;
 GRANT UPDATE (consumed_at) ON nex_personal_us.wallet_ownership_challenges TO npu_us_wallet_service;
 GRANT SELECT,INSERT ON nex_personal_us.wallet_bindings TO npu_us_wallet_service;
@@ -45,6 +49,9 @@ GRANT UPDATE (revoked_at) ON nex_personal_us.wallet_agentic_read_consents TO npu
 -- queries would be denied, even to an explicitly granted non-bypass service.
 CREATE POLICY npu_us_svc_profiles_select
  ON nex_personal_us.profiles FOR SELECT TO npu_us_wallet_service USING (true);
+CREATE POLICY npu_us_svc_profiles_lock
+ ON nex_personal_us.profiles FOR UPDATE TO npu_us_wallet_service
+ USING (true) WITH CHECK (true);
 
 CREATE POLICY npu_us_svc_challenge_select
  ON nex_personal_us.wallet_ownership_challenges
