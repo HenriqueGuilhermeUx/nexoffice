@@ -258,9 +258,14 @@ try{
  }finally{attackerClient.release();}
  console.log('PASS: dedicated USA NOLOGIN service minimal DML + FORCE RLS untrusted row denial');
 }finally{
- // The CI PostgreSQL service container is destroyed after this job.
- // Force-dropping a database races with pg-pool idle clients and emits
- // unhandled SQLSTATE 57P01 despite successful privilege assertions.
+ // Service-role tests run BEFORE the DID tests on the same disposable PG16
+ // container. They MUST release this role name for the next test.
+ // After closing the pool, use ordinary DROP DATABASE (without FORCE).
+ // If a client still owns a session, PostgreSQL raises an explicit test error
+ // rather than killing a socket and emitting an unhandled 57P01.
  if(pool)await pool.end();
+ await admin.query('DROP DATABASE IF EXISTS '+database);
+ await admin.query('DROP ROLE IF EXISTS '+attacker);
+ await admin.query('DROP ROLE IF EXISTS '+service);
  await admin.end();
 }
