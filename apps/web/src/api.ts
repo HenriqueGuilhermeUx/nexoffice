@@ -11,7 +11,9 @@ export const session={
   workspace:()=>localStorage.getItem(WORKSPACE_KEY)||'',
   set:(token:string,workspaceId?:string)=>{localStorage.setItem(TOKEN_KEY,token);if(workspaceId)localStorage.setItem(WORKSPACE_KEY,workspaceId)},
   setWorkspace:(id:string)=>localStorage.setItem(WORKSPACE_KEY,id),
-  clear:()=>{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)}
+  clear:()=>{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)},
+  // PJ credentials are discarded on gated builds until a dedicated handoff exists.
+  clearPendingPjAccess:()=>{if(pjBuild){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)}}
 };
 
 async function parseResponse<T>(r:Response):Promise<T>{
