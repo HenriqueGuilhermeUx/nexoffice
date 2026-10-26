@@ -40,6 +40,8 @@ const appRequested=params.has('app')||handoffRequested;
 const legalRequested=params.has('legal');
 const personalRequested=/^\/personal\/?$/.test(location.pathname);
 const personalPreview=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
+const publicLifeos=(import.meta as any).env?.VITE_NEXA_LIFEOS_PUBLIC==='true';
+const publicBuildProbe=(import.meta as any).env?.VITE_NEXA_LIFEOS_BUILD_PROBE==='true';
 // Keep the old static preview bookmark working after moving to a single-origin
 // preview. This is a fixed Render hostname and cannot be user-controlled.
 if(personalPreview
@@ -74,7 +76,17 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {personalPreview
+    {publicLifeos && publicBuildProbe
+      ? <main style={{minHeight:'100vh',background:'#06111F',color:'#e8f8ff',fontFamily:'Inter,system-ui,sans-serif',padding:'min(12vh,90px) 7vw'}}>
+          <img src="/meu-espaco/app/nexa-logo.svg" alt="Nexa" width="52" height="52"/>
+          <p style={{color:'#31d7ff',fontWeight:700}}>NEXA · HOMOLOGAÇÃO DE ROTA</p>
+          <h1>Seu espaço Nexa está em preparação.</h1>
+          <p>Esta visualização não aceita login, não se conecta à Wallet e não permite movimentações financeiras.</p>
+          <a href="/meu-espaco" style={{color:'#31d7ff'}}>Conhecer o Meu Espaço Nexa</a>
+        </main>
+      : publicLifeos
+      ? <NexPersonal/>
+      : personalPreview
       ? <NexPersonal/>
       : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
