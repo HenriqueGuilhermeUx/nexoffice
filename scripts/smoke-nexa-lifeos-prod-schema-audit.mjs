@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {evaluateLifeosSchema} from './audit-nexa-lifeos-prod-schema.mjs';
 import {readFileSync} from 'node:fs';
-const pfNames=['profiles','accounts','transactions','consents','life_preferences'];
+const pfNames=['profiles','consents','connections','accounts','transactions','audit_events','budgets','goals','wealth_items','bills','life_preferences','life_intents'];
 const mk=(name,schema='nex_personal',extras={})=>({
  name,schema,rls:true,forceRls:true,owner:'schema_owner',...extras
 });
@@ -61,9 +61,9 @@ test('production API enforces schema readiness before login and authenticated PF
 const ownerAudit="owner_user_id::text = current_setting('app.user_id', true)";
 const realPolicyAudit={
  ...good,
- tables:[...good.tables,mk('audit_events')],
+ tables:good.tables,
  policies:[
-  ...good.policies,
+  ...good.policies.filter(p=>p.name!=='audit_events'),
   {schema:'nex_personal',name:'audit_events',roles:['nexa_lifeos_app'],
    cmd:'SELECT',qual:ownerAudit,withCheck:null},
   {schema:'nex_personal',name:'audit_events',roles:['nexa_lifeos_app'],
