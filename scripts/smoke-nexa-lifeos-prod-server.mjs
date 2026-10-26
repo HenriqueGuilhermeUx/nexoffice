@@ -6,6 +6,19 @@ import {setTimeout as sleep} from 'node:timers/promises';
 
 const productionSource=readFileSync('apps/api/src/server-personal-production.ts','utf8');
 const sharedSource=readFileSync('apps/api/src/routes-nex-personal.ts','utf8');
+const contextLock=readFileSync('apps/api/src/nexa-lifeos-prod-user-context.ts','utf8');
+assert.match(contextLock,/requireVerifiedLifeosUserContext\(\):never/);
+assert.doesNotMatch(contextLock.replace(/\/\*[\s\S]*?\*\//g,''),/process\.env|\bBYPASS\b|\bMOCK\b|return true/i);
+assert.match(productionSource,/requireVerifiedLifeosUserContext\(\);/);
+const privacySource=readFileSync('apps/api/src/routes-nex-personal-privacy.ts','utf8');
+const agentsSource=readFileSync('apps/api/src/routes-nex-personal-agents.ts','utf8');
+const finsightSource=readFileSync('apps/api/src/routes-nex-personal-finsight.ts','utf8');
+assert.match(privacySource,/NEXA_LIFEOS_ENV==='production'/);
+assert.match(privacySource,/Os dados da conta Nexa são armazenados no serviço pessoal dedicado/);
+assert.match(privacySource,/Dados da conta ficam no servidor isolado da homologação/);
+assert.match(agentsSource,/deterministic_read_only/);
+assert.match(agentsSource,/Nenhum Pix, boleto ou pagamento real é iniciado por este módulo Nexa/);
+assert.match(finsightSource,/O F-Insight ainda não está conectado a esta conta Nexa/);
 assert.match(sharedSource,/if\(options\.registrationEnabled!==false\)app\.post\('\/v1\/personal\/auth\/register'/);
 assert.match(productionSource,/registerNexPersonalRoutes\(app,\{registrationEnabled:false\}\)/);
 assert.doesNotMatch(productionSource,/registerNexPersonalRoutes\(app\);/);
@@ -66,6 +79,24 @@ try{
  const live=await probe(url,'/health/live');
  assert.equal(live.r.status,200);
  assert.equal(live.body.service,'nexa-lifeos-prod-api');
+ // The API can be live as a process but must NOT claim production readiness
+ // while session identity is not yet bound to a PostgreSQL RLS transaction.
+ const readyGate=await probe(url,'/health');
+ assert.equal(readyGate.r.status,503,'PF production readiness stays closed until tenant E2E');
+ assert.equal(readyGate.body.error,'identity_context_not_ready');
+ const validLookingLogin=await probe(url,'/v1/auth/login',{
+   method:'POST',headers:{origin:'https://trynexa.com.br','content-type':'application/json'},
+   body:JSON.stringify({email:'nobody@example.test',password:'dummy-only'})
+ });
+ assert.equal(validLookingLogin.r.status,503,'Do not query users table without verified RLS identity context');
+ assert.equal(validLookingLogin.body.error,'identity_context_not_ready');
+ const fakeBearer=await probe(url,'/v1/personal/me',{headers:{authorization:'Bearer dummy-token-never-valid'}});
+ assert.equal(fakeBearer.r.status,503,'Auth-bearing PF route must not query pooled DB without per-user context');
+ assert.equal(fakeBearer.body.error,'identity_context_not_ready');
+ const logoutBlocked=await probe(url,'/v1/auth/logout',{
+  method:'POST',headers:{authorization:'Bearer dummy-token-never-valid'}
+ });
+ assert.equal(logoutBlocked.r.status,503,'Session writes are blocked until RLS-safe identity is designed');
  const register=await probe(url,'/v1/personal/auth/register',{
    method:'POST',headers:{origin:'https://trynexa.com.br','content-type':'application/json'},
    body:JSON.stringify({name:'Dummy',email:'dummy@example.test',password:'fake-ci-password-only'})
@@ -93,7 +124,7 @@ try{
  // Authentication validates request shape and throttles attempts before any
  // PostgreSQL query: all 13 payloads are deliberately invalid JSON inputs.
  // This exercises the abuse gate WITHOUT connecting to the dummy Neon host.
- for(let i=0;i<12;i++){
+ for(let i=0;i<11;i++){
    const invalid=await probe(url,'/v1/auth/login',{
      method:'POST',headers:{'content-type':'application/json',origin:'https://trynexa.com.br'},
      body:JSON.stringify({email:'not-an-email',password:'dummy'})

@@ -45,7 +45,9 @@ export async function registerNexPersonalPrivacyRoutes(app:FastifyInstance){
    cloudStoredData:['identity','manual_accounts','imported_financial_rows','user_preferences','audit_metadata'],
    browserOnlyTools:['public_services','debt_review','legal_support'],
    encryptionScope:'Not independently audited for end-to-end encryption',
-   notice:'Dados da conta ficam no servidor isolado da homologação; somente o texto e os valores digitados nos 3 guias locais não são enviados à API. Administradores de infraestrutura e prestadores autorizados podem ter acesso técnico sob controles aplicáveis.',
+   notice:process.env.NEXA_LIFEOS_ENV==='production'
+    ? 'Os dados da conta Nexa são armazenados no serviço pessoal dedicado, sujeitos aos controles de acesso e à política de privacidade publicada. Administradores de infraestrutura e prestadores autorizados podem ter acesso técnico conforme suas funções. A plataforma não declara criptografia de ponta a ponta auditada.'
+    : 'Dados da conta ficam no servidor isolado da homologação; somente o texto e os valores digitados nos 3 guias locais não são enviados à API. Administradores de infraestrutura e prestadores autorizados podem ter acesso técnico sob controles aplicáveis.',
    externalEffect:false
   };
  });

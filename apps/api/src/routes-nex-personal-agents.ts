@@ -45,7 +45,7 @@ async function personalOwner(req:FastifyRequest){
 export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
  app.get('/v1/personal/agents',async req=>{
   await personalOwner(req);
-  return {agents:catalog,coordinator:'Maya',mode:'deterministic_preview',externalEffect:false};
+  return {agents:catalog,coordinator:'Maya',mode:process.env.NEXA_LIFEOS_ENV==='production'?'deterministic_read_only':'deterministic_preview',externalEffect:false};
  });
  app.post('/v1/personal/agents/:id/analyze',async req=>{
   const owner=await personalOwner(req);
@@ -147,7 +147,9 @@ export async function registerNexPersonalAgentsRoutes(app:FastifyInstance){
     answer=upcoming.length?'Há '+upcoming.length+' compromisso(s) informados com vencimento até 30 dias (inclui vencidos): '+fmt(sum(upcoming,'amount_minor'))+'.':
       'Você ainda não possui lembretes para os próximos 30 dias.';
     facts=upcoming.slice(0,6).map(b=>b.name+': '+fmt(b.amount_minor)+' · '+(b.next_due_on instanceof Date?b.next_due_on.toISOString().slice(0,10):String(b.next_due_on).slice(0,10)));
-    facts.push('Nenhum Pix, boleto ou pagamento é iniciado pela homologação.');
+    facts.push(process.env.NEXA_LIFEOS_ENV==='production'
+      ? 'Nenhum Pix, boleto ou pagamento real é iniciado por este módulo Nexa.'
+      : 'Nenhum Pix, boleto ou pagamento é iniciado pela homologação.');
     sources=['lembretes cadastrados'];limitation='A Efí e pagamentos reais ainda não estão habilitados. Marcar lembrete não paga a conta.';break;
    }
    case 'public_services': {

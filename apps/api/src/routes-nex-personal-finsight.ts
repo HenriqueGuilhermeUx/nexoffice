@@ -35,7 +35,10 @@ async function requirePersonal(req:FastifyRequest){
 
 async function callMarket(path:string){
  const cfg=connection();
- if(!cfg)throw new ApiError(409,'finsight_personal_not_connected','A pesquisa F-Insight ainda não foi habilitada nesta homologação.');
+ if(!cfg)throw new ApiError(409,'finsight_personal_not_connected',
+    process.env.NEXA_LIFEOS_ENV==='production'
+      ? 'O F-Insight ainda não está conectado a esta conta Nexa.'
+      : 'A pesquisa F-Insight ainda não foi habilitada nesta homologação.');
  if(!upstreamPaths.some(allowed=>path.startsWith(allowed)))
   throw new ApiError(400,'market_path_not_allowed','Operação indisponível.');
  let response:Response;
