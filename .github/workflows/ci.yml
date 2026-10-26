@@ -141,6 +141,10 @@ jobs:
         env:
           NEX_PERSONAL_US_PG_CI: "true"
         run: node scripts/smoke-nex-personal-us-rls-least-privilege.mjs
+      - name: Enforce dedicated US backend service SQL privileges and customer role denial
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-service-role-postgres.mjs
       - name: Apply database schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
