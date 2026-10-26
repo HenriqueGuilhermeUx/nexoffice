@@ -21,6 +21,7 @@ test('US lab fails closed: opt-in, loopback, nonproduction and US-only region',a
     await assert.rejects(()=>startUSLab({enabled:true,dbFile:tmp.dbFile,host:'0.0.0.0'}),/loopback/);
     await assert.rejects(()=>startUSLab({enabled:true,dbFile:tmp.dbFile,nodeEnv:'production'}),/production/);
     await assert.rejects(()=>startUSLab({enabled:true,dbFile:'/var/lib/nexoffice/live.sqlite'}),/temporary directory/);
+    assert.throws(()=>new USLabStore('/var/lib/nexoffice/unsafe.sqlite'),/temporary database directory|ENOENT/);
     const store=new USLabStore(tmp.dbFile);
     assert.throws(()=>store.provisionOrganization('Brazil Fixture','BR'),/Only US/);
     const org=store.provisionOrganization('US Sandbox Corp');

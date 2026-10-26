@@ -1,8 +1,9 @@
 /** US-only fixture identity and tenant store. Never exposed in production. */
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { existsSync, lstatSync, chmodSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import { existsSync, lstatSync, chmodSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { isAbsolute, dirname, basename, sep } from 'node:path';
 
 const digest = token => createHash('sha256').update(token).digest('hex');
 const emailKey = email => typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -14,6 +15,15 @@ const fakeHash = hashPassword('invalid-user-fixture',fakeSalt).toString('hex');
 export class USLabStore {
   constructor(dbFile) {
     if (typeof dbFile !== 'string' || !isAbsolute(dbFile) || !dbFile.endsWith('.sqlite')) throw Error('Explicit absolute US .sqlite file required');
+    // Even direct store access must fail closed, not only the HTTP starter.
+    // Resolve the parent directory to reject symlinks into Brazilian/project databases.
+    const realTemp = realpathSync(tmpdir());
+    const realParent = realpathSync(dirname(dbFile));
+    if (!realParent.startsWith(realTemp + sep) ||
+        !basename(realParent).startsWith('nexoffices-us-lab-') ||
+        basename(dbFile) !== 'us-lab.sqlite') {
+      throw Error('US lab requires its own disposable temporary database directory');
+    }
     if (existsSync(dbFile) && lstatSync(dbFile).isSymbolicLink()) throw Error('Refusing symlink database');
     this.db = new DatabaseSync(dbFile);
     chmodSync(dbFile,0o600);

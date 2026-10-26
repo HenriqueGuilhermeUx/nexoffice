@@ -15,5 +15,6 @@ assert.ok(server.includes("host!=='127.0.0.1'"),'Lab must refuse public bind');
 assert.ok(server.includes("nodeEnv==='production'"),'Lab must reject production');
 assert.ok(server.includes("process.env.USA_LAB_ENABLED!=='1'"),'Lab must default disabled');
 assert.ok(store.includes("CHECK(region_code='US')"),'SQLite must enforce US-only region');
+assert.ok(store.includes("basename(dbFile) !== 'us-lab.sqlite'"),'USA store must only access explicitly named disposable fixture database');
 assert.ok(ci.includes('node --test apps/usa-lab/test/isolation.test.mjs'),'PR CI must run isolation tests');
 console.log('PASS: US identity lab isolated, fail-closed, never included in production web');
