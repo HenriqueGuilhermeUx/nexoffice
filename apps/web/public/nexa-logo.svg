@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Nexa">
+  <defs>
+    <linearGradient id="g1" x1="18" y1="16" x2="110" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#234BFF"/>
+      <stop offset=".55" stop-color="#22AFFF"/>
+      <stop offset="1" stop-color="#32E3E0"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="86" y1="10" x2="48" y2="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D5E2EF"/>
+      <stop offset=".65" stop-color="#7FA7FF"/>
+      <stop offset="1" stop-color="#234BFF"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#00142d" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="#06111F"/>
+  <g filter="url(#s)">
+    <path d="M24 97V31c0-8 6-14 14-14h3l48 60V31c0-8 6-14 14-14h1v80c0 8-6 14-14 14h-3L39 51v46c0 8-6 14-14 14h-1V97z" fill="url(#g1)"/>
+    <path d="M38 17h5l25 31-13 19-31-39c3-7 7-11 14-11z" fill="url(#g2)" opacity=".95"/>
+  </g>
+</svg>
