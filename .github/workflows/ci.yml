@@ -48,6 +48,7 @@ jobs:
           node --test scripts/smoke-nexa-lifeos-prod-env.mjs
           node --experimental-strip-types --test scripts/smoke-nexa-lifeos-prod-db.mjs
           node --test scripts/smoke-nexa-lifeos-prod-schema-audit.mjs
+          node --test scripts/smoke-nexa-lifeos-tenant-tx.mjs
           node scripts/audit-nexa-lifeos-prod-schema.mjs
           node scripts/smoke-nexa-lifeos-prod-server.mjs
           node scripts/plan-nexa-lifeos-prod-migrations.mjs
