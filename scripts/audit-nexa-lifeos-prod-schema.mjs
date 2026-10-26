@@ -8,7 +8,7 @@ import {resolve} from 'node:path';
 import {inspectLifeosProdEnv} from './check-nexa-lifeos-prod-env.mjs';
 
 const ALLOWED_PUBLIC=new Set(['users','auth_sessions','nexa_lifeos_schema_migrations']);
-const REQUIRED_PF=new Set(['profiles','accounts','transactions','consents','life_preferences']);
+const REQUIRED_PF=new Set(['profiles','consents','connections','accounts','transactions','audit_events','budgets','goals','wealth_items','bills','life_preferences','life_intents']);
 
 export function evaluateLifeosSchema({tables,policies,role}){
  if(!Array.isArray(tables)||!Array.isArray(policies)||!role?.rolname)
@@ -59,7 +59,7 @@ export function evaluateLifeosSchema({tables,policies,role}){
  }
  for(const name of REQUIRED_PF)if(!pf.some(t=>t.name===name))
   throw new Error('Required PF table missing: '+name);
- if(pf.length<REQUIRED_PF.size)throw new Error('PF schema is incomplete');
+ if(pf.length!==REQUIRED_PF.size)throw new Error('PF schema is incomplete or contains unknown tables');
  for(const t of [...pf,...identities]){
   if(t.owner===role.rolname)
    throw new Error('Application DB role must not own table '+t.schema+'.'+t.name);
