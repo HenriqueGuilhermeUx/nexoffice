@@ -29,7 +29,7 @@ export default function USPreview() {
     const previousRobots = robots.content;
     robots.content = 'noindex,nofollow';
     document.documentElement.lang = 'en-US';
-    document.title = "NexOffice USA | Alternative Ventures";
+    document.title = "NexOffices USA | Alternative Ventures";
     if (description) description.content = "Business operations + AI — a United States localization preview.";
     return () => {
       document.documentElement.lang = previousLang;
@@ -43,7 +43,7 @@ export default function USPreview() {
   return (
     <div className="avus">
       <header className="avus-header">
-        <a className="avus-wordmark" href="/us/" aria-label="NexOffice USA home">NexOffice<span>USA</span></a>
+        <a className="avus-wordmark" href="/us/" aria-label="NexOffices USA home">NexOffices<span>USA</span></a>
         <nav aria-label="Page navigation"><a href="#features">Capabilities</a><a href="#sample-tasks">Try tasks</a><a href="#sample-crm">Try CRM</a><a href="#sample-documents">Review docs</a><a href="#release">US availability</a></nav>
       </header>
       <main>
@@ -79,7 +79,7 @@ export default function USPreview() {
           <p>Functionality, terms, pricing and availability will be reviewed before a public US launch.</p>
         </section>
       </main>
-      <footer className="avus-footer"><span>NexOffice USA · Alternative Ventures</span><a href="https://alternativeventures.com.br/">About Alternative Ventures ↗</a></footer>
+      <footer className="avus-footer"><span>NexOffices USA · Alternative Ventures</span><a href="https://alternativeventures.com.br/">About Alternative Ventures ↗</a></footer>
     </div>
   );
 }
