@@ -41,6 +41,12 @@ export class USLabStore {
       CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
         org_id TEXT NOT NULL REFERENCES organizations(id), expires_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS oidc_links (
+        issuer TEXT NOT NULL, subject TEXT NOT NULL,
+        org_id TEXT NOT NULL REFERENCES organizations(id),
+        user_id TEXT NOT NULL REFERENCES users(id),
+        region_code TEXT NOT NULL DEFAULT 'US' CHECK(region_code='US'),
+        PRIMARY KEY(issuer,subject,org_id));
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES organizations(id),
         title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','completed')),
@@ -51,6 +57,21 @@ export class USLabStore {
     `);
   }
   close(){this.db.close();}
+  /** Trusted fixtures only; no API, no user auto-provisioning. */
+  linkOIDCSubject({issuer,subject,orgId,userId}){
+    if(typeof issuer!=='string' || !issuer.startsWith('https://') ||
+       typeof subject!=='string' || !subject || subject.length>255 ||
+       typeof orgId!=='string' || typeof userId!=='string') throw Error('Invalid US identity link');
+    const member=this.db.prepare("SELECT u.id FROM users u JOIN organizations o ON o.id=u.org_id WHERE u.id=? AND u.org_id=? AND u.region_code='US' AND o.region_code='US'").get(userId,orgId);
+    if(!member)throw Error('Identity link requires US membership');
+    this.db.prepare("INSERT INTO oidc_links(issuer,subject,org_id,user_id,region_code) VALUES(?,?,?,?,'US')").run(issuer,subject,orgId,userId);
+  }
+  resolveOIDCSubject({issuer,subject,orgId}){
+    if(typeof issuer!=='string'||typeof subject!=='string'||typeof orgId!=='string')return null;
+    const member=this.db.prepare("SELECT l.user_id AS userId,l.org_id AS orgId,u.email FROM oidc_links l JOIN users u ON u.id=l.user_id AND u.org_id=l.org_id JOIN organizations o ON o.id=l.org_id WHERE l.issuer=? AND l.subject=? AND l.org_id=? AND l.region_code='US' AND u.region_code='US' AND o.region_code='US'").get(issuer,subject,orgId);
+    return member?{...member,region:'US'}:null;
+  }
+
   // Fixtures are provisioned only through tests/developer code, NEVER over HTTP.
   provisionOrganization(name,region='US'){
     if(region!=='US')throw Error('Only US organizations may be provisioned');
