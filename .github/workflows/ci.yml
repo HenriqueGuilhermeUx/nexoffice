@@ -53,6 +53,10 @@ jobs:
             echo "Life OS build incorrectly bypassed production release gate"
             exit 1
           fi
+      - name: Reject production Life OS backend/DB mixing and unaudited financial routes
+        run: node scripts/smoke-nexa-lifeos-production-backend.mjs
+      - name: Review pinned Nexa PF migration files without connecting to a database
+        run: node scripts/check-nexa-lifeos-production-migrations.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
