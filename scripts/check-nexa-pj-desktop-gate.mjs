@@ -17,6 +17,8 @@ assert.match(account,/result\.pixEnabled!==false/);
 assert.match(account,/result\.cryptoEnabled!==false/);
 assert.match(api,/pjBuild\?'nexa-pj\.token':'nexoffice\.token'/);
 assert.match(api,/pjBuild\?'nexa-pj\.workspace':'nexoffice\.workspace'/);
+assert.match(api,/clearPendingPjAccess:\(\)=>/);
+assert.match(main,/if\(nexaPjBuild\)session\.clearPendingPjAccess\(\)/);
 assert.match(handoff,/if\(platformName==='Nexa PJ'\)/);
 assert.match(handoff,/Acesso empresarial integrado ainda não habilitado/);
 console.log('Nexa PJ gate, generic handoff rejection and session isolation checks passed');
