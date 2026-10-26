@@ -33,6 +33,15 @@ try{
  assert.ok(assetPath,'Vite HTML must include an assets bundle.');
  const asset=await fetch(host+assetPath);
  assert.equal(asset.status,200,'Bundled Vite asset must load without another hostname.');
+ const logo=await fetch(host+'/nexa-logo.svg');
+ assert.equal(logo.status,200,'Official Nexa logo must load at the preview root.');
+ assert.match(logo.headers.get('content-type')||'',/image\/svg\+xml/);
+ const logoBody=await logo.text();
+ assert.match(logoBody,/aria-label="Nexa"/);
+ assert.match(logoBody,/#06111F/);
+ assert.ok(!logoBody.includes('NexOffice'),'Preview must not serve PJ brand as Nexa');
+ const originalPjFavicon=await fetch(host+'/favicon.svg');
+ assert.equal(originalPjFavicon.status,404,'NexOffices PJ favicon must not be served on isolated preview');
  const preflight=await fetch(host+'/v1/personal/auth/register',{
    method:'OPTIONS',
    headers:{origin:selfOrigin,'access-control-request-method':'POST','access-control-request-headers':'content-type'}
