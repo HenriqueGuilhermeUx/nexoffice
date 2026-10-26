@@ -84,7 +84,7 @@ export default function USDocumentReviews() {
         <form className="avdr-panel avdr-form" onSubmit={add}>
           <h3>Create a sample review</h3>
           <label>Fictional document title<input maxLength={95} required placeholder="Example onboarding checklist" value={title} onChange={event => setTitle(event.target.value)}/></label>
-          <label>Reviewer team<select value={reviewer} onChange={event => setReviewer(event.target.value as Reviewer)}>
+          <label htmlFor="usa-reviewer-team">Reviewer team<select id="usa-reviewer-team" aria-label="Reviewer team" value={reviewer} onChange={event => setReviewer(event.target.value as Reviewer)}>
             <option>Operations</option><option>Sales</option><option>Legal</option>
           </select></label>
           <button type="submit">Add sample document</button>
