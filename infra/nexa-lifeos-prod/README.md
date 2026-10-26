@@ -72,3 +72,20 @@ A futura API de produção usa `apps/api/src/nexa-lifeos-prod-schema-ready.ts`. 
 O resultado seguro é armazenado por 60 segundos para não consultar os catálogos a cada requisição; uma alteração de segurança posterior pode, portanto, levar até 60 segundos para ser reavaliada. Essa janela não substitui bloqueios operacionais, controle de alterações e testes. O servidor não inclui bypass específico de CI para o esquema; o smoke local usa somente rotas sem autenticação e credenciais falsas, mantendo o fluxo de banco fechado. Esse controle **não constrói nem substitui políticas de RLS**, e tampouco prova que a sessão autenticada está corretamente ligada ao usuário no contexto de cada transação.
 
 Os testes `scripts/smoke-nexa-lifeos-prod-schema-audit.mjs` exercitam o avaliador de metadados e protegem sua ligação ao servidor. Nenhum token de Wallet é aceito intencionalmente como credencial PF; manter bancos de sessões e permissões inteiramente distintos.
+
+## Proteção final contra vazamento entre usuários (26/10/2026)
+
+**Este ponto prevalece sobre qualquer observação anterior de 'RLS auditado' ou 'API pronta'.** A auditoria de catálogos `audit-nexa-lifeos-prod-schema.mjs` verifica apenas presença de tabelas, roles e políticas. Ela **não demonstra** que cada consulta feita pelo pool `query()` recebe o `app.user_id` autenticado em uma transação exclusiva, nem resolve o bootstrap seguro de `public.users` e `auth_sessions`.
+
+Por isso, o entrypoint `apps/api/src/server-personal-production.ts` passou a exigir `requireVerifiedLifeosUserContext()`, definido em `apps/api/src/nexa-lifeos-prod-user-context.ts`, antes de qualquer login válido, logout, leitura/escrita PF com Bearer e `GET /health`. **Essa função rejeita incondicionalmente com HTTP 503 enquanto o binding RLS efetivo não existir.** Nenhuma variável de ambiente ou modo CI libera o acesso. `GET /health/live` continua HTTP 200 para diagnosticar apenas a execução do processo, não a prontidão.
+
+Testes com API local e host/banco fictícios confirmaram: cadastro público 503; login válido 503 **antes de consultar o banco**; Bearer fictício em `/v1/personal/me` 503 **antes de consultar o banco**; logout 503; `/health` 503; `/health/live` 200; rotas sem token 401; Wallet origin 403; caminhos PJ inexistentes. O CI valida a proteção. Também foram separados textos de privacidade, agente e F-Insight para não descrever erroneamente um serviço de produção como homologação. A experiência de homologação atual preserva as mensagens anteriores.
+
+**Trabalho técnico ainda obrigatório para retirar o bloqueio:**
+1. Concluir modelo de identidade PF verificável com papéis distintos para autenticação/bootstrap e dados de titular; não confundir token PF com Privy/Wallet.
+2. Associar o `user_id` após autenticação exclusivamente no backend a uma transação PostgreSQL na **mesma conexão** de todas as operações da requisição (por exemplo, `SET LOCAL app.user_id` com `current_setting` nas policies). Nunca aceitar user ID declarado pelo frontend como identidade.
+3. Provar em Postgres descartável, com role de aplicação sem `BYPASSRLS`, testes A/B para **todas** as tabelas e operações, incluindo joins, rotas de exportação, transações e efeitos de background, com limitação correta de `USING` e `WITH CHECK`.
+4. Garantir que contexto de RLS não vaze após rollback, exceções, pools reaproveitados, troca de contas ou operações concorrentes; validar sessões, revogação, consentimento e rate limit distribuído.
+5. Só então substituir o bloqueio por implementação revisada, homologar API/backend PF dedicado com banco produtivo exclusivo e liberar `/health` em ambiente seguro. **Não remover a trava apenas porque o teste de catálogos retornou PASS.**
+
+O objetivo da trava não é concluir o login: é impedir que uma configuração aparentemente válida exponha dados de um usuário a outro antes da homologação de segurança.
