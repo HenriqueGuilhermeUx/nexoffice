@@ -2,8 +2,9 @@ export type SessionUser={id:string;name:string;email:string};
 export type Workspace={id:string;name:string;slug:string;vertical:string;plan:string;status:string;role:string;permissions:string[]};
 
 const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
-const TOKEN_KEY='nexoffice.token';
-const WORKSPACE_KEY='nexoffice.workspace';
+const pjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
+const TOKEN_KEY=pjBuild?'nexa-pj.token':'nexoffice.token';
+const WORKSPACE_KEY=pjBuild?'nexa-pj.workspace':'nexoffice.workspace';
 
 export const session={
   token:()=>localStorage.getItem(TOKEN_KEY)||'',
