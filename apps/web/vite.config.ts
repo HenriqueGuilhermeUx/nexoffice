@@ -18,7 +18,7 @@ if(lifeosPathMode==='release'){
     'nex-personal-preview-api.onrender.com','nexa-backend-p2u0.onrender.com','localhost'];
   if(url.protocol!=='https:'||url.pathname!=='/'||url.search||url.hash
      ||url.username||url.password||denied.includes(url.hostname)
-     ||/\\.(invalid|example|test)$/.test(url.hostname))
+     ||['.invalid','.example','.test'].some(suffix=>url.hostname.endsWith(suffix)))
     throw new Error('Never publish Life OS with Wallet, staging or untrusted API origins');
 }
 export default defineConfig({
