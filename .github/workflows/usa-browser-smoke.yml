@@ -10,6 +10,8 @@ on:
       - 'apps/web/src/USSalesPipeline.css'
       - 'apps/web/src/USDocumentReviews.tsx'
       - 'apps/web/src/USDocumentReviews.css'
+      - 'apps/web/src/USDocumentReviews.tsx'
+      - 'apps/web/src/USDocumentReviews.css'
       - 'scripts/usa-preview-check.mjs'
       - 'apps/web/src/main.tsx'
       - 'scripts/usa-browser-smoke.mjs'
