@@ -8,8 +8,16 @@ import PersonalPrivacyCenter from './PersonalPrivacyCenter';
 import NexaCryptoHub from './NexaCryptoHub';
 import './nexa-life-rebrand.css';
 
-const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
-const TOKEN_KEY='nex.personal.token';
+// The future trynexa.com.br/meu-espaco/app frontend must use a dedicated
+// PF production backend. Never reuse the Wallet's API, sessions or preview DB.
+const PUBLIC_LIFEOS=(import.meta as any).env?.VITE_NEXA_LIFEOS_PUBLIC==='true';
+const PF_API_ORIGIN=(import.meta as any).env?.VITE_NEXA_LIFEOS_API_URL as string|undefined;
+const API=PUBLIC_LIFEOS
+  ? (PF_API_ORIGIN||'')
+  : (import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true'
+    ? ''
+    : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
+const TOKEN_KEY=PUBLIC_LIFEOS?'nexa.life.session.v1':'nex.personal.token';
 const PREVIEW=(import.meta as any).env?.VITE_PERSONAL_STAGING==='true';
 type PersonalMe={user:{id:string;name:string;email:string};activated:boolean};
 type Overview={
