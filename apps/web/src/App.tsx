@@ -48,7 +48,7 @@ export default function App(){
   if(!user)return <AuthScreen onDone={async(token,workspaceId)=>{session.set(token,workspaceId);await loadMe();await refresh()}}/>;
 
   const activeWorkspace=workspaces.find(w=>w.id===session.workspace())||workspaces[0];
-  const switchWorkspace=async(id:string)=>{if(nexaPjBuild)requestEpoch.current++;session.setWorkspace(id);if(nexaPjBuild){setDashboard({});setActions([]);setContacts([]);setDeals([]);setLedger([]);setTasks([]);setAppointments([]);setPolicies([]);setIntegrations([]);setMembers([]);setAccounts([])}setBusy(true);try{await refresh()}finally{setBusy(false)}};
+  const switchWorkspace=async(id:string)=>{if(nexaPjBuild&&!workspaces.some(w=>w.id===id))return;if(nexaPjBuild)requestEpoch.current++;session.setWorkspace(id);if(nexaPjBuild){setDashboard({});setActions([]);setContacts([]);setDeals([]);setLedger([]);setTasks([]);setAppointments([]);setPolicies([]);setIntegrations([]);setMembers([]);setAccounts([])}setBusy(true);try{await refresh()}finally{setBusy(false)}};
   const openPipeline=dashboard.crm?.open_pipeline_minor||0;const balance=Number(dashboard.finance?.income_paid_minor||0)-Number(dashboard.finance?.expense_paid_minor||0);
   // The standalone NexOffice product keeps exactly its original
   // navigation. The PJ build expresses the integrated banking+ERP hierarchy.
