@@ -50,3 +50,10 @@ for(const dangerous of ['useCreateWallet','usePrivy','sendTransaction','wallet_s
  assert.ok(!crypto.includes(dangerous),'Nexa Life OS must not execute wallet actions: '+dangerous);
 }
 console.log('Nexa unification: Nexa brand, 16th crypto room, scoped palette and noncustodial Wallet handoff OK');
+
+const citizen=readFileSync('apps/web/src/PersonalCitizenAgents.tsx','utf8');
+const citizenGuide=readFileSync('apps/web/src/PersonalCitizenHelpers.ts','utf8');
+assert.doesNotMatch(citizen,/Nex Personal/);
+assert.doesNotMatch(citizenGuide,/Nex Personal/);
+assert.match(citizen,/à Nexa/);
+assert.match(citizenGuide,/A Nexa não agenda a CIN/);
