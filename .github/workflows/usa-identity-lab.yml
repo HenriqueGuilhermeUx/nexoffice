@@ -1,0 +1,25 @@
+name: NexOffices USA identity and regional persistence QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/usa-lab/**'
+      - 'docs/USA_AUTH_REGIONAL_SANDBOX.md'
+      - 'scripts/usa-identity-lab-guard.mjs'
+      - '.github/workflows/usa-identity-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regional-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify isolation from Brazilian code and deployment
+        run: node scripts/usa-identity-lab-guard.mjs
+      - name: US auth, tenant isolation and restart persistence tests
+        run: node --test apps/usa-lab/test/isolation.test.mjs
