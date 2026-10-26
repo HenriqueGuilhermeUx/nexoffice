@@ -24,8 +24,13 @@ for(const [name,pinnedSha] of migrations){
   'Destructive or permission-changing migration requires separate DBA review');
  assert.doesNotMatch(sql,/\b(?:public\.(?!users\b|auth_sessions\b)|(?:crm|nexoffice|wallet|merchant|payment|ledger)\.)[a-z_]+/i,
   'Migration must not access NexOffices PJ, Nexa Wallet or an unknown public table');
- assert.doesNotMatch(sql,/\b(?:create|alter)\s+table\s+(?!if\s+not\s+exists\s+)?(?!(?:public\.(?:users|auth_sessions)|nex_personal\.)\b)[a-z_]+/i,
-  'Only isolated PF identity and nex_personal tables may be created or modified');
+ for(const match of sql.matchAll(/\b(?:create|alter)\s+table\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_.]*)/gi)){
+   const table=match[1].toLowerCase();
+   assert.ok(table==='public.users'||table==='public.auth_sessions'||
+     table.startsWith('nex_personal.'),
+     'Only isolated PF identity and nex_personal tables may be created or modified: '+table);
+ }
+
 }
 assert.match(readFileSync(migrations[0][0],'utf8'),/create table if not exists public\.users/);
 assert.match(readFileSync(migrations[0][0],'utf8'),/create table if not exists public\.auth_sessions/);
