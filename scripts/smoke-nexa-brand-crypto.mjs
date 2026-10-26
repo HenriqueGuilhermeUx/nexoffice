@@ -9,6 +9,11 @@ const names=readFileSync('scripts/smoke-nex-personal-names.mjs','utf8');
 const previewBuild=readFileSync('scripts/build-personal-preview-web.mjs','utf8');
 
 assert.match(app,/<strong>Nexa<\/strong>/);
+assert.match(app,/{PREVIEW&&<aside className="np-preview-auth-notice"/);
+assert.match(app,/Este ambiente é separado da Nexa Wallet/);
+assert.match(app,/Não use a senha da Wallet no cadastro de homologação/);
+assert.match(app,/href="https:\/\/trynexa\.com\.br\/portal\/" target="_blank" rel="noopener noreferrer"/);
+assert.match(css,/\.np-preview-auth-notice/);
 assert.doesNotMatch(app,/Nex <strong>Personal<\/strong>/);
 assert.match(app,/NEXA · SUA VIDA, UM SÓ LUGAR/);
 assert.match(app,/\['crypto','Cripto & Wallet'\]/);
