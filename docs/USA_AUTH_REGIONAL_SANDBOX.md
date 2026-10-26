@@ -29,3 +29,12 @@ The dedicated `usa-identity-lab.yml` workflow runs in the draft PR. Nothing is a
 The lab deliberately stops before real US accounts. Before enabling actual US onboarding or persistence, require a dedicated cloud tenancy and DB, migrations/RLS review, identity provider/OIDC, email verification, MFA, password recovery, secure HTTPS cookie and CSRF design, encryption/key management, monitoring, backup/recovery, rate limiting, privacy/legal disclosures, data export/deletion and human approval flows. Banking, accounting, tax, billing and financial agent actions are **not enabled**.
 
 Four unrelated Brazilian legacy smoke-check failures remain tracked in [issue #96](https://github.com/HenriqueGuilhermeUx/nexoffice/issues/96). **No merge, no Brazil production changes, no service activation.**
+
+
+## Contrato de verificação OIDC (sem conexão real)
+
+O módulo de testes `apps/usa-lab/src/oidc.mjs` valida assinatura RS256 com chave pública JWKS fixada pelo chamador, emissor HTTPS exato, audiência, prazo de validade, identificação de chave e declaração regional. Rejeita assinatura adulterada, algoritmo `none`/HS256, referências remotas de chaves, emissor não confiável e região BR.
+
+A identidade externa somente ganha acesso quando estiver explicitamente vinculada a um usuário e organização US no SQLite de testes, via `linkOIDCSubject`; campos de e-mail ou organização dentro do JWT **não** autorizam acesso. Os testes de falsificação e isolamento rodam em `apps/usa-lab/test/oidc.test.mjs`.
+
+**Isto não constitui integração OIDC operacional.** Ainda não há provedor contratado, endpoint de login, fluxo PKCE, obtenção/rotação de JWKS, MFA, emissão de sessão de produção ou banco americano em nuvem. O verificador recebe apenas chaves públicas sintéticas dos testes e não acessa a internet. Não importar no app brasileiro, nem conectar à prévia estática USA, que mantém `connect-src 'none'`.
