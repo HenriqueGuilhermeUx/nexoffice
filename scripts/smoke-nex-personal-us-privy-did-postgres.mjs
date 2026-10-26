@@ -23,7 +23,10 @@ await admin.connect();
 const db='nex_personal_us_did_ci',role='npu_us_wallet_service';
 let pool;
 const load=async path=>readFile(new URL('../docs/sql/'+path,import.meta.url),'utf8');
-const clean=async()=>{if(pool)await pool.end();try{await admin.query('DROP DATABASE IF EXISTS '+db+' WITH (FORCE)')}catch{}try{await admin.query('DROP ROLE IF EXISTS '+role)}catch{}await admin.end()};
+// GitHub Actions destroys this entire disposable PostgreSQL service after CI.
+// Do not FORCE-drop a database while asynchronous pooled PG listeners remain:
+// that produces an unhandled 57P01 error *after* all security assertions pass.
+const clean=async()=>{if(pool)await pool.end();await admin.end();};
 try{
  const identitySql=await load('nex-personal-us-wallet-identity-review-only.sql');
  const consentSql=await load('nex-personal-us-agentic-consent-review-only.sql');
