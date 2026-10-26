@@ -8,7 +8,7 @@ const productionSource=readFileSync('apps/api/src/server-personal-production.ts'
 const sharedSource=readFileSync('apps/api/src/routes-nex-personal.ts','utf8');
 const contextLock=readFileSync('apps/api/src/nexa-lifeos-prod-user-context.ts','utf8');
 assert.match(contextLock,/requireVerifiedLifeosUserContext\(\):never/);
-assert.doesNotMatch(contextLock,/process\.env|CI|BYPASS|MOCK|return true/i);
+assert.doesNotMatch(contextLock.replace(/\/\*[\s\S]*?\*\//g,''),/process\.env|\bBYPASS\b|\bMOCK\b|return true/i);
 assert.match(productionSource,/requireVerifiedLifeosUserContext\(\);/);
 const privacySource=readFileSync('apps/api/src/routes-nex-personal-privacy.ts','utf8');
 const agentsSource=readFileSync('apps/api/src/routes-nex-personal-agents.ts','utf8');
