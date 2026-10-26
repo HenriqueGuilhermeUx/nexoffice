@@ -6,7 +6,8 @@ import {withVerifiedUSPrivyIdentity}
  from '../apps/api/dist/personal-us-privy-owner-store.js';
 import {bindUSPrivyWalletFromServerDID}
  from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
-import {assessVerifiedPrivyUSNativeUSDCRead,revokeVerifiedPrivyUSAgenticWalletRead}
+import {assessVerifiedPrivyUSNativeUSDCRead,
+ authorizeVerifiedPrivyUSAgenticWalletRead,revokeVerifiedPrivyUSAgenticWalletRead}
  from '../apps/api/dist/personal-us-privy-agentic-read.js';
 
 /**
@@ -144,13 +145,52 @@ try{
  // End-to-end Privy USA DID -> SQL role/row locks -> persisted Maya consent
  // -> native Polygon USDC observer. All providers and tokens are synthetic;
  // the PostgreSQL transactions, RLS rules and constraints are real/disposable.
- const readConsentId=randomUUID(),approvalId=randomUUID();
- const consentIssued=new Date(Date.now()-2000),consentExpires=new Date(Date.now()+8*60_000);
- await pool.query(`INSERT INTO nex_personal_us.wallet_agentic_read_consents
- (id,owner_profile_id,wallet_binding_id,approval_evidence_id,capability,issued_at,expires_at)
- VALUES($1,$2,$3,$4,'wallet.read.polygon_usdc',$5,$6)`,
- [readConsentId,ownerId,linked.walletBindingId,approvalId,
-  consentIssued.toISOString(),consentExpires.toISOString()]);
+ // This uses the actual internal consent authorization service, not an
+ // administrative INSERT or an untrusted approval boolean from a browser.
+ const makeGesture=()=>({approvalId:randomUUID(),subject:owner,
+  bindingId:linked.walletBindingId,
+  approvedAt:new Date(Date.now()-1000).toISOString(),
+  capability:'wallet.read.polygon_usdc',
+  source:'server_authenticated_explicit_gesture'});
+ let gestureCalls=0;
+ const grantArgs={pool:scopedPool,bearerToken:jwt,dedicatedUSPrivyAppId:app,
+  verificationKey:args.verificationKey,verifyAccessToken:verifier,
+  bindingId:linked.walletBindingId,now:new Date(),
+  verifyExplicitGesture:async verifiedOwner=>{
+   gestureCalls++;
+   assert.equal(verifiedOwner.authenticatedUSSubject,owner);
+   assert.equal(verifiedOwner.profileId,ownerId);
+   return makeGesture();
+  }};
+ await assert.rejects(authorizeVerifiedPrivyUSAgenticWalletRead({
+  ...grantArgs,
+  verifyAccessToken:async()=>({...verifiedClaims,user_id:foreignDid})
+ }),/US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
+ assert.equal(gestureCalls,0,'No explicit gesture verifier call for foreign DID');
+ await assert.rejects(authorizeVerifiedPrivyUSAgenticWalletRead({
+  ...grantArgs,verifyExplicitGesture:async()=>({
+   ...makeGesture(),subject:other
+  })
+ }),/US_AGENTIC_EXPLICIT_APPROVAL_UNVERIFIED/);
+ await assert.rejects(authorizeVerifiedPrivyUSAgenticWalletRead({
+  ...grantArgs,verifyExplicitGesture:async()=>({
+   ...makeGesture(),source:'browser_claim'
+  })
+ }),/US_AGENTIC_EXPLICIT_APPROVAL_UNVERIFIED/);
+ assert.equal((await pool.query(`SELECT count(*)::int AS n
+  FROM nex_personal_us.wallet_agentic_read_consents
+  WHERE owner_profile_id=$1`,[ownerId])).rows[0].n,0);
+ const granted=await authorizeVerifiedPrivyUSAgenticWalletRead(grantArgs);
+ const readConsentId=granted.consentId;
+ assert.equal(granted.subject,owner);
+ assert.equal(granted.bindingId,linked.walletBindingId);
+ assert.equal(granted.capability,'wallet.read.polygon_usdc');
+ assert.equal(granted.executionAllowed,false);
+ assert.equal(granted.signingAllowed,false);
+ assert.equal(gestureCalls,1);
+ assert.equal((await pool.query(`SELECT count(*)::int AS n
+  FROM nex_personal_us.wallet_security_events
+  WHERE owner_profile_id=$1 AND event_type='agentic.read.authorized'`,[ownerId])).rows[0].n,1);
  let trustedReads=0;
  const nativePolygonClient={
   getChainId:async()=>137,
