@@ -6,6 +6,8 @@ import {withVerifiedUSPrivyIdentity}
  from '../apps/api/dist/personal-us-privy-owner-store.js';
 import {bindUSPrivyWalletFromServerDID}
  from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
+import {assessVerifiedPrivyUSNativeUSDCRead}
+ from '../apps/api/dist/personal-us-privy-agentic-read.js';
 
 /**
  * No production tokens. SDK verifier is injected and synthetic in this
@@ -139,6 +141,62 @@ try{
  assert.deepEqual(wallet,{owner_profile_id:ownerId,privy_project_id:app,privy_user_id:did});
  assert.equal((await pool.query(`SELECT count(*)::int AS n FROM nex_personal_us.wallet_security_events
  WHERE owner_profile_id=$1 AND event_type='binding.created'`,[ownerId])).rows[0].n,1);
+ // End-to-end Privy USA DID -> SQL role/row locks -> persisted Maya consent
+ // -> native Polygon USDC observer. All providers and tokens are synthetic;
+ // the PostgreSQL transactions, RLS rules and constraints are real/disposable.
+ const readConsentId=randomUUID(),approvalId=randomUUID();
+ const consentIssued=new Date(Date.now()-2000),consentExpires=new Date(Date.now()+8*60_000);
+ await pool.query(`INSERT INTO nex_personal_us.wallet_agentic_read_consents
+ (id,owner_profile_id,wallet_binding_id,approval_evidence_id,capability,issued_at,expires_at)
+ VALUES($1,$2,$3,$4,'wallet.read.polygon_usdc',$5,$6)`,
+ [readConsentId,ownerId,linked.walletBindingId,approvalId,
+  consentIssued.toISOString(),consentExpires.toISOString()]);
+ let trustedReads=0;
+ const nativePolygonClient={
+  getChainId:async()=>137,
+  getBlockNumber:async()=>12345n,
+  readContract:async call=>{
+   trustedReads++;
+   assert.equal(call.address,'0x3c499c542cef5e3811e1192ce70d8cc03d5c3359');
+   assert.equal(call.functionName,'balanceOf');
+   assert.deepEqual(call.args,[address]);
+   assert.equal(call.blockNumber,12345n);
+   return 8500000n;
+  }
+ };
+ const mayaReadArgs={pool:scopedPool,bearerToken:jwt,dedicatedUSPrivyAppId:app,
+  verificationKey:args.verificationKey,verifyAccessToken:verifier,
+  consentId:readConsentId,polygonClient:nativePolygonClient,now:new Date()};
+ const authorizedMayaRead=await assessVerifiedPrivyUSNativeUSDCRead({
+  ...mayaReadArgs,authenticatedUSSubject:other
+ });
+ assert.equal(authorizedMayaRead.decision.decision,'allow_read');
+ assert.equal(authorizedMayaRead.rawUsdcBalance,'8500000');
+ assert.equal(authorizedMayaRead.ownerWalletAddress,address);
+ assert.equal(authorizedMayaRead.executionAllowed,false);
+ for(const flag of ['canSign','canTransfer','canSwap','canExecute'])
+  assert.equal(authorizedMayaRead.decision[flag],false);
+ assert.equal(trustedReads,1);
+ const wrongDIDRead={...mayaReadArgs,
+  verifyAccessToken:async()=>({...verifiedClaims,user_id:foreignDid})};
+ await assert.rejects(assessVerifiedPrivyUSNativeUSDCRead(wrongDIDRead),
+  /US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
+ assert.equal(trustedReads,1,'Foreign DID must not trigger Polygon RPC');
+ const unknownConsent=await assessVerifiedPrivyUSNativeUSDCRead({
+  ...mayaReadArgs,consentId:randomUUID()
+ });
+ assert.equal(unknownConsent.decision.decision,'deny');
+ assert.equal(unknownConsent.rawUsdcBalance,null);
+ assert.equal(trustedReads,1,'Absent consent must not trigger Polygon RPC');
+ await pool.query(`UPDATE nex_personal_us.wallet_agentic_read_consents
+ SET revoked_at=now() WHERE id=$1`,[readConsentId]);
+ const revokedMayaRead=await assessVerifiedPrivyUSNativeUSDCRead({
+  ...mayaReadArgs,now:new Date()
+ });
+ assert.equal(revokedMayaRead.decision.decision,'deny');
+ assert.equal(revokedMayaRead.rawUsdcBalance,null);
+ assert.equal(revokedMayaRead.ownerWalletAddress,null);
+ assert.equal(trustedReads,1,'Revoked consent must not trigger Polygon RPC');
  await assert.rejects(bindUSPrivyWalletFromServerDID(bindArgs),/duplicate key/);
  assert.equal((await pool.query('SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings')).rows[0].n,1,
   'Wallet duplication must roll back with no phantom binding');
