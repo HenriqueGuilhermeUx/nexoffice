@@ -45,4 +45,16 @@ assert.ok(!crm.includes('fetch(') && !crm.includes('XMLHttpRequest('), 'US CRM c
 assert.ok(!crm.includes('localStorage.') && !crm.includes('sessionStorage.'), 'US CRM cannot store customer data');
 assert.ok(crmStyles.includes(".avus .avsp"), "US CRM CSS must be namespaced");
 
+const docReviews = read("apps/web/src/USDocumentReviews.tsx");
+const docStyles = read("apps/web/src/USDocumentReviews.css");
+assert.ok(preview.includes("<USDocumentReviews />"), "Document reviews must mount only inside US preview");
+assert.ok(docReviews.includes("No file uploads, legally binding approvals"), "Demo must disclose lack of real document approvals");
+for (const label of ["Add sample document", "Reset reviews", "Simulated activity", "review stage"]) {
+  assert.ok(docReviews.includes(label), "Required fictional workflow is missing: " + label);
+}
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(docReviews), "USA document demo must not make API calls");
+assert.ok(!/(localStorage|sessionStorage|indexedDB)\s*[.\[]/.test(docReviews), "USA document demo cannot persist or collect real document input");
+assert.ok(!/type=["']file["']/.test(docReviews), "USA document demo cannot accept actual file uploads");
+assert.ok(docStyles.includes(".avus .avdr"), "USA document review CSS must be scoped");
+
 console.log("PASS: nexoffice US preview route, language, copy, branding, isolation and CSS namespace");
