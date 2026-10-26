@@ -43,3 +43,9 @@ Estado: especificações e testes preparatórios; **NO-GO para uso de clientes r
 Após `npm run build`, execute `node scripts/smoke-nexa-lifeos-prod-server.mjs`. O teste sobe a API **somente em 127.0.0.1 com host Neon fictício** e não conecta ao Postgres; valida health/live, exclusão do handler real de criação de contas e bloqueio de cadastro (503), autenticação obrigatória (401) em rotas privadas, rejeição de login malformado (400), limite local de tentativas (429), CORS bloqueando Wallet, preflight PF autorizado e ausência de rotas PJ. O novo entrypoint não está vinculado ao `npm start` do NexOffices nem a nenhum serviço Render.
 
 **Limitação de segurança:** o rate limit no servidor demonstrativo usa memória local e não serve como controle distribuído para múltiplas instâncias. Antes do primeiro deploy público, implantar limitação confiável no ingresso, avaliar autenticação, antifraude, consentimentos, CSP, sessões e migrações com backup. `NEXA_LIFEOS_AUTH_REVIEW_APPROVED=false` permanece no exemplo de ambiente.
+
+## Ensaio de DDL em PostgreSQL descartável do CI
+
+O workflow de integração executa `scripts/rehearse-nexa-lifeos-prod-ddl-ci.mjs` com `NEXA_LIFEOS_SCHEMA_REHEARSAL=true`. O script exige também `CI=true`, `GITHUB_ACTIONS=true`, `DATABASE_URL` local em `127.0.0.1:5432/nexoffice` e ausência de flags de produção/preview. Cria `nexa_lifeos_schema_rehearsal_ci` **somente no contêiner PostgreSQL efêmero do runner**, aplica as cinco DDLs em transações, comprova a presença de tabelas PF, verifica que o esquema `public` possui apenas `users` e `auth_sessions`, com zero usuários e sessões, e informa quantas tabelas PF usam RLS. O runner descartará esse banco após o job.
+
+Este teste **não é migração autorizada de produção**; caso a contagem de RLS seja insuficiente, a estratégia de menor privilégio/isolamento e as políticas de acesso devem ser projetadas e homologadas antes de qualquer aplicação a um banco real.
