@@ -4,6 +4,8 @@ import {readFile} from 'node:fs/promises';
 import pg from 'pg';
 import {withVerifiedUSPrivyIdentity}
  from '../apps/api/dist/personal-us-privy-owner-store.js';
+import {bindUSPrivyWalletFromServerDID}
+ from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
 
 /**
  * No production tokens. SDK verifier is injected and synthetic in this
@@ -99,6 +101,44 @@ try{
   }),/US_PRIVY_.*(UNVERIFIED|INVALID|EXPIRED|NOT_LINKED|CONFIGURATION)|US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
  }
  assert.equal(approvedCalls,1,'Unlinked, wrong-project and invalid tokens must never run the owner callback');
+ // The integrated action must derive subject only from locked US database
+ // identity and atomically persist the provider-verified embedded wallet.
+ const address='0x8888888888888888888888888888888888888888';
+ const evidence={projectId:app,userId:did,walletId:'wallet-did-ci-user-1',
+  address,linkedToAuthenticatedSubject:owner,chainType:'ethereum',
+  walletType:'embedded',control:'user',recoveryConfigured:true,
+  additionalSigners:[],verifiedAt:new Date(Date.now()-1000).toISOString()};
+ let providerCalls=0;
+ const bindArgs={pool:scopedPool,bearerToken:jwt,dedicatedUSPrivyAppId:app,
+  verificationKey:args.verificationKey,verifyAccessToken:verifier,
+  now:new Date(),fetchVerifiedUSWalletEvidence:async verified=>{
+   providerCalls++;
+   assert.equal(verified.authenticatedUSSubject,owner);
+   assert.equal(verified.privyUserId,did);
+   return evidence;
+  }};
+ await assert.rejects(bindUSPrivyWalletFromServerDID({
+  ...bindArgs,verifyAccessToken:async()=>({...verifiedClaims,user_id:foreignDid})
+ }),/US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
+ assert.equal(providerCalls,0,'Unlinked DID must never trigger a provider wallet request');
+ await assert.rejects(bindUSPrivyWalletFromServerDID({
+  ...bindArgs,fetchVerifiedUSWalletEvidence:async()=>({...evidence,userId:foreignDid})
+ }),/US_PRIVY_VERIFIED_WALLET_OWNER_MISMATCH/);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings')).rows[0].n,0,
+  'Rejected Privy evidence must not bind a wallet');
+ const linked=await bindUSPrivyWalletFromServerDID(bindArgs);
+ assert.equal(linked.executionAllowed,false);
+ assert.equal(linked.delegatedAgentSigningAllowed,false);
+ assert.equal(linked.ownerSubject,owner);
+ assert.equal(linked.privyUserId,did);
+ const wallet=(await pool.query(`SELECT owner_profile_id,privy_project_id,privy_user_id
+ FROM nex_personal_us.wallet_bindings WHERE id=$1`,[linked.walletBindingId])).rows[0];
+ assert.deepEqual(wallet,{owner_profile_id:ownerId,privy_project_id:app,privy_user_id:did});
+ assert.equal((await pool.query(`SELECT count(*)::int AS n FROM nex_personal_us.wallet_security_events
+ WHERE owner_profile_id=$1 AND event_type='binding.created'`,[ownerId])).rows[0].n,1);
+ await assert.rejects(bindUSPrivyWalletFromServerDID(bindArgs),/duplicate key/);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings')).rows[0].n,1,
+  'Wallet duplication must roll back with no phantom binding');
  const noServer=await pool.connect();
  try{
   await noServer.query('BEGIN');
@@ -127,6 +167,11 @@ try{
  assert.equal(changed.rowCount,1);
  await assert.rejects(withVerifiedUSPrivyIdentity(args),
   /US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
+ const providersBeforeRevocation=providerCalls;
+ await assert.rejects(bindUSPrivyWalletFromServerDID(bindArgs),
+  /US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
+ assert.equal(providerCalls,providersBeforeRevocation,
+  'Revoked DID must not trigger a fresh Privy wallet lookup');
  assert.equal(approvedCalls,1,'Revoked identity cannot trigger another trusted action');
  // A physically wrong DB must be rejected *before* the official SDK seam.
  let wrongDbVerification=0;
