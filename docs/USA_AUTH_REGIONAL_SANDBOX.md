@@ -38,3 +38,14 @@ O módulo de testes `apps/usa-lab/src/oidc.mjs` valida assinatura RS256 com chav
 A identidade externa somente ganha acesso quando estiver explicitamente vinculada a um usuário e organização US no SQLite de testes, via `linkOIDCSubject`; campos de e-mail ou organização dentro do JWT **não** autorizam acesso. Os testes de falsificação e isolamento rodam em `apps/usa-lab/test/oidc.test.mjs`.
 
 **Isto não constitui integração OIDC operacional.** Ainda não há provedor contratado, endpoint de login, fluxo PKCE, obtenção/rotação de JWKS, MFA, emissão de sessão de produção ou banco americano em nuvem. O verificador recebe apenas chaves públicas sintéticas dos testes e não acessa a internet. Não importar no app brasileiro, nem conectar à prévia estática USA, que mantém `connect-src 'none'`.
+
+
+## Fluxo OAuth/OIDC PKCE — contrato em laboratório (2026-10-26)
+
+O arquivo `apps/usa-lab/src/auth-flow.mjs` agora modela a parte sensível do fluxo **Authorization Code + PKCE S256** sem se conectar a um provedor. Ele gera `state`, `nonce` e `code_verifier` aleatórios, usa `code_challenge` SHA-256, exige uma prova de navegador independente do URL (destinada a um cookie HttpOnly num futuro BFF), limita cada tentativa a cinco minutos e consome o `state` antes de qualquer troca de código.
+
+A troca do código por um `id_token` é **simulada por uma função injetada nos testes**, não é uma chamada de rede. O token precisa ter assinatura RS256, issuer e audience aprovados, `nonce` exato e região US. Em seguida, a identidade somente resolve se existir vínculo US explícito na camada de membros, sem aceitar permissões derivadas de e-mail ou `org_id` declarados no JWT.
+
+A autorização de teste não cria conta real, não emite cookie real, não armazena credenciais externas e não acessa o Render. A execução depende de `USA_LAB_ENABLED=1`, é bloqueada sob `NODE_ENV=production`, exige redirect de loopback e não aparece em nenhum endpoint público. Os testes estão em `apps/usa-lab/test/auth-flow.test.mjs` e no workflow `usa-identity-lab.yml`.
+
+**Pendências necessárias antes de produção:** provedor de identidade escolhido, descoberta OIDC confiável, HTTPS callback real, distribuição e rotação de JWKS, autenticação de cliente e troca de códigos com timeout, cookie de sessão e proteção CSRF no BFF, expiração/revogação, MFA, confirmação de e-mail, auditoria, backups e provisionamento do banco US. Nenhuma dessas partes foi ativada.
