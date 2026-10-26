@@ -26,7 +26,15 @@ async function inspect(){
    'select rolname,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole from pg_roles where rolname=current_user')
  ]);
  evaluateLifeosSchema({tables,policies,role:role[0]});
- acceptedAt=Date.now();
+ // Catalog metadata alone is not a proof of tenant isolation. The existing
+ // shared query() pool does NOT bind an authenticated user ID to the same
+ // PostgreSQL transaction; enabling RLS policies without that context can
+ // either deny all legitimate requests or expose data through a broad policy.
+ // Until per-request SET LOCAL context, identity bootstrap, grants and a
+ // real two-user isolation rehearsal exist, the production PF API must stay
+ // closed even when the schema catalog superficially passes.
+ throw new Error('tenant_context_binding_not_implemented');
+ // Intentionally no acceptedAt assignment or runtime bypass in this release.
 }
 
 export async function requireLifeosProductionSchema():Promise<void>{

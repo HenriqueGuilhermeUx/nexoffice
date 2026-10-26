@@ -72,3 +72,29 @@ A futura API de produção usa `apps/api/src/nexa-lifeos-prod-schema-ready.ts`. 
 O resultado seguro é armazenado por 60 segundos para não consultar os catálogos a cada requisição; uma alteração de segurança posterior pode, portanto, levar até 60 segundos para ser reavaliada. Essa janela não substitui bloqueios operacionais, controle de alterações e testes. O servidor não inclui bypass específico de CI para o esquema; o smoke local usa somente rotas sem autenticação e credenciais falsas, mantendo o fluxo de banco fechado. Esse controle **não constrói nem substitui políticas de RLS**, e tampouco prova que a sessão autenticada está corretamente ligada ao usuário no contexto de cada transação.
 
 Os testes `scripts/smoke-nexa-lifeos-prod-schema-audit.mjs` exercitam o avaliador de metadados e protegem sua ligação ao servidor. Nenhum token de Wallet é aceito intencionalmente como credencial PF; manter bancos de sessões e permissões inteiramente distintos.
+
+## Gate efetivo de isolamento multiusuário — 26/10/2026
+
+**NO-GO adicional:** o código herdado de homologação usa `query()` sobre um pool PostgreSQL compartilhado. Embora cada endpoint use `owner_user_id` nas queries, **não existe atualmente um contexto de usuário PostgreSQL vinculado à mesma transação** (`SET LOCAL app.user_id`). Portanto, criar uma política RLS que mencione `current_setting('app.user_id', true)` e contar políticas no catálogo NÃO demonstra isolamento real.
+
+- A rotina `requireLifeosProductionSchema` agora tem um **bloqueio incondicional explícito** (`tenant_context_binding_not_implemented`) depois da auditoria do catálogo. Assim, mesmo que um banco pareça possuir tabelas e RLS corretos, `/health`, login e endpoints PF protegidos permanecem bloqueados até que seja implementada e comprovada a amarração de identidade.
+- A auditoria de catálogo rejeita políticas PF amplas, papéis `PUBLIC` ou múltiplos papéis, ausência de predicado ligado a `app.user_id` e tentativas de bypass por `OR`. Isso é apenas um filtro conservador, **não substitui teste transacional ou revisão humana do SQL**.
+- `/health/live` pode responder para monitoramento de processo, mas isso **não significa prontidão de dados**. Um serviço com `/health` indisponível não pode receber tráfego de clientes.
+- Antes de remover o bloqueio, implementar `queryAsPersonalUser(userId, fn)` em transação exclusiva: autenticar o bearer com caminho de bootstrap cuidadosamente revisado, definir `SET LOCAL app.user_id` somente depois da identidade validada, executar todas as consultas/escritas dentro do mesmo cliente/transaction, limpar o contexto no commit/rollback e impedir reutilização cruzada de conexões.
+- Exigir ensaio E2E com **dois usuários distintos** e tabelas PF reais em PostgreSQL descartável: usuário A não lê/edita B; troca de token não herda `app.user_id`; queries fora de transação não acessam registros; **auth_sessions** e **users** têm regras próprias de bootstrap, hash de token e acesso mínimo; privilégios `GRANT` e `FORCE ROW LEVEL SECURITY` explicitamente aprovados.
+- Após isso, testar expiração/revogação de sessão, negação de prévia, rate limit distribuído e política LGPD. Nenhum desses testes foi executado em dados reais.
+
+O servidor de produção continua **deliberadamente não liberável** enquanto esses gates permanecerem abertos. Esse bloqueio não afeta o Render de homologação, NexOffices PJ nem a Nexa Wallet.
+
+## Protótipo da transação PF autenticada — somente código, não ligado à API
+
+O helper `apps/api/src/nexa-lifeos-tenant-tx.ts` implementa **apenas a mecânica transacional** para a próxima revisão:
+1. Recebe token opaco, envia **somente SHA-256** ao resolver de sessão `nex_personal.resolve_api_session($1::text)`.
+2. Usa **um único cliente PostgreSQL** para `BEGIN`, resolução da identidade, `set_config('app.user_id', userId, true)`, callback SQL e `COMMIT`. Em falha, `ROLLBACK` e liberação da conexão.
+3. Rejeita token inválido, preview e sessão ausente, sem executar consultas privadas.
+
+**Não está conectado às rotas públicas** e a função `nex_personal.resolve_api_session` **ainda não existe em produção nem foi implantada em nenhum banco**. Sua futura implementação deverá ser revisada quanto a `SECURITY DEFINER`, dono, `search_path`, `GRANT EXECUTE`, vazamento de identidade e privacidade. O helper não prova segurança sozinho.
+
+`scripts/smoke-nexa-lifeos-tenant-tx.mjs` executa **5 testes com pool fictício**, incluindo transação única, hash, rollback, separação entre duas conexões e bloqueio de preview; eles **não usam Neon nem substituem o teste E2E A/B real com políticas RLS**.
+
+Consequentemente, o bloqueio incondicional `tenant_context_binding_not_implemented` continua obrigatório na API definitiva até migrarmos todas as rotas relevantes para a identidade transacional e validarmos autenticação, login, leitura, escrita, revogação e isolamento efetivo com dois usuários no PostgreSQL descartável.

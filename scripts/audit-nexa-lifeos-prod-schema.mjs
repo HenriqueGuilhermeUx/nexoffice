@@ -21,6 +21,24 @@ export function evaluateLifeosSchema({tables,policies,role}){
    ||!identities.some(t=>t.name==='auth_sessions'))
   throw new Error('Unexpected public tables or missing PF identity tables');
  const pf=tables.filter(t=>t.schema==='nex_personal');
+ const roleName=String(role.rolname);
+ // A permissive policy restricted to the application role is not sufficient;
+ // every PF policy must *also* constrain rows to the authenticated tenant.
+ // This is a conservative catalog heuristic, NOT an E2E proof. The runtime
+ // guard remains closed until the per-transaction binding is implemented.
+ for(const policy of policies){
+  if(policy.schema!=='nex_personal')continue;
+  if(!Array.isArray(policy.roles)||policy.roles.length!==1||policy.roles[0]!==roleName)
+   throw new Error('Unexpected role or public/granted access in PF policy: '+policy.name);
+  const column=policy.name==='profiles'?'user_id':'owner_user_id';
+  const expression=String(policy.qual||'');
+  if(!new RegExp('\\b'+column+'\\b','i').test(expression)
+    ||!expression.includes('app.user_id')
+    ||!/current_setting\s*\(/i.test(expression)
+    ||/\bor\b|;|--/i.test(expression)
+    ||/^\s*\(?\s*true\s*\)?\s*$/i.test(expression))
+   throw new Error('PF policy lacks a narrow tenant-bound row predicate: '+policy.name);
+ }
  for(const name of REQUIRED_PF)if(!pf.some(t=>t.name===name))
   throw new Error('Required PF table missing: '+name);
  if(pf.length<REQUIRED_PF.size)throw new Error('PF schema is incomplete');
