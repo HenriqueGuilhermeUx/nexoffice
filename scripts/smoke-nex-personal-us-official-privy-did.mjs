@@ -124,8 +124,8 @@ try{
  await assert.rejects(wrong(token),/US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
  console.log('PASS: official Privy SDK ES256 signatures resolve only active US DB DID, reject forged app, other user, bad key and revoked link');
 }finally{
+ // The dedicated CI-only PostgreSQL container is discarded in full by
+ // GitHub Actions. Never FORCE-disconnect an idle connection mid-event.
  if(pool)await pool.end();
- try{await admin.query('DROP DATABASE IF EXISTS '+database+' WITH (FORCE)')}catch{}
- try{await admin.query('DROP ROLE IF EXISTS '+service)}catch{}
  await admin.end();
 }
