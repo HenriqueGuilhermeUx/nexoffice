@@ -145,6 +145,10 @@ jobs:
         env:
           NEX_PERSONAL_US_PG_CI: "true"
         run: node scripts/smoke-nex-personal-us-service-role-postgres.mjs
+      - name: Verify US Privy DID identity lookup and revoked sessions under PostgreSQL RLS
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-privy-did-postgres.mjs
       - name: Apply database schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
