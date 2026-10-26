@@ -43,6 +43,16 @@ jobs:
         run: node scripts/smoke-nex-personal-names.mjs
       - name: Check unified Nexa brand and isolated crypto Wallet handoff
         run: node scripts/smoke-nexa-brand-crypto.mjs
+      - name: Verify future main-domain Life OS route without opening login or finance
+        run: |
+          node scripts/smoke-nexa-lifeos-public-path.mjs
+          node scripts/build-nexa-lifeos-path.mjs
+          NEXA_LIFEOS_PATH_BUILD=verify node scripts/build-nexa-lifeos-path.mjs
+          NEXA_LIFEOS_CHECK_DIST=true node scripts/smoke-nexa-lifeos-public-path.mjs
+          if NEXA_LIFEOS_PATH_BUILD=release node scripts/build-nexa-lifeos-path.mjs; then
+            echo "Life OS build incorrectly bypassed production release gate"
+            exit 1
+          fi
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
