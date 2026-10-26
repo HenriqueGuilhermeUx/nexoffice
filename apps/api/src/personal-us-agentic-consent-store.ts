@@ -18,18 +18,26 @@ export type USReadConsentResult={
  consentId:string;bindingId:string;subject:string;expiresAt:string;
  capability:typeof US_AGENTIC_WALLET_READ;executionAllowed:false;signingAllowed:false
 };
-async function withUSConsentTransaction<T>(pool:USWalletPool,fn:(client:USWalletClient)=>Promise<T>):Promise<T>{
- const client=await pool.connect();let begun=false;
+async function withUSConsentTransaction<T>(
+ pool:USWalletPool,fn:(client:USWalletClient)=>Promise<T>,
+ verifiedPrivyTransactionClient?:USWalletClient
+):Promise<T>{
+ // A verified Privy DID operation owns the outer transaction and must retain
+ // its owner/identity row locks until the authorized mutation is committed.
+ // Never check out a second connection or end the caller's transaction.
+ const ownsTransaction=!verifiedPrivyTransactionClient;
+ const client=verifiedPrivyTransactionClient??await pool.connect();
+ let begun=false;
  try{
-  await client.query('BEGIN');begun=true;
+  if(ownsTransaction){await client.query('BEGIN');begun=true;}
   await assertPersonalUSDedicatedDatabase(client);
   const value=await fn(client);
-  await client.query('COMMIT');begun=false;
+  if(ownsTransaction){await client.query('COMMIT');begun=false;}
   return value;
  }catch(e){
   if(begun)try{await client.query('ROLLBACK');}catch{/* retain original failure */}
   throw e;
- }finally{client.release();}
+ }finally{if(ownsTransaction)client.release();}
 }
 export async function authorizeUSAgenticWalletRead(input:{
  pool:USWalletPool;authenticatedUSSubject:string;bindingId:string;now:Date;
@@ -91,7 +99,9 @@ export async function authorizeUSAgenticWalletRead(input:{
  });
 }
 export async function revokeUSAgenticWalletRead(input:{
- pool:USWalletPool;authenticatedUSSubject:string;consentId:string;now:Date
+ pool:USWalletPool;authenticatedUSSubject:string;consentId:string;now:Date;
+ /** Internal only; supplied by a previously verified Privy DID owner callback. */
+ verifiedPrivyTransactionClient?:USWalletClient;
 }):Promise<{revoked:boolean;executionAllowed:false}>{
  if(!SUBJECT.test(input.authenticatedUSSubject)||!UUID.test(input.consentId)||
     !Number.isFinite(input.now?.getTime()))
@@ -113,5 +123,5 @@ export async function revokeUSAgenticWalletRead(input:{
    VALUES($1,$2,'agentic.read.revoked')`,
    [randomUUID(),changed.rows[0].owner_profile_id]);
   return {revoked:true,executionAllowed:false};
- });
+ },input.verifiedPrivyTransactionClient);
 }
