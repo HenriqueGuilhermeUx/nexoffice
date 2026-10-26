@@ -38,7 +38,7 @@ const formatErpMoney=(minor?:number|string)=>{
   return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'})
     .format(value/100);
 };
-const navigateErp=(view:'command'|'finance'|'crm'|'operations')=>{
+const navigateErp=(view:'command'|'finance'|'crm'|'operations'|'agents-pj'|'office-2d'|'documents'|'agenda')=>{
   window.dispatchEvent(new CustomEvent('nexoffice:navigate',{detail:{view}}));
 };
 export default function ContaNexa({
@@ -94,6 +94,8 @@ export default function ContaNexa({
       <div className="pj-connect-actions">
         <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer">Acessar Conta Nexa ↗</a>
         <button type="button" onClick={()=>navigateErp('finance')}>Abrir Financeiro e ERP →</button>
+        <button type="button" onClick={()=>navigateErp('agents-pj')}>Conhecer os 7 agentes →</button>
+        <button type="button" onClick={()=>navigateErp('office-2d')}>Explorar Escritório 2D →</button>
       </div>
     </div>
     <div className="pj-bank-workspace" aria-label="Central financeira da empresa">
