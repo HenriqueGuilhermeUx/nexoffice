@@ -119,7 +119,9 @@ await registerNexPersonalFInsightRoutes(app);
 await registerNexPersonalBrokerageRoutes(app);
 app.setErrorHandler((error,req,reply)=>{
  const status=Number((error as any).statusCode||((error as any).issues?400:500));
- if(status>=500){
+ // A deliberate registration_not_open 503 is a safe business response;
+ // do not mask it as a server_error 500. Unexpected 5xx still hide internals.
+ if(status>=500 && !(error instanceof ApiError)){
   req.log.error({code:(error as any).code||'server_error'},'Nexa PF API request failed');
   return reply.code(500).send({error:'server_error',message:'Não foi possível concluir a operação.'});
  }
