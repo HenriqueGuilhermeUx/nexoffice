@@ -5,6 +5,8 @@ import pg from 'pg';
 import {verifyAccessToken} from '@privy-io/node';
 import {withVerifiedUSPrivyIdentity}
  from '../apps/api/dist/personal-us-privy-owner-store.js';
+import {bindUSPrivyWalletFromServerDID}
+ from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
 
 if(process.env.NPU_OFFICIAL_PRIVY_CRYPTO_CI!=='true')
  throw Error('US_OFFICIAL_PRIVY_DID_CRYPTO_CI_DENIED');
@@ -74,6 +76,29 @@ try{
    return owner.authenticatedUSSubject;
   }};
  assert.equal(await withVerifiedUSPrivyIdentity(base),subject);
+ // Real signature + official SDK + server-owned profile + transactional
+ // provider evidence and embedded-wallet binding, all on an ephemeral US DB.
+ const address='0x9999999999999999999999999999999999999999';
+ const linked=await bindUSPrivyWalletFromServerDID({
+  pool:scopedPool,bearerToken:token,dedicatedUSPrivyAppId:appId,
+  verificationKey,verifyAccessToken,now:new Date(),
+  fetchVerifiedUSWalletEvidence:async owner=>{
+   assert.equal(owner.authenticatedUSSubject,subject);
+   assert.equal(owner.privyUserId,did);
+   return {projectId:appId,userId:did,walletId:'us-test-embedded-001',
+    address,linkedToAuthenticatedSubject:subject,chainType:'ethereum',
+    walletType:'embedded',control:'user',recoveryConfigured:true,
+    additionalSigners:[],verifiedAt:new Date(Date.now()-1000).toISOString()};
+  }
+ });
+ assert.equal(linked.ownerSubject,subject);
+ assert.equal(linked.walletAddress.toLowerCase(),address.toLowerCase());
+ assert.equal(linked.executionAllowed,false);
+ assert.equal(linked.delegatedAgentSigningAllowed,false);
+ const linkedRows=await pool.query(`SELECT owner_profile_id,privy_project_id,privy_user_id
+ FROM nex_personal_us.wallet_bindings WHERE id=$1`,[linked.walletBindingId]);
+ assert.deepEqual(linkedRows.rows[0],
+  {owner_profile_id:ownerId,privy_project_id:appId,privy_user_id:did});
  const wrong=(tokenOverride,other={})=>withVerifiedUSPrivyIdentity({
   ...base,bearerToken:tokenOverride,...other,
   onVerifiedOwner:async()=>{throw Error('INVALID_IDENTITY_CALLBACK_REACHED')}
