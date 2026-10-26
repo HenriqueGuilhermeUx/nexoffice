@@ -40,7 +40,11 @@ const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('
 const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
 const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
 // Gated PJ builds must not retain dormant enterprise credentials from an older preview.
-if(nexaPjBuild)session.clearPendingPjAccess();
+if(nexaPjBuild){
+ session.clearPendingPjAccess();
+ // A gated build must not leave an unredeemed handoff code visible in the URL.
+ if(handoffRequested)history.replaceState({},'',location.pathname+location.search);
+}
 if(nexaPjBuild){
  document.documentElement.classList.add('nexa-pj-theme');
  document.title='Nexa PJ — Gestão empresarial e Conta Nexa';
