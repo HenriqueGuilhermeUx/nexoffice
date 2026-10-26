@@ -100,7 +100,7 @@ async function callback(bff,started,code,binding=started.binding){
 }
 
 test('synthetic OIDC BFF completes one-time callback, HttpOnly session, org-scoped tasks and logout',()=>{
-  return runFixture(async({bff,orgA,orgB,userA,promises,exchanges})=>{
+  return runFixture(async({bff,store,orgA,orgB,userA,promises,exchanges})=>{
     const a=await begin({bff,promises},orgA.id,'alpha-code','alpha-subject');
     const done=await callback(bff,a,'alpha-code');
     assert.equal(done.status,303);
@@ -116,6 +116,13 @@ test('synthetic OIDC BFF completes one-time callback, HttpOnly session, org-scop
     assert.equal(me.status,200);assert.deepEqual(me.data,{
       authenticated:true,region:'US',orgId:orgA.id,userId:userA.id
     });
+    // A session obtained using the password test API cannot impersonate OIDC login.
+    const passwordOnly=store.authenticate(orgA.id,'alice@alpha.example','Fixtures-Only-Password-2026');
+    assert.ok(passwordOnly?.token);
+    assert.equal((await request(bff.origin,'/lab/oidc/result','GET',undefined,
+      'us_lab_oidc_session='+passwordOnly.token)).status,401);
+    assert.equal(store.resolveSession(session.slice('us_lab_oidc_session='.length)),null,
+      'OIDC session must not be accepted by password-only endpoints');
     const created=await request(bff.origin,'/lab/oidc/tasks','POST',{title:'Example US sales follow-up'},session);
     assert.equal(created.status,201);
     assert.equal((await request(bff.origin,'/lab/oidc/tasks','GET',undefined,session)).data.tasks.length,1);
@@ -129,7 +136,7 @@ test('synthetic OIDC BFF completes one-time callback, HttpOnly session, org-scop
   });
 });
 test('another US organization cannot read or create data in the first tenant',()=>{
-  return runFixture(async({bff,orgA,orgB,promises})=>{
+  return runFixture(async({bff,store,orgA,orgB,promises})=>{
     const first=await begin({bff,promises},orgA.id,'code-alpha','alpha-subject');
     const firstCallback=await callback(bff,first,'code-alpha');
     const firstSession=cookie(firstCallback.cookies,'us_lab_oidc_session');
@@ -141,6 +148,10 @@ test('another US organization cannot read or create data in the first tenant',()
     assert.equal(tasksB.status,200);assert.deepEqual(tasksB.data.tasks,[]);
     assert.equal((await request(bff.origin,'/lab/oidc/tasks','POST',{orgId:orgA.id,title:'Steal alpha'},secondSession)).status,400);
     assert.equal((await request(bff.origin,'/lab/oidc/tasks','GET',undefined,firstSession)).data.tasks.length,1);
+    // Tenant revocation must invalidate a previously issued OIDC session immediately.
+    assert.equal(store.revokeOIDCSubject({issuer,subject:'beta-subject',orgId:orgB.id}),true);
+    assert.equal((await request(bff.origin,'/lab/oidc/result','GET',undefined,secondSession)).status,401);
+    assert.equal((await request(bff.origin,'/lab/oidc/tasks','GET',undefined,firstSession)).status,200);
   });
 });
 test('wrong browser proof consumes state and prevents a later valid callback',()=>{
