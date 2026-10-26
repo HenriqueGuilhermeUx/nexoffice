@@ -24,8 +24,7 @@ function safeUrl(value,protocol,key){
  let url;
  try{url=new URL(value||'');}
  catch{throw new Error(key+' must be a valid '+protocol+' URL');}
- if(url.protocol!==protocol||url.username&&protocol==='https:'||url.password&&protocol==='https:'
-   ||url.hash||url.search||!url.hostname)
+ if(url.protocol!==protocol||url.hash||!url.hostname)
   throw new Error(key+' must be an exact origin or database URL with the required scheme');
  return url;
 }
@@ -54,6 +53,13 @@ export function inspectLifeosProdEnv(env){
  required(env,'NEXA_LIFEOS_ALLOW_WALLET_TOKEN_BRIDGE','false');
  required(env,'NEXA_LIFEOS_ALLOW_PRIVY_CREATE_WALLET','false');
  const database=safeUrl(env.DATABASE_URL,'postgresql:','DATABASE_URL');
+ // Neon URLs commonly contain channel_binding; never accept SSL downgrade.
+ const queryKeys=[...database.searchParams.keys()];
+ if(queryKeys.some(key=>!['sslmode','channel_binding'].includes(key))
+    ||database.searchParams.get('sslmode')!=='verify-full'
+    ||(database.searchParams.has('channel_binding')
+        &&database.searchParams.get('channel_binding')!=='require'))
+  throw new Error('Database query must use sslmode=verify-full and optional channel_binding=require only');
  const expectedHost=String(env.NEXA_LIFEOS_DB_HOST||'').trim().toLowerCase();
  const project=String(env.NEXA_LIFEOS_NEON_PROJECT_ID||'').trim();
  if(!expectedHost||!expectedHost.includes('.')||expectedHost!==database.hostname)
