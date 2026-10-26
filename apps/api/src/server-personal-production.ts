@@ -9,6 +9,7 @@ import {z} from 'zod';
 import {query} from './db.js';
 import {ApiError,issueSession,revokeSession,verifyPassword} from './auth.js';
 import {requireLifeosProductionSchema} from './nexa-lifeos-prod-schema-ready.js';
+import {requireVerifiedLifeosUserContext} from './nexa-lifeos-prod-user-context.js';
 import {registerNexPersonalRoutes} from './routes-nex-personal.js';
 import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
 import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
@@ -93,15 +94,21 @@ app.addHook('onRequest',async(req,reply)=>{
    &&route!=='/v1/personal/auth/register'){
    const bearer=String(req.headers.authorization||'');
    if(!bearer.startsWith('Bearer '))throw new ApiError(401,'unauthorized','Sessão necessária.');
+   requireVerifiedLifeosUserContext();
    await requireLifeosProductionSchema();
  }
- if(req.method==='POST'&&route==='/v1/auth/logout')
+ if(req.method==='POST'&&route==='/v1/auth/logout'){
+   requireVerifiedLifeosUserContext();
    await requireLifeosProductionSchema();
+ }
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 const email=z.string().trim().email().transform(v=>v.toLowerCase());
 app.get('/health/live',async()=>({status:'ok',service:'nexa-lifeos-prod-api'}));
 app.get('/health',async()=>{
+ // Until every request has verified transaction-bound user identity and
+ // effective RLS E2E, readiness must NEVER report production healthy.
+ requireVerifiedLifeosUserContext();
  // A reachable database alone is insufficient: every expected PF table
  // must have enforced RLS, reviewed policies and a least-privilege DB role.
  await requireLifeosProductionSchema();
@@ -110,6 +117,8 @@ app.get('/health',async()=>{
 });
 app.post('/v1/auth/login',async req=>{
  const input=z.object({email,password:z.string().min(1).max(256)}).strict().parse(req.body);
+ // Login also requires RLS-safe access to public.users/auth_sessions.
+ requireVerifiedLifeosUserContext();
  await requireLifeosProductionSchema();
  const rows=await query<{id:string;name:string;email:string;password_hash:string;status:string}>(
   'select id,name,email,password_hash,status from public.users where lower(email)=$1 limit 1',
