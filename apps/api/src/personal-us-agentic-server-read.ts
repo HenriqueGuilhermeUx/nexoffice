@@ -48,7 +48,9 @@ function deny(reason:string):USAgenticTrustDecision{
 export async function assessServerUSAgenticRead(input:{
   pool:USWalletPool;authenticatedUSSubject:string;consentId:string;now:Date;
   fetchUSDCFromTrustedServer:(address:string,signal?:AbortSignal)=>Promise<ServerObservedUSDC>;
-  rpcTimeoutMs?:number
+  rpcTimeoutMs?:number;
+  /** INTERNAL: active fenced USA transaction held by the verified Privy DID owner. */
+  verifiedPrivyTransactionClient?:USWalletClient;
 }):Promise<USServerReadResult>{
  if(!SUBJECT.test(input.authenticatedUSSubject)||!UUID.test(input.consentId)||
     !(input.now instanceof Date)||!Number.isFinite(input.now.getTime())||
@@ -60,17 +62,22 @@ export async function assessServerUSAgenticRead(input:{
    decision:deny(reason),rawUsdcBalance:null,ownerWalletAddress:null,
    chainId:137,executionAllowed:false
  });
- const client:USWalletClient=await input.pool.connect();
+ const ownsTransaction=!input.verifiedPrivyTransactionClient;
+ const client:USWalletClient=input.verifiedPrivyTransactionClient??await input.pool.connect();
  let started=false;
+ const commitIfOwned=async()=>{
+  if(ownsTransaction){await client.query('COMMIT');started=false;}
+ };
  try{
   // PostgreSQL row-locking SELECT ... FOR SHARE is not permitted in a
   // READ ONLY transaction. This transaction uses BEGIN but writes no records.
-  await client.query('BEGIN');
-  started=true;
+  if(ownsTransaction){await client.query('BEGIN');started=true;}
   // Explicit bounds also protect wallet/consent revocation against indefinitely
   // waiting PostgreSQL row locks from an interrupted or overloaded service.
-  await client.query("SET LOCAL lock_timeout = '5000ms'");
-  await client.query("SET LOCAL statement_timeout = '8000ms'");
+  if(ownsTransaction){
+   await client.query("SET LOCAL lock_timeout = '5000ms'");
+   await client.query("SET LOCAL statement_timeout = '8000ms'");
+  }
   // Defense in depth: even an accidentally supplied NexOffice/Brazil connection
   // must fail before reading or contacting the RPC provider.
   await assertPersonalUSDedicatedDatabase(client);
@@ -98,14 +105,14 @@ export async function assessServerUSAgenticRead(input:{
      row.consent_revoked_at!==null||row.binding_revoked_at!==null||
      row.chain_id!==137||row.capability!=='wallet.read.polygon_usdc'||
      !UUID.test(row.approval_evidence_id)){
-   await client.query('COMMIT');started=false;
+   await commitIfOwned();
    return rejected('US_AGENTIC_DB_OWNER_OR_CONSENT_DENIED');
   }
   // No RPC call unless a current, owner-bound, server-stored grant exists.
   const now=input.now.getTime();
   if(Date.parse(iso(row.expires_at))<=now||Date.parse(iso(row.issued_at))>now||
      Date.parse(iso(row.expires_at))-Date.parse(iso(row.issued_at))>15*60_000){
-   await client.query('COMMIT');started=false;
+   await commitIfOwned();
    return rejected('US_AGENTIC_DB_CONSENT_EXPIRED');
   }
   // Fetch only from the server-bound RPC adapter; never accept an observation
@@ -147,12 +154,12 @@ export async function assessServerUSAgenticRead(input:{
   // earlier time snapshot (which could be close to the expiry boundary).
   const completedAt=Date.now();
   if(completedAt>=Date.parse(iso(row.expires_at))){
-   await client.query('COMMIT');started=false;
+   await commitIfOwned();
    return rejected('US_AGENTIC_DB_CONSENT_EXPIRED');
   }
   facts.now=new Date(completedAt);
   const decision=evaluatePersonalUSAgenticRead(facts);
-  await client.query('COMMIT');started=false;
+  await commitIfOwned();
   return {
    decision,rawUsdcBalance:decision.decision==='allow_read'?observed.rawBalance:null,
    ownerWalletAddress:decision.decision==='allow_read'?row.wallet_address:null,
@@ -161,5 +168,5 @@ export async function assessServerUSAgenticRead(input:{
  }catch(error){
   if(started)try{await client.query('ROLLBACK');}catch{/* keep original failure */}
   throw error;
- }finally{client.release();}
+ }finally{if(ownsTransaction)client.release();}
 }
