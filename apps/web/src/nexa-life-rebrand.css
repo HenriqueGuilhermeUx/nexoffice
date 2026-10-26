@@ -56,3 +56,9 @@
 .np-preview-auth-notice strong{font-size:13px;color:#62e4ff}
 .np-preview-auth-notice p{margin:9px 0;color:#c5d9e8;font-size:12px;line-height:1.6}
 .np-preview-auth-notice a{font-size:12px;color:#62e4ff;font-weight:700;text-underline-offset:3px}
+
+/* Shared official Nexa brand mark; PJ NexOffices branding remains untouched. */
+.np-root .np-nexa-logo{
+ width:35px;height:35px;flex:none;display:block;margin-right:5px;
+ border-radius:10px;object-fit:contain;box-shadow:0 5px 18px rgba(49,215,255,.15)
+}
