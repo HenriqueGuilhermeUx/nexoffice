@@ -63,3 +63,12 @@ Foi implementado `scripts/audit-nexa-lifeos-prod-schema.mjs`, que permanece **of
 **A auditoria é necessária, não suficiente**: ainda não prova que cada política limita efetivamente registros ao usuário autenticado. Precisaremos implementar contexto de identidade por transação (de modo a não confiar em valores enviados pelo navegador), separar roles administrativas/migração da role da API e testar contas A/B em cada endpoint sob leituras/gravações cruzadas. Políticas de `users`/`auth_sessions` devem permitir autenticação e revogação por serviços legítimos sem abrir leitura a outros usuários.
 
 **Não ligar `api-life.trynexa.com.br`, nem criar cadastros ou migrar contas** antes de aprovar esse modelo, RLS em Postgres descartável, testes de identidade, LGPD, rate limit compartilhado e backups. A PR permanece rascunho e não altera dados reais.
+
+
+## Bloqueio também em tempo de execução
+
+A futura API de produção usa `apps/api/src/nexa-lifeos-prod-schema-ready.ts`. Ao receber acesso a qualquer rota de dados PF com token, ou um pedido de login válido, ela consulta **somente os metadados do banco com a própria role de aplicação** e chama `evaluateLifeosSchema`. Se faltar RLS forçado, política, role limitada ou estrutura isolada, o pedido falha com HTTP **503** e erro genérico `schema_not_ready`; nenhuma informação de cliente deve ser entregue. `GET /health` exige esse esquema, enquanto `GET /health/live` indica apenas que o processo está executando.
+
+O resultado seguro é armazenado por 60 segundos para não consultar os catálogos a cada requisição; uma alteração de segurança posterior pode, portanto, levar até 60 segundos para ser reavaliada. Essa janela não substitui bloqueios operacionais, controle de alterações e testes. O servidor não inclui bypass específico de CI para o esquema; o smoke local usa somente rotas sem autenticação e credenciais falsas, mantendo o fluxo de banco fechado. Esse controle **não constrói nem substitui políticas de RLS**, e tampouco prova que a sessão autenticada está corretamente ligada ao usuário no contexto de cada transação.
+
+Os testes `scripts/smoke-nexa-lifeos-prod-schema-audit.mjs` exercitam o avaliador de metadados e protegem sua ligação ao servidor. Nenhum token de Wallet é aceito intencionalmente como credencial PF; manter bancos de sessões e permissões inteiramente distintos.
