@@ -78,6 +78,12 @@ try {
   await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
   assert.equal(await page.locator('.avdr-list article').count(), 3, 'Review input cannot persist');
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
+  await page.getByRole('link', { name: 'Review docs' }).click();
+  assert.equal(new URL(page.url()).hash, '#sample-documents', 'Interactive review navigation must point to a real section');
+  await page.getByRole('link', { name: 'Try tasks' }).click();
+  assert.equal(new URL(page.url()).hash, '#sample-tasks', 'Tasks navigation must point to a real section');
+  const widths = await page.evaluate(() => ({viewport:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
+  assert.ok(widths.scroll <= widths.viewport + 2, 'US mobile preview overflows horizontally');
   assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
   assert.match(policy, /connect-src 'none'/);
