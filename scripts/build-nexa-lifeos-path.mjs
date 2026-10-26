@@ -71,9 +71,9 @@ if(mode){
     [/<meta property="og:description" content="[^"]*"\s*\/>/,'<meta property="og:description" content="Meu Espaço Nexa: uma equipe de especialistas e organização financeira." />'],
     [/<meta name="twitter:title" content="[^"]*"\s*\/>/,'<meta name="twitter:title" content="Nexa — Seu espaço, suas escolhas" />'],
     [/<meta name="twitter:description" content="[^"]*"\s*\/>/,'<meta name="twitter:description" content="Maya, finanças e organização na Nexa." />'],
-    [/<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"\s*\/>/,
+    [/<link rel="icon" type="image\/svg\+xml" href="\/meu-espaco\/app\/favicon\.svg"\s*\/>/,
      '<link rel="icon" type="image/svg+xml" href="'+BASE+'nexa-logo.svg" />'],
-    [/<link rel="shortcut icon" href="\/favicon\.svg"\s*\/>/,
+    [/<link rel="shortcut icon" href="\/meu-espaco\/app\/favicon\.svg"\s*\/>/,
      '<link rel="shortcut icon" href="'+BASE+'nexa-logo.svg" />'],
     [/<title>[^<]*<\/title>/,'<title>Nexa — Seu espaço, suas escolhas</title>']
   ];
