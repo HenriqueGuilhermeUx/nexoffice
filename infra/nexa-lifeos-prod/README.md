@@ -40,4 +40,6 @@ Estado: especificações e testes preparatórios; **NO-GO para uso de clientes r
 
 ## Smoke do servidor PF ainda sem banco real
 
-Após `npm run build`, execute `node scripts/smoke-nexa-lifeos-prod-server.mjs`. O teste sobe a API **somente em 127.0.0.1 com host Neon fictício** e não conecta ao Postgres; valida health/live, bloqueio de cadastro (503), CORS bloqueando Wallet, preflight PF autorizado e ausência de rotas PJ. O novo entrypoint não está vinculado ao `npm start` do NexOffices nem a nenhum serviço Render.
+Após `npm run build`, execute `node scripts/smoke-nexa-lifeos-prod-server.mjs`. O teste sobe a API **somente em 127.0.0.1 com host Neon fictício** e não conecta ao Postgres; valida health/live, exclusão do handler real de criação de contas e bloqueio de cadastro (503), autenticação obrigatória (401) em rotas privadas, rejeição de login malformado (400), limite local de tentativas (429), CORS bloqueando Wallet, preflight PF autorizado e ausência de rotas PJ. O novo entrypoint não está vinculado ao `npm start` do NexOffices nem a nenhum serviço Render.
+
+**Limitação de segurança:** o rate limit no servidor demonstrativo usa memória local e não serve como controle distribuído para múltiplas instâncias. Antes do primeiro deploy público, implantar limitação confiável no ingresso, avaliar autenticação, antifraude, consentimentos, CSP, sessões e migrações com backup. `NEXA_LIFEOS_AUTH_REVIEW_APPROVED=false` permanece no exemplo de ambiente.
