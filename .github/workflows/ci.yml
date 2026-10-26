@@ -47,6 +47,7 @@ jobs:
         run: |
           node --test scripts/smoke-nexa-lifeos-prod-env.mjs
           node --experimental-strip-types --test scripts/smoke-nexa-lifeos-prod-db.mjs
+          node scripts/smoke-nexa-lifeos-prod-server.mjs
           node scripts/plan-nexa-lifeos-prod-migrations.mjs
           if node scripts/check-nexa-lifeos-prod-env.mjs; then
             echo "PF production config incorrectly passed without approval or production credentials"
