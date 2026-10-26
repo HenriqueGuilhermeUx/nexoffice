@@ -42,6 +42,8 @@ try{
  assert.ok(!logoBody.includes('NexOffice'),'Preview must not serve PJ brand as Nexa');
  const originalPjFavicon=await fetch(host+'/favicon.svg');
  assert.equal(originalPjFavicon.status,404,'NexOffices PJ favicon must not be served on isolated preview');
+ const legacyFavicon=await fetch(host+'/favicon.ico');
+ assert.equal(legacyFavicon.status,404,'Missing legacy favicon must never cause 500 on isolated preview');
  const preflight=await fetch(host+'/v1/personal/auth/register',{
    method:'OPTIONS',
    headers:{origin:selfOrigin,'access-control-request-method':'POST','access-control-request-headers':'content-type'}
