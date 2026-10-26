@@ -37,6 +37,11 @@ assert.ok(bff.includes("HttpOnly"),'OIDC session and browser binding cookies mus
 assert.ok(bff.includes("bindingCookie('',0)"),'OIDC callback must clear temporary browser binding');
 assert.ok(bff.includes("req.headers.origin!==origin"),'OIDC start/logout must check browser origin');
 assert.ok(bff.includes("issueOIDCSession"),'OIDC callback can issue a session only after member validation');
+assert.ok(bff.includes("resolveSession(extract(req,sessionName),'OIDC')"),'OIDC BFF must reject password-authenticated sessions');
+assert.ok(store.includes("s.auth_method=?"),'Lab session must filter by verified authentication method');
+assert.ok(store.includes("FROM oidc_links l WHERE l.issuer=s.oidc_issuer"),'OIDC session must require current US identity membership');
+assert.ok(store.includes("revokeOIDCSubject"),'OIDC identity member revocation must be supported in local fixture');
+
 assert.ok(!bff.includes('fetch('),'Mock OIDC BFF may not make outbound network requests');
 assert.ok(!entry.includes('bff') && !entry.includes('oidc'),'Public USA static preview may not import the identity BFF');
 console.log('PASS: US identity lab isolated, fail-closed, never included in production web');
