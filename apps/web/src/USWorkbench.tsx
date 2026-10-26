@@ -29,7 +29,7 @@ export default function USWorkbench() {
     setTitle(''); setNote('Added locally. Reload the page to clear demo changes.');
   }
 
-  return <section className="avnw" id="sample-tasks" aria-label="NexOffice USA task board demonstration">
+  return <section className="avnw" id="sample-tasks" aria-label="NexOffices USA task board demonstration">
     <div className="avnw-head">
       <p className="avus-eyebrow">Interactive workspace · USA demo</p>
       <h2>See how a business command center could work.</h2>
