@@ -22,7 +22,7 @@ function safeURL(input) {
 }
 
 /** Contract only. No OAuth redirect, PKCE, nonce, JWKS fetching or session creation. */
-export function verifyUSOIDCToken(token, {issuer, audience, jwks, now = Date.now()} = {}) {
+export function verifyUSOIDCToken(token, {issuer, audience, jwks, now = Date.now(), expectedNonce} = {}) {
   if (!Number.isFinite(now) || typeof audience !== 'string' || !/^[\w.:-]{3,200}$/.test(audience)) fail();
   const issuerURL = safeURL(issuer);
   if (typeof token !== 'string' || token.length > 12000) fail();
@@ -62,6 +62,9 @@ export function verifyUSOIDCToken(token, {issuer, audience, jwks, now = Date.now
   if (payload.nbf !== undefined && (!Number.isSafeInteger(payload.nbf) || payload.nbf > sec + skew)) fail();
   if (payload.region !== undefined && payload.region !== 'US') fail();
   if (payload.region_code !== undefined && payload.region_code !== 'US') fail();
+  if (expectedNonce !== undefined && (
+      typeof expectedNonce !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(expectedNonce) ||
+      payload.nonce !== expectedNonce)) fail();
   // Signed email and org claims are not a tenant authorization decision.
   return Object.freeze({issuer, subject:payload.sub, expiresAt:payload.exp, region:'US'});
 }
