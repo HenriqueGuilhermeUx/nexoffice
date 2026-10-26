@@ -14,7 +14,7 @@ const privacySource=readFileSync('apps/api/src/routes-nex-personal-privacy.ts','
 const agentsSource=readFileSync('apps/api/src/routes-nex-personal-agents.ts','utf8');
 const finsightSource=readFileSync('apps/api/src/routes-nex-personal-finsight.ts','utf8');
 assert.match(privacySource,/NEXA_LIFEOS_ENV==='production'/);
-assert.match(privacySource,/Dados da conta Nexa são armazenados no serviço pessoal dedicado/);
+assert.match(privacySource,/Os dados da conta Nexa são armazenados no serviço pessoal dedicado/);
 assert.match(privacySource,/Dados da conta ficam no servidor isolado da homologação/);
 assert.match(agentsSource,/deterministic_read_only/);
 assert.match(agentsSource,/Nenhum Pix, boleto ou pagamento real é iniciado por este módulo Nexa/);
