@@ -72,6 +72,36 @@ try {
   await page.getByRole('button', { name: 'Reset pipeline' }).click();
   assert.equal(await opportunities.count(), 3);
   assert.equal((await wonCount.innerText()).trim(), '0');
+
+  // Document review: fictional creation, stage changes, simulated activity, reset and reload.
+  await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
+  const reviews = page.locator('.avdr-list article');
+  const docMetric = async index => Number((await page.locator('.avdr-counts strong').nth(index).innerText()).trim());
+  assert.equal(await reviews.count(), 3);
+  assert.equal(await docMetric(0), 3);
+  assert.equal(await docMetric(1), 1);
+  assert.equal(await docMetric(2), 1);
+  await page.getByLabel('Fictional document title').fill('Example US review checklist');
+  await page.getByLabel('Reviewer team').selectOption('Legal');
+  await page.getByRole('button', { name: 'Add sample document' }).click();
+  assert.equal(await reviews.count(), 4);
+  assert.equal(await docMetric(0), 4);
+  await page.getByLabel('Example US review checklist review stage').selectOption('In review');
+  assert.equal(await docMetric(1), 2);
+  await page.getByLabel('Example US review checklist review stage').selectOption('Approved');
+  assert.equal(await docMetric(1), 1);
+  assert.equal(await docMetric(2), 2);
+  assert.ok((await page.locator('.avdr-activity li').count()) >= 2);
+  await page.getByRole('button', { name: 'Reset reviews' }).click();
+  assert.equal(await reviews.count(), 3);
+  assert.equal(await page.locator('.avdr-activity li').count(), 0);
+  await page.getByLabel('Fictional document title').fill('Ephemeral review');
+  await page.getByRole('button', { name: 'Add sample document' }).click();
+  assert.equal(await reviews.count(), 4);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
+  assert.equal(await page.locator('.avdr-list article').count(), 3);
+  assert.equal(await page.getByText('Ephemeral review').count(), 0);
   await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
   const reviewRows = page.locator('.avdr-list article');
   assert.equal(await reviewRows.count(), 3);
