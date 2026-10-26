@@ -152,7 +152,7 @@ export default function NexPersonal(){
 
   if(!ready)return <div className="np-root np-center">Carregando seu espaço pessoal…</div>;
   if(token&&!me)return <div className="np-root np-auth"><main className="np-auth-card">
-    <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
+    <div className="np-brand"><img className="np-nexa-logo" src="/nexa-logo.svg" alt="Símbolo Nexa" width="35" height="35"/> <strong>Nexa</strong></div>
     <h1>Não foi possível carregar seu espaço.</h1>
     <p>{error||'A conexão foi interrompida. Seu login continua salvo neste navegador.'}</p>
     <button className="np-primary" onClick={()=>void retryLoading()}>Tentar novamente</button>
@@ -160,7 +160,7 @@ export default function NexPersonal(){
   </main></div>;
   if(!token)return <div className="np-root np-auth">
     <main className="np-auth-card">
-      <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
+      <div className="np-brand"><img className="np-nexa-logo" src="/nexa-logo.svg" alt="Símbolo Nexa" width="35" height="35"/> <strong>Nexa</strong></div>
       <div className="np-auth-kicker">Sua vida mais simples. Seu tempo de volta.</div>
       <h1>Uma equipe para facilitar a sua vida.</h1>
       <p>Dinheiro, compras, planejamento, documentos, família e mais. Escolha o que importa para você. Seus dados permanecem separados e sob seu controle.</p>
@@ -185,7 +185,7 @@ export default function NexPersonal(){
   </div>;
 
   if(me&&!me.activated)return <div className="np-root np-auth"><main className="np-auth-card">
-    <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
+    <div className="np-brand"><img className="np-nexa-logo" src="/nexa-logo.svg" alt="Símbolo Nexa" width="35" height="35"/> <strong>Nexa</strong></div>
     <h1>Ative seu espaço pessoal</h1>
     <p>Sua identidade já existe. Vamos criar um contexto financeiro PF separado das suas empresas, sem copiar dados.</p>
     {error&&<div className="np-error" role="alert">{error}</div>}
@@ -196,7 +196,7 @@ export default function NexPersonal(){
   const displayName=me?.user.name.split(' ')[0]||'';
   return <div className="np-root np-shell">
     <aside className="np-sidebar">
-      <div className="np-brand"><span className="np-mark">N</span> <strong>Nexa</strong></div>
+      <div className="np-brand"><img className="np-nexa-logo" src="/nexa-logo.svg" alt="Símbolo Nexa" width="35" height="35"/> <strong>Nexa</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
       {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['crypto','Cripto & Wallet'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
