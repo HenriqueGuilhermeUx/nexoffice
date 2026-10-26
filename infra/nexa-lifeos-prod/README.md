@@ -85,3 +85,16 @@ Os testes `scripts/smoke-nexa-lifeos-prod-schema-audit.mjs` exercitam o avaliado
 - Após isso, testar expiração/revogação de sessão, negação de prévia, rate limit distribuído e política LGPD. Nenhum desses testes foi executado em dados reais.
 
 O servidor de produção continua **deliberadamente não liberável** enquanto esses gates permanecerem abertos. Esse bloqueio não afeta o Render de homologação, NexOffices PJ nem a Nexa Wallet.
+
+## Protótipo da transação PF autenticada — somente código, não ligado à API
+
+O helper `apps/api/src/nexa-lifeos-tenant-tx.ts` implementa **apenas a mecânica transacional** para a próxima revisão:
+1. Recebe token opaco, envia **somente SHA-256** ao resolver de sessão `nex_personal.resolve_api_session($1::text)`.
+2. Usa **um único cliente PostgreSQL** para `BEGIN`, resolução da identidade, `set_config('app.user_id', userId, true)`, callback SQL e `COMMIT`. Em falha, `ROLLBACK` e liberação da conexão.
+3. Rejeita token inválido, preview e sessão ausente, sem executar consultas privadas.
+
+**Não está conectado às rotas públicas** e a função `nex_personal.resolve_api_session` **ainda não existe em produção nem foi implantada em nenhum banco**. Sua futura implementação deverá ser revisada quanto a `SECURITY DEFINER`, dono, `search_path`, `GRANT EXECUTE`, vazamento de identidade e privacidade. O helper não prova segurança sozinho.
+
+`scripts/smoke-nexa-lifeos-tenant-tx.mjs` executa **5 testes com pool fictício**, incluindo transação única, hash, rollback, separação entre duas conexões e bloqueio de preview; eles **não usam Neon nem substituem o teste E2E A/B real com políticas RLS**.
+
+Consequentemente, o bloqueio incondicional `tenant_context_binding_not_implemented` continua obrigatório na API definitiva até migrarmos todas as rotas relevantes para a identidade transacional e validarmos autenticação, login, leitura, escrita, revogação e isolamento efetivo com dois usuários no PostgreSQL descartável.
