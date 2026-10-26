@@ -31,9 +31,13 @@ Não foi criado banco, endpoint público, DNS, chaves, serviço Render ou conta 
 ## Gates antes de produção
 1. Criar/provisionar projeto Neon PF exclusivo, política de backup, menor privilégio e TLS; confirmar identificador real sem expor senha.
 2. Aprovar migrations PF de produção e executar validação em banco DESCARTÁVEL primeiro; backup/rollback e verificação de isolamento de clientes.
-3. Implementar servidor `server-personal-production` dedicado (o atual `server-personal.ts` exige homologação/convite e NÃO pode ser reutilizado por mudança simples de env), com autenticação, rate limit distribuído, antiabuso, LGPD, consentimentos e endpoints permitidos.
+3. **Servidor PF separado agora implementado em código:** `apps/api/src/server-personal-production.ts`, sem deploy, importando o contrato de ambiente de produção e a política TLS PF (`db.ts` escolhe o construtor novo somente quando `NEXA_LIFEOS_ENV=production`). Tem `/health/live` sem DB, `/health` com verificação DB, login limitado por IP (defesa local inicial), signup explicitamente 503, CORS de origem única, bloqueio de endpoints PJ, headers seguros e proteção de erros. **Não está pronto para produção pública**: faltam rate limit distribuído no ingress, antifraude, revisão de recuperação de conta, identidade/consentimentos LGPD, teste em DB descartável e observabilidade. O servidor de homologação `server-personal.ts` continua independente e intocado.
 4. CSP/CORS e sessão de mesmo domínio PF revisadas; nunca compartilhar token PF com Wallet nem criar carteira Privy redundante.
 5. Testar build `release`, novo API server, DB/segurança, 16 salas, Maya e F-Insight, sem operações reais.
 6. Só depois publicar `/meu-espaco/app/`, revisar SW PWA raiz da Wallet (PR site #36), configurar redirects e atualizar o CTA principal, com rollback.
 
 Estado: especificações e testes preparatórios; **NO-GO para uso de clientes reais**.
+
+## Smoke do servidor PF ainda sem banco real
+
+Após `npm run build`, execute `node scripts/smoke-nexa-lifeos-prod-server.mjs`. O teste sobe a API **somente em 127.0.0.1 com host Neon fictício** e não conecta ao Postgres; valida health/live, bloqueio de cadastro (503), CORS bloqueando Wallet, preflight PF autorizado e ausência de rotas PJ. O novo entrypoint não está vinculado ao `npm start` do NexOffices nem a nenhum serviço Render.
