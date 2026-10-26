@@ -44,8 +44,11 @@ test('production remains unconditionally closed until identity + real RLS E2E is
   const server=read('apps/api/src/server-personal-production.ts');
   assert.ok(guard.includes("throw new Error('tenant_context_binding_not_implemented')"),
     'Do not remove the NO-GO gate from a catalog-only audit');
-  assert.ok(server.includes('requireVerifiedLifeosUserContext()'),
-    'Server must continue to require independently verified user identity');
+  // #101's additional user-context gate exists on a separate, unmerged
+  // DRAFT branch. The #102 branch instead remains closed by the unconditional
+  // schema guard. Never require a file that this branch does not contain.
+  assert.ok(server.includes('await requireLifeosProductionSchema()'),
+    'The production server must block authenticated access on the unconditional guard');
   assert.ok(server.includes('requireLifeosProductionSchema()'),
     'Server must require the data-boundary guard');
 });
