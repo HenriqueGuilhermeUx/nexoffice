@@ -75,8 +75,19 @@ export function validateLifeOsProductionEnvironment(
   for(const key of ['host','ssl','uselibpqcompat']){
     if(url.searchParams.has(key))fail('DATABASE_URL unsafe connection option');
   }
-  if(url.searchParams.get('sslmode')!=='verify-full')
-    fail('DATABASE_URL TLS verification must be verify-full');
+  if(url.searchParams.getAll('sslmode').length!==1 ||
+    url.searchParams.get('sslmode')!=='verify-full')
+    fail('DATABASE_URL TLS verification must be exactly verify-full');
+  // Do not allow otherwise-valid libpq URI parameters to change the
+  // endpoint, trust store, TLS negotiation or startup commands.
+  for(const key of url.searchParams.keys()){
+    if(!['sslmode','channel_binding'].includes(key))
+      fail('DATABASE_URL unknown connection option');
+  }
+  if(url.searchParams.getAll('channel_binding').length>1 ||
+    (url.searchParams.has('channel_binding') &&
+     url.searchParams.get('channel_binding')!=='require'))
+    fail('DATABASE_URL channel binding must be require');
   if(!/^[A-Za-z0-9.-]+$/.test(host))fail('database hostname');
   return {
     apiOrigin,frontendOrigin,sessionAudience:'nexa-lifeos-pf-v1',
