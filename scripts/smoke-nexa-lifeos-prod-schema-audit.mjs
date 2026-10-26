@@ -45,4 +45,8 @@ test('production API enforces schema readiness before login and authenticated PF
  assert.match(guard,/evaluateLifeosSchema\(\{tables,policies,role:role\[0\]\}\)/);
  assert.match(guard,/throw new ApiError\(503,'schema_not_ready'/);
  assert.doesNotMatch(guard,/NEXA_LIFEOS_SCHEMA_AUDIT_SKIP|NEXA_LIFEOS_CI_BYPASS/);
+ assert.match(guard,/throw new Error\('tenant_context_binding_not_implemented'\)/,
+  'Catalog RLS cannot authorize production until same-transaction tenant binding and E2E have shipped');
+ assert.doesNotMatch(guard,/acceptedAt=Date\.now\(\)/,
+  'An unverified catalog must never mark PF access as accepted');
 });
