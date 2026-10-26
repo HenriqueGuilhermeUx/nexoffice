@@ -6,7 +6,7 @@ import {withVerifiedUSPrivyIdentity}
  from '../apps/api/dist/personal-us-privy-owner-store.js';
 import {bindUSPrivyWalletFromServerDID}
  from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
-import {assessVerifiedPrivyUSNativeUSDCRead}
+import {assessVerifiedPrivyUSNativeUSDCRead,revokeVerifiedPrivyUSAgenticWalletRead}
  from '../apps/api/dist/personal-us-privy-agentic-read.js';
 
 /**
@@ -188,8 +188,27 @@ try{
  assert.equal(unknownConsent.decision.decision,'deny');
  assert.equal(unknownConsent.rawUsdcBalance,null);
  assert.equal(trustedReads,1,'Absent consent must not trigger Polygon RPC');
- await pool.query(`UPDATE nex_personal_us.wallet_agentic_read_consents
- SET revoked_at=now() WHERE id=$1`,[readConsentId]);
+ // Revocation must also be authorized by the USA Privy DID identity,
+ // execute in its existing PostgreSQL transaction and be audit logged.
+ await assert.rejects(revokeVerifiedPrivyUSAgenticWalletRead({
+  ...wrongDIDRead,now:new Date()
+ }),/US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
+ const unknownRevocation=await revokeVerifiedPrivyUSAgenticWalletRead({
+  ...mayaReadArgs,consentId:randomUUID(),now:new Date()
+ });
+ assert.equal(unknownRevocation.revoked,false);
+ assert.equal((await pool.query(`SELECT revoked_at FROM
+  nex_personal_us.wallet_agentic_read_consents WHERE id=$1`,[readConsentId])).rows[0].revoked_at,null);
+ const successRevocation=await revokeVerifiedPrivyUSAgenticWalletRead({
+  ...mayaReadArgs,authenticatedUSSubject:other,now:new Date()
+ });
+ assert.deepEqual(successRevocation,{revoked:true,executionAllowed:false});
+ const secondRevocation=await revokeVerifiedPrivyUSAgenticWalletRead({
+  ...mayaReadArgs,now:new Date()
+ });
+ assert.equal(secondRevocation.revoked,false,'Repeated revoke must not duplicate audit');
+ assert.equal((await pool.query(`SELECT count(*)::int AS n FROM nex_personal_us.wallet_security_events
+ WHERE owner_profile_id=$1 AND event_type='agentic.read.revoked'`,[ownerId])).rows[0].n,1);
  const revokedMayaRead=await assessVerifiedPrivyUSNativeUSDCRead({
   ...mayaReadArgs,now:new Date()
  });
