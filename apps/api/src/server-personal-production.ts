@@ -110,7 +110,12 @@ app.post('/v1/auth/login',async req=>{
 app.post('/v1/auth/logout',async req=>{
  await revokeSession(req);return {ok:true};
 });
-await registerNexPersonalRoutes(app);
+// PF production must not even mount the real preview sign-up write handler.
+// Preserve only a deliberate 503 placeholder; request guard also denies it.
+await registerNexPersonalRoutes(app,{registrationEnabled:false});
+app.post('/v1/personal/auth/register',async(_req,reply)=>
+ reply.code(503).send({error:'registration_not_open',message:'Cadastro Nexa em preparação.'})
+);
 await registerNexPersonalStudioRoutes(app);
 await registerNexPersonalAgentsRoutes(app);
 await registerNexPersonalLifeRoutes(app);
