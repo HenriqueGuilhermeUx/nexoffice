@@ -57,4 +57,14 @@ assert.ok(!/(localStorage|sessionStorage|indexedDB)\s*[.\[]/.test(docReviews), "
 assert.ok(!/type=["']file["']/.test(docReviews), "USA document demo cannot accept actual file uploads");
 assert.ok(docStyles.includes(".avus .avdr"), "USA document review CSS must be scoped");
 
+const agentDemo = read("apps/web/src/USCoordinationBrief.tsx");
+const agentCss = read("apps/web/src/USCoordinationBrief.css");
+assert.ok(preview.includes("<USCoordinationBrief />"), "Coordination demo must appear only within the US preview");
+for (const label of ["Prepare sample brief", "Reset briefing", "Mark reviewed", "no AI model"]) {
+  assert.ok(agentDemo.includes(label), "USA coordination demo is missing: " + label);
+}
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(agentDemo), "USA coordination demo cannot contact external APIs");
+assert.ok(!/(localStorage|sessionStorage|indexedDB)\s*[.\[]/.test(agentDemo), "USA coordination demo cannot persist inputs");
+assert.ok(agentCss.includes(".avus .avcb"), "Coordination styles must be scoped to the US preview");
+
 console.log("PASS: nexoffice US preview route, language, copy, branding, isolation and CSS namespace");

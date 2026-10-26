@@ -74,3 +74,7 @@ This creates `apps/web/dist-usa/`. The USA browser workflow then tests the built
 2. Manually deploy **only** the isolated Render static staging site because auto deploy is off; confirm deployed commit SHA.
 3. Validate `/us/` from outside Render in headless mobile and desktop browsers, including ephemeral document review activity and no external requests.
 4. Keep [PR #91](https://github.com/HenriqueGuilhermeUx/nexoffice/pull/91) draft and the Brazil launch/merge entirely separate.
+
+## Rule-based coordination brief (USA sandbox)
+
+The USA-only staging offers a fourth illustrative pillar: a fixed, rules-based sample coordination brief across Operations, Sales and Documents. This is **not** a connected agentic AI system, real inference or a paid US service. Users may prepare a synthetic list of priorities and mark examples reviewed, with no persistent data or network access. The local browser CI asserts review/reset and no persistence; no Brazilian integration is imported.

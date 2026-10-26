@@ -84,6 +84,11 @@ try {
   assert.equal(new URL(page.url()).hash, '#sample-tasks', 'Tasks navigation must point to a real section');
   const widths = await page.evaluate(() => ({viewport:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
   assert.ok(widths.scroll <= widths.viewport + 2, 'US mobile preview overflows horizontally');
+  await page.getByRole('heading', { name: 'Turn scattered signals into a next-step briefing.' }).waitFor();
+  await page.getByRole('button', {name:'Prepare sample brief'}).click();
+  assert.equal(await page.locator('.avcb-list article').count(), 2);
+  await page.reload({waitUntil:'domcontentloaded'});
+  assert.equal(await page.locator('.avcb-list article').count(), 0, 'Fictional coordination brief cannot persist');
   assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
   assert.match(policy, /connect-src 'none'/);

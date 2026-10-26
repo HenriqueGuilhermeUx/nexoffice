@@ -117,6 +117,15 @@ try {
   await page.getByRole('button', { name: 'Reset reviews' }).click();
   assert.equal(await reviewRows.count(), 3);
   assert.equal(await page.locator('.avdr-activity li').count(), 0);
+  await page.getByRole('heading', { name: 'Turn scattered signals into a next-step briefing.' }).waitFor();
+  await page.getByLabel('Sample team focus').selectOption('Sales');
+  await page.getByRole('button', {name:'Prepare sample brief'}).click();
+  await page.getByText('Sales sample briefing').waitFor();
+  assert.equal(await page.locator('.avcb-list article').count(), 2);
+  await page.getByRole('button', {name:'Mark Follow up on a sample proposal as reviewed'}).click();
+  await page.getByText('1 of 2 reviewed').waitFor();
+  await page.getByRole('button', {name:'Reset briefing'}).click();
+  assert.equal(await page.locator('.avcb-list article').count(), 0);
   assert.equal(backendRequests.length, 0, 'US preview contacted a Brazilian API: ' + backendRequests.join(', '));
   assert.deepEqual(scriptErrors, [], 'Unexpected browser runtime errors');
   console.log('PASS: NexOffices USA mobile task board, role labels, local mutation, reset and no BR API calls');
