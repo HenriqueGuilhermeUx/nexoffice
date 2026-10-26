@@ -76,7 +76,34 @@ try{
  });
  assert.equal(browserPreflight.r.status,204);
  assert.equal(browserPreflight.r.headers.get('access-control-allow-origin'),'https://trynexa.com.br');
- console.log('Nexa PF production API local-only boot, denied signup, CORS and PJ isolation PASS');
+ // No session must never access PF financial or private-data routes.
+ for(const route of ['/v1/personal/me','/v1/personal/overview','/v1/personal/accounts','/v1/personal/consents']){
+   const {r,body}=await probe(url,route);
+   assert.equal(r.status,401,'Private Nexa PF endpoint requires separate user session: '+route);
+   assert.ok(!String(JSON.stringify(body)).includes('password'),'No private auth material in a 401 response');
+ }
+ // Authentication validates request shape and throttles attempts before any
+ // PostgreSQL query: all 13 payloads are deliberately invalid JSON inputs.
+ // This exercises the abuse gate WITHOUT connecting to the dummy Neon host.
+ for(let i=0;i<12;i++){
+   const invalid=await probe(url,'/v1/auth/login',{
+     method:'POST',headers:{'content-type':'application/json',origin:'https://trynexa.com.br'},
+     body:JSON.stringify({email:'not-an-email',password:'dummy'})
+   });
+   assert.equal(invalid.r.status,400,'Malformed sign-in must be rejected before DB query');
+ }
+ const tooMany=await probe(url,'/v1/auth/login',{
+   method:'POST',headers:{'content-type':'application/json',origin:'https://trynexa.com.br'},
+   body:JSON.stringify({email:'not-an-email',password:'dummy'})
+ });
+ assert.equal(tooMany.r.status,429,'Repeated malformed login must be throttled');
+ assert.equal(tooMany.body.error,'too_many_requests');
+ const fromWallet=await probe(url,'/health/live',{
+   headers:{origin:'https://wallet.trynexa.com.br'}
+ });
+ assert.equal(fromWallet.r.status,403,'Wallet JS cannot access Nexa PF API via CORS');
+ assert.equal(fromWallet.r.headers.get('access-control-allow-origin'),null);
+ console.log('Nexa PF local API: live, signup gate, private auth, login throttle, Wallet origin and PJ isolation PASS');
 }finally{
  processChild.kill('SIGTERM');
  await sleep(75);
