@@ -142,6 +142,42 @@ try{
  await assert.rejects(bindUSPrivyWalletFromServerDID(bindArgs),/duplicate key/);
  assert.equal((await pool.query('SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings')).rows[0].n,1,
   'Wallet duplication must roll back with no phantom binding');
+ // Race-proof actual embedded-wallet insertion: a concurrent DID revocation
+ // must wait until the provider evidence, wallet insert and audit COMMIT.
+ let bindStarted;const bindEvidenceStarted=new Promise(r=>bindStarted=r);
+ let allowEvidence;const evidenceGate=new Promise(r=>allowEvidence=r);
+ const racingEvidence={...evidence,walletId:'wallet-did-ci-race',
+  address:'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  verifiedAt:new Date(Date.now()-1000).toISOString()};
+ const racingBind=bindUSPrivyWalletFromServerDID({
+  ...bindArgs,fetchVerifiedUSWalletEvidence:async()=>{
+   bindStarted();await evidenceGate;return racingEvidence;
+  }
+ });
+ await bindEvidenceStarted;
+ let racingRevokeCompleted=false;
+ const racingRevoke=pool.query(`UPDATE nex_personal_us.privy_identity_links
+ SET revoked_at=now() WHERE id=$1 RETURNING id`,[linkId]).then(result=>{
+  racingRevokeCompleted=true;return result;
+ });
+ try{
+  await new Promise(r=>setTimeout(r,70));
+  assert.equal(racingRevokeCompleted,false,
+   'DID revoke must wait for wallet evidence, binding and audit commit');
+ }finally{allowEvidence();}
+ // Existing unique embedded-wallet-per-owner constraint rejects a second
+ // active wallet. The failed insert rolls back without authorizing anything.
+ await assert.rejects(racingBind,/duplicate key/);
+ const racingRevokeResult=await racingRevoke;
+ assert.equal(racingRevokeResult.rowCount,1);
+ assert.equal((await pool.query(`SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings
+ WHERE source='privy' AND owner_profile_id=$1`,[ownerId])).rows[0].n,1);
+ assert.equal((await pool.query(`SELECT count(*)::int AS n FROM nex_personal_us.wallet_security_events
+ WHERE owner_profile_id=$1 AND event_type='binding.created'`,[ownerId])).rows[0].n,1);
+ // Reinstate only the CI identity link so the separate successful identity
+ // revocation concurrency scenario below can exercise its own lock.
+ await pool.query(`UPDATE nex_personal_us.privy_identity_links
+ SET revoked_at=NULL WHERE id=$1`,[linkId]);
  const noServer=await pool.connect();
  try{
   await noServer.query('BEGIN');
