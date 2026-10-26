@@ -34,7 +34,7 @@ export function evaluateLifeosSchema({tables,policies,role}){
   const cmd=String(policy.cmd||'ALL').toUpperCase();
   if(!['ALL','SELECT','INSERT','UPDATE','DELETE'].includes(cmd))
     throw new Error('Unknown PF RLS policy command: '+policy.name);
-  if(policy.name==='audit_events'&&!['SELECT','INSERT'].includes(cmd))
+  if(policy.name==='audit_events'&&policy.cmd!==undefined&&!['SELECT','INSERT'].includes(cmd))
     throw new Error('Audit events must remain append-only under RLS');
   // Real PostgreSQL pg_policies returns WITH CHECK separately from USING.
   // INSERT has qual=NULL; checking qual for every command rejects the correct
