@@ -9,6 +9,17 @@ const names=readFileSync('scripts/smoke-nex-personal-names.mjs','utf8');
 const previewBuild=readFileSync('scripts/build-personal-preview-web.mjs','utf8');
 
 assert.match(app,/<strong>Nexa<\/strong>/);
+const logo=readFileSync('apps/web/public/nexa-logo.svg','utf8');
+assert.equal((app.match(/<img className="np-nexa-logo" src="\/nexa-logo\.svg" alt="Símbolo Nexa"/g)||[]).length,4);
+assert.doesNotMatch(app,/<span className="np-mark">N<\/span>/);
+assert.match(css,/\.np-root \.np-nexa-logo/);
+assert.match(logo,/<svg[^>]*viewBox="0 0 128 128"/);
+assert.match(logo,/#06111F/);
+assert.match(logo,/#234BFF/);
+assert.match(logo,/#32E3E0/);
+assert.match(previewBuild,/nexa-logo\.svg/);
+assert.match(previewBuild,/shortcut icon/);
+assert.match(previewBuild,/NEX_PERSONAL_PREVIEW==='true'/);
 assert.match(app,/{PREVIEW&&<aside className="np-preview-auth-notice"/);
 assert.match(app,/Este ambiente é separado da Nexa Wallet/);
 assert.match(app,/Não use a senha da Wallet no cadastro de homologação/);
