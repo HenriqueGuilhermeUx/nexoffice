@@ -41,9 +41,9 @@ export class USLabStore {
       CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
         org_id TEXT NOT NULL REFERENCES organizations(id), expires_at INTEGER NOT NULL,
-        auth_method TEXT NOT NULL CHECK(auth_method IN ('PASSWORD','OIDC')),
+        auth_method TEXT NOT NULL CHECK(auth_method IN ('LOCAL','OIDC')),
         oidc_issuer TEXT, oidc_subject TEXT,
-        CHECK((auth_method='PASSWORD' AND oidc_issuer IS NULL AND oidc_subject IS NULL) OR
+        CHECK((auth_method='LOCAL' AND oidc_issuer IS NULL AND oidc_subject IS NULL) OR
               (auth_method='OIDC' AND oidc_issuer IS NOT NULL AND oidc_subject IS NOT NULL)));
       CREATE TABLE IF NOT EXISTS oidc_links (
         issuer TEXT NOT NULL, subject TEXT NOT NULL,
@@ -109,17 +109,17 @@ export class USLabStore {
     const expected=Buffer.from(user?.password_hash??fakeHash,'hex');
     if(!user||expected.length!==actual.length||!timingSafeEqual(actual,expected))return null;
     const token=randomBytes(32).toString('base64url');
-    this.db.prepare("INSERT INTO sessions(token_hash,user_id,org_id,expires_at,auth_method) VALUES(?,?,?,?,'PASSWORD')").run(digest(token),user.id,user.org_id,Date.now()+30*60_000);
+    this.db.prepare("INSERT INTO sessions(token_hash,user_id,org_id,expires_at,auth_method) VALUES(?,?,?,?,'LOCAL')").run(digest(token),user.id,user.org_id,Date.now()+30*60_000);
     return {token,orgId:user.org_id,userId:user.id};
   }
-  resolveSession(token,expectedMethod='PASSWORD'){
+  resolveSession(token,expectedMethod='LOCAL'){
     if(typeof token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(token)||
-       !['OIDC','PASSWORD'].includes(expectedMethod))return null;
+       !['OIDC','LOCAL'].includes(expectedMethod))return null;
     const row=this.db.prepare(`SELECT s.user_id AS userId,s.org_id AS orgId,s.expires_at AS expiresAt,u.email AS email
       FROM sessions s JOIN users u ON u.id=s.user_id AND u.org_id=s.org_id
       JOIN organizations o ON o.id=s.org_id
       WHERE s.token_hash=? AND s.auth_method=? AND u.region_code='US' AND o.region_code='US'
-      AND (s.auth_method='PASSWORD' OR EXISTS (
+      AND (s.auth_method='LOCAL' OR EXISTS (
         SELECT 1 FROM oidc_links l WHERE l.issuer=s.oidc_issuer AND l.subject=s.oidc_subject
         AND l.user_id=s.user_id AND l.org_id=s.org_id AND l.region_code='US'
       ))`).get(digest(token),expectedMethod);
