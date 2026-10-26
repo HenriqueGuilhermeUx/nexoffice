@@ -37,12 +37,25 @@ try{
  }
  const policies=await db.query("select tablename,policyname,cmd from pg_policies where schemaname='nex_personal'");
  assert.equal(policies.rowCount,13,'12 PF tables require owner policy, audit events require read+append');
+ // The test database owner is a Postgres CI superuser and would bypass RLS.
+ // Simulate the ACTUAL runtime with a non-superuser/non-BYPASSRLS role.
+ await db.query('CREATE ROLE nexa_pf_rls_ci NOLOGIN NOSUPERUSER NOBYPASSRLS');
+ await db.query('GRANT USAGE ON SCHEMA nex_personal TO nexa_pf_rls_ci');
+ await db.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA nex_personal TO nexa_pf_rls_ci');
+ await db.query('GRANT SELECT ON public.users TO nexa_pf_rls_ci');
+ const role=await db.query("select rolsuper,rolbypassrls from pg_roles where rolname='nexa_pf_rls_ci'");
+ assert.equal(role.rowCount,1);
+ assert.equal(role.rows[0].rolsuper,false);
+ assert.equal(role.rows[0].rolbypassrls,false);
  const one='11111111-1111-4111-8111-111111111111';
  const two='22222222-2222-4222-8222-222222222222';
  await db.query('BEGIN');
  try{
   // These fake rows live ONLY in an open transaction that is always rolled back.
   await db.query("insert into public.users(id,name,email,password_hash) values ($1,'CI Actor One','ci-one@example.test','ci-dummy'),($2,'CI Actor Two','ci-two@example.test','ci-dummy')",[one,two]);
+  await db.query('SET ROLE nexa_pf_rls_ci');
+  const activeRole=await db.query('select current_user');
+  assert.equal(activeRole.rows[0].current_user,'nexa_pf_rls_ci','RLS tests must never run as PostgreSQL superuser');
   const actor=async id=>db.query("select set_config('nexa.actor_id',$1,true)",[id]);
   await actor(one);
   await db.query('insert into nex_personal.profiles(user_id) values($1)',[one]);
@@ -84,12 +97,17 @@ try{
    await db.query('ROLLBACK TO SAVEPOINT pf_audit_spoof');
   }
   assert.equal(auditDenied,true,'Audit actor spoof must be rejected');
- }finally{await db.query('ROLLBACK');}
+ }finally{
+  // Rollback also undoes SET ROLE inside this transaction.
+  await db.query('ROLLBACK');
+ }
+ const after=await db.query('select current_user');
+ assert.notEqual(after.rows[0].current_user,'nexa_pf_rls_ci','Application role must not leak outside the rolled-back request');
  const zeroUsers=await db.query('select count(*)::int n from public.users');
  assert.equal(zeroUsers.rows[0].n,0,'Disposable DB must not retain fake profiles or user records');
  console.log(JSON.stringify({
   result:'NEXA_LIFEOS_EPHEMERAL_RLS_REHEARSAL_PASS',
-  ciOnly:true,rlsTables:tbls.rowCount,forcedRlsTables:tbls.rowCount,
+  ciOnly:true,rlsTables:tbls.rowCount,forcedRlsTables:tbls.rowCount,nonBypassRuntimeRole:true,
   policies:policies.rowCount,twoActorIsolation:true,
   noActorDenied:true,foreignInsertDenied:true,auditSpoofDenied:true,
   fakeDataRolledBack:true,policySha256:sqlSha256,
