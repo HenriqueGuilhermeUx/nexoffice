@@ -1,11 +1,14 @@
 import pg from 'pg';
 import {personalPgConnection} from './personal-preview-db-config.js';
+import {lifeosProductionPgConnection} from './nexa-lifeos-prod-db.js';
 
 const {Pool} = pg;
 const connectionString = process.env.DATABASE_URL;
 // In the isolated personal preview TLS/hostname verification is mandatory.
 // Business/PJ pool configuration is deliberately unchanged.
-const options = connectionString ? personalPgConnection(connectionString,process.env) : null;
+const options = connectionString ? (process.env.NEXA_LIFEOS_ENV==='production'
+  ? lifeosProductionPgConnection(connectionString,process.env)
+  : personalPgConnection(connectionString,process.env)) : null;
 
 export const db = options ? new Pool({
   ...options,
