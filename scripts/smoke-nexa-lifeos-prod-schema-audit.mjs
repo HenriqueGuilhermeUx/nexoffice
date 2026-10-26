@@ -56,3 +56,48 @@ test('production API enforces schema readiness before login and authenticated PF
  assert.doesNotMatch(guard,/acceptedAt=Date\.now\(\)/,
   'An unverified catalog must never mark PF access as accepted');
 });
+
+
+const ownerAudit="owner_user_id::text = current_setting('app.user_id', true)";
+const realPolicyAudit={
+ ...good,
+ tables:[...good.tables,mk('audit_events')],
+ policies:[
+  ...good.policies,
+  {schema:'nex_personal',name:'audit_events',roles:['nexa_lifeos_app'],
+   cmd:'SELECT',qual:ownerAudit,withCheck:null},
+  {schema:'nex_personal',name:'audit_events',roles:['nexa_lifeos_app'],
+   cmd:'INSERT',qual:null,withCheck:ownerAudit+
+     " AND actor_user_id::text = current_setting('app.user_id', true)"}
+ ]
+};
+test('handles PostgreSQL INSERT qual=NULL with tenant-bound WITH CHECK',()=>{
+ const result=evaluateLifeosSchema(realPolicyAudit);
+ assert.equal(result.productionReady,false,'Catalog checks cannot release production');
+});
+test('rejects INSERT without tenant-bound WITH CHECK',()=>{
+ const policy=realPolicyAudit.policies.at(-1);
+ assert.throws(()=>evaluateLifeosSchema({...realPolicyAudit,policies:[
+  ...realPolicyAudit.policies.slice(0,-1),{...policy,withCheck:null}
+ ]}));
+});
+test('rejects audit inserts with forged actor even if owner matches',()=>{
+ const policy=realPolicyAudit.policies.at(-1);
+ assert.throws(()=>evaluateLifeosSchema({...realPolicyAudit,policies:[
+  ...realPolicyAudit.policies.slice(0,-1),{...policy,withCheck:ownerAudit}
+ ]}));
+});
+test('rejects audit update or delete policies',()=>{
+ const policy=realPolicyAudit.policies.at(-1);
+ for(const cmd of ['UPDATE','DELETE','ALL']){
+  assert.throws(()=>evaluateLifeosSchema({...realPolicyAudit,policies:[
+   ...realPolicyAudit.policies.slice(0,-1),{...policy,cmd,
+    qual:ownerAudit,withCheck:ownerAudit}
+  ]}));
+ }
+});
+test('rejects update policies lacking separate WITH CHECK',()=>{
+ const policies=good.policies.map(p=>p.name==='accounts'
+  ?{...p,cmd:'UPDATE',withCheck:null}:p);
+ assert.throws(()=>evaluateLifeosSchema({...good,policies}));
+});
