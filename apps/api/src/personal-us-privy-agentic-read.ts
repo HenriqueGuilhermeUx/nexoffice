@@ -1,7 +1,10 @@
 import type {USWalletPool} from './personal-us-wallet-binding-store.js';
 import type {OfficialPrivyUSVerifyAccessToken} from './personal-us-privy-session.js';
-import {withVerifiedUSPrivyIdentity} from './personal-us-privy-owner-store.js';
-import {revokeUSAgenticWalletRead} from './personal-us-agentic-consent-store.js';
+import {withVerifiedUSPrivyIdentity,type USPrivyVerifiedOwner} from './personal-us-privy-owner-store.js';
+import {
+ authorizeUSAgenticWalletRead,revokeUSAgenticWalletRead,
+ type VerifiedUSReadApproval,type USReadConsentResult
+} from './personal-us-agentic-consent-store.js';
 import {
  assessServerUSAgenticRead,type USServerReadResult
 } from './personal-us-agentic-server-read.js';
@@ -81,6 +84,44 @@ export async function revokeVerifiedPrivyUSAgenticWalletRead(input:{
    authenticatedUSSubject:owner.authenticatedUSSubject,
    consentId:input.consentId,
    now:input.now,
+   verifiedPrivyTransactionClient:client
+  })
+ });
+}
+
+/**
+ * INTERNAL USA ONLY — grant short-lived Maya read consent AFTER an explicit
+ * gesture attested by a trusted server-side verifier. The approval callback
+ * MUST NOT be passed from browser JSON, agent output or an unverified cookie.
+ * It sees the already authenticated USA profile, never an unverified DID.
+ * All operations, ownership/consent locks and audit writes use one fenced
+ * PostgreSQL transaction. No HTTP route or financial signing is enabled.
+ */
+export async function authorizeVerifiedPrivyUSAgenticWalletRead(input:{
+ pool:USWalletPool;
+ bearerToken:string;
+ dedicatedUSPrivyAppId:string;
+ verificationKey:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ bindingId:string;
+ now:Date;
+ verifyExplicitGesture:(owner:USPrivyVerifiedOwner)=>Promise<VerifiedUSReadApproval>;
+}):Promise<USReadConsentResult>{
+ if(typeof input.verifyExplicitGesture!=='function')
+  throw Error('US_AGENTIC_TRUSTED_GESTURE_VERIFIER_MISSING');
+ return withVerifiedUSPrivyIdentity({
+  pool:input.pool,
+  bearerToken:input.bearerToken,
+  dedicatedUSPrivyAppId:input.dedicatedUSPrivyAppId,
+  verificationKey:input.verificationKey,
+  verifyAccessToken:input.verifyAccessToken,
+  now:input.now,
+  onVerifiedOwner:(owner,client)=>authorizeUSAgenticWalletRead({
+   pool:input.pool,
+   authenticatedUSSubject:owner.authenticatedUSSubject,
+   bindingId:input.bindingId,
+   now:input.now,
+   verifyExplicitGesture:()=>input.verifyExplicitGesture(owner),
    verifiedPrivyTransactionClient:client
   })
  });
