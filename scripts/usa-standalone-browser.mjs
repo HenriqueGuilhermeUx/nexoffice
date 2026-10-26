@@ -57,6 +57,17 @@ try {
   await page.getByLabel('Fictional organization').fill('Example Corporation');
   await page.getByRole('button', {name:'Add sample opportunity'}).click();
   await page.getByText('Demo customer request').waitFor();
+  // The US-only deployable artifact must include the document review experience.
+  await page.getByRole('heading', {name:'Know exactly what needs review.'}).waitFor();
+  await page.getByLabel('Fictional document title').fill('Fictional policy outline');
+  await page.getByLabel('Reviewer team').selectOption('Legal');
+  await page.getByRole('button', {name:'Add sample document'}).click();
+  assert.equal(await page.locator('.avdr-list article').count(), 4);
+  await page.getByLabel('Fictional policy outline review stage').selectOption('Approved');
+  assert.equal((await page.locator('.avdr-counts strong').nth(2).innerText()).trim(), '2');
+  await page.getByRole('button', {name:'Reset reviews'}).click();
+  assert.equal(await page.locator('.avdr-list article').count(), 3);
+  assert.equal(await page.locator('.avdr-activity li').count(), 0);
   await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
   assert.equal(await page.locator('.avdr-list article').count(), 3);
   await page.getByLabel('Fictional document title').fill('Fictional NDA review');
