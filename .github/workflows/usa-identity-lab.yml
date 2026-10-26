@@ -22,4 +22,4 @@ jobs:
       - name: Verify isolation from Brazilian code and deployment
         run: node scripts/usa-identity-lab-guard.mjs
       - name: US auth, tenant isolation and restart persistence tests
-        run: node --test apps/usa-lab/test/isolation.test.mjs
+        run: node --test apps/usa-lab/test/*.test.mjs
