@@ -66,6 +66,16 @@ export class USLabStore {
     if(!member)throw Error('Identity link requires US membership');
     this.db.prepare("INSERT INTO oidc_links(issuer,subject,org_id,user_id,region_code) VALUES(?,?,?,?,'US')").run(issuer,subject,orgId,userId);
   }
+  /** Called only after signed, nonce-bound OIDC validation by the local test BFF. */
+  issueOIDCSession({issuer,subject,orgId}){
+    const member=this.resolveOIDCSubject({issuer,subject,orgId});
+    if(!member)return null;
+    const token=randomBytes(32).toString('base64url');
+    this.db.prepare('INSERT INTO sessions(token_hash,user_id,org_id,expires_at) VALUES(?,?,?,?)').run(
+      digest(token),member.userId,member.orgId,Date.now()+30*60_000
+    );
+    return {token,userId:member.userId,orgId:member.orgId};
+  }
   resolveOIDCSubject({issuer,subject,orgId}){
     if(typeof issuer!=='string'||typeof subject!=='string'||typeof orgId!=='string')return null;
     const member=this.db.prepare("SELECT l.user_id AS userId,l.org_id AS orgId,u.email FROM oidc_links l JOIN users u ON u.id=l.user_id AND u.org_id=l.org_id JOIN organizations o ON o.id=l.org_id WHERE l.issuer=? AND l.subject=? AND l.org_id=? AND l.region_code='US' AND u.region_code='US' AND o.region_code='US'").get(issuer,subject,orgId);
