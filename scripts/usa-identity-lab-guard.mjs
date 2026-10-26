@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const server=read('apps/usa-lab/src/server.mjs'),store=read('apps/usa-lab/src/store.mjs');
 const oidc=read('apps/usa-lab/src/oidc.mjs');
+const flow=read('apps/usa-lab/src/auth-flow.mjs');
 const entry=read('apps/web/usa-preview/main.tsx'),root=JSON.parse(read('package.json'));
 const ci=read('.github/workflows/usa-identity-lab.yml');
 assert.equal(root.workspaces.some(x=>x.includes('usa-lab')),false,'Lab cannot join production workspaces');
 assert.ok(!entry.includes('usa-lab'),'Public US preview cannot import lab');
-for(const source of [server,store,oidc]){
+for(const source of [server,store,oidc,flow]){
   assert.ok(!/from ["'](?:\.\.\/\.\.\/|@nexoffice\/)/.test(source),'Lab cannot import Brazil code');
   assert.ok(!/supabase\.co|onrender\.com|DATABASE_URL|NEXOFFICE_API|TRYNEXA/i.test(source),'Lab cannot access Brazil infra');
 }
@@ -20,4 +21,12 @@ assert.ok(store.includes("basename(dbFile) !== 'us-lab.sqlite'"),'USA store must
 assert.ok(ci.includes('node --test apps/usa-lab/test/*.test.mjs'),'PR CI must run all isolation and token tests');
 assert.ok(oidc.includes("header.alg !== 'RS256'") && oidc.includes('verify('),'OIDC adapter must pin RS256 signatures');
 assert.ok(!oidc.includes('fetch('),'OIDC fixture adapter must never fetch remote JWKS');
+assert.ok(flow.includes("process.env.USA_LAB_ENABLED !== '1'"),'US OIDC flow must remain disabled by default');
+assert.ok(flow.includes("code_challenge_method','S256'"),'US OIDC flow must mandate PKCE S256');
+assert.ok(flow.includes("expectedNonce:saved.nonce"),'US OIDC callback must verify nonce');
+assert.ok(flow.includes("saved.expiresAt <= clock()"),'US OIDC callback must expire state');
+assert.ok(flow.includes("pending.delete(state)"),'US OIDC flow must consume state once');
+assert.ok(!flow.includes('fetch(') && !flow.includes('createServer('),'US OIDC contract cannot open network or HTTP endpoints');
+assert.ok(oidc.includes("expectedNonce"),'US token verifier must allow nonce enforcement');
+
 console.log('PASS: US identity lab isolated, fail-closed, never included in production web');
