@@ -41,7 +41,9 @@ async function withUSConsentTransaction<T>(
 }
 export async function authorizeUSAgenticWalletRead(input:{
  pool:USWalletPool;authenticatedUSSubject:string;bindingId:string;now:Date;
- verifyExplicitGesture:()=>Promise<VerifiedUSReadApproval>
+ verifyExplicitGesture:()=>Promise<VerifiedUSReadApproval>;
+ /** Internal only: transaction and row locks held by a verified USA Privy DID owner. */
+ verifiedPrivyTransactionClient?:USWalletClient;
 }):Promise<USReadConsentResult>{
  if(!SUBJECT.test(input.authenticatedUSSubject)||!UUID.test(input.bindingId)||
     !Number.isFinite(input.now?.getTime())||typeof input.verifyExplicitGesture!=='function')
@@ -96,7 +98,7 @@ export async function authorizeUSAgenticWalletRead(input:{
   return {consentId:id,bindingId:input.bindingId,subject:input.authenticatedUSSubject,
    expiresAt:expiration,capability:US_AGENTIC_WALLET_READ,
    executionAllowed:false,signingAllowed:false};
- });
+ },input.verifiedPrivyTransactionClient);
 }
 export async function revokeUSAgenticWalletRead(input:{
  pool:USWalletPool;authenticatedUSSubject:string;consentId:string;now:Date;
