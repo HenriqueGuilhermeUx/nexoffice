@@ -43,8 +43,8 @@ export default function USPreview() {
   return (
     <div className="avus">
       <header className="avus-header">
-        <a className="avus-wordmark" href="/us" aria-label="NexOffice USA home">NexOffice<span>USA</span></a>
-        <nav aria-label="Page navigation"><a href="#features">Capabilities</a><a href="#release">US availability</a></nav>
+        <a className="avus-wordmark" href="/us/" aria-label="NexOffice USA home">NexOffice<span>USA</span></a>
+        <nav aria-label="Page navigation"><a href="#features">Capabilities</a><a href="#sample-tasks">Try tasks</a><a href="#sample-crm">Try CRM</a><a href="#sample-documents">Review docs</a><a href="#release">US availability</a></nav>
       </header>
       <main>
         <section className="avus-hero">
@@ -53,7 +53,7 @@ export default function USPreview() {
             <p className="avus-subheading">Business operations + AI</p>
             <h1>One place to keep the business moving.</h1>
             <p className="avus-intro">Bring CRM, tasks, documents, marketing and approval workflows together in a practical business command center. This is an early preview of the US product experience.</p>
-            <div className="avus-hero-actions"><a href="#features" className="avus-primary">Explore capabilities <span aria-hidden="true">↗</span></a><a href="#release" className="avus-outline">Launch status</a></div>
+            <div className="avus-hero-actions"><a href="#sample-tasks" className="avus-primary">Try the workspace <span aria-hidden="true">↗</span></a><a href="#release" className="avus-outline">Launch status</a></div>
             <p className="avus-disclaimer">Product localization preview · No US checkout or account activation</p>
           </div>
           <div className="avus-graphic" aria-label="Illustrative operating flow">
