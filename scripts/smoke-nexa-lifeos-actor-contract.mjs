@@ -68,13 +68,34 @@ test('incompatible RLS proposals fail the drift preflight',()=>{
   assert.deepEqual(inspectRlsDraftCompatibility(aligned),[]);
 });
 
-test('when a production RLS SQL candidate is added, it MUST match the runtime contract',()=>{
-  if(!existsSync(rlsFile)){
-    // The SQL belongs to a different, unmerged DRAFT PR at present.
-    // Absence is NOT readiness; runtime is required to keep returning 503.
-    process.stdout.write('NEXA_PF_NO_GO: RLS SQL absent on this isolated branch; production guard remains closed\n');
-    return;
+test('disposable-only RLS candidate matches all 12 owner tables and 13 policies',()=>{
+  assert.ok(existsSync(rlsFile),'Reconciled RLS proposal must exist on this branch');
+  const sql=read(rlsFile);
+  assert.deepEqual(inspectRlsDraftCompatibility(sql),[],
+    'Proposed SQL cannot use the legacy setting or PUBLIC policy roles');
+  const expected=['accounts','audit_events','bills','budgets','connections','consents',
+    'goals','life_intents','life_preferences','profiles','transactions','wealth_items'];
+  assert.match(sql,/current_database\(\)\s*<>\s*'nexa_lifeos_schema_rehearsal_ci'/i,
+    'RLS proposal must refuse non-disposable databases');
+  for(const table of expected){
+    assert.ok(sql.includes('ALTER TABLE nex_personal.'+table+' FORCE ROW LEVEL SECURITY;'),
+      'Expected FORCE RLS for '+table);
   }
-  assert.deepEqual(inspectRlsDraftCompatibility(read(rlsFile)),[],
-    'Incompatible RLS draft: reconcile the role/GUC before any database migration');
+  const policies=sql.match(/\bCREATE\s+POLICY\b[\s\S]*?;/gi)||[];
+  assert.equal(policies.length,13,'Twelve PF tables require thirteen owner/audit policies');
+  for(const p of policies){
+    assert.match(p,/\bTO\s+nexa_lifeos_app\b/i);
+    assert.match(p,/current_setting\('app\.user_id',true\)/);
+    if(/\bFOR ALL\b/i.test(p)) {
+      assert.match(p,/\bUSING\s*\(/i);
+      assert.match(p,/\bWITH CHECK\s*\(/i);
+    }
+  }
+  const audit=policies.filter(p=>/ON nex_personal\.audit_events/i.test(p));
+  assert.equal(audit.length,2);
+  assert.ok(audit.some(p=>/FOR SELECT/i.test(p)));
+  assert.ok(audit.some(p=>/FOR INSERT/i.test(p) && /actor_user_id/i.test(p)));
+  assert.ok(audit.every(p=>!/FOR (?:ALL|UPDATE|DELETE)/i.test(p)),
+    'Audit events must not have update/delete RLS policies');
+  process.stdout.write('NEXA_PF_NO_GO: CI-only SQL contract matches; auth, RLS E2E and production review remain pending\n');
 });
