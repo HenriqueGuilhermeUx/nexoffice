@@ -1,5 +1,5 @@
 /**
- * Nex Personal trusted citizen helpers.
+ * Nexa trusted citizen helpers.
  * Browser-only arithmetic and educational guides: no identity numbers, CPF,
  * contract bodies, debt amounts, municipality, or personal details sent to API.
  * No third-party calls, automatic searches, advertising or persisted drafts.
