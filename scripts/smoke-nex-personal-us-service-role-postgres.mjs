@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import pg from 'pg';
+import {issuePersistedUSWalletChallenge,bindVerifiedUSExternalWallet,revokeUSWalletBinding}
+ from '../apps/api/dist/personal-us-wallet-binding-store.js';
+import {authorizeUSAgenticWalletRead,revokeUSAgenticWalletRead}
+ from '../apps/api/dist/personal-us-agentic-consent-store.js';
+import {assessServerUSAgenticRead}
+ from '../apps/api/dist/personal-us-agentic-server-read.js';
+import {US_POLYGON_NATIVE_USDC}
+ from '../apps/api/dist/personal-us-polygon-usdc-reader.js';
 
 /**
  * Disposable Postgres 16 role/RLS acceptance test, no prod migrations.
@@ -61,7 +69,7 @@ try{
  assert.ok(Object.values(roleInfo.rows[0]).every(x=>x===false),
   'The trusted service MUST be a NOLOGIN/NOINHERIT non-superuser without RLS bypass');
  assert.equal((await pool.query(
-  "SELECT count(*)::int AS n FROM pg_policies WHERE schemaname='nex_personal_us'")).rows[0].n,11);
+  "SELECT count(*)::int AS n FROM pg_policies WHERE schemaname='nex_personal_us'")).rows[0].n,12);
  const {rows:tableSecurity}=await pool.query(
   `SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity
      FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -74,8 +82,8 @@ try{
  await pool.query(
   "INSERT INTO nex_personal_us.profiles(id,auth_subject,status) VALUES($1,$2,'active')",
   [owner,walletOwner]);
- // Trusted NOLOGIN service can read existing profiles, but cannot create or
- // alter them: identity onboarding is a separate scope.
+ // Trusted NOLOGIN service can read/lock existing profiles and change only
+ // the lock-compatible updated_at column, never identity or status.
  const svc=await pool.connect();
  try{
   await underRole(svc,service,async conn=>{
@@ -134,6 +142,85 @@ try{
     [new Date(now.getTime()+2000),external]);
   });
  }finally{svc.release();}
+ // Exercise the actual USA TypeScript wallet and Maya services under this
+ // *non-superuser* NOLOGIN role, rather than proving SQL statements alone.
+ // The CI owner controls SET LOCAL ROLE immediately after BEGIN; no login
+ // credential, network RPC or operational account is used.
+ const scopedPool={
+  connect:async()=>{
+   const underlying=await pool.connect();
+   return {
+    query:async (sql,params=[])=>{
+     const result=await underlying.query(sql,params);
+     if(sql==='BEGIN')await underlying.query('SET LOCAL ROLE '+service);
+     return result;
+    },
+    release:()=>underlying.release()
+   };
+  }
+ };
+ const runtimeWallet='0x7777777777777777777777777777777777777777';
+ const runtimeNow=new Date();
+ const runtimeOrigin='https://us-nexa-ci.example.test';
+ const runtimeChallenge=await issuePersistedUSWalletChallenge({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  walletAddress:runtimeWallet,trustedOrigin:runtimeOrigin,now:runtimeNow
+ });
+ const runtimeBound=await bindVerifiedUSExternalWallet({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  challengeId:runtimeChallenge.challengeId,trustedOrigin:runtimeOrigin,
+  signedMessage:runtimeChallenge.message,signature:'0x'+'ab'.repeat(65),
+  now:new Date(runtimeNow.getTime()+500),
+  // Cryptographic ECDSA/ERC-1271 verification is exercised in separate CI jobs.
+  verifier:async ({expectedAddress})=>({
+   verified:true,recoveredAddress:expectedAddress,verificationType:'eoa'
+  })
+ });
+ assert.equal(runtimeBound.executionAllowed,false);
+ assert.equal(runtimeBound.walletAddress.toLowerCase(),runtimeWallet.toLowerCase());
+ const consentNow=new Date(runtimeNow.getTime()+1500);
+ const runtimeConsent=await authorizeUSAgenticWalletRead({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  bindingId:runtimeBound.walletBindingId,now:consentNow,
+  verifyExplicitGesture:async()=>({
+   approvalId:uuid(),subject:walletOwner,
+   bindingId:runtimeBound.walletBindingId,
+   approvedAt:new Date(runtimeNow.getTime()+500).toISOString(),
+   capability:'wallet.read.polygon_usdc',source:'server_authenticated_explicit_gesture'
+  })
+ });
+ let rpcCalls=0;
+ const read=await assessServerUSAgenticRead({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  consentId:runtimeConsent.consentId,now:new Date(consentNow.getTime()+200),
+  fetchUSDCFromTrustedServer:async address=>{
+   rpcCalls++;
+   assert.equal(address.toLowerCase(),runtimeWallet.toLowerCase());
+   return {chainId:137,tokenAddress:US_POLYGON_NATIVE_USDC,
+    walletAddress:address,rawBalance:'1000000',decimals:6,
+    source:'trusted_server_polygon_rpc',observedAt:new Date().toISOString()};
+  }
+ });
+ assert.equal(read.decision.decision,'allow_read',
+  'Actual US agentic server RLS row locks must work under service role');
+ assert.equal(read.rawUsdcBalance,'1000000');
+ assert.equal(rpcCalls,1);
+ const revokedConsent=await revokeUSAgenticWalletRead({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  consentId:runtimeConsent.consentId,now:new Date()
+ });
+ assert.equal(revokedConsent.revoked,true);
+ const revokedRead=await assessServerUSAgenticRead({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  consentId:runtimeConsent.consentId,now:new Date(),
+  fetchUSDCFromTrustedServer:async()=>{throw Error('REVOKED_RPC_MUST_NOT_RUN');}
+ });
+ assert.equal(revokedRead.decision.decision,'deny');
+ const revokedWallet=await revokeUSWalletBinding({
+  pool:scopedPool,authenticatedUSSubject:walletOwner,
+  bindingId:runtimeBound.walletBindingId,now:new Date()
+ });
+ assert.equal(revokedWallet.revoked,true);
  const adminResult=await pool.query(
   'SELECT revoked_at FROM nex_personal_us.wallet_agentic_read_consents WHERE id=$1',
   [consent]);
