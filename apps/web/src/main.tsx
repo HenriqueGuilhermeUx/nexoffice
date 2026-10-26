@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import {session} from './api';
 import NexaPjAccessGate from './NexaPjAccessGate';
 import ProductDiscovery from './ProductDiscovery';
 import StandaloneSetup from './StandaloneSetup';
@@ -38,6 +39,8 @@ const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
 const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
 const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
+// Gated PJ builds must not retain dormant enterprise credentials from an older preview.
+if(nexaPjBuild)session.clearPendingPjAccess();
 if(nexaPjBuild){
  document.documentElement.classList.add('nexa-pj-theme');
  document.title='Nexa PJ — Gestão empresarial e Conta Nexa';
