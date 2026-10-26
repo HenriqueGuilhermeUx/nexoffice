@@ -49,3 +49,14 @@ A troca do código por um `id_token` é **simulada por uma função injetada nos
 A autorização de teste não cria conta real, não emite cookie real, não armazena credenciais externas e não acessa o Render. A execução depende de `USA_LAB_ENABLED=1`, é bloqueada sob `NODE_ENV=production`, exige redirect de loopback e não aparece em nenhum endpoint público. Os testes estão em `apps/usa-lab/test/auth-flow.test.mjs` e no workflow `usa-identity-lab.yml`.
 
 **Pendências necessárias antes de produção:** provedor de identidade escolhido, descoberta OIDC confiável, HTTPS callback real, distribuição e rotação de JWKS, autenticação de cliente e troca de códigos com timeout, cookie de sessão e proteção CSRF no BFF, expiração/revogação, MFA, confirmação de e-mail, auditoria, backups e provisionamento do banco US. Nenhuma dessas partes foi ativada.
+
+
+## Servidor HTTP BFF local — contrato ponta a ponta
+
+Foi acrescentado `apps/usa-lab/src/bff.mjs`, que executa exclusivamente em `127.0.0.1` e somente com `USA_LAB_ENABLED=1` fora de `NODE_ENV=production`. O próprio código limita o emissor a domínios de identidade **sintéticos terminados em .example**.
+
+No laboratório, o início de login é protegido por verificação da origem HTTP e gera prova aleatória vinculada ao navegador. Um cookie temporário `HttpOnly; SameSite=Lax` permite o retorno de navegação do provedor simulado; a resposta ao callback consome o `state`, valida PKCE e `nonce`, exige vínculo com uma empresa americana e cria uma sessão de teste separada `HttpOnly; SameSite=Strict`. O retorno HTTP redireciona para um caminho interno sem expor código ou token na URL. Logout revoga a sessão.
+
+O servidor não implementa cadastro público nem faz qualquer requisição externa. `apps/usa-lab/test/bff.test.mjs` verifica dois tenants com dados fictícios, cookies, sessão, replay, prova de navegador trocada, origem falsa, Host/proxy e restrição de acesso entre organizações.
+
+**Importante:** em produção seria obrigatório rodar HTTPS com cookies `Secure`, gestão distribuída de sessão e `state`, provedor OIDC real, descoberta/JWKS de origem autenticada e rotativa, revogação e monitoramento, proteção anti-CSRF aprovada para o fluxo, recuperação de conta e revisão de ameaças. Nada disso está ativado; o staging público do Render permanece estático e **não carrega este servidor**.
