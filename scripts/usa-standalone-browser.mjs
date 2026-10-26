@@ -57,6 +57,15 @@ try {
   await page.getByLabel('Fictional organization').fill('Example Corporation');
   await page.getByRole('button', {name:'Add sample opportunity'}).click();
   await page.getByText('Demo customer request').waitFor();
+  await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
+  assert.equal(await page.locator('.avdr-list article').count(), 3);
+  await page.getByLabel('Fictional document title').fill('Fictional NDA review');
+  await page.getByRole('button', { name: 'Add sample document' }).click();
+  await page.getByLabel('Fictional NDA review review stage').selectOption('In review');
+  assert.equal(await page.locator('.avdr-list article').count(), 4);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: 'Know exactly what needs review.' }).waitFor();
+  assert.equal(await page.locator('.avdr-list article').count(), 3, 'Review input cannot persist');
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
   assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
