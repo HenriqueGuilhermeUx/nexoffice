@@ -56,3 +56,21 @@ No novo painel `NexaCryptoHub.tsx`:
 - Não houve alteração nos usuários Wallet, carteira Privy, `privyWalletId`, `walletAddress`, saldos, KYC, Pix/USDC, tesouraria ou ledger. Nenhuma liberação de cliente no domínio Wallet será realizada sem testar a mesma identidade e endereço de carteira já existente.
 
 **Ordem da próxima liberação:** autorização de origem no mesmo Privy App → consulta pública `allowed_domains` positiva → teste anônimo de iframe sem 403/CSP → E2E de usuário já existente e mesma carteira → plano de rollback → revisão independente dos 302 e da instalação PWA. A PR #86 do Life OS não precisa esperar essa migração para continuar evoluindo em homologação.
+
+## Diretriz definitiva de produto, marca e domínios — 25/10/2026
+
+**Esta seção prevalece sobre as notas históricas acima, que registram o estágio de migração de 24/10.**
+
+| Produto público | Domínio principal/objetivo | Experiência |
+| --- | --- | --- |
+| **Nexa** (antigo “Nex Personal”, expressão apenas histórica) | **`https://trynexa.com.br`** | Plataforma principal PF/Life OS: Maya, agentes, salas, finanças, planejamento, documentos, decisões, F-Insight e área de acesso à Wallet |
+| **Nexa Wallet** | **`https://wallet.trynexa.com.br`** | Serviço cripto específico: autenticação Privy existente, saldos, Pix ↔ USDC, cripto, transações, carteiras externas, KYC e histórico |
+| **Nexa PJ** | Experiência empresarial própria | Não confundir com PF Life OS e não alterar a experiência PJ do NexOffices nesta PR |
+
+**Uma única identidade visual** — símbolo oficial de Nexa igual ao SVG existente em `HenriqueGuilhermeUx/nexa-site/icon.svg`, armazenado em `apps/web/public/nexa-logo.svg` da experiência Life OS; cores navy `#06111F`, blue `#218BFF`, cyan `#31D7FF`. As quatro superfícies visuais de identificação do Life OS usam o mesmo símbolo SVG, não “N” genérico. A build isolada da homologação usa `/nexa-logo.svg` também em `rel=icon` e `shortcut icon`; o `apps/web/index.html` e o `apps/web/public/favicon.svg` do NexOffices PJ continuam inalterados.
+
+**Situação efetiva:** `trynexa.com.br/` publica a homepage institucional Nexa e `/meu-espaco` apresenta o Life OS; o **aplicativo PF completo** ainda está no Render de homologação `nex-personal-preview-api.onrender.com`, por convite, em branch/DB separados. Isto **não é o cutover concluído** do app PF para o domínio raiz. O domínio `wallet.trynexa.com.br` serve a landing cripto, mas seus caminhos de login/cadastro/PWA redirecionam temporariamente a `trynexa.com.br` devido à falta da origem na allowlist Privy.
+
+**Próxima entrega para operar o Life OS realmente em `trynexa.com.br`:** projetar publicação estável do frontend PF sob rota proprietária do domínio principal, com backend e banco de produção PF exclusivos, cookie/audience/sessão separados do Wallet, migrações revisadas, permissões, consentimento, segurança, E2E e rollback. Não usar banco de homologação com dados reais, não compartilhar JWT PF com a Wallet e não publicar redirects/proxy financeiro por tentativa e erro. Só ligar a rota final ao produto após testes e aprovação explícita de corte de produção. A home `/` poderá continuar como apresentação comercial com entrada clara para o app PF, sem confundir `/portal` que é acesso legado da Wallet.
+
+**Não permitir rebranding de volta:** nomes internos `NexPersonal`, `nex_personal`, `nex.personal.token` ficam por compatibilidade, mas cópias visíveis não devem usar “Nex Personal”. O código de login PF (preview) não cria carteiras Privy ou move saldos; seu link para `trynexa.com.br/portal` é um handoff sem credenciais. A identidade Wallet e o endereço on-chain dos clientes jamais são substituídos por essa unificação de marca.
