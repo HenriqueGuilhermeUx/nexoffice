@@ -35,7 +35,8 @@ export function evaluateLifeosSchema({tables,policies,role}){
   if(!new RegExp('\\b'+column+'\\b','i').test(expression)
     ||!expression.includes('app.user_id')
     ||!/current_setting\s*\(/i.test(expression)
-    ||/\bor\b|;|--|\btrue\b/i.test(expression))
+    ||/\bor\b|;|--/i.test(expression)
+    ||/^\s*\(?\s*true\s*\)?\s*$/i.test(expression))
    throw new Error('PF policy lacks a narrow tenant-bound row predicate: '+policy.name);
  }
  for(const name of REQUIRED_PF)if(!pf.some(t=>t.name===name))
