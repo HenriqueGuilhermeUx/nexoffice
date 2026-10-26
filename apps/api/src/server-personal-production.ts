@@ -39,6 +39,11 @@ for(const [key,value] of Object.entries({
 if(process.env.NEX_PERSONAL_PREVIEW||process.env.NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS
   ||process.env.NEX_PERSONAL_PREVIEW_INVITE_SHA256)
  throw new Error('Nexa Life OS production must not receive preview credentials');
+// The public env checker contains all DB hostname/Neon/SSL/client flags and
+// must be executed before registering any user or financial route.
+// @ts-ignore NodeNext imports the source-side .mjs contract from the repo root.
+const {inspectLifeosProdEnv}=await import('../../../scripts/check-nexa-lifeos-prod-env.mjs');
+inspectLifeosProdEnv(process.env);
 if(process.env.NEXA_LIFEOS_API_ORIGIN!=='https://api-life.trynexa.com.br')
  throw new Error('Dedicated Nexa PF production API origin required');
 if(!process.env.DATABASE_URL||!process.env.DATABASE_URL.includes('/nexa_lifeos_prod'))
@@ -46,6 +51,20 @@ if(!process.env.DATABASE_URL||!process.env.DATABASE_URL.includes('/nexa_lifeos_p
 
 const app=Fastify({logger:{level:'warn',redact:['req.headers.authorization','req.headers.cookie']},bodyLimit:512*1024});
 const SITE='https://trynexa.com.br';
+// Single-instance defense in depth only. Go-live requires an audited shared
+// limiter at ingress, antifraud telemetry and reset/recovery safeguards.
+const attempts=new Map<string,{start:number;count:number}>();
+function limitLogin(address:string){
+ const now=Date.now(),key=address||'unknown';
+ const existing=attempts.get(key);
+ const next=existing&&now-existing.start<15*60_000?existing:{start:now,count:0};
+ next.count++;attempts.set(key,next);
+ if(attempts.size>5000){
+  for(const [ip,entry] of attempts)
+   if(now-entry.start>15*60_000)attempts.delete(ip);
+ }
+ if(next.count>12)throw new ApiError(429,'too_many_requests','Muitas tentativas de entrada.');
+}
 app.addHook('onRequest',async(req,reply)=>{
  reply.header('x-content-type-options','nosniff');
  reply.header('x-frame-options','DENY');
@@ -64,13 +83,18 @@ app.addHook('onRequest',async(req,reply)=>{
  // directly. Registration remains a separate future legal/security release.
  if(req.method==='POST'&&req.url.split('?')[0]==='/v1/personal/auth/register')
   throw new ApiError(503,'registration_not_open','Cadastro Nexa em preparação.');
+ if(req.method==='POST'&&req.url.split('?')[0]==='/v1/auth/login')
+  limitLogin(req.ip);
 });
 app.options('*',async(_req,reply)=>reply.code(204).send());
 const email=z.string().trim().email().transform(v=>v.toLowerCase());
-app.get('/health',async()=>({
- status:'ok',service:'nexa-lifeos-prod-api',externalFinancialActions:false,
- walletTokenBridge:false,publicSignup:false
-}));
+app.get('/health/live',async()=>({status:'ok',service:'nexa-lifeos-prod-api'}));
+app.get('/health',async()=>{
+ // Readiness requires a reachable dedicated PostgreSQL database.
+ await query('select 1 as available');
+ return {status:'ok',service:'nexa-lifeos-prod-api',
+  externalFinancialActions:false,walletTokenBridge:false,publicSignup:false};
+});
 app.post('/v1/auth/login',async req=>{
  const input=z.object({email,password:z.string().min(1).max(256)}).strict().parse(req.body);
  const rows=await query<{id:string;name:string;email:string;password_hash:string;status:string}>(
