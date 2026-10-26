@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign, createHash } from 'node:crypto';
+import { request as rawHttpRequest } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -72,6 +73,17 @@ async function request(origin,path,method='GET',body,cookie,options={}) {
   const raw=await response.text();
   const data=raw?JSON.parse(raw):null;
   return {status:response.status,data,headers:response.headers,cookies:response.headers.getSetCookie()};
+}
+/** Node fetch may normalize Host. Raw loopback HTTP is required to test host spoofing. */
+async function rawHeaderProbe(origin,path,headers) {
+  const target=new URL(origin);
+  return new Promise((resolve,reject)=>{
+    const req=rawHttpRequest({
+      hostname:'127.0.0.1',port:Number(target.port),path,method:'GET',
+      headers
+    },res=>{const status=res.statusCode;res.resume();res.on('end',()=>resolve(status));});
+    req.on('error',reject);req.end();
+  });
 }
 const cookie=(cookies,name)=>{
   const item=cookies.find(value=>value.startsWith(name+'='));
@@ -170,8 +182,8 @@ test('no network bind, no external origin, no open registration or permissive CO
     const bad=await request(bff.origin,'/lab/oidc/begin','POST',{orgId:orgA.id},null,{headers:{Origin:'https://attacker.example'}});
     assert.equal(bad.status,403);
     assert.equal((await request(bff.origin,'/lab/oidc/register','POST',{email:'x@fixture.example'})).status,401);
-    assert.equal((await request(bff.origin,'/lab/oidc/result','GET',null,null,{headers:{Host:'evil.example'}})).status,403);
-    assert.equal((await request(bff.origin,'/lab/oidc/result','GET',null,null,{headers:{'X-Forwarded-Host':'other.example'}})).status,403);
+    assert.equal(await rawHeaderProbe(bff.origin,'/lab/oidc/result',{Host:'evil.example'}),403);
+    assert.equal(await rawHeaderProbe(bff.origin,'/lab/oidc/result',{Host:new URL(bff.origin).host,'X-Forwarded-Host':'other.example'}),403);
     const res=await request(bff.origin,'/lab/oidc/result');
     assert.equal(res.headers.get('access-control-allow-origin'),null);
     assert.equal(res.headers.get('content-security-policy').includes("default-src 'none'"),true);
