@@ -56,4 +56,21 @@ npx vite build --config vite.usa.config.ts
 
 This creates `apps/web/dist-usa/`. The USA browser workflow then tests the built standalone site in Chromium, examines its output for selected prohibited Brazilian integration strings and archives only `dist-usa/` as the short-lived `nexoffices-usa-standalone-preview` GitHub Actions artifact. The included `_redirects` is intended for a future **separate**, approved preview host; it does not change existing production URLs or deployments.
 
-**Release gate:** no NexOffices USA public staging URL is validated yet. Do not claim the artifact is already deployed. Publishing requires an isolated site configured to serve `dist-usa`, explicit build-source mapping to this US feature branch, no inherited Brazil secrets, external URL verification, and approval after all required US QA. The original NexOffices web build and four preexisting Brazilian copy-assertion failures are distinct from this standalone package. Keep PR #91 draft, and never resolve those failures by relaxing Brazilian tests without a separate root-cause review.
+**Historical note (superseded on 2026-10-25):** no NexOffices USA public staging URL had been validated at this point. Publishing requires an isolated site configured to serve `dist-usa`, explicit build-source mapping to this US feature branch, no inherited Brazil secrets, external URL verification, and approval after all required US QA. The original NexOffices web build and four preexisting Brazilian copy-assertion failures are distinct from this standalone package. Keep PR #91 draft, and never resolve those failures by relaxing Brazilian tests without a separate root-cause review.
+
+## USA staging status and scope — updated 2026-10-25
+
+- **Actual staging service:** [nexoffices-usa-staging.onrender.com/us/](https://nexoffices-usa-staging.onrender.com/us/); Render static-site service `srv-dbf91u67bikc73ckmk4g` in Henrique's existing workspace (not Nexa Global).
+- **Repository/branch:** `HenriqueGuilhermeUx/nexoffice` / `feature/usa-localized-preview-20261024`; `autoDeploy=no`. Build command uses `vite.usa.config.ts`, publishing only `apps/web/dist-usa`.
+- The site serves a physical `/us/index.html` for Render compatibility; no Brazilian UI bundle, environment variables, accounts, payment providers or API endpoints are needed.
+- **Last previously verified external smoke:** mobile 390px and desktop 1280px via the USA portfolio Chromium workflow; fictional tasks and CRM, no persistence or remote API calls.
+- **Next demo increment in this PR:** a fictional document review queue with reviewer stages and a temporary activity list. It has no upload field, signature, legally binding approval, legal audit proof or external connection. Confirm exact-head CI and staging again before calling this increment deployed.
+- **Not a US commercial release:** the app still lacks region-specific accounts, billing, tax, financial integration, compliance review, legal terms and commercial onboarding.
+- **Brazilian CI debt:** [issue #96](https://github.com/HenriqueGuilhermeUx/nexoffice/issues/96) tracks four inherited legacy text assertions; they are deliberately not disabled or patched inside this USA PR.
+
+### Staging update order
+
+1. Build and pass `scripts/usa-preview-check.mjs`, `scripts/usa-browser-smoke.mjs`, and `scripts/usa-standalone-browser.mjs` for the **exact new US feature-branch head**.
+2. Manually deploy **only** the isolated Render static staging site because auto deploy is off; confirm deployed commit SHA.
+3. Validate `/us/` from outside Render in headless mobile and desktop browsers, including ephemeral document review activity and no external requests.
+4. Keep [PR #91](https://github.com/HenriqueGuilhermeUx/nexoffice/pull/91) draft and the Brazil launch/merge entirely separate.
