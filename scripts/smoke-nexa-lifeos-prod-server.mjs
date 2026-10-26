@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {spawn} from 'node:child_process';
 import net from 'node:net';
 import {setTimeout as sleep} from 'node:timers/promises';
+
+const productionSource=readFileSync('apps/api/src/server-personal-production.ts','utf8');
+const sharedSource=readFileSync('apps/api/src/routes-nex-personal.ts','utf8');
+assert.match(sharedSource,/if\(options\.registrationEnabled!==false\)app\.post\('\/v1\/personal\/auth\/register'/);
+assert.match(productionSource,/registerNexPersonalRoutes\(app,\{registrationEnabled:false\}\)/);
+assert.doesNotMatch(productionSource,/registerNexPersonalRoutes\(app\);/);
+assert.match(productionSource,/app\.post\('\/v1\/personal\/auth\/register',[\s\S]*registration_not_open/);
 
 const dummy={
  NEXA_LIFEOS_ENV:'production',NODE_ENV:'production',
