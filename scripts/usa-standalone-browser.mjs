@@ -56,7 +56,7 @@ try {
   await page.getByLabel('Opportunity title').fill('Demo customer request');
   await page.getByLabel('Fictional organization').fill('Example Corporation');
   await page.getByRole('button', {name:'Add sample opportunity'}).click();
-  await page.getByText('Demo customer request').waitFor();
+  await page.locator('.avsp-list').getByText('Demo customer request').waitFor();
   assert.ok((await page.locator('.avhub-events article').count()) > 0, 'Live CRM sample must report to the integrated feed');
   // The US-only deployable artifact must include the document review experience.
   await page.getByRole('heading', {name:'Know exactly what needs review.'}).waitFor();

@@ -47,7 +47,7 @@ try {
   await page.getByLabel('Task description').fill('Review fictional US contract');
   await page.getByLabel('Team owner').selectOption('Operations');
   await page.getByRole('button', { name: 'Add sample task' }).click();
-  await page.getByText('Review fictional US contract').waitFor();
+  await page.locator('.avnw-list').getByText('Review fictional US contract').waitFor();
   assert.ok((await page.locator('.avhub-events article').count()) >= 1, 'Task creation must appear in shared activity feed');
   assert.equal(await metric(0), 4);
   assert.equal(await metric(1), 3);
@@ -57,7 +57,7 @@ try {
   assert.equal(await metric(2), 2);
   await page.getByRole('button', { name: 'Reset board' }).click();
   assert.equal(await metric(0), 3);
-  assert.equal(await page.getByText('Review fictional US contract').count(), 0);
+  assert.equal(await page.locator('.avnw-list').getByText('Review fictional US contract').count(), 0);
   await page.getByRole('heading', { name: 'Keep every next step visible.' }).waitFor();
   const opportunities = page.locator('.avsp-list article');
   assert.equal(await opportunities.count(), 3);
