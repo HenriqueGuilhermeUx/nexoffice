@@ -18,9 +18,11 @@ async function personalOwner(req:Parameters<typeof authenticate>[0]):Promise<str
   return user.id;
 }
 
-export async function registerNexPersonalRoutes(app:FastifyInstance){
-  // The existing identity/session mechanism is reused. No business workspace is created.
-  app.post('/v1/personal/auth/register',async req=>{
+export async function registerNexPersonalRoutes(app:FastifyInstance,options:{registrationEnabled?:boolean}={}){
+  // Preview keeps its existing invite-only registration by default. PF production
+  // must EXCLUDE the registration handler from the route table entirely.
+  // This is stronger than relying only on a pre-request hook to prevent writes.
+  if(options.registrationEnabled!==false)app.post('/v1/personal/auth/register',async req=>{
     const input=registration.parse(req.body),email=input.email.toLowerCase();
     if((await query('select id from users where lower(email)=lower($1) limit 1',[email])).length)
       throw new ApiError(409,'email_exists','Este e-mail já está cadastrado. Entre usando sua senha atual.');
