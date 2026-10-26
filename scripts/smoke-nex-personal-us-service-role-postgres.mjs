@@ -160,7 +160,9 @@ try{
   }
  };
  const runtimeWallet='0x7777777777777777777777777777777777777777';
- const runtimeNow=new Date();
+ // Use an actual past timestamp so the test cannot accidentally validate
+ // a consent issued in the future relative to the wall-clock RPC check.
+ const runtimeNow=new Date(Date.now()-5000);
  const runtimeOrigin='https://us-nexa-ci.example.test';
  const runtimeChallenge=await issuePersistedUSWalletChallenge({
   pool:scopedPool,authenticatedUSSubject:walletOwner,
