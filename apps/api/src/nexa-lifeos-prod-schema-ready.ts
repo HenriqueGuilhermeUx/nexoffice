@@ -20,7 +20,7 @@ async function inspect(){
    'select n.nspname as schema,c.relname as name,c.relrowsecurity as rls,c.relforcerowsecurity as "forceRls",pg_get_userbyid(c.relowner) as owner from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ($1,$2) and c.relkind=$3',
    ['public','nex_personal','r']),
   query<Record<string,unknown>>(
-   'select schemaname as schema,tablename as name,roles,qual,with_check as "withCheck",cmd from pg_policies where schemaname in ($1,$2)',
+   'select schemaname as schema,tablename as name,roles::text[] as roles,qual,with_check as "withCheck",cmd from pg_policies where schemaname in ($1,$2)',
    ['public','nex_personal']),
   query<Record<string,unknown>>(
    'select rolname,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole from pg_roles where rolname=current_user')
