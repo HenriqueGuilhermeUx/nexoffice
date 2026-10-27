@@ -185,8 +185,11 @@ try{
  let abortWasDelivered=false;
  await assert.rejects(authorizeVerifiedPrivyUSAgenticWalletRead({
   ...grantArgs,gestureTimeoutMs:35,
-  verifyExplicitGesture:async(_verifiedOwner,signal)=>new Promise(()=>{
-   signal?.addEventListener('abort',()=>{abortWasDelivered=true;},{once:true});
+  verifyExplicitGesture:async(_verifiedOwner,signal)=>new Promise((_resolve,reject)=>{
+   signal?.addEventListener('abort',()=>{
+    abortWasDelivered=true;
+    reject(Error('SIMULATED_PROVIDER_CANCELLED'));
+   },{once:true});
   })
  }),/US_AGENTIC_GESTURE_TIMEOUT/);
  assert.equal(abortWasDelivered,true,'Gesture adapter must receive cancellation');
