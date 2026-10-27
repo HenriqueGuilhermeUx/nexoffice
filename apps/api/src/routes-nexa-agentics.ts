@@ -12,8 +12,12 @@ async function ownerOf(req:Parameters<typeof authenticate>[0]){
 }
 export async function registerNexaAgenticsRoutes(app:FastifyInstance){
   app.get('/v1/personal/agentics/status',async req=>{
-    await ownerOf(req);
-    return {assistant:'maya',missionCreationEnabled:false,missionMonitoringEnabled:false,alertsEnabled:false,financialExecutionEnabled:false,premiumVerification:'pending',externalEffect:false};
+    const owner=await ownerOf(req);
+    const entitled=await query<{owner_user_id:string}>(`select owner_user_id from nex_personal.agentic_entitlements
+      where owner_user_id=$1 and status='active' and valid_until>now() and verified_at<=now() and verified_reference<>'' limit 1`,[owner]);
+    return {assistant:'maya',missionCreationEnabled:entitled.length>0&&process.env.NEXA_PF_AGENTICS_DRAFTS_ENABLED==='true',
+      missionMonitoringEnabled:false,alertsEnabled:false,financialExecutionEnabled:false,
+      premiumVerification:entitled.length?'verified':'required',externalEffect:false};
   });
   app.get('/v1/personal/agentics/missions',async req=>{
     const owner=await ownerOf(req);
