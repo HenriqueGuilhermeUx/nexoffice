@@ -17,7 +17,7 @@ export async function registerNexaAgenticsRoutes(app:FastifyInstance){
     return {missions,executionEnabled:false,monitoringEnabled:false,externalEffect:false};
   });
   app.post('/v1/personal/agentics/missions',async req=>{
-    const owner=await ownerOf(req);
+    await ownerOf(req);
     // No Premium subscription source has been verified for this PF identity yet.
     // Fail closed rather than granting an unentitled user access.
     if(process.env.NEXA_PF_AGENTICS_DRAFTS_ENABLED!=='true')
