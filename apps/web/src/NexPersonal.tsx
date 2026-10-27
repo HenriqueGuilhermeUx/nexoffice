@@ -3,6 +3,7 @@ import './nex-personal.css';
 import NexPersonalStudio from './NexPersonalStudio';
 import NexPersonalAgents,{type AgentId} from './NexPersonalAgents';
 import NexPersonalLifeOffice from './NexPersonalLifeOffice';
+import NexaMayaCoordinator from './NexaMayaCoordinator';
 import PersonalFInsight from './PersonalFInsight';
 import PersonalPrivacyCenter from './PersonalPrivacyCenter';
 import NexaCryptoHub from './NexaCryptoHub';
@@ -233,7 +234,10 @@ export default function NexPersonal(){
         onOpenWealth={()=>setSection('wealth')}/>}
       {section==='crypto'&&<NexaCryptoHub key={token}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
-            {section==='maya'&&<NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>}
+            {section==='maya'&&<>
+        <NexaMayaCoordinator onOpenAgent={agent=>{setInitialSpecialist(agent);setSection('agents');}} onOpenSection={setSection}/>
+        <NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>
+      </>}
       {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
     </main>
   </div>;
