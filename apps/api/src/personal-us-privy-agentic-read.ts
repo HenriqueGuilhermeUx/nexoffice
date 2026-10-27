@@ -129,3 +129,82 @@ export async function authorizeVerifiedPrivyUSAgenticWalletRead(input:{
   })
  });
 }
+
+/**
+ * INTERNAL USA ONLY — owner-scoped inventory for a future "Manage Maya access"
+ * screen. This is NOT an API route. The only owner identifier comes from
+ * official Privy token verification and a locked dedicated USA DID/profile
+ * link; no caller-supplied subject or wallet address participates.
+ *
+ * At most 20 active read-only grants are returned. Pagination/truncation
+ * is explicit so a future caller cannot mistake the list for an unlimited
+ * audit history. Revoked/expired grants and revoked wallets are suppressed.
+ * Locking the selected grants/bindings prevents a concurrent revoke from
+ * overtaking the consistent inventory transaction.
+ */
+export type USMayaReadConsentInventory={
+ consents:Array<{
+  consentId:string;walletBindingId:string;walletAddress:string;
+  source:'privy'|'external';capability:'wallet.read.polygon_usdc';
+  issuedAt:string;expiresAt:string
+ }>;
+ truncated:boolean;executionAllowed:false;signingAllowed:false
+};
+type USMayaReadConsentRow={
+ consent_id:string;wallet_binding_id:string;wallet_address:string;
+ source:string;issued_at:Date|string;expires_at:Date|string
+};
+export async function listVerifiedPrivyUSMayaReadConsents(input:{
+ pool:USWalletPool;
+ bearerToken:string;
+ dedicatedUSPrivyAppId:string;
+ verificationKey:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ now:Date;
+}):Promise<USMayaReadConsentInventory>{
+ if(!(input.now instanceof Date)||!Number.isFinite(input.now.getTime()))
+  throw Error('US_AGENTIC_INVENTORY_CLOCK_INVALID');
+ return withVerifiedUSPrivyIdentity({
+  pool:input.pool,
+  bearerToken:input.bearerToken,
+  dedicatedUSPrivyAppId:input.dedicatedUSPrivyAppId,
+  verificationKey:input.verificationKey,
+  verifyAccessToken:input.verifyAccessToken,
+  now:input.now,
+  onVerifiedOwner:async(owner,client)=>{
+   const result=await client.query<USMayaReadConsentRow>(`
+    SELECT c.id AS consent_id,c.wallet_binding_id,
+           b.wallet_address,b.source,c.issued_at,c.expires_at
+      FROM nex_personal_us.wallet_agentic_read_consents c
+      JOIN nex_personal_us.wallet_bindings b
+        ON b.id=c.wallet_binding_id AND b.owner_profile_id=c.owner_profile_id
+     WHERE c.owner_profile_id=$1 AND c.capability='wallet.read.polygon_usdc'
+       AND c.revoked_at IS NULL AND c.issued_at<=$2 AND c.expires_at>$2
+       AND b.chain_id=137 AND b.revoked_at IS NULL
+       AND b.source IN ('privy','external')
+     ORDER BY c.expires_at ASC,c.id ASC LIMIT 21
+     FOR SHARE OF c,b`,[owner.profileId,input.now.toISOString()]);
+   const completedAt=Math.max(input.now.getTime(),Date.now());
+   const entries=result.rows.map(row=>{
+    const issuedAt=new Date(row.issued_at);
+    const expiresAt=new Date(row.expires_at);
+    if(!Number.isFinite(issuedAt.getTime())||!Number.isFinite(expiresAt.getTime())||
+       !/^0x[0-9a-fA-F]{40}$/.test(row.wallet_address)||
+       (row.source!=='privy'&&row.source!=='external'))
+     throw Error('US_AGENTIC_INVENTORY_ROW_INVALID');
+    return {
+     consentId:row.consent_id,walletBindingId:row.wallet_binding_id,
+     walletAddress:row.wallet_address,source:row.source,
+     capability:'wallet.read.polygon_usdc' as const,
+     issuedAt:issuedAt.toISOString(),expiresAt:expiresAt.toISOString(),
+     validUntil:expiresAt.getTime()
+    };
+   }).filter(row=>row.validUntil>completedAt);
+   return {
+    consents:entries.slice(0,20).map(({validUntil,...item})=>item),
+    truncated:entries.length>20,
+    executionAllowed:false as const,signingAllowed:false as const
+   };
+  }
+ });
+}
