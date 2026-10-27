@@ -53,5 +53,6 @@ export function routeMayaIntent(raw:string):MayaRoute|null{
  const query=raw.trim().normalize('NFKC');
  if(query.length<3)return null;
  const item=WORDS.find(([,rule])=>rule.test(query));
- return ROUTES[item?.[0]||'planning'];
+ // Ambiguous requests must never be silently classified as a financial objective.
+ return item?ROUTES[item[0]]:null;
 }
