@@ -1,0 +1,25 @@
+name: Nexa Agentics safe checks
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/routes-nexa-agentics.ts'
+      - 'apps/web/src/NexaAgenticsCenter.tsx'
+      - 'apps/web/src/NexPersonal.tsx'
+      - 'infra/postgres/20261027_nexa_agentics_*.sql'
+      - 'scripts/nexa-agentics-contract.test.mjs'
+      - '.github/workflows/nexa-agentics-checks.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:agentics
+      - run: npm run typecheck
