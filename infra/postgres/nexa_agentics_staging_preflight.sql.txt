@@ -1,0 +1,11 @@
+-- Read-only preflight for Nexa PF Agentics staging. Run with psql -v ON_ERROR_STOP=1.
+-- Never use this script to provision Premium or move funds.
+select current_database() as database_name, current_user as db_role;
+select to_regclass('nex_personal.profiles') as pf_profiles,
+       to_regclass('nex_personal.agentic_missions') as missions,
+       to_regclass('nex_personal.agentic_entitlements') as entitlements;
+select name,applied_at from nexoffice_migrations
+where name in ('20261027_nexa_agentics_missions.sql','20261027_nexa_agentics_entitlements.sql')
+order by name;
+-- Safe counts, no personally identifying values or payment references.
+select case when to_regclass('nex_personal.agentic_missions') is null then 'missing' else 'present' end as mission_table;
