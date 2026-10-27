@@ -98,7 +98,7 @@ async function main(){
   await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
   const [tables,policies,roles]=await Promise.all([
    client.query('select n.nspname as schema,c.relname as name,c.relrowsecurity as rls,c.relforcerowsecurity as "forceRls",pg_get_userbyid(c.relowner) as owner from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ($1,$2) and c.relkind=$3',['public','nex_personal','r']),
-   client.query('select schemaname as schema,tablename as name,roles,qual,with_check as "withCheck",cmd from pg_policies where schemaname in ($1,$2)',['public','nex_personal']),
+   client.query('select schemaname as schema,tablename as name,roles::text[] as roles,qual,with_check as "withCheck",cmd from pg_policies where schemaname in ($1,$2)',['public','nex_personal']),
    client.query('select rolname,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole from pg_roles where rolname=current_user')
   ]);
   console.log(JSON.stringify(evaluateLifeosSchema({
