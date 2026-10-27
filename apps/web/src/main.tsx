@@ -38,9 +38,11 @@ const publicMaterialToken=/^[0-9a-f-]{36}$/i.test(pathMaterial||queryMaterial)?(
 const params=new URLSearchParams(location.search);
 const handoffRequested=new URLSearchParams(location.hash.replace(/^#/,'')).has('handoff');
 const nexaPjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
+// ERP-only rollout: NexOffice auth/workspace membership, never Nexa financial SSO.
+const pjErpOnly=(import.meta as any).env?.VITE_NEXA_PJ_ERP_ONLY_ENABLED==='true';
 const appRequested=nexaPjBuild||params.has('app')||handoffRequested;
 // Gated PJ builds must not retain dormant enterprise credentials from an older preview.
-if(nexaPjBuild){
+if(nexaPjBuild&&!pjErpOnly){
  session.clearPendingPjAccess();
  // A gated build must not leave an unredeemed handoff code visible in the URL.
  if(handoffRequested)history.replaceState({},'',location.pathname+location.search);
@@ -81,7 +83,7 @@ const appSurface=<>
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {nexaPjBuild
+    {nexaPjBuild&&!pjErpOnly
       ? <NexaPjAccessGate/>
       : publicMaterialToken
       ? <PublicMaterialView token={publicMaterialToken}/>
