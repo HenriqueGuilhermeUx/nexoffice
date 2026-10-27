@@ -18,6 +18,16 @@ BEGIN
 END;
 $nexa_ci_only$;
 
+-- SECURITY DEFINER must never be owned by the superuser running CI.
+-- This non-login role can only read the two necessary columns of the
+-- disposable users/session tables and cannot bypass RLS.
+CREATE ROLE nexa_lifeos_ci_session_owner NOLOGIN
+  NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+GRANT USAGE ON SCHEMA nex_personal TO nexa_lifeos_ci_session_owner;
+GRANT SELECT (id,status) ON public.users TO nexa_lifeos_ci_session_owner;
+GRANT SELECT (user_id,token_hash,expires_at) ON public.auth_sessions
+  TO nexa_lifeos_ci_session_owner;
+
 -- Fully-qualified identifiers and a fixed search_path prevent object
 -- shadowing inside the test-only privileged function.
 CREATE FUNCTION nex_personal.resolve_api_session(p_token_hash text)
@@ -36,6 +46,13 @@ AS $nexa_resolve$
    AND u.status='active'
  LIMIT 1
 $nexa_resolve$;
+
+-- New function owner needs transient CREATE permission on its schema,
+-- then loses it immediately after ownership transfer.
+GRANT CREATE ON SCHEMA nex_personal TO nexa_lifeos_ci_session_owner;
+ALTER FUNCTION nex_personal.resolve_api_session(text)
+  OWNER TO nexa_lifeos_ci_session_owner;
+REVOKE CREATE ON SCHEMA nex_personal FROM nexa_lifeos_ci_session_owner;
 
 -- EXECUTE defaults to PUBLIC in PostgreSQL; revoke explicitly.
 REVOKE ALL ON FUNCTION nex_personal.resolve_api_session(text) FROM PUBLIC;
