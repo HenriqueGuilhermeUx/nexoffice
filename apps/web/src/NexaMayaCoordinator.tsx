@@ -49,3 +49,4 @@ export default function NexaMayaCoordinator({onOpenAgent,onOpenSection}:{
   </div>}
   <small className="np-maya-limits">Maya coordena a Nexa PF. Na Nexa Wallet, quem atende é o Assistente Nexa, com login e permissões próprios. Nenhuma solicitação, token ou dado pessoal é transferido para a Wallet. Este encaminhamento não ativa pagamentos, negociações, investimentos ou integrações externas.</small>
  </section>;
+}
