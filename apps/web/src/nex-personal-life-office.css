@@ -2,7 +2,9 @@
 .np-life-hero{display:flex;justify-content:space-between;align-items:center;gap:18px;background:linear-gradient(108deg,#f1f6ff,#fff);border:1px solid #dce7fc;border-radius:19px;padding:24px 27px}
 .np-life-hero .np-kicker{margin:0}.np-life-hero h2{font-size:clamp(25px,2.8vw,35px);line-height:1.2;letter-spacing:-1.3px;margin:11px 0 9px}
 .np-life-hero p{margin:0;max-width:750px;color:#637788;line-height:1.55;font-size:14px}
-.np-life-maya{display:flex;align-items:center;gap:12px;flex-shrink:0;background:#fff;border-radius:16px;border:1px solid #d7e4f9;padding:13px 17px}
+.np-life-maya{display:flex;align-items:center;gap:12px;flex-shrink:0;background:#fff;border-radius:16px;border:1px solid #d7e4f9;padding:13px 17px;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:border-color .18s,box-shadow .18s}
+.np-life-maya:hover{border-color:#1458e8;box-shadow:0 3px 16px #1458e81a}
+.np-life-maya:focus-visible{outline:3px solid #1458e8;outline-offset:3px}
 .np-life-maya-icon{width:47px;height:47px;display:grid;place-items:center;background:#1458e8;color:#fff;border-radius:12px;font-size:24px;font-weight:850}
 .np-life-maya strong,.np-life-maya small{display:block}.np-life-maya small{font-size:11px;color:#5f7585;margin-top:4px}
 .np-life-map-wrap{background:#e7eef3;border:1px solid #ccd8e1;border-radius:18px;padding:20px;box-shadow:inset 0 0 0 5px #fff8}
