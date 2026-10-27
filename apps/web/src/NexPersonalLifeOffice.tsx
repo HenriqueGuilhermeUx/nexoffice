@@ -108,7 +108,7 @@ export default function NexPersonalLifeOffice({token,onOpenSection,onOpenAgent}:
     <h2>Entre. Escolha um ambiente. Resolva sua vida.</h2>
     <p>Seu escritório pessoal em 2D. A Maya direciona cada necessidade a um especialista, sem misturar seus dados entre empresas.</p>
    </div>
-   <div className="np-life-maya"><span className="np-life-maya-icon">M</span><div><strong>Maya</strong><small>Coordenadora · no seu controle</small></div></div>
+   <button type="button" className="np-life-maya" onClick={()=>onOpenSection('maya')} aria-label="Conversar com Maya, coordenadora da Nexa PF"><span className="np-life-maya-icon" aria-hidden="true">M</span><span><strong>Maya</strong><small>Toque para resolver com minha ajuda →</small></span></button>
   </div>
   {shouldHighlight&&<section className="np-life-nudge" role="status">
     <div><span className="np-kicker">MAYA · LEMBRETE NA ABERTURA</span>
