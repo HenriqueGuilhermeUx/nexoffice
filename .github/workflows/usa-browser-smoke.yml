@@ -30,6 +30,9 @@ jobs:
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the PR HEAD itself, not GitHub's synthetic merge ref.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -50,8 +53,11 @@ jobs:
       - name: Build US-only static staging package
         env:
           VITE_API_URL: http://127.0.0.1:65535
+          USA_PREVIEW_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: cd apps/web && npx vite build --config vite.usa.config.ts
       - name: Verify standalone USA bundle in Chromium
+        env:
+          USA_PREVIEW_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/usa-standalone-browser.mjs
       - name: Archive nonproduction static preview
         uses: actions/upload-artifact@v4
