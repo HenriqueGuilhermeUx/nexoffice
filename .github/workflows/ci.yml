@@ -149,6 +149,8 @@ jobs:
         run: node scripts/smoke-maya-playbooks-api.mjs
       - name: Smoke test Multi-Agent Playbooks V3 API
         run: node scripts/smoke-multi-agent-playbooks-api.mjs
+      - name: Nexa PJ registration and cross-company access CI
+        run: node scripts/smoke-nexa-pj-registration-ci.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
       - name: Smoke test billing trial
