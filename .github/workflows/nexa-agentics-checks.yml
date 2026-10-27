@@ -22,4 +22,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:agentics
+      - run: npm run build -w @nexoffice/domain
+      - run: npm run build -w @nexoffice/integrations
       - run: npm run typecheck
