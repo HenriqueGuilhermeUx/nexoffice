@@ -4,10 +4,12 @@
  * database except the short-lived GitHub integration rehearsal database.
  * Requires baseline five PF DDLs to have run in that disposable database.
  *
- * Does NOT validate authentication/resolve_api_session, SQL-injection
- * resistance or allow the API's unconditional HTTP 503 gate to be lifted.
+ * Exercises a CI-only session hash resolver and RLS isolation under an
+ * unprivileged role. Does NOT certify a production login, SQL-injection
+ * resistance, auth bootstrap or removal of the unconditional HTTP 503 gate.
  */
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import pg from 'pg';
 
@@ -59,9 +61,11 @@ try {
  assert.equal(existing.rows[0].n,0,'Rehearsal role must be new and disposable');
  await admin.query('CREATE ROLE nexa_lifeos_app NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE');
  const sql=readFileSync('infra/nexa-lifeos-prod/001_owner_rls.sql','utf8');
+ const resolverSql=readFileSync('infra/nexa-lifeos-prod/002_ci_only_session_resolver.sql','utf8');
  assert.ok(sql.includes('nexa_lifeos_schema_rehearsal_ci'));
+ assert.ok(resolverSql.includes('nexa_lifeos_schema_rehearsal_ci'));
  await admin.query('BEGIN');
- try {await admin.query(sql);await admin.query('COMMIT');}
+ try {await admin.query(sql);await admin.query(resolverSql);await admin.query('COMMIT');}
  catch(error){await admin.query('ROLLBACK');throw error;}
  await admin.query('GRANT USAGE ON SCHEMA nex_personal TO nexa_lifeos_app');
  await admin.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA nex_personal TO nexa_lifeos_app');
@@ -73,12 +77,25 @@ try {
  assert.equal(policies.rows.length,13);
  assert.ok(policies.rows.every(p=>Array.isArray(p.roles)&&p.roles.length===1&&p.roles[0]===ACTOR_ROLE));
  assert.deepEqual(policies.rows.filter(p=>p.tablename==='audit_events').map(p=>p.cmd).sort(),['INSERT','SELECT']);
+ const owner=await admin.query("select rolsuper,rolbypassrls,rolcanlogin from pg_roles where rolname='nexa_lifeos_ci_session_owner'");
+ assert.equal(owner.rows.length,1);
+ assert.deepEqual(owner.rows[0],{rolsuper:false,rolbypassrls:false,rolcanlogin:false},
+   'SECURITY DEFINER owner must not be superuser, bypass RLS, or login');
+ const fn=await admin.query("select p.prosecdef,r.rolname from pg_proc p join pg_namespace n on n.oid=p.pronamespace join pg_roles r on r.oid=p.proowner where n.nspname='nex_personal' and p.proname='resolve_api_session'");
+ assert.deepEqual(fn.rows,[{prosecdef:true,rolname:'nexa_lifeos_ci_session_owner'}]);
+ const publicExecute=await admin.query("select exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace cross join lateral aclexplode(p.proacl) acl where n.nspname='nex_personal' and p.proname='resolve_api_session' and acl.grantee=0 and acl.privilege_type='EXECUTE') as allowed");
+ assert.equal(publicExecute.rows[0].allowed,false,'Session resolver must not be executable by PUBLIC');
+ const appExecute=await admin.query("select has_function_privilege($1,'nex_personal.resolve_api_session(text)','EXECUTE') AS allowed",[ACTOR_ROLE]);
+ assert.equal(appExecute.rows[0].allowed,true);
 
  await admin.query('INSERT INTO public.users(id,name,email,password_hash) VALUES($1,$2,$3,$4),($5,$6,$7,$8)',
    [A,'CI Alice','nexa-pf-alice@example.test','ci-inert',B,'CI Bob','nexa-pf-bob@example.test','ci-inert']);
  seeded=true;
  await admin.query('INSERT INTO nex_personal.profiles(user_id) VALUES($1),($2)',[A,B]);
  await admin.query("INSERT INTO nex_personal.life_intents(owner_user_id,kind) VALUES($1,'trip'),($2,'trip')",[A,B]);
+ const hash=label=>createHash('sha256').update('nexa-pf-ci-only-session-'+label).digest('hex');
+ await admin.query("INSERT INTO public.auth_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour'),($3,$4,now()-interval '1 minute')",
+  [A,hash('alice-valid'),B,hash('bob-expired')]);
 
  const [alice,bob,anonymous]=await Promise.all([tenantClient(A),tenantClient(B),tenantClient(null)]);
  const [rowsA,rowsB,rowsNull]=await Promise.all([
@@ -90,6 +107,35 @@ try {
  assert.equal((await alice.query('select count(*)::int n from nex_personal.life_intents')).rows[0].n,1);
  assert.equal((await bob.query('select count(*)::int n from nex_personal.life_intents')).rows[0].n,1);
  assert.equal((await anonymous.query('select count(*)::int n from nex_personal.life_intents')).rows[0].n,0);
+ // The application role cannot fetch secrets or identity rows directly:
+ // only the CI-only SECURITY DEFINER resolver may read the token hash.
+ await anonymous.query('SAVEPOINT deny_direct_session');
+ let sessionTableDenied=false;
+ try{await anonymous.query('SELECT token_hash FROM public.auth_sessions LIMIT 1');}
+ catch(e){sessionTableDenied=e.code==='42501';await anonymous.query('ROLLBACK TO SAVEPOINT deny_direct_session');}
+ assert.equal(sessionTableDenied,true,'No SELECT on public.auth_sessions for app role');
+ const sessionClient=await tenantClient(null);
+ async function resolve(token){
+  const r=await sessionClient.query('select user_id from nex_personal.resolve_api_session($1::text)',[token]);
+  return r.rows.map(x=>x.user_id);
+ }
+ assert.deepEqual(await resolve(hash('alice-valid')),[A]);
+ assert.deepEqual(await resolve(hash('bob-expired')),[]);
+ assert.deepEqual(await resolve(hash('unknown')),[]);
+ assert.deepEqual(await resolve('malformed'),[]);
+ await admin.query("INSERT INTO public.auth_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour')",[B,hash('bob-revoked')]);
+ assert.deepEqual(await resolve(hash('bob-revoked')),[B]);
+ await admin.query('DELETE FROM public.auth_sessions WHERE token_hash=$1',[hash('bob-revoked')]);
+ assert.deepEqual(await resolve(hash('bob-revoked')),[],'Revoked session cannot be used');
+ await admin.query("UPDATE public.users SET status='disabled' WHERE id=$1",[B]);
+ await admin.query("INSERT INTO public.auth_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour')",[B,hash('bob-disabled')]);
+ assert.deepEqual(await resolve(hash('bob-disabled')),[],'Disabled account must not resolve');
+ await admin.query("UPDATE public.users SET status='active' WHERE id=$1",[B]);
+ // Tie identity to the same connection/transaction before protected SQL.
+ const verified=await resolve(hash('alice-valid'));
+ assert.equal(verified.length,1);
+ await sessionClient.query("select set_config('app.user_id',$1,true)",[verified[0]]);
+ assert.deepEqual(await countOwnProfiles(sessionClient),[A]);
  assert.equal((await alice.query('update nex_personal.life_intents set status=$1 where owner_user_id=$2',['done',B])).rowCount,0);
 
  await alice.query('SAVEPOINT deny_insert');
@@ -117,10 +163,12 @@ try {
  console.log(JSON.stringify({
   outcome:'CI_ONLY_RLS_TWO_USER_CHECK_PASS',
   forcedTables:tables.rows.length,policies:policies.rows.length,
-  activeRole:ACTOR_ROLE,simultaneousClients:3,crossReadDenied:true,
+  activeRole:ACTOR_ROLE,simultaneousClients:4,crossReadDenied:true,
   crossWriteDenied:true,auditAppendOnly:true,transactionContextResets:true,
+  ciOnlySessionResolver:true,expiredSessionDenied:true,revokedSessionDenied:true,disabledAccountDenied:true,
+  directSessionTableDenied:true,nonSuperuserFunctionOwner:true,
   productionReady:false,
-  pending:['resolve_api_session','public users/auth_sessions policies','trusted auth binding','web E2E','LGPD','production backup and rollback']
+  pending:['production session resolver and public users/auth_sessions RLS','trusted API auth binding','web E2E','LGPD','production backup and rollback']
  }));
 }finally{
  for(const client of clients)try{await client.query('ROLLBACK');await client.end()}catch{}
