@@ -11,6 +11,10 @@ async function ownerOf(req:Parameters<typeof authenticate>[0]){
   return user.id;
 }
 export async function registerNexaAgenticsRoutes(app:FastifyInstance){
+  app.get('/v1/personal/agentics/status',async req=>{
+    await ownerOf(req);
+    return {assistant:'maya',missionCreationEnabled:false,missionMonitoringEnabled:false,alertsEnabled:false,financialExecutionEnabled:false,premiumVerification:'pending',externalEffect:false};
+  });
   app.get('/v1/personal/agentics/missions',async req=>{
     const owner=await ownerOf(req);
     const missions=await query('select id,title,description,status,created_at,updated_at from nex_personal.agentic_missions where owner_user_id=$1 order by created_at desc limit 100',[owner]);
