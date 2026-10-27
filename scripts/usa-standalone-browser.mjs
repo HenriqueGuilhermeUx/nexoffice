@@ -25,9 +25,9 @@ assert.match(html, /<html lang="en-US">/);
 const expectedSourceSha = process.env.RENDER_GIT_COMMIT || process.env.USA_PREVIEW_SOURCE_SHA || 'unverified';
 assert.ok(expectedSourceSha === 'unverified' || /^[a-f0-9]{40}$/i.test(expectedSourceSha),
   'Expected USA source SHA must be a full commit hash');
-const embeddedSourceSha = html.match(/<meta\\s+name="usa-preview-source-sha"\\s+content="([^"]+)"/i)?.[1];
+const embeddedSourceSha = html.match(/<meta\s+name="usa-preview-source-sha"\s+content="([^"]+)"/i)?.[1];
 assert.equal(embeddedSourceSha, expectedSourceSha, 'USA static bundle source SHA is missing or incorrect');
-assert.match(html, /<meta\\s+name="usa-preview-source"\\s+content="(?:render|ci|unverified)"/i,
+assert.match(html, /<meta\s+name="usa-preview-source"\s+content="(?:render|ci|unverified)"/i,
   'USA static bundle must identify its source SHA provenance');
 assert.match(html, /noindex,nofollow/);
 assert.match(redirects, /\/us\s+\/index\.html\s+200/);
