@@ -7,7 +7,8 @@ import {withVerifiedUSPrivyIdentity}
 import {bindUSPrivyWalletFromServerDID}
  from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
 import {assessVerifiedPrivyUSNativeUSDCRead,
- authorizeVerifiedPrivyUSAgenticWalletRead,revokeVerifiedPrivyUSAgenticWalletRead}
+ authorizeVerifiedPrivyUSAgenticWalletRead,revokeVerifiedPrivyUSAgenticWalletRead,
+ listVerifiedPrivyUSMayaReadConsents}
  from '../apps/api/dist/personal-us-privy-agentic-read.js';
 
 /**
@@ -215,6 +216,22 @@ try{
  assert.equal((await pool.query(`SELECT count(*)::int AS n
   FROM nex_personal_us.wallet_security_events
   WHERE owner_profile_id=$1 AND event_type='agentic.read.authorized'`,[ownerId])).rows[0].n,1);
+ // Owner-scoped "Manage Maya access" inventory: only active, verifiable grants.
+ // No browser-submitted owner identifier and no wallet or Polygon RPC query.
+ const inventoryArgs={pool:scopedPool,bearerToken:jwt,dedicatedUSPrivyAppId:app,
+  verificationKey:args.verificationKey,verifyAccessToken:verifier,now:new Date()};
+ const activeInventory=await listVerifiedPrivyUSMayaReadConsents(inventoryArgs);
+ assert.deepEqual(activeInventory,{
+  consents:[{consentId:readConsentId,walletBindingId:linked.walletBindingId,
+   walletAddress:address,source:'privy',
+   capability:'wallet.read.polygon_usdc',
+   issuedAt:new Date(grantArgs.now).toISOString(),
+   expiresAt:granted.expiresAt}],
+  truncated:false,executionAllowed:false,signingAllowed:false
+ });
+ await assert.rejects(listVerifiedPrivyUSMayaReadConsents({
+  ...inventoryArgs,verifyAccessToken:async()=>({...verifiedClaims,user_id:foreignDid})
+ }),/US_PRIVY_DID_NOT_LINKED_TO_ACTIVE_OWNER/);
  let trustedReads=0;
  const nativePolygonClient={
   getChainId:async()=>137,
@@ -280,6 +297,12 @@ try{
  assert.equal(revokedMayaRead.rawUsdcBalance,null);
  assert.equal(revokedMayaRead.ownerWalletAddress,null);
  assert.equal(trustedReads,1,'Revoked consent must not trigger Polygon RPC');
+ const revokedInventory=await listVerifiedPrivyUSMayaReadConsents({
+  ...inventoryArgs,now:new Date()
+ });
+ assert.deepEqual(revokedInventory.consents,[]);
+ assert.equal(revokedInventory.truncated,false);
+ assert.equal(revokedInventory.executionAllowed,false);
  await assert.rejects(bindUSPrivyWalletFromServerDID(bindArgs),/duplicate key/);
  assert.equal((await pool.query('SELECT count(*)::int AS n FROM nex_personal_us.wallet_bindings')).rows[0].n,1,
   'Wallet duplication must roll back with no phantom binding');
