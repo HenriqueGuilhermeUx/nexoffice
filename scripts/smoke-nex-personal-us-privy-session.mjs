@@ -28,3 +28,7 @@ await assert.rejects(verifyPrivyUSAccessSession({...base,verifyAccessToken:async
 await assert.rejects(verifyPrivyUSAccessSession({...base,verifyAccessToken:async()=>({...claims,user_id:'invalid user'})}),/CLAIMS_INVALID/);
 await assert.rejects(verifyPrivyUSAccessSession({...base,verifyAccessToken:async()=>{throw Error('SECRET-DO-NOT-LOG')}}),/US_PRIVY_ACCESS_TOKEN_UNVERIFIED/);
 console.log('US Privy access-token verifier seam: PASS (mock SDK; no tokens accepted without official verifier)');
+
+// Keep the newer read-only Privy DID -> Maya contract smoke in the existing
+// CI build gate without changing protected GitHub Actions workflow files.
+await import('./smoke-nex-personal-us-privy-agentic-read.mjs');
