@@ -105,7 +105,9 @@ export async function authorizeVerifiedPrivyUSAgenticWalletRead(input:{
  verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
  bindingId:string;
  now:Date;
- verifyExplicitGesture:(owner:USPrivyVerifiedOwner)=>Promise<VerifiedUSReadApproval>;
+ /** Internal server policy: bounded wait; not a client-controlled request field. */
+ gestureTimeoutMs?:number;
+ verifyExplicitGesture:(owner:USPrivyVerifiedOwner,signal?:AbortSignal)=>Promise<VerifiedUSReadApproval>;
 }):Promise<USReadConsentResult>{
  if(typeof input.verifyExplicitGesture!=='function')
   throw Error('US_AGENTIC_TRUSTED_GESTURE_VERIFIER_MISSING');
@@ -121,7 +123,8 @@ export async function authorizeVerifiedPrivyUSAgenticWalletRead(input:{
    authenticatedUSSubject:owner.authenticatedUSSubject,
    bindingId:input.bindingId,
    now:input.now,
-   verifyExplicitGesture:()=>input.verifyExplicitGesture(owner),
+   gestureTimeoutMs:input.gestureTimeoutMs,
+   verifyExplicitGesture:signal=>input.verifyExplicitGesture(owner,signal),
    verifiedPrivyTransactionClient:client
   })
  });
