@@ -204,3 +204,20 @@ jobs:
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
+
+  nexa-pj-public-endpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Verify Nexa PJ public API auth and migration guards (no writes)
+        run: node scripts/smoke-nexa-pj-live.mjs
+      - name: Verify Nexa PJ ERP frontend publicly reachable
+        run: |
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 10 --max-time 40 \
+            --output /tmp/nexa-pj-frontend.html \
+            https://nexa-pj-erp-only.onrender.com/
+          grep -qi '<html' /tmp/nexa-pj-frontend.html
