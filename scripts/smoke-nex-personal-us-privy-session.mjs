@@ -32,3 +32,5 @@ console.log('US Privy access-token verifier seam: PASS (mock SDK; no tokens acce
 // Keep the newer read-only Privy DID -> Maya contract smoke in the existing
 // CI build gate without changing protected GitHub Actions workflow files.
 await import('./smoke-nex-personal-us-privy-agentic-read.mjs');
+// Same existing CI build job also compiles the dedicated Netlify USA entry.
+await import('./smoke-nex-personal-usa-site.mjs');
