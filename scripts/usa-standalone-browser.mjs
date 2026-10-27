@@ -20,6 +20,15 @@ assert.match(headers, /connect-src 'none'/);
 assert.match(headers, /frame-ancestors 'none'/);
 
 assert.match(html, /<html lang="en-US">/);
+// The isolated bundle must disclose the exact source revision, or explicitly
+// say unverified. Never infer a Render deployment SHA from a passing browser test.
+const expectedSourceSha = process.env.RENDER_GIT_COMMIT || process.env.USA_PREVIEW_SOURCE_SHA || 'unverified';
+assert.ok(expectedSourceSha === 'unverified' || /^[a-f0-9]{40}$/i.test(expectedSourceSha),
+  'Expected USA source SHA must be a full commit hash');
+const embeddedSourceSha = html.match(/<meta\\s+name="usa-preview-source-sha"\\s+content="([^"]+)"/i)?.[1];
+assert.equal(embeddedSourceSha, expectedSourceSha, 'USA static bundle source SHA is missing or incorrect');
+assert.match(html, /<meta\\s+name="usa-preview-source"\\s+content="(?:render|ci|unverified)"/i,
+  'USA static bundle must identify its source SHA provenance');
 assert.match(html, /noindex,nofollow/);
 assert.match(redirects, /\/us\s+\/index\.html\s+200/);
 const assets = readdirSync(join(output, 'assets')).filter(file => file.endsWith('.js'));
@@ -49,6 +58,8 @@ try {
   });
   await page.goto('http://127.0.0.1:4186/us/', {waitUntil:'domcontentloaded'});
   await page.getByRole('heading', {name:'One place to keep the business moving.'}).waitFor();
+  assert.equal(await page.locator('meta[name="usa-preview-source-sha"]').getAttribute('content'),
+    expectedSourceSha, 'Published /us/ HTML must expose the exact build source SHA');
   assert.equal(new URL(page.url()).pathname, '/us/', 'Render staging must support direct /us/ loading');
   await page.goto('http://127.0.0.1:4186/', {waitUntil:'domcontentloaded'});
   await page.getByRole('heading', {name:'See how a business command center could work.'}).waitFor();
