@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {readFileSync,readdirSync,existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {resolve,dirname} from 'node:path';
+
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const site=resolve(root,'sites/nex-personal-usa');
+const out=resolve(site,'dist');
+const config=readFileSync(resolve(site,'netlify.toml'),'utf8');
+const entry=readFileSync(resolve(site,'site-main.tsx'),'utf8');
+const html=readFileSync(resolve(site,'index.html'),'utf8');
+assert.match(config,/publish = "sites\/nex-personal-usa\/dist"/);
+assert.match(config,/NODE_VERSION = "24"/);
+assert.match(config,/noindex, nofollow/);
+assert.match(entry,/import NexPersonalUSA from '\.\.\/\.\.\/apps\/web\/src\/NexPersonalUSA'/);
+assert.doesNotMatch(entry,/from ['"].*apps\/web\/src\/main/);
+assert.match(html,/<html lang="en-US">/);
+assert.doesNotMatch(html,/https:\/\/(?:trynexa|nexoffices)\.com\.br/);
+execFileSync('npm',['exec','--','vite','build','--config','sites/nex-personal-usa/vite.config.ts'],
+ {cwd:root,stdio:'pipe',timeout:120_000,env:{...process.env,CI:'true'}});
+assert.ok(existsSync(resolve(out,'index.html')),'Standalone USA HTML build missing');
+assert.ok(existsSync(resolve(out,'robots.txt')),'USA robots preview gate missing');
+const builtHtml=readFileSync(resolve(out,'index.html'),'utf8');
+const builtFiles=readdirSync(resolve(out,'assets'));
+assert.match(builtHtml,/<html lang="en-US">/);
+assert.ok(builtFiles.some(f=>f.endsWith('.js')),'USA build JS missing');
+assert.ok(builtFiles.some(f=>f.endsWith('.css')),'USA build CSS missing');
+const bundledJS=builtFiles.filter(f=>f.endsWith('.js')).map(f=>readFileSync(resolve(out,'assets',f),'utf8')).join('\n');
+assert.ok(bundledJS.includes('Nex Personal'),'USA product preview not included in bundle');
+assert.ok(!bundledJS.includes('nexoffices.com.br'),'Brazilian NexOffices canonical hostname bundled into USA site');
+assert.ok(!bundledJS.includes('trynexa.com.br'),'Brazilian Nexa production hostname bundled into USA site');
+console.log('PASS: isolated Nex Personal USA Netlify static bundle and en-US marketing/preview safeguards');
