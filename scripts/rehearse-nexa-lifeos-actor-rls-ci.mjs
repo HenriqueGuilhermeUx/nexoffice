@@ -73,7 +73,7 @@ try {
  const tables=await admin.query("select relname,relrowsecurity,relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='nex_personal' and c.relkind='r'");
  assert.equal(tables.rows.length,12);
  assert.ok(tables.rows.every(t=>t.relrowsecurity&&t.relforcerowsecurity));
- const policies=await admin.query("select tablename,cmd,roles from pg_policies where schemaname='nex_personal'");
+ const policies=await admin.query("select tablename,cmd,roles::text[] AS roles from pg_policies where schemaname='nex_personal'");
  assert.equal(policies.rows.length,13);
  assert.ok(policies.rows.every(p=>Array.isArray(p.roles)&&p.roles.length===1&&p.roles[0]===ACTOR_ROLE));
  assert.deepEqual(policies.rows.filter(p=>p.tablename==='audit_events').map(p=>p.cmd).sort(),['INSERT','SELECT']);
