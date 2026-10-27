@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {evaluateLifeosSchema} from './audit-nexa-lifeos-prod-schema.mjs';
+// Explicitly register the actor/role drift tests in the EXISTING CI build smoke.
+// No workflow edits, DB access, production flags or extra services are needed.
+import './smoke-nexa-lifeos-actor-contract.mjs';
 import {readFileSync} from 'node:fs';
-const pfNames=['profiles','accounts','transactions','consents','life_preferences'];
+const pfNames=['profiles','consents','connections','accounts','transactions','audit_events','budgets','goals','wealth_items','bills','life_preferences','life_intents'];
 const mk=(name,schema='nex_personal',extras={})=>({
  name,schema,rls:true,forceRls:true,owner:'schema_owner',...extras
 });
@@ -55,4 +58,49 @@ test('production API enforces schema readiness before login and authenticated PF
   'Catalog RLS cannot authorize production until same-transaction tenant binding and E2E have shipped');
  assert.doesNotMatch(guard,/acceptedAt=Date\.now\(\)/,
   'An unverified catalog must never mark PF access as accepted');
+});
+
+
+const ownerAudit="owner_user_id::text = current_setting('app.user_id', true)";
+const realPolicyAudit={
+ ...good,
+ tables:good.tables,
+ policies:[
+  ...good.policies.filter(p=>p.name!=='audit_events'),
+  {schema:'nex_personal',name:'audit_events',roles:['nexa_lifeos_app'],
+   cmd:'SELECT',qual:ownerAudit,withCheck:null},
+  {schema:'nex_personal',name:'audit_events',roles:['nexa_lifeos_app'],
+   cmd:'INSERT',qual:null,withCheck:ownerAudit+
+     " AND actor_user_id::text = current_setting('app.user_id', true)"}
+ ]
+};
+test('handles PostgreSQL INSERT qual=NULL with tenant-bound WITH CHECK',()=>{
+ const result=evaluateLifeosSchema(realPolicyAudit);
+ assert.equal(result.productionReady,false,'Catalog checks cannot release production');
+});
+test('rejects INSERT without tenant-bound WITH CHECK',()=>{
+ const policy=realPolicyAudit.policies.at(-1);
+ assert.throws(()=>evaluateLifeosSchema({...realPolicyAudit,policies:[
+  ...realPolicyAudit.policies.slice(0,-1),{...policy,withCheck:null}
+ ]}));
+});
+test('rejects audit inserts with forged actor even if owner matches',()=>{
+ const policy=realPolicyAudit.policies.at(-1);
+ assert.throws(()=>evaluateLifeosSchema({...realPolicyAudit,policies:[
+  ...realPolicyAudit.policies.slice(0,-1),{...policy,withCheck:ownerAudit}
+ ]}));
+});
+test('rejects audit update or delete policies',()=>{
+ const policy=realPolicyAudit.policies.at(-1);
+ for(const cmd of ['UPDATE','DELETE','ALL']){
+  assert.throws(()=>evaluateLifeosSchema({...realPolicyAudit,policies:[
+   ...realPolicyAudit.policies.slice(0,-1),{...policy,cmd,
+    qual:ownerAudit,withCheck:ownerAudit}
+  ]}));
+ }
+});
+test('rejects update policies lacking separate WITH CHECK',()=>{
+ const policies=good.policies.map(p=>p.name==='accounts'
+  ?{...p,cmd:'UPDATE',withCheck:null}:p);
+ assert.throws(()=>evaluateLifeosSchema({...good,policies}));
 });

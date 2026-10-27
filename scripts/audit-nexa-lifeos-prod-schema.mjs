@@ -8,7 +8,7 @@ import {resolve} from 'node:path';
 import {inspectLifeosProdEnv} from './check-nexa-lifeos-prod-env.mjs';
 
 const ALLOWED_PUBLIC=new Set(['users','auth_sessions','nexa_lifeos_schema_migrations']);
-const REQUIRED_PF=new Set(['profiles','accounts','transactions','consents','life_preferences']);
+const REQUIRED_PF=new Set(['profiles','consents','connections','accounts','transactions','audit_events','budgets','goals','wealth_items','bills','life_preferences','life_intents']);
 
 export function evaluateLifeosSchema({tables,policies,role}){
  if(!Array.isArray(tables)||!Array.isArray(policies)||!role?.rolname)
@@ -31,17 +31,35 @@ export function evaluateLifeosSchema({tables,policies,role}){
   if(!Array.isArray(policy.roles)||policy.roles.length!==1||policy.roles[0]!==roleName)
    throw new Error('Unexpected role or public/granted access in PF policy: '+policy.name);
   const column=policy.name==='profiles'?'user_id':'owner_user_id';
-  const expression=String(policy.qual||'');
-  if(!new RegExp('\\b'+column+'\\b','i').test(expression)
-    ||!expression.includes('app.user_id')
-    ||!/current_setting\s*\(/i.test(expression)
-    ||/\bor\b|;|--/i.test(expression)
-    ||/^\s*\(?\s*true\s*\)?\s*$/i.test(expression))
-   throw new Error('PF policy lacks a narrow tenant-bound row predicate: '+policy.name);
+  const cmd=String(policy.cmd||'ALL').toUpperCase();
+  if(!['ALL','SELECT','INSERT','UPDATE','DELETE'].includes(cmd))
+    throw new Error('Unknown PF RLS policy command: '+policy.name);
+  if(policy.name==='audit_events'&&policy.cmd!==undefined&&!['SELECT','INSERT'].includes(cmd))
+    throw new Error('Audit events must remain append-only under RLS');
+  // Real PostgreSQL pg_policies returns WITH CHECK separately from USING.
+  // INSERT has qual=NULL; checking qual for every command rejects the correct
+  // append-only audit policy. Mocks without cmd keep legacy test compatibility.
+  const legacyMock=policy.cmd===undefined;
+  const expressions=legacyMock?[String(policy.qual||'')]
+    :cmd==='INSERT'?[String(policy.withCheck||'')]
+    :cmd==='SELECT'||cmd==='DELETE'?[String(policy.qual||'')]
+    :[String(policy.qual||''),String(policy.withCheck||'')];
+  for(const expression of expressions){
+   if(!new RegExp('\\b'+column+'\\b','i').test(expression)
+     ||!expression.includes('app.user_id')
+     ||!/current_setting\s*\(/i.test(expression)
+     ||/\bor\b|;|--/i.test(expression)
+     ||/^\s*\(?\s*true\s*\)?\s*$/i.test(expression))
+    throw new Error('PF policy lacks a narrow tenant-bound row predicate: '+policy.name);
+  }
+  if(!legacyMock&&policy.name==='audit_events'&&cmd==='INSERT'&&
+      !/\bactor_user_id\b/i.test(String(policy.withCheck||'')))
+    throw new Error('Audit insert must enforce authenticated actor');
+
  }
  for(const name of REQUIRED_PF)if(!pf.some(t=>t.name===name))
   throw new Error('Required PF table missing: '+name);
- if(pf.length<REQUIRED_PF.size)throw new Error('PF schema is incomplete');
+ if(pf.length!==REQUIRED_PF.size)throw new Error('PF schema is incomplete or contains unknown tables');
  for(const t of [...pf,...identities]){
   if(t.owner===role.rolname)
    throw new Error('Application DB role must not own table '+t.schema+'.'+t.name);
@@ -80,7 +98,7 @@ async function main(){
   await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
   const [tables,policies,roles]=await Promise.all([
    client.query('select n.nspname as schema,c.relname as name,c.relrowsecurity as rls,c.relforcerowsecurity as "forceRls",pg_get_userbyid(c.relowner) as owner from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ($1,$2) and c.relkind=$3',['public','nex_personal','r']),
-   client.query('select schemaname as schema,tablename as name,roles,qual from pg_policies where schemaname in ($1,$2)',['public','nex_personal']),
+   client.query('select schemaname as schema,tablename as name,roles::text[] as roles,qual,with_check as "withCheck",cmd from pg_policies where schemaname in ($1,$2)',['public','nex_personal']),
    client.query('select rolname,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole from pg_roles where rolname=current_user')
   ]);
   console.log(JSON.stringify(evaluateLifeosSchema({
