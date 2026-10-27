@@ -63,3 +63,9 @@ try{
   readiness:'DDL rehearsal only; RLS/ownership, backup, legal approval and prod DB still required'
  }));
 }finally{await client.end();}
+
+// Reuse the disposable database created above. This makes the RLS/session
+// rehearsal a real, mandatory CI check instead of dormant source code, while
+// keeping the existing Actions workflow (and all production DBs) untouched.
+// This import is rejected outside the same explicit local GitHub CI context.
+await import('./rehearse-nexa-lifeos-actor-rls-ci.mjs');
