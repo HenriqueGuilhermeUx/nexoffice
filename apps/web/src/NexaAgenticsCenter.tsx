@@ -10,6 +10,7 @@ export default function NexaAgenticsCenter({token,onOpenMaya}:{token:string;onOp
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [status,setStatus]=useState<{missionCreationEnabled:boolean;missionMonitoringEnabled:boolean;alertsEnabled:boolean}|null>(null);
   const refresh=useCallback(async()=>{
     setLoading(true);setError('');
     try{
@@ -20,7 +21,13 @@ export default function NexaAgenticsCenter({token,onOpenMaya}:{token:string;onOp
     }catch(e){setError(e instanceof Error?e.message:'Falha ao consultar missões.');}
     finally{setLoading(false);}
   },[token]);
-  useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{
+    void refresh();
+    void fetch(API+'/v1/personal/agentics/status',{headers:{authorization:'Bearer '+token}})
+      .then(async response=>{if(!response.ok)throw new Error('status unavailable');return response.json();})
+      .then(body=>setStatus(body))
+      .catch(()=>setStatus(null));
+  },[refresh,token]);
   async function cancel(id:string){
     setError('');setNotice('');
     try{
@@ -33,7 +40,7 @@ export default function NexaAgenticsCenter({token,onOpenMaya}:{token:string;onOp
   return <section className="np-panel" aria-label="Nexa IA e Missões">
     <div className="np-panel-head"><div><span className="np-kicker">NEXA AGENTICS</span><h2>Sua Nexa IA, suas missões</h2>
       <p>A Maya coordena os especialistas. Missões automáticas e pesquisas externas ainda não estão habilitadas.</p></div>
-      <span className="np-pill">Em preparação</span></div>
+      <span className="np-pill">{status?.missionMonitoringEnabled?'Monitoramento habilitado':'Em preparação'}</span></div>
     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
       {([['assistant','Nexa IA'],['missions','Minhas missões'],['alerts','Alertas']] as const).map(([key,label])=>
         <button key={key} type="button" className={pane===key?'np-primary':'np-text-button'} aria-pressed={pane===key} onClick={()=>setPane(key)}>{label}</button>)}
