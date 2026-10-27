@@ -192,9 +192,10 @@ export async function listVerifiedPrivyUSMayaReadConsents(input:{
        !/^0x[0-9a-fA-F]{40}$/.test(row.wallet_address)||
        (row.source!=='privy'&&row.source!=='external'))
      throw Error('US_AGENTIC_INVENTORY_ROW_INVALID');
+    const source:'privy'|'external'=row.source==='privy'?'privy':'external';
     return {
      consentId:row.consent_id,walletBindingId:row.wallet_binding_id,
-     walletAddress:row.wallet_address,source:row.source,
+     walletAddress:row.wallet_address,source,
      capability:'wallet.read.polygon_usdc' as const,
      issuedAt:issuedAt.toISOString(),expiresAt:expiresAt.toISOString(),
      validUntil:expiresAt.getTime()
