@@ -235,7 +235,7 @@ export default function NexPersonal(){
       {section==='crypto'&&<NexaCryptoHub key={token}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
             {section==='maya'&&<NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>}
-      {section==='agentics'&&<NexaAgenticsCenter onOpenMaya={()=>setSection('maya')}/>}
+      {section==='agentics'&&<NexaAgenticsCenter token={token} onOpenMaya={()=>setSection('maya')}/>}
       {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
     </main>
   </div>;
