@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {evaluateLifeosSchema} from './audit-nexa-lifeos-prod-schema.mjs';
+// Explicitly register the actor/role drift tests in the EXISTING CI build smoke.
+// No workflow edits, DB access, production flags or extra services are needed.
+import './smoke-nexa-lifeos-actor-contract.mjs';
 import {readFileSync} from 'node:fs';
 const pfNames=['profiles','consents','connections','accounts','transactions','audit_events','budgets','goals','wealth_items','bills','life_preferences','life_intents'];
 const mk=(name,schema='nex_personal',extras={})=>({
