@@ -10,8 +10,10 @@ auth tokens, banking adapters, or API credentials.
 Existing empty Netlify project: `nex-personal-usa`, team `henriqueguilhermeux`.
 Connect GitHub repository `HenriqueGuilhermeUx/nexoffice` using the Netlify UI
 (Project configuration → Build & deploy → Continuous deployment → Link repository).
-Use the isolated branch `feature/nex-personal-usa-crypto-agentics-20261024`
-as the initial publishing branch, **not `main`**.
+Use the CI-validated, frozen publishing branch `deploy/nex-personal-usa-preview`
+(**not** `main` and **not** the active development branch
+`feature/nex-personal-usa-crypto-agentics-20261024`). This prevents
+unreviewed future PR #90 development commits from auto-publishing.
 
 For a monorepo, set **base directory blank (repository root)** and **package
 directory `sites/nex-personal-usa`**. Netlify then discovers this
