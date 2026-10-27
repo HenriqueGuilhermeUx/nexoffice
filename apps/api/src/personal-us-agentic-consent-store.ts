@@ -41,14 +41,36 @@ async function withUSConsentTransaction<T>(
 }
 export async function authorizeUSAgenticWalletRead(input:{
  pool:USWalletPool;authenticatedUSSubject:string;bindingId:string;now:Date;
- verifyExplicitGesture:()=>Promise<VerifiedUSReadApproval>;
+ verifyExplicitGesture:(signal?:AbortSignal)=>Promise<VerifiedUSReadApproval>;
+ /** Hard upper bound for a trusted gesture adapter; never a browser-controlled setting. */
+ gestureTimeoutMs?:number;
  /** Internal only: transaction and row locks held by a verified USA Privy DID owner. */
  verifiedPrivyTransactionClient?:USWalletClient;
 }):Promise<USReadConsentResult>{
  if(!SUBJECT.test(input.authenticatedUSSubject)||!UUID.test(input.bindingId)||
-    !Number.isFinite(input.now?.getTime())||typeof input.verifyExplicitGesture!=='function')
+    !Number.isFinite(input.now?.getTime())||typeof input.verifyExplicitGesture!=='function'||
+    (input.gestureTimeoutMs!==undefined&&(!Number.isInteger(input.gestureTimeoutMs)||
+      input.gestureTimeoutMs<20||input.gestureTimeoutMs>3000)))
   throw Error('US_AGENTIC_CONSENT_INPUT_INVALID');
- const approval=await input.verifyExplicitGesture();
+ // Provider callbacks can hang while the outer verified Privy DID transaction
+ // holds identity locks. A local timeout fails closed even if the adapter does
+ // not honor AbortSignal. A late approval cannot reach the SQL insert.
+ const abort=new AbortController();
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ let approval:VerifiedUSReadApproval;
+ try{
+  const pending=Promise.resolve().then(()=>input.verifyExplicitGesture(abort.signal));
+  const deadline=new Promise<never>((_,reject)=>{
+   timer=setTimeout(()=>{
+    abort.abort();
+    reject(Error('US_AGENTIC_GESTURE_TIMEOUT'));
+   },input.gestureTimeoutMs??3000);
+  });
+  approval=await Promise.race([pending,deadline]);
+ }finally{
+  if(timer!==undefined)clearTimeout(timer);
+  abort.abort();
+ }
  const approvedAt=Date.parse(approval?.approvedAt);
  if(!approval||approval.source!=='server_authenticated_explicit_gesture'||
     approval.subject!==input.authenticatedUSSubject||approval.bindingId!==input.bindingId||
