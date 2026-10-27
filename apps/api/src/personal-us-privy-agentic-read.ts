@@ -202,7 +202,7 @@ export async function listVerifiedPrivyUSMayaReadConsents(input:{
    }).filter(row=>row.validUntil>completedAt);
    return {
     consents:entries.slice(0,20).map(({validUntil,...item})=>item),
-    truncated:entries.length>20,
+    truncated:result.rows.length>20,
     executionAllowed:false as const,signingAllowed:false as const
    };
   }
