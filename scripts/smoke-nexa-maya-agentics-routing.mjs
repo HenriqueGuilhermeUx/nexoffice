@@ -27,13 +27,16 @@ for(const [message,section,agent] of [
  assert.equal(routed.requiresExternalConsent,false);
 }
 assert.equal(routeMayaIntent(''),null);
+assert.equal(routeMayaIntent('assunto completamente desconhecido'),null,'Unknown intent must never be silently classified');
 assert.equal(routeMayaIntent('x'.repeat(241)),null);
 assert.equal(MAYA_QUICK_INTENTS.length,6);
 for(const intent of MAYA_QUICK_INTENTS)assert.equal(mayaRouteFor(intent).mayExecuteFinancialOperation,false);
 const component=readFileSync('apps/web/src/NexaMayaCoordinator.tsx','utf8');
 const entry=readFileSync('apps/web/src/NexPersonal.tsx','utf8');
 const hub=readFileSync('apps/web/src/NexaCryptoHub.tsx','utf8');
+const lifeOffice=readFileSync('apps/web/src/NexPersonalLifeOffice.tsx','utf8');
 assert.match(entry,/NexaMayaCoordinator/);
+assert.match(lifeOffice,/onClick=\{\(\)=>onOpenSection\('maya'\)\}/,'Maya must be directly accessible from the home');
 assert.match(entry,/section==='maya'&&<>/);
 assert.match(hub,/Assistente Nexa/);
 assert.match(component,/routeMayaIntent\(request\)/);
