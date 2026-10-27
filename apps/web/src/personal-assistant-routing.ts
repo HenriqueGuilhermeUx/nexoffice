@@ -31,19 +31,19 @@ const ROUTES:Readonly<Record<MayaIntent,MayaRoute>>={
 };
 
 const WORDS:ReadonlyArray<readonly [MayaIntent,RegExp]>=[
- ['privacy',/\b(privacidade|lgpd|consentimento|excluir (meus )?dados|apagar (meus )?dados)\b/i],
- ['crypto',/\b(cripto|usdc|bitcoin|btc|pix|metamask|wallet|carteira digital|transferir|sacar|enviar dinheiro|trocar cripto|conectar carteira)\b/i],
- ['debt_review',/\b(d[ií]vid|renegoci|acordo|parcelamento de d[ií]vida|inadimpl|cobran[cç]a)\b/i],
- ['public_services',/\b(detran|iptu|rg|cin|inss|licen[cç]a|[óo]rg[aã]o p[úu]blico)\b/i],
- ['legal_support',/\b(direit|justi[cç]a|processo judicial|advogad|lei|procon)\b/i],
- ['contracts',/\b(contrato|cl[áa]usula|assinatura eletr[oô]nica|documento)\b/i],
- ['investments',/\b(invest|rendiment|a[cç][aã]o|cdb|tesouro|bolsa|fiis?|fundo de investimento)\b/i],
- ['shopping',/\b(compr|parcelas? de compra|celular|pre[cç]o|cart[aã]o de cr[eé]dito)\b/i],
- ['simulations',/\b(simul|cen[áa]rio|proje[cç][aã]o|juros compostos)\b/i],
- ['payments',/\b(contas? a vencer|boleto|venciment|pagar conta)\b/i],
- ['planning',/\b(meta|objetivo|planej|guardar dinheiro|poup|viagem|economizar para)\b/i],
- ['expenses',/\b(gasto|despesa|economiz|or[cç]amento|cortar custo)\b/i],
- ['financial',/\b(financ|saldo|patrim[oô]nio|dinheiro|extrato|renda)\b/i]
+ ['privacy',/\b(privacidade|lgpd|consentimento|excluir (meus )?dados|apagar (meus )?dados)/i],
+ ['crypto',/\b(cripto|usdc|bitcoin|btc|pix|metamask|wallet|carteira digital|transferir|sacar|enviar dinheiro|trocar cripto|conectar carteira)/i],
+ ['debt_review',/\b(d[ií]vid|renegoci|acordo|parcelamento de d[ií]vida|inadimpl|cobran[cç]a)/i],
+ ['public_services',/\b(detran|iptu|rg|cin|inss|licen[cç]a|[óo]rg[aã]o p[úu]blico)/i],
+ ['legal_support',/\b(direit|justi[cç]a|processo judicial|advogad|lei|procon)/i],
+ ['contracts',/\b(contrato|cl[áa]usula|assinatura eletr[oô]nica|documento)/i],
+ ['investments',/\b(invest|rendiment|a[cç][aã]o|cdb|tesouro|bolsa|fiis?|fundo de investimento)/i],
+ ['shopping',/\b(compr|parcelas? de compra|celular|pre[cç]o|cart[aã]o de cr[eé]dito)/i],
+ ['simulations',/\b(simul|cen[áa]rio|proje[cç][aã]o|juros compostos)/i],
+ ['payments',/\b(contas? a vencer|boleto|venciment|pagar conta)/i],
+ ['planning',/\b(meta|objetivo|planej|guardar dinheiro|poup|viagem|economizar para)/i],
+ ['expenses',/\b(gasto|despesa|economiz|or[cç]amento|cortar custo)/i],
+ ['financial',/\b(financ|saldo|patrim[oô]nio|dinheiro|extrato|renda)/i]
 ];
 
 export const MAYA_QUICK_INTENTS:ReadonlyArray<MayaIntent>=['expenses','planning','investments','debt_review','contracts','crypto'];
