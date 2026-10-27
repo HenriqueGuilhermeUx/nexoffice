@@ -180,6 +180,27 @@ try{
  assert.equal((await pool.query(`SELECT count(*)::int AS n
   FROM nex_personal_us.wallet_agentic_read_consents
   WHERE owner_profile_id=$1`,[ownerId])).rows[0].n,0);
+ // An unresponsive explicit-gesture provider must not hold the verified
+ // DID/profile row locks indefinitely, mint a consent or leave audit records.
+ let abortWasDelivered=false;
+ await assert.rejects(authorizeVerifiedPrivyUSAgenticWalletRead({
+  ...grantArgs,gestureTimeoutMs:35,
+  verifyExplicitGesture:async(_verifiedOwner,signal)=>new Promise(()=>{
+   signal?.addEventListener('abort',()=>{abortWasDelivered=true;},{once:true});
+  })
+ }),/US_AGENTIC_GESTURE_TIMEOUT/);
+ assert.equal(abortWasDelivered,true,'Gesture adapter must receive cancellation');
+ await assert.rejects(authorizeVerifiedPrivyUSAgenticWalletRead({
+  ...grantArgs,gestureTimeoutMs:9000
+ }),/US_AGENTIC_CONSENT_INPUT_INVALID/);
+ assert.equal((await pool.query(`SELECT count(*)::int AS n
+  FROM nex_personal_us.wallet_agentic_read_consents
+  WHERE owner_profile_id=$1`,[ownerId])).rows[0].n,0,
+  'Timed-out gestures must roll back without a Maya consent');
+ assert.equal((await pool.query(`SELECT count(*)::int AS n
+  FROM nex_personal_us.wallet_security_events
+  WHERE owner_profile_id=$1 AND event_type='agentic.read.authorized'`,[ownerId])).rows[0].n,0,
+  'Timed-out gestures must not leave phantom authorization audit records');
  const granted=await authorizeVerifiedPrivyUSAgenticWalletRead(grantArgs);
  const readConsentId=granted.consentId;
  assert.equal(granted.subject,owner);
