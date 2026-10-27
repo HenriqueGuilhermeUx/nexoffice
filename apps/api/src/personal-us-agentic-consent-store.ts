@@ -62,8 +62,10 @@ export async function authorizeUSAgenticWalletRead(input:{
   const pending=Promise.resolve().then(()=>input.verifyExplicitGesture(abort.signal));
   const deadline=new Promise<never>((_,reject)=>{
    timer=setTimeout(()=>{
-    abort.abort();
+    // Settle our deterministic timeout first: an abort handler might also
+    // reject the adapter promise, but must not overwrite the timeout reason.
     reject(Error('US_AGENTIC_GESTURE_TIMEOUT'));
+    abort.abort();
    },input.gestureTimeoutMs??3000);
   });
   approval=await Promise.race([pending,deadline]);
