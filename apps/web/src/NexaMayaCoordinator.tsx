@@ -16,7 +16,7 @@ export default function NexaMayaCoordinator({onOpenAgent,onOpenSection}:{
  function resolve(e:FormEvent<HTMLFormElement>){
   e.preventDefault();
   const next=routeMayaIntent(request);
-  if(!next){setRoute(null);setFeedback('Descreva seu objetivo em até 240 caracteres, sem dados pessoais ou financeiros.');return;}
+  if(!next){setRoute(null);setFeedback('Não identifiquei o assunto. Tente escrever, por exemplo: organizar gastos, revisar metas, analisar investimentos ou abrir a Wallet. Não inclua dados pessoais.');return;}
   choose(next);
  }
  function open(destination:MayaDestination){
