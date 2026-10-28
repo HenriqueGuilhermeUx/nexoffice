@@ -57,6 +57,8 @@ jobs:
         run: node --test scripts/smoke-nexa-belvo-consent-verification.mjs
       - name: Check consent revocation notices, null external ID and freshness
         run: node --test scripts/smoke-nexa-belvo-consent-reconciliation.mjs
+      - name: Verify sandbox-only accounts and transactions read model stays segregated
+        run: node --test scripts/smoke-nexa-belvo-sandbox-read-model.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
