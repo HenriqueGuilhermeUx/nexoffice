@@ -93,6 +93,49 @@ export async function registerPlatformRoutes(app:FastifyInstance){
     };
   });
 
+  /**
+   * Future finance hub contract: no institution credentials, no inferred
+   * balances, no account provisioning and no side effects.
+   * A source can only become connected after separate consent, corporate
+   * authority, integration verification and explicit release gating.
+   */
+  app.get('/v1/platform/nexa-pj/finance-hub/readiness',async req=>{
+    await workspaceContext(req,'workspace.read');
+    const source=(id:string,label:string,kind:string)=>({
+      id,label,kind,status:'not_connected' as const,
+      consent:'not_granted' as const,
+      lastSyncedAt:null,
+      accountCount:0,
+      dataAvailable:false,
+    });
+    return {
+      schemaVersion:1,
+      mode:'read_only',
+      scope:'current_workspace',
+      asOf:new Date().toISOString(),
+      aggregatedBalance:null,
+      investmentsTotal:null,
+      outstandingDebt:null,
+      currency:null,
+      accounts:[],
+      investments:[],
+      liabilities:[],
+      transactions:[],
+      agenticActionsEnabled:false,
+      paymentInitiationEnabled:false,
+      walletProvisioningEnabled:false,
+      externalEffectsEnabled:false,
+      sources:[
+        source('open-finance','Open Finance','banking'),
+        source('nexa-privy','Nexa / Privy','wallet'),
+        source('external-wallet','Carteiras externas','wallet'),
+        source('investments','Investimentos externos','investment'),
+        source('liabilities','Dívidas externas','liability'),
+      ],
+      reason:'CORPORATE_AUTHORIZATION_AND_PROVIDER_CONNECTION_REQUIRED',
+    };
+  });
+
   // Private backchannel only. Checks the *existing* NexOffice source origin,
   // federated identity, active user, workspace, and active membership. Neither
   // the generic 'nexa' source nor a client-submitted email is sufficient.
