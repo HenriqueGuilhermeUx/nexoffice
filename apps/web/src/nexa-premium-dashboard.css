@@ -95,3 +95,10 @@
 .npx-belvo-sandbox small{display:block;font-size:10px;color:#5f798e;line-height:1.5;margin-top:5px}
 .npx-belvo-sandbox button,.npx-belvo-sandbox a{flex-shrink:0}
 .npx-belvo-sandbox>small{flex:1 1 100%}
+
+.npx-demo-results{width:100%;padding:12px;border:1px solid #b9d9eb;border-radius:12px;background:#fff;color:#174052}
+.npx-demo-results>strong{display:block;font-size:12px;letter-spacing:.03em}
+.npx-demo-results>small{display:block;font-size:11px;color:#5b7486;margin:7px 0}
+.npx-demo-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:7px}
+.npx-demo-entry{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:9px;border:1px solid #dceaf1;border-radius:8px;font-size:11px}
+.npx-demo-entry strong{font-variant-numeric:tabular-nums}
