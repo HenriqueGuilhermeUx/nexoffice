@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {withLifeosAuthenticatedTransaction} from '../apps/api/dist/nexa-lifeos-tenant-tx.js';
+import {withLifeosAuthenticatedTransaction,withLifeosAuthenticatedReadTransaction} from '../apps/api/dist/nexa-lifeos-tenant-tx.js';
 import {hashOpaqueToken} from '../apps/api/dist/auth.js';
 
 const token='N'.repeat(56);
@@ -142,5 +142,17 @@ test('effective DB role must be the exact non-privileged PF role, not a database
    assert.equal(f.calls.at(-1).text,'ROLLBACK');
    assert.equal(f.released,1);
   }
+ });
+});
+
+
+test('read-only wrapper starts a PostgreSQL enforced READ ONLY transaction',async()=>{
+ await scoped(async()=>{
+  const f=fakePool(userA);
+  const value=await withLifeosAuthenticatedReadTransaction(token,async({userId})=>userId,f.pool);
+  assert.equal(value,userA);
+  assert.equal(f.calls[0].text,'BEGIN READ ONLY');
+  assert.equal(f.calls.at(-1).text,'COMMIT');
+  assert.equal(f.released,1);
  });
 });
