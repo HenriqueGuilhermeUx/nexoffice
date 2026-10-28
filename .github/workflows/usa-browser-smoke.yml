@@ -33,6 +33,13 @@ jobs:
         with:
           # Build the PR HEAD itself, not GitHub's synthetic merge ref.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact USA PR source revision
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+          echo "USA preview checkout verified: $EXPECTED_SOURCE_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
