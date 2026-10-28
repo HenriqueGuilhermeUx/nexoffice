@@ -43,6 +43,10 @@ jobs:
         run: node scripts/smoke-nex-personal-names.mjs
       - name: Check unified Nexa brand and isolated crypto Wallet handoff
         run: node scripts/smoke-nexa-brand-crypto.mjs
+      - name: Verify premium PF command center financial provenance and privacy
+        run: node --experimental-strip-types --test scripts/smoke-nexa-pf-premium-command.mjs
+      - name: Check PF portfolio consent, wallet scope and multi-currency safety
+        run: node --experimental-strip-types --test scripts/smoke-nexa-pf-premium-bridge.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
