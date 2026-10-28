@@ -7,19 +7,21 @@ const token='N'.repeat(56);
 const userA='a1111111-1111-4111-8111-111111111111';
 const userB='b2222222-2222-4222-8222-222222222222';
 
-function fakePool(userId,shouldThrow=false){
+function fakePool(userId,shouldThrow=false,rollbackFails=false){
  const calls=[];
  let released=0;
+ const releaseArgs=[];
  const client={
   async query(text,params=[]){
    calls.push({text,params});
    if(text.includes('resolve_api_session'))return {rows:userId?[{user_id:userId}]:[]};
    if(shouldThrow && text.includes('select set_config'))throw new Error('simulated postgres failure');
+   if(rollbackFails && text==='ROLLBACK')throw new Error('simulated rollback failure');
    return {rows:[]};
   },
-  release(){released++;}
+  release(discard){released++;releaseArgs.push(discard);}
  };
- return {pool:{connect:async()=>client},calls,get released(){return released}};
+ return {pool:{connect:async()=>client},calls,releaseArgs,get released(){return released}};
 }
 async function scoped(fn){
  const previous=process.env.NEXA_LIFEOS_ENV;
@@ -88,4 +90,29 @@ test('preview and malformed tokens blocked before opening a DB connection',async
  finally{if(previous===undefined)delete process.env.NEXA_LIFEOS_ENV;else process.env.NEXA_LIFEOS_ENV=previous;}
  await scoped(async()=>assert.rejects(withLifeosAuthenticatedTransaction('short',async()=>{},f.pool),x=>x.code==='invalid_session'));
  assert.equal(f.calls.length,0);
+});
+
+
+test('rollback failure destroys poisoned tenant connection rather than returning it to pool',async()=>{
+ await scoped(async()=>{
+  const f=fakePool(userA,true,true);
+  await assert.rejects(
+   withLifeosAuthenticatedTransaction(token,async()=>{},f.pool),
+   /simulated postgres failure/
+  );
+  assert.equal(f.calls.at(-1).text,'ROLLBACK');
+  assert.equal(f.released,1);
+  assert.deepEqual(f.releaseArgs,[true],'Failed rollback MUST destroy the pooled client');
+ });
+});
+
+test('ordinary denied session returns a successfully rolled-back client to the pool',async()=>{
+ await scoped(async()=>{
+  const f=fakePool(null);
+  await assert.rejects(
+   withLifeosAuthenticatedTransaction(token,async()=>{},f.pool),
+   x=>x.code==='invalid_session'
+  );
+  assert.deepEqual(f.releaseArgs,[false],'A successful rollback can reuse the connection');
+ });
 });
