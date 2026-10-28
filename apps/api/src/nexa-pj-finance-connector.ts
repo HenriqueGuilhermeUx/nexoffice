@@ -41,3 +41,36 @@ export function validateFinanceSnapshot(snapshot:FinanceBalanceSnapshot):boolean
     snapshot.observedAt.length>0 &&
     Number.isFinite(Date.parse(snapshot.observedAt));
 }
+
+/** Opaque, provider-scoped authorization evidence; never returned to the browser. */
+export type CorporateFinanceConsent=Readonly<{
+  workspaceId:string;
+  representativeUserId:string;
+  providerId:string;
+  verifiedCorporateIdentityRef:string;
+  consentRef:string;
+  scopes:readonly string[];
+  status:'active'|'revoked'|'expired'|'pending';
+  expiresAt:string;
+}>;
+/**
+ * Server-only policy gate. A matching workspace and representative are necessary,
+ * but are never sufficient without verified corporate authority and active consent.
+ * No authority can be inferred from user-controlled fields.
+ */
+export function evaluateCorporateReadConsent(
+  ctx:FinanceSourceContext,
+  evidence:CorporateFinanceConsent|null,
+  serverVerifiedCorporateAuthority:boolean,
+  now:Date=new Date(),
+):'allow_read'|'deny'{
+  if(!serverVerifiedCorporateAuthority||!evidence||evidence.status!=='active')return 'deny';
+  if(!ctx.workspaceId||!ctx.representativeUserId||!ctx.verifiedCorporateIdentityRef||!ctx.consentRef)return 'deny';
+  if(evidence.workspaceId!==ctx.workspaceId||evidence.representativeUserId!==ctx.representativeUserId||
+    evidence.verifiedCorporateIdentityRef!==ctx.verifiedCorporateIdentityRef||
+    evidence.consentRef!==ctx.consentRef||!evidence.providerId)return 'deny';
+  const expiry=Date.parse(evidence.expiresAt);
+  if(!Number.isFinite(expiry)||expiry<=now.getTime())return 'deny';
+  if(ctx.requestedScopes.length===0||ctx.requestedScopes.some(scope=>!evidence.scopes.includes(scope)))return 'deny';
+  return 'allow_read';
+}
