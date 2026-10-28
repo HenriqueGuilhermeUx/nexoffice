@@ -14,7 +14,8 @@ import {db} from './db.js';
 export async function withLifeosAuthenticatedTransaction<T>(
   opaqueToken:string,
   work:(params:{client:PoolClient;userId:string})=>Promise<T>,
-  connection:Pick<Pool,'connect'>|null=db
+  connection:Pick<Pool,'connect'>|null=db,
+  transactionMode:'read-write'|'read-only'='read-write'
 ):Promise<T>{
   if(process.env.NEXA_LIFEOS_ENV!=='production')
     throw new ApiError(503,'tenant_context_unavailable','Ambiente de dados não autorizado.');
@@ -25,7 +26,9 @@ export async function withLifeosAuthenticatedTransaction<T>(
   let begun=false;
   let discardConnection=false;
   try{
-    await client.query('BEGIN');
+    // Use PostgreSQL-enforced READ ONLY transactions for future advisory
+    // surfaces. A miswired query cannot mutate goals, bills or other rows.
+    await client.query(transactionMode==='read-only'?'BEGIN READ ONLY':'BEGIN');
     begun=true;
     // The authenticated principal is not enough if this pooled connection
     // accidentally uses the database owner, an admin role or BYPASSRLS.
@@ -71,4 +74,14 @@ export async function withLifeosAuthenticatedTransaction<T>(
   }finally{
     client.release(discardConnection);
   }
+}
+
+
+/** Forces a PostgreSQL READ ONLY transaction, not just a TypeScript promise. */
+export function withLifeosAuthenticatedReadTransaction<T>(
+  opaqueToken:string,
+  work:(params:{client:PoolClient;userId:string})=>Promise<T>,
+  connection:Pick<Pool,'connect'>|null=db
+):Promise<T>{
+  return withLifeosAuthenticatedTransaction(opaqueToken,work,connection,'read-only');
 }
