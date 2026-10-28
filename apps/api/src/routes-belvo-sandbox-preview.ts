@@ -9,6 +9,7 @@ import {
 } from './belvo-sandbox-contract.js';
 import {verifyBelvoSandboxConsent,BelvoVerificationError} from './belvo-sandbox-verification.js';
 import {requiresSandboxConsentRecheck,getSandboxConsentReadStatus} from './belvo-sandbox-consent-state.js';
+import {readBelvoSandboxDemo,SandboxReadError} from './belvo-sandbox-read-model.js';
 
 const ID=z.string().regex(/^nexa_pf_sb_[a-f0-9]{32}$/);
 const requestSchema=z.object({confirmSandbox:z.literal(true)}).strict();
@@ -147,6 +148,58 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
   };
  });
 
+
+ // One-off owner-scoped sandbox demo read. No persistence, provider POST or
+ // monetary totals; do not use a stored proof without fresh provider consent.
+ const demoReads=new Map<string,{at:number;count:number}>();
+ app.get('/v1/personal/belvo-sandbox/demo-data',async req=>{
+  const actor=await owner(req);
+  if(!widgetReady(env))throw new ApiError(503,'sandbox_widget_disabled',
+   'Banco fictício ainda não habilitado.');
+  const time=Date.now();
+  const prior=demoReads.get(actor);
+  const slot=prior&&time-prior.at<10*60*1000?prior:{at:time,count:0};
+  slot.count++;demoReads.set(actor,slot);
+  if(demoReads.size>1000)for(const [id,v] of demoReads)
+    if(time-v.at>10*60*1000)demoReads.delete(id);
+  if(slot.count>3)throw new ApiError(429,'sandbox_demo_limited',
+    'Aguarde antes de repetir a leitura da demonstração.');
+  const rows=await query<{
+   attempt_id:string;external_id:string;link_ref:string
+  }>(
+   `SELECT v.attempt_id,a.external_id,v.provider_link_ref::text AS link_ref
+      FROM nex_personal.belvo_sandbox_verified_consents v
+      JOIN nex_personal.belvo_sandbox_attempts a ON a.id=v.attempt_id
+     WHERE v.owner_user_id=$1 AND a.owner_user_id=$1
+       AND a.status='widget_ready' AND v.verification_status='verified_authorized'
+       AND v.verified_at>now()-interval '15 minutes'
+     ORDER BY v.verified_at DESC LIMIT 1`,[actor]);
+  if(!rows.length)return {
+   state:'consent_recheck_required',source:'belvo_sandbox_demo',
+   simulatedData:true,accounts:[],transactions:[],noCurrencyTotal:true
+  };
+  let model;
+  try{
+   model=await readBelvoSandboxDemo(env,{
+    externalId:rows[0].external_id,linkId:rows[0].link_ref
+   });
+  }catch(e){
+   if(e instanceof SandboxReadError)throw new ApiError(502,'sandbox_demo_unavailable',
+    'Dados do banco fictício ainda não estão disponíveis.');
+   throw new ApiError(502,'sandbox_demo_unavailable','Consulta de testes indisponível.');
+  }
+  if(!model){
+   await query(
+    `UPDATE nex_personal.belvo_sandbox_verified_consents
+        SET verification_status='needs_reverification',
+            recheck_reason='provider_not_authorised',updated_at=now()
+      WHERE attempt_id=$1::uuid AND owner_user_id=$2::uuid`,
+    [rows[0].attempt_id,actor]);
+   return {state:'consent_recheck_required',source:'belvo_sandbox_demo',
+    simulatedData:true,accounts:[],transactions:[],noCurrencyTotal:true};
+  }
+  return {state:'sandbox_data',...model};
+ });
  // Aggregation webhook, never payments webhook. Not registered at all until
  // bearer secret exists; Belvo does not provide an HMAC signature here.
  if(sandboxReady(env)&&typeof env.BELVO_SANDBOX_WEBHOOK_BEARER==='string'
