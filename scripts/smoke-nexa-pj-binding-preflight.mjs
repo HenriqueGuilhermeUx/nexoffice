@@ -133,6 +133,31 @@ assert.equal(browserLinked.data.workspaceMembershipVerifiedByNexOffice,true);
 for(const pii of [merchantId,representativeUserId,workspaceId,nexofficeUserId,browserToken])
   assert.equal(JSON.stringify(browserLinked.data).includes(pii),false,
     'readiness must not expose user, company, tenant or token data');
+// Finance Hub readiness must remain deny-by-default, even when a PJ
+// structural binding exists in this isolated test database.
+async function readFinanceHub(token,tenant){
+  const response=await fetch(base+'/v1/platform/nexa-pj/finance-hub/readiness',{
+    headers:{...(token?{'authorization':'Bearer '+token}:{}),'x-workspace-id':tenant},
+  });
+  return {status:response.status,data:await response.json()};
+}
+assert.equal((await readFinanceHub('',workspaceId)).status,401,'finance hub anonymous access');
+const financeHub=await readFinanceHub(browserToken,workspaceId);
+assert.equal(financeHub.status,200,'authenticated finance hub readiness');
+assert.equal(financeHub.data.gateEvaluation.decision,'deny');
+assert.equal(financeHub.data.gateEvaluation.defaultPolicy,'fail_closed');
+assert.equal(financeHub.data.gateEvaluation.evidenceAccepted,false);
+assert.equal(financeHub.data.gateEvaluation.checks.find(c=>c.id==='workspace_membership').passed,true);
+for(const gate of financeHub.data.gateEvaluation.checks.filter(c=>c.id!=='workspace_membership'))
+  assert.equal(gate.passed,false,gate.id+' must stay denied');
+for(const key of ['aggregatedBalance','investmentsTotal','outstandingDebt'])
+  assert.equal(financeHub.data[key],null,key+' must not invent financial values');
+for(const key of ['paymentInitiationEnabled','walletProvisioningEnabled','agenticActionsEnabled','externalEffectsEnabled'])
+  assert.equal(financeHub.data[key],false,key+' must remain disabled');
+assert.ok(financeHub.data.sources.every(s=>s.status==='not_connected'&&s.dataAvailable===false));
+for(const pii of [merchantId,representativeUserId,workspaceId,nexofficeUserId,browserToken])
+  assert.equal(JSON.stringify(financeHub.data).includes(pii),false,'finance hub must not expose corporate identifiers or tokens');
+
 const unrelatedAfterBinding=await readCurrentWorkspace(browserToken,otherWorkspaceId);
 assert.equal(unrelatedAfterBinding.data.structuralBindingPresent,false,
   'one company binding cannot appear in another workspace');
@@ -154,6 +179,7 @@ for(const different of [
   assert.equal(result.data.bindingMatches,false,'tenant/user/company mismatch must fail');
 }
 sql(`UPDATE workspace_members SET active=false WHERE workspace_id='${workspaceId}'::uuid`);
+assert.equal((await readFinanceHub(browserToken,workspaceId)).status,403,'revoked workspace must not read finance hub');
 const revokedBrowser=await readCurrentWorkspace(browserToken,workspaceId);
 assert.equal(revokedBrowser.status,403,
   'revoked member must not inspect even the company connection state');
