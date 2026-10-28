@@ -35,6 +35,9 @@ function fakePool({failQuery=false}={}){
    if(sql==='BEGIN'){assert.equal(inTransaction,false);inTransaction=true;actor=null;return{rows:[]};}
    if(sql==='COMMIT'||sql==='ROLLBACK'){assert.equal(inTransaction,true);inTransaction=false;actor=null;return{rows:[]};}
    assert.equal(inTransaction,true,'All database statements must execute in one transaction');
+   if(sql.includes('from pg_catalog.pg_roles')){
+    return {rows:[{name:'nexa_lifeos_app',rolsuper:false,rolbypassrls:false,rolcreatedb:false,rolcreaterole:false}]};
+   }
    if(sql.includes('nex_personal.resolve_api_session')){
     assert.equal(params.length,1);
     const user_id=known.get(params[0]);
