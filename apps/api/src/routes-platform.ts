@@ -132,6 +132,22 @@ export async function registerPlatformRoutes(app:FastifyInstance){
         source('investments','Investimentos externos','investment'),
         source('liabilities','Dívidas externas','liability'),
       ],
+      consentRequirements:{
+        corporateIdentity:'required',
+        authorizedRepresentative:'required',
+        providerAuthorization:'required',
+        revocableConsent:'required',
+        dataMinimization:'required',
+        crossWorkspaceSharing:'forbidden',
+      },
+      activationGates:{
+        bankBalances:['verified_kyb','corporate_authority','provider_consent','authenticated_provider_session'],
+        walletBalances:['verified_kyb','wallet_ownership_proof','corporate_authority'],
+        investmentPositions:['provider_consent','data_scope_positions','verified_kyb'],
+        liabilities:['provider_consent','data_scope_liabilities','verified_kyb'],
+        payments:['independent_authorization','human_confirmation','audit_trail','provider_approval'],
+      },
+      sourceHealth:'all_disconnected',
       reason:'CORPORATE_AUTHORIZATION_AND_PROVIDER_CONNECTION_REQUIRED',
     };
   });
