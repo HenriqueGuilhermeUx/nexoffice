@@ -41,3 +41,5 @@
 /* Nexa PJ overview: financial status never presented as bank balance. */
 .pj-account-summary{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:22px;border:1px solid rgba(56,189,248,.25);border-radius:18px;background:linear-gradient(135deg,rgba(37,99,235,.14),rgba(15,23,42,.12));margin-bottom:18px}
 .pj-account-summary h3{margin:6px 0 8px}.pj-account-summary p:last-child{max-width:720px;line-height:1.5}.pj-account-summary .buttons{display:flex;flex-wrap:wrap;gap:8px}
+
+.pj-overview-finance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}.pj-overview-finance>div{display:flex;flex-direction:column;gap:5px;padding:13px;border-radius:12px;background:rgba(15,23,42,.26);border:1px solid rgba(148,163,184,.16)}.pj-overview-finance small{font-size:11px;opacity:.78}.pj-overview-finance strong{font-size:17px;overflow-wrap:anywhere}@media(max-width:800px){.pj-overview-finance{grid-template-columns:1fr}}
