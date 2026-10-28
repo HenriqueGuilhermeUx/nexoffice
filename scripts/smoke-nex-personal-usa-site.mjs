@@ -42,6 +42,14 @@ assert.ok(!bundledJS.includes('trynexa.com.br'),'Brazilian Nexa production hostn
 assert.ok(bundledJS.includes('Manage Access'),'Maya access navigation missing from USA bundle');
 assert.ok(bundledJS.includes('Revoke this local snapshot'),'Local-only access revocation control missing');
 assert.ok(bundledJS.includes('Real account access remains disabled'),'US financial authentication gate disclosure missing');
+assert.ok(bundledJS.includes('This wallet snapshot is more than five minutes old. Refresh the on-chain balance before sharing with Maya.'),
+ 'Stale Maya sharing must explain refresh instead of exposing internal error code');
+const walletComponent=readFileSync(resolve(root,'apps/web/src/NexPersonalUSCrypto.tsx'),'utf8');
+const accountComponent=readFileSync(resolve(root,'apps/web/src/NexPersonalUSA.tsx'),'utf8');
+assert.match(walletComponent,/disabled=\{busy\|\|hasActiveMayaGrant\}/,'Share action must derive disabled state from active grant');
+assert.doesNotMatch(walletComponent,/setShared\(/,'Stale widget-local shared flag must not persist past grant expiry');
+assert.match(accountComponent,/hasActiveMayaGrant=\{Boolean\(activeSnapshot\)\}/,'Parent must supply verified active browser TTL');
+
 execFileSync(process.execPath,['--experimental-strip-types','scripts/smoke-nex-personal-us-maya-local-session.mjs'],
  {cwd:root,stdio:'pipe',timeout:10_000,env:{...process.env,CI:'true'}});
 console.log('PASS: isolated Nex Personal USA Netlify static bundle and en-US marketing/preview safeguards');
