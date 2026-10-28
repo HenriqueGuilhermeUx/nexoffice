@@ -34,3 +34,5 @@ console.log('US Privy access-token verifier seam: PASS (mock SDK; no tokens acce
 await import('./smoke-nex-personal-us-privy-agentic-read.mjs');
 // Same existing CI build job also compiles the dedicated Netlify USA entry.
 await import('./smoke-nex-personal-usa-site.mjs');
+// Offline fail-closed deployment gate for a future isolated USA read-only API.
+await import('./smoke-nex-personal-us-runtime-preflight.mjs');
