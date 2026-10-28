@@ -129,7 +129,7 @@ test('provider confirmation route uses authenticated owner, webhook association 
  assert.ok(route.includes('a.status=\'widget_ready\''));
  assert.ok(route.includes('e.link_id'));
  assert.ok(route.includes('verifyBelvoSandboxConsent'));
- assert.ok(route.includes('ON CONFLICT(attempt_id) DO NOTHING'));
+ assert.ok(route.includes('ON CONFLICT(attempt_id) DO UPDATE'));
  assert.ok(!route.includes('nex_personal.accounts'));
  assert.ok(!route.includes('nex_personal.transactions'));
  assert.match(migration,/verified_authorized/);
