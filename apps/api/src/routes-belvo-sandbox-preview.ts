@@ -27,7 +27,7 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
  app.get('/v1/personal/belvo-sandbox/status',async req=>{
   await owner(req);
   return {environment:'sandbox',provider:'belvo',institution:'ofmockbank_br_retail',
-   credentialsValidated:sandboxReady(env),widgetAvailable:widgetReady(env),
+   sandboxConfigured:sandboxReady(env),widgetAvailable:widgetReady(env),
    walletAccess:false,financialDataAvailable:false,paymentsEnabled:false,
    simulatedData:true,requiresIndividualConsent:true};
  });
