@@ -10,7 +10,8 @@ const migrationPaths=[
  'infra/postgres/048_nex_personal_life_os.sql',
  'infra/postgres/049_nex_personal_transaction_enrichment.sql',
  'infra/postgres/050_nexa_pf_belvo_sandbox_event_inbox.sql',
- 'infra/postgres/051_nexa_pf_belvo_verified_consents.sql'
+ 'infra/postgres/051_nexa_pf_belvo_verified_consents.sql',
+ 'infra/postgres/052_nexa_pf_belvo_consent_reconciliation.sql'
 ];
 /** Refuse to bootstrap preview tables inside business or unknown existing databases. */
 export async function runPersonalPreviewMigrations(){
