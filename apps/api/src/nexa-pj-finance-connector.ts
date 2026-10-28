@@ -71,6 +71,8 @@ export function evaluateCorporateReadConsent(
     evidence.consentRef!==ctx.consentRef||!evidence.providerId)return 'deny';
   const expiry=Date.parse(evidence.expiresAt);
   if(!Number.isFinite(expiry)||expiry<=now.getTime())return 'deny';
-  if(ctx.requestedScopes.length===0||ctx.requestedScopes.some(scope=>!evidence.scopes.includes(scope)))return 'deny';
+  // This adapter must never authorize write, payment or transfer scopes, even if a provider record claims them.
+  const readScopes=new Set(['accounts.read','balances.read','transactions.read','investments.read','liabilities.read']);
+  if(ctx.requestedScopes.length===0||ctx.requestedScopes.some(scope=>!readScopes.has(scope)||!evidence.scopes.includes(scope)))return 'deny';
   return 'allow_read';
 }
