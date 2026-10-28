@@ -23,6 +23,7 @@ export async function withLifeosAuthenticatedTransaction<T>(
   if(!connection)throw new ApiError(503,'database_unavailable','Serviço indisponível.');
   const client=await connection.connect();
   let begun=false;
+  let discardConnection=false;
   try{
     await client.query('BEGIN');
     begun=true;
@@ -43,9 +44,16 @@ export async function withLifeosAuthenticatedTransaction<T>(
     begun=false;
     return result;
   }catch(error){
-    if(begun)try{await client.query('ROLLBACK');}catch{}
+    if(begun){
+      try{await client.query('ROLLBACK');}
+      catch{
+        // The server-side transaction state is unknown. NEVER put this
+        // connection back into the pool: it could retain app.user_id.
+        discardConnection=true;
+      }
+    }
     throw error;
   }finally{
-    client.release();
+    client.release(discardConnection);
   }
 }
