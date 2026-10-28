@@ -135,6 +135,20 @@ export default function ContaNexa({
         <em>Dados do workspace selecionado</em>
       </div>
     </div>
+    <section className="pj-premium-connectors" aria-label="Ecossistema financeiro Nexa PJ">
+      <div className="pj-bank-workspace-heading"><div><small className="eyebrow">VISÃO FINANCEIRA GLOBAL DA EMPRESA</small><h3>Seu patrimônio e suas obrigações em uma só visão</h3><p>Arquitetura preparada para conectar instituições financeiras, investimentos e carteiras; acesso a dados reais somente com autorização e identidade PJ verificadas.</p></div><span className="pj-bank-readiness">Conexões em preparação</span></div>
+      <div className="pj-premium-grid">
+        {[
+          {name:'Open Finance',description:'Contas, saldos e transações de instituições autorizadas, mediante consentimento empresarial.',status:'Aguardando parceiro e consentimento'},
+          {name:'Carteira Nexa / Privy',description:'Criação ou associação de carteira empresarial após KYB e vínculo de titularidade, sem usar carteira PF.',status:'Aguardando autenticação PJ'},
+          {name:'Carteiras externas',description:'MetaMask e outras carteiras compatíveis, após prova de controle e validação do vínculo corporativo.',status:'Conexão PJ não habilitada'},
+          {name:'Investimentos consolidados',description:'Posições em instituições conectadas, separadas por fonte, moeda e data de atualização.',status:'Sem fonte autorizada'},
+          {name:'Dívidas e obrigações',description:'Empréstimos e compromissos externos, separados dos lançamentos administrativos no ERP.',status:'Aguardando fontes externas'},
+          {name:'Agentics financeiro',description:'Consultas contextuais e propostas de ações com confirmação humana, trilha de auditoria e permissões.',status:'Pagamentos e ordens bloqueados'},
+        ].map(item=><article className="pj-premium-card" key={item.name}><h4>{item.name}</h4><p>{item.description}</p><small role="status">{item.status}</small></article>)}
+      </div>
+      <p className="pj-banking-lock-note">Sem consentimento válido e vínculo empresarial aprovado, a Nexa PJ não consulta instituições externas, não cria carteiras, não importa posições e não inicia pagamentos.</p>
+    </section>
     <div className="pj-connect-layout">
       <div className="pj-connect-panel">
         <small className="eyebrow">IDENTIDADE EMPRESARIAL</small>
