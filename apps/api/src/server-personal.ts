@@ -2,6 +2,7 @@
 // Only enable for an isolated staging database, never an existing business/production DB.
 import 'dotenv/config';
 import {createHash,timingSafeEqual} from 'node:crypto';
+import {spawn} from 'node:child_process';
 import Fastify from 'fastify';
 import {z} from 'zod';
 import {query} from './db.js';
@@ -117,3 +118,35 @@ app.setErrorHandler((error,req,reply)=>{
  return reply.code(status).send({error:(error as any).code||'invalid_request',message:error instanceof Error?error.message:'Requisição inválida.'});
 });
 await app.listen({host:'0.0.0.0',port:Number(process.env.PORT||4000)});
+
+// Belvo connectivity SELF-DIAGNOSTIC. Only the invitation-only personal
+// Render preview can perform one read-only sandbox GET per successful startup.
+// Never mounts an HTTP endpoint, persists credentials, prints provider
+// responses, connects a user, creates a Link or initiates any payments.
+// The app stays available if the external sandbox is offline or refuses auth.
+if(process.env.NEX_PERSONAL_PREVIEW==='true'
+   &&process.env.BELVO_ENV==='sandbox'
+   &&process.env.BELVO_SANDBOX_ENABLED==='true'){
+  const probe=spawn(process.execPath,['scripts/check-nexa-belvo-sandbox.mjs'],{
+    cwd:process.cwd(),env:process.env,stdio:['ignore','ignore','pipe'],
+    shell:false
+  });
+  let detail='';
+  probe.stderr?.on('data',(chunk:Buffer)=>{
+    // Internal buffer only; NEVER log untrusted response, headers or secrets.
+    if(detail.length<160)detail+=String(chunk).slice(0,160-detail.length);
+  });
+  probe.on('error',()=>{
+    console.warn('belvo_sandbox_probe_process_error');
+  });
+  probe.on('close',(code)=>{
+    // Only fixed, whitelisted diagnostic codes may reach logs.
+    const match=/^(SANDBOX_GUARD|KEYS_MISSING|UNAUTHORIZED|UNEXPECTED_STATUS|INVALID_RESPONSE|NETWORK_ERROR|INVALID_CHECK|CHECK_FAILED):/.exec(detail);
+    const safeCode=match?.[1]||'CHECK_FAILED';
+    console.info(code===0?'belvo_sandbox_probe_authenticated'
+      :'belvo_sandbox_probe_'+safeCode.toLowerCase());
+  });
+}else{
+  console.info('belvo_sandbox_probe_disabled');
+}
+
