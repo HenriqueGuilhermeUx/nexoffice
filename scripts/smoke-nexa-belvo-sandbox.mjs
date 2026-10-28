@@ -72,7 +72,6 @@ test('the actual PF provider remains explicitly unconfigured; check is not mount
  for(const verb of ['get','post','put','patch','delete'])
   assert.equal(api.includes("app."+verb+"('/v1/personal/belvo"),false,
    'No Belvo HTTP diagnostic endpoint may exist');
-  'Must never expose a Belvo diagnostic HTTP endpoint');
  assert.ok(api.includes("process.env.BELVO_ENV==='sandbox'"));
  assert.ok(api.includes("process.env.BELVO_SANDBOX_ENABLED==='true'"));
  assert.doesNotMatch(api,/BELVO_SANDBOX_SECRET/);
