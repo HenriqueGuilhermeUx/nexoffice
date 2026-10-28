@@ -1,3 +1,5 @@
-# Static US-only preview. No links or fallback into the Brazilian site.
+# USA-only Netlify publish directory: root and /us serve the fictional preview.
+# No wildcard SPA fallback into login, billing, APIs or Brazilian routes.
 /us /index.html 200
-/us/* /index.html 200
+/us/ /index.html 200
+/* /404.html 404
