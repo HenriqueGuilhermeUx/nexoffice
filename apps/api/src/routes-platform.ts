@@ -101,8 +101,8 @@ export async function registerPlatformRoutes(app:FastifyInstance){
    * authority, integration verification and explicit release gating.
    */
   app.get('/v1/platform/nexa-pj/finance-hub/readiness',async req=>{
-    await workspaceContext(req,'workspace.read');
-    const openFinanceStatus=await new DisabledOpenFinanceConnector().getConnectionStatus({workspaceId:'unbound',representativeUserId:'unbound',verifiedCorporateIdentityRef:'',consentRef:'',requestedScopes:[]});
+    const ctx=await workspaceContext(req,'workspace.read');
+    const openFinanceStatus=await new DisabledOpenFinanceConnector().getConnectionStatus({workspaceId:ctx.workspaceId,representativeUserId:ctx.user.id,verifiedCorporateIdentityRef:'',consentRef:'',requestedScopes:[]});
     const source=(id:string,label:string,kind:string)=>({
       id,label,kind,status:id==='open-finance'?openFinanceStatus:'not_connected' as const,
       consent:'not_granted' as const,
