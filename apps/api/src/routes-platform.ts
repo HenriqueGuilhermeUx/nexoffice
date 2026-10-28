@@ -147,6 +147,22 @@ export async function registerPlatformRoutes(app:FastifyInstance){
         liabilities:['provider_consent','data_scope_liabilities','verified_kyb'],
         payments:['independent_authorization','human_confirmation','audit_trail','provider_approval'],
       },
+      gateEvaluation:{
+        evaluatedAt:new Date().toISOString(),
+        decision:'deny',
+        defaultPolicy:'fail_closed',
+        evidenceAccepted:false,
+        providerTokensInspected:false,
+        checks:[
+          {id:'workspace_membership',passed:true,source:'authenticated_erp_workspace'},
+          {id:'corporate_kyb',passed:false,source:'not_verified'},
+          {id:'representative_authority',passed:false,source:'not_verified'},
+          {id:'provider_consent',passed:false,source:'not_verified'},
+          {id:'provider_authentication',passed:false,source:'not_verified'},
+          {id:'wallet_ownership',passed:false,source:'not_verified'},
+          {id:'financial_release',passed:false,source:'not_enabled'},
+        ],
+      },
       sourceHealth:'all_disconnected',
       reason:'CORPORATE_AUTHORIZATION_AND_PROVIDER_CONNECTION_REQUIRED',
     };
