@@ -9,6 +9,7 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 
 const {readLifeosPersonalGoals}=await import('../apps/api/dist/nexa-lifeos-goals-read.js');
+const {readLifeosPersonalBills}=await import('../apps/api/dist/nexa-lifeos-bills-read.js');
 const prior=process.env.NEXA_LIFEOS_ENV;
 process.env.NEXA_LIFEOS_ENV='production';
 const A='a1111111-1111-4111-8111-111111111111';
@@ -43,6 +44,12 @@ function fakePool({failQuery=false}={}){
     actor=params[0];
     assert.ok(actor===A||actor===B);
     return{rows:[{set_config:actor}]};
+   }
+   if(sql.includes('from nex_personal.bills')){
+    assert.equal(params[0],actor);
+    assert.match(sql,/owner_user_id=\$1::uuid and active=true/);
+    if(failQuery)throw new Error('simulated query failure');
+    return {rows:actor===A?[{id:'33333333-3333-4333-8333-333333333333',name:'Conta luz',amount_minor:'9900',next_due_on:'2026-11-01',interval_months:1}]:[]};
    }
    if(sql.includes('from nex_personal.goals')){
     assert.equal(params.length,1);
@@ -110,4 +117,16 @@ test('production gate stays closed; no global query pool or financial API shortc
  assert.match(gate,/tenant_context_binding_not_implemented/);
  assert.ok(prior!==undefined||prior===undefined);
  process.stdout.write('NEXA_PF_NO_GO: owner-scoped mock read PASS; public API still closed\n');
+});
+
+test('bill reminders are per-user read-only, without payment capability',async()=>{
+ const f=fakePool();
+ const alice=await readLifeosPersonalBills(aliceToken,f.pool);
+ const bob=await readLifeosPersonalBills(bobToken,f.pool);
+ assert.deepEqual(alice.bills.map(x=>x.name),['Conta luz']);
+ assert.deepEqual(bob.bills,[]);
+ assert.equal(alice.readOnly,true);
+ assert.equal(alice.paymentsEnabled,false);
+ assert.equal(f.releases,2);
+ assert.equal(f.actor,null);
 });
