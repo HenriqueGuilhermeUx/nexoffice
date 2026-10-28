@@ -155,6 +155,8 @@ for(const key of ['aggregatedBalance','investmentsTotal','outstandingDebt'])
 for(const key of ['paymentInitiationEnabled','walletProvisioningEnabled','agenticActionsEnabled','externalEffectsEnabled'])
   assert.equal(financeHub.data[key],false,key+' must remain disabled');
 assert.ok(financeHub.data.sources.every(s=>s.status==='not_connected'&&s.dataAvailable===false));
+assert.equal(financeHub.data.sources.find(s=>s.id==='open-finance')?.status,'not_connected','disabled adapter must not open provider connection');
+assert.equal(financeHub.data.sources.find(s=>s.id==='open-finance')?.consent,'not_granted');
 for(const pii of [merchantId,representativeUserId,workspaceId,nexofficeUserId,browserToken])
   assert.equal(JSON.stringify(financeHub.data).includes(pii),false,'finance hub must not expose corporate identifiers or tokens');
 
