@@ -7,6 +7,7 @@ import {
  sandboxReady,widgetReady,newSandboxExternalId,createSandboxWidgetAccess,
  authorizedSandboxWebhook,parseSandboxWebhook,BelvoSandboxError
 } from './belvo-sandbox-contract.js';
+import {verifyBelvoSandboxConsent,BelvoVerificationError} from './belvo-sandbox-verification.js';
 
 const ID=z.string().regex(/^nexa_pf_sb_[a-f0-9]{32}$/);
 const requestSchema=z.object({confirmSandbox:z.literal(true)}).strict();
@@ -64,6 +65,58 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
    throw new ApiError(502,'sandbox_widget_unavailable',
     e instanceof BelvoSandboxError?'Não foi possível abrir o banco fictício. Tente novamente.':'Conexão de testes indisponível.');
   }
+ });
+
+ // Explicit user action. Check the REAL provider-side link and consent before
+ // recording a mockbank-only verification; never infer approval from an
+ // untrusted callback, webhook, client-supplied link or CPF.
+ app.post('/v1/personal/belvo-sandbox/verify',async req=>{
+  const actor=await owner(req);
+  requestSchema.parse(req.body);
+  if(!widgetReady(env))
+   throw new ApiError(503,'sandbox_widget_disabled','Homologação ainda não habilitada.');
+  const events=await query<{id:string;external_id:string;link_id:string}>(
+   `SELECT a.id,a.external_id,e.link_id
+      FROM nex_personal.belvo_sandbox_attempts a
+      JOIN nex_personal.belvo_sandbox_events e ON e.attempt_id=a.id
+     WHERE a.owner_user_id=$1 AND a.status='widget_ready'
+       AND e.link_id IS NOT NULL AND a.created_at>now()-interval '48 hours'
+     ORDER BY e.received_at DESC LIMIT 1`,[actor]);
+  if(!events.length)return {
+   verified:false,status:'awaiting_webhook',sandbox:true,
+   bankDataImported:false,paymentsEnabled:false
+  };
+  let proof;
+  try{
+   proof=await verifyBelvoSandboxConsent(env,{
+    externalId:events[0].external_id,linkId:events[0].link_id
+   });
+  }catch(err){
+   if(err instanceof BelvoVerificationError)
+    throw new ApiError(502,'sandbox_provider_unavailable',
+     'Não foi possível confirmar o consentimento no banco fictício.');
+   throw new ApiError(502,'sandbox_provider_unavailable','Verificação indisponível.');
+  }
+  if(!proof)return {
+   verified:false,status:'not_confirmed',sandbox:true,
+   bankDataImported:false,paymentsEnabled:false
+  };
+  // Persist only server-checked refs with the authenticated PF owner.
+  // Never copy PII, balances, permissions JSON or bank transactions.
+  const inserted=await query<{attempt_id:string}>(
+   `INSERT INTO nex_personal.belvo_sandbox_verified_consents
+       (attempt_id,owner_user_id,provider_link_ref,provider_consent_ref,institution)
+     SELECT a.id,a.owner_user_id,$3::uuid,$4::uuid,'ofmockbank_br_retail'
+       FROM nex_personal.belvo_sandbox_attempts a
+      WHERE a.id=$1::uuid AND a.owner_user_id=$2::uuid AND a.status='widget_ready'
+     ON CONFLICT(attempt_id) DO NOTHING RETURNING attempt_id`,
+   [events[0].id,actor,proof.linkRef,proof.consentRef]);
+  return {
+   verified:inserted.length>0,
+   status:inserted.length>0?'verified_sandbox_consent':'already_verified_or_changed',
+   sandbox:true,institution:'ofmockbank_br_retail',
+   bankDataImported:false,paymentsEnabled:false,realBankConnection:false
+  };
  });
 
  // Aggregation webhook, never payments webhook. Not registered at all until
