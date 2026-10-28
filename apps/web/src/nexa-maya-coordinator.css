@@ -1,0 +1,13 @@
+.np-maya-coordinator{margin-bottom:24px}
+.np-maya-coordinator h2{margin:9px 0 12px;font-size:clamp(25px,3vw,35px)}
+.np-maya-coordinator p{line-height:1.65}
+.np-maya-coordinator form{margin-top:18px}
+.np-maya-coordinator label{display:block;margin-bottom:9px;font-size:13px;font-weight:650}
+.np-maya-row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+.np-maya-row input{min-width:200px;flex:1;border:1px solid #365b76;border-radius:10px;background:#071827;color:#eaf7ff;padding:12px 14px;font:inherit}
+.np-maya-choices{display:flex;flex-wrap:wrap;gap:9px;margin:22px 0}
+.np-maya-recommendation{padding:18px;border-radius:15px;border:1px solid #2a6684;background:rgba(33,139,255,.08);margin:16px 0}
+.np-maya-recommendation p{margin:9px 0 14px}
+.np-maya-limits{display:block;margin-top:20px;color:#a2bdcd;line-height:1.7}
+.np-maya-row input:focus-visible,.np-maya-coordinator button:focus-visible{outline:3px solid #31d7ff;outline-offset:2px}
+@media(max-width:620px){.np-maya-row{flex-direction:column}.np-maya-row input,.np-maya-row button{width:100%;min-width:0}}

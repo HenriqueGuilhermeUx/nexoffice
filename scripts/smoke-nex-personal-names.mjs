@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+// Run Maya product-boundary assertions in the existing CI smoke step.
+import './smoke-nexa-maya-agentics-routing.mjs';
 import {readFileSync} from 'node:fs';
 
 const office=readFileSync('apps/web/src/NexPersonalLifeOffice.tsx','utf8');

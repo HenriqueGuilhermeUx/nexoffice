@@ -21,12 +21,12 @@ export default function NexaCryptoHub(){
   <section className="np-panel np-studio-card">
    <span className="np-kicker">NEXA · CRIPTO E CARTEIRAS</span>
    <h2>Cripto sem complicação.</h2>
-   <p>Acompanhe a evolução da sua vida financeira com a Nexa e acesse a Nexa Wallet quando quiser comprar, receber, converter ou movimentar ativos digitais.</p>
+   <p>A Maya coordena sua experiência pessoal na Nexa. Na Nexa Wallet, o atendimento e as funções cripto pertencem ao <strong>Assistente Nexa</strong>, com autenticação e permissões exclusivas da Wallet.</p>
    <div className="np-nexa-crypto-actions">
     <a className="np-primary" href={WALLET_PORTAL} target="_blank" rel="noopener noreferrer">Abrir minha Nexa Wallet ↗</a>
     <a className="np-studio-secondary" href={WALLET_SIGNUP} target="_blank" rel="noopener noreferrer">Criar minha conta Nexa Wallet ↗</a>
    </div>
-   <p className="np-footnote">Você acessará a Wallet em uma página separada. Ela utiliza o login e as verificações da própria Nexa Wallet; o token deste espaço pessoal não é compartilhado.</p>
+   <p className="np-footnote">Você acessará a Wallet em uma página separada. O Assistente da Wallet usa apenas os recursos realmente habilitados e autorizados no produto. O token e o texto das solicitações da Maya não são compartilhados. Nenhum agente inicia transferência, swap ou assinatura por esta tela.</p>
   </section>
   <section className="np-panel np-studio-card">
    <span className="np-kicker">O QUE JÁ EXISTE E O QUE ESTÁ EM INTEGRAÇÃO</span>
