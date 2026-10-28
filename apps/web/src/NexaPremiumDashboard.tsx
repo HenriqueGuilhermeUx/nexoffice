@@ -120,7 +120,7 @@ export default function NexaPremiumDashboard({
  }
 
  return <div className="npx-premium" data-testid="nexa-premium-dashboard">
-  <div className="npx-topline"><span>NEXA PRIVATE · SUA VIDA FINANCEIRA EM UM LUGAR</span><Status type="pending">Prévia por convite · operações protegidas</Status></div>
+  <div className="npx-topline"><span>NEXA · SUA VISÃO FINANCEIRA PREMIUM</span><Status type="pending">Prévia por convite · operações protegidas</Status></div>
   <section className="npx-hero" aria-label="Visão patrimonial Nexa">
    <div className="npx-hero-copy"><span className="npx-eyebrow">BEM-VINDO AO SEU ESPAÇO, {displayName.toLocaleUpperCase('pt-BR')}</span>
     <h2>Seu dinheiro, seu patrimônio. Mais tempo para viver.</h2>
@@ -154,7 +154,7 @@ export default function NexaPremiumDashboard({
 
     <div className="npx-half">
      <Panel id="npx-investimentos" title="Investimentos" sub="Posições declaradas e pesquisa sem execução" action={<button className="npx-link" type="button" onClick={()=>onOpenSection('market')}>Analisar</button>}>
-      {declaredInvestments.length?declaredInvestments.map(w=><div key={w.id} className="npx-mini-line"><span>{w.name}<small>Informado por você · {w.category}</small></span><b>{money(w.amount_minor,w.currency||'BRL')}</b></div>):
+      {!studio?<div className="npx-empty">Aguardando a fonte de investimentos e patrimônio informado.</div>:declaredInvestments.length?declaredInvestments.map(w=><div key={w.id} className="npx-mini-line"><span>{w.name}<small>Informado por você · {w.category}</small></span><b>{money(w.amount_minor,w.currency||'BRL')}</b></div>):
        <div className="npx-empty">Ainda não há investimentos declarados. As posições externas aparecerão após consentimento e integração de dados elegíveis.</div>}
       <p className="npx-fine">Sem negociação de ativos ou recomendação personalizada nesta prévia.</p>
      </Panel>
@@ -194,12 +194,12 @@ export default function NexaPremiumDashboard({
     </Panel>
 
     <Panel id="npx-alertas" title="Próximos compromissos" sub="Lembretes cadastrados, não cobranças verificadas" action={<button className="npx-link" type="button" onClick={()=>onOpenSection('planning')}>Organizar</button>}>
-     {bills.length===0?<div className="npx-empty">Nenhuma conta a vencer cadastrada.</div>:
+     {!studio?<div className="npx-empty">Aguardando os lembretes de contas e vencimentos.</div>:bills.length===0?<div className="npx-empty">Nenhuma conta a vencer cadastrada.</div>:
       bills.map(b=><div className="npx-mini-line" key={b.id}><span>{b.name}<small>Data informada: {date(b.next_due_on)}</small></span><b>{money(b.amount_minor)}</b></div>)}
      {typeof openJourneys==='number'&&<p className="npx-fine">{openJourneys} jornada(s) pessoal(is) planejada(s).</p>}
     </Panel>
     <Panel id="npx-metas" title="Seus objetivos" sub="Metas com acompanhamento pessoal" action={<button className="npx-link" type="button" onClick={()=>onOpenSection('planning')}>Ver metas</button>}>
-     {goals.length===0?<div className="npx-empty">Defina sua primeira meta e acompanhe o progresso.</div>:
+     {!studio?<div className="npx-empty">Aguardando suas metas e objetivos.</div>:goals.length===0?<div className="npx-empty">Defina sua primeira meta e acompanhe o progresso.</div>:
       goals.map(g=><div className="npx-goal" key={g.id}><div className="npx-mini-line"><span>{g.name}</span><b>{money(g.saved_minor)} / {money(g.target_minor)}</b></div><div className="npx-progress"><span style={{width:String(Math.min(100,Math.max(0,Number(BigInt(g.saved_minor)*100n/BigInt(g.target_minor||'1')))))+'%'}}/></div></div>)}
     </Panel>
     <Panel id="npx-privacy" title="Privacidade e autonomia" sub="Você controla o que compartilha">
