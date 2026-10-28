@@ -31,8 +31,8 @@ export type USReadOnlyRuntimePreflight={
  agentSigningAllowed:false;
 };
 
-// Restrict to US-facing preview hostname or an explicitly owned future HTTPS
-// custom host; browser-origin matching happens separately at request handling.
+// Require an exact HTTPS frontend origin. Domain ownership and per-request
+// CORS/token authorization must be verified by the eventual USA deployment.
 const USA_DATABASE_NAME=/^nex_personal_us(?:_[a-z0-9_]+)?$/;
 const US_REGION=/^us-(?:east|west|central)-[1-9]$/;
 const US_ROLE=/(?:^|_)us(?:_|$)/;
@@ -62,15 +62,19 @@ export function assertUSReadOnlyRuntimePreflight(
   invalid('ORIGIN_INVALID');
  let db:URL;
  try{db=new URL(input.dedicatedDatabaseUrl)}catch{invalid('DATABASE_URL_INVALID')}
- const name=decodeURIComponent(db.pathname.slice(1));
- const role=decodeURIComponent(db.username);
+ let name:string;
+ let role:string;
+ try{
+  name=decodeURIComponent(db.pathname.slice(1));
+  role=decodeURIComponent(db.username);
+ }catch{invalid('DATABASE_URL_INVALID')}
  const ssl=db.searchParams.get('sslmode');
  if((db.protocol!=='postgresql:'&&db.protocol!=='postgres:')||
     !db.hostname||!db.hostname.includes('.')||db.hash||db.searchParams.size!==1||
     !['require','verify-ca','verify-full'].includes(ssl??'')||
     !USA_DATABASE_NAME.test(name)||db.pathname.slice(1).includes('/')||
     !role||!US_ROLE.test(role)||PRIVILEGED_ROLES.has(role)||
-    !db.password||!db.port&&false)
+    !db.password||db.username.length>100||db.password.length>5000)
   invalid('DATABASE_URL_INVALID');
  // Do not return or log credentials, hostname or connection details.
  return {
