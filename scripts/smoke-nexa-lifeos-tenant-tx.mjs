@@ -7,13 +7,14 @@ const token='N'.repeat(56);
 const userA='a1111111-1111-4111-8111-111111111111';
 const userB='b2222222-2222-4222-8222-222222222222';
 
-function fakePool(userId,shouldThrow=false,rollbackFails=false){
+function fakePool(userId,shouldThrow=false,rollbackFails=false,roleName='nexa_lifeos_app',roleFlags={}){
  const calls=[];
  let released=0;
  const releaseArgs=[];
  const client={
   async query(text,params=[]){
    calls.push({text,params});
+   if(text.includes('from pg_catalog.pg_roles'))return {rows:[{name:roleName,rolsuper:false,rolbypassrls:false,rolcreatedb:false,rolcreaterole:false,...roleFlags}]};
    if(text.includes('resolve_api_session'))return {rows:userId?[{user_id:userId}]:[]};
    if(shouldThrow && text.includes('select set_config'))throw new Error('simulated postgres failure');
    if(rollbackFails && text==='ROLLBACK')throw new Error('simulated rollback failure');
@@ -42,13 +43,14 @@ test('uses same connection, validated opaque token hash, SET LOCAL and commit',a
   },f.pool);
   assert.equal(result,'only-user-a');
   assert.equal(f.calls[0].text,'BEGIN');
-  assert.equal(f.calls[1].text,'select user_id from nex_personal.resolve_api_session($1::text)');
-  assert.equal(f.calls[1].params[0],hashOpaqueToken(token));
-  assert.ok(!f.calls[1].params[0].includes(token),'Raw bearer never reaches SQL');
-  assert.equal(f.calls[2].text,"select set_config('app.user_id',$1,true)");
-  assert.deepEqual(f.calls[2].params,[userA]);
-  assert.equal(f.calls[3].params[0],userA);
-  assert.equal(f.calls[4].text,'COMMIT');
+  assert.match(f.calls[1].text,/from pg_catalog\.pg_roles where rolname=current_user/);
+  assert.equal(f.calls[2].text,'select user_id from nex_personal.resolve_api_session($1::text)');
+  assert.equal(f.calls[2].params[0],hashOpaqueToken(token));
+  assert.ok(!f.calls[2].params[0].includes(token),'Raw bearer never reaches SQL');
+  assert.equal(f.calls[3].text,"select set_config('app.user_id',$1,true)");
+  assert.deepEqual(f.calls[3].params,[userA]);
+  assert.equal(f.calls[4].params[0],userA);
+  assert.equal(f.calls[5].text,'COMMIT');
   assert.equal(f.released,1);
  });
 });
@@ -57,7 +59,11 @@ test('unauthenticated or expired session never executes protected queries',async
   const f=fakePool(null);let accessed=false;
   await assert.rejects(withLifeosAuthenticatedTransaction(token,async()=>{accessed=true},f.pool),x=>x.code==='invalid_session');
   assert.equal(accessed,false);
-  assert.deepEqual(f.calls.map(x=>x.text),['BEGIN','select user_id from nex_personal.resolve_api_session($1::text)','ROLLBACK']);
+  assert.equal(f.calls.length,4);
+  assert.equal(f.calls[0].text,'BEGIN');
+  assert.match(f.calls[1].text,/from pg_catalog\.pg_roles/);
+  assert.equal(f.calls[2].text,'select user_id from nex_personal.resolve_api_session($1::text)');
+  assert.equal(f.calls[3].text,'ROLLBACK');
   assert.equal(f.released,1);
  });
 });
@@ -114,5 +120,27 @@ test('ordinary denied session returns a successfully rolled-back client to the p
    x=>x.code==='invalid_session'
   );
   assert.deepEqual(f.releaseArgs,[false],'A successful rollback can reuse the connection');
+ });
+});
+
+
+test('effective DB role must be the exact non-privileged PF role, not a database owner or superuser',async()=>{
+ await scoped(async()=>{
+  for(const [role,flags] of [
+    ['postgres',{}],['nexa_lifeos_app',{rolsuper:true}],
+    ['nexa_lifeos_app',{rolbypassrls:true}],
+    ['nexa_lifeos_app',{rolcreatedb:true}],
+    ['nexa_lifeos_app',{rolcreaterole:true}]
+  ]){
+   const f=fakePool(userA,false,false,role,flags);
+   let entered=false;
+   await assert.rejects(withLifeosAuthenticatedTransaction(token,async()=>{entered=true;},f.pool),
+    e=>e.code==='tenant_role_unsafe'&&e.statusCode===503);
+   assert.equal(entered,false);
+   assert.equal(f.calls.filter(x=>x.text.includes('resolve_api_session')).length,0,
+    'Identity lookup MUST NOT start under an unsafe database role');
+   assert.equal(f.calls.at(-1).text,'ROLLBACK');
+   assert.equal(f.released,1);
+  }
  });
 });
