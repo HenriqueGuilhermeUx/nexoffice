@@ -8,6 +8,8 @@ for(const evidence of [null,{...record,status:'revoked'},{...record,status:'expi
  assert.equal(evaluateCorporateReadConsent(ctx,evidence,true,now),'deny');
 }
 assert.equal(evaluateCorporateReadConsent(ctx,record,false,now),'deny');
+assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:['payments.write']},{...record,scopes:['accounts.read','payments.write']},true,now),'deny','write scopes cannot be authorized through a read-only adapter');
+assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:['transfers.write']},{...record,scopes:['transfers.write']},true,now),'deny','transfers are not read-only scopes');
 assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:[]},record,true,now),'deny');
 assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:['payments.write']},record,true,now),'deny');
 const disabled=new DisabledOpenFinanceConnector();
