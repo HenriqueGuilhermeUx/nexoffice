@@ -4,6 +4,18 @@ type Status={
  credentialsConfigured?:boolean;widgetAvailable:boolean;simulatedData:true;
  consentReview?:{status:'not_verified'|'verified_recent'|'review_required'|'verification_stale';verifiedAt:string|null}
 };
+type SandboxDemo={
+ state:'sandbox_data'|'consent_recheck_required';source:'belvo_sandbox_demo';simulatedData:true;
+ noCurrencyTotal:true;
+ accounts:Array<{id:string;kind:string;balanceType:string;currency:'BRL'|null;currentMinor:string|null}>;
+ transactions:Array<{id:string;kind:string;accountId:string;bookedAt:string|null;currency:'BRL'|null;amountMinor:string|null}>;
+};
+function displayMockMinor(minor:string|null,currency:'BRL'|null):string{
+ if(!currency||minor===null||!/^[-]?\\d{1,16}$/.test(minor))return 'Valor não disponível';
+ const amount=Number(minor)/100;
+ if(!Number.isSafeInteger(Number(minor)))return 'Valor não disponível';
+ return new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(amount);
+}
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true'
  ?'':((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
 
@@ -13,11 +25,12 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const [widgetUrl,setWidgetUrl]=useState('');
+ const [demo,setDemo]=useState<SandboxDemo|null>(null);
  const [verification,setVerification]=useState<'idle'|'awaiting_webhook'|'verified_sandbox_consent'|'not_confirmed'|'unavailable'>('idle');
  const activeToken=useRef(token);activeToken.current=token;
  useEffect(()=>{
   const controller=new AbortController();
-  setStatus(null);setWidgetUrl('');setVerification('idle');setError('');
+  setStatus(null);setWidgetUrl('');setDemo(null);setVerification('idle');setError('');
   void fetch(API+'/v1/personal/belvo-sandbox/status',{
    method:'GET',headers:{authorization:'Bearer '+token},
    signal:controller.signal,cache:'no-store'
@@ -52,6 +65,24 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
    }
   }catch{
    if(activeToken.current===token){setVerification('unavailable');setError('Verificação indisponível. Nenhum saldo foi importado.');}
+  }finally{if(activeToken.current===token)setBusy(false);}
+ }
+ async function loadDemo(){
+  if(busy||status?.consentReview?.status!=='verified_recent')return;
+  setBusy(true);setError('');setDemo(null);
+  try{
+   const response=await fetch(API+'/v1/personal/belvo-sandbox/demo-data',{
+    method:'GET',cache:'no-store',headers:{authorization:'Bearer '+token}
+   });
+   if(!response.ok)throw new Error('A demonstração do banco fictício não está disponível.');
+   const data=await response.json() as SandboxDemo;
+   if(data.source!=='belvo_sandbox_demo'||data.simulatedData!==true
+    ||data.noCurrencyTotal!==true||!Array.isArray(data.accounts)
+    ||!Array.isArray(data.transactions))
+    throw new Error('Resposta de teste inválida.');
+   if(activeToken.current===token)setDemo(data);
+  }catch{
+   if(activeToken.current===token)setError('Não foi possível ler os dados fictícios. Nenhum saldo foi importado.');
   }finally{if(activeToken.current===token)setBusy(false);}
  }
  async function connect(){
@@ -97,6 +128,32 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
    :verification==='awaiting_webhook'?'Aguardando evento do banco fictício.'
    :verification==='not_confirmed'?'Consentimento ainda não confirmado pela Belvo.'
    :'Falha temporária na verificação.'}</small>}
+  {status?.consentReview?.status==='verified_recent'&&status.widgetAvailable
+   &&<button className="npx-secondary" type="button" disabled={busy}
+    onClick={()=>void loadDemo()}>{busy?'Consultando…':'Ver contas e extratos fictícios'}</button>}
+  {demo?.state==='consent_recheck_required'&&<small role="status">
+    O consentimento precisa ser reconfirmado na Belvo. Nenhum dado importado.
+   </small>}
+  {demo?.state==='sandbox_data'&&<section className="npx-demo-results" aria-label="Dados simulados, excluídos do patrimônio real">
+    <strong>DEMONSTRAÇÃO · dados fictícios, fora do seu patrimônio</strong>
+    <small>Informações da Belvo Sandbox. Não entram nos saldos, investimentos ou dívidas reais.</small>
+    <div className="npx-demo-list">
+     {demo.accounts.length===0&&<small>Nenhuma conta fictícia disponível.</small>}
+     {demo.accounts.slice(0,10).map(a=><div key={a.id} className="npx-demo-entry">
+      <span>{a.kind} · {a.balanceType==='LIABILITY'?'Passivo':a.balanceType==='ASSET'?'Ativo':'Não classificado'}</span>
+      <strong>{displayMockMinor(a.currentMinor,a.currency)}</strong>
+     </div>)}
+    </div>
+    <small>Movimentações simuladas</small>
+    <div className="npx-demo-list">
+     {demo.transactions.length===0&&<small>Nenhuma movimentação fictícia disponível.</small>}
+     {demo.transactions.slice(0,8).map(t=><div key={t.id} className="npx-demo-entry">
+      <span>{t.kind}{t.bookedAt?' · '+new Date(t.bookedAt).toLocaleDateString('pt-BR'):''}</span>
+      <strong>{displayMockMinor(t.amountMinor,t.currency)}</strong>
+     </div>)}
+    </div>
+    <small>Sem total consolidado: não misturamos moedas, passivos, valores simulados e contas reais.</small>
+   </section>}
   {widgetUrl&&<a className="npx-secondary" href={widgetUrl} target="_blank" rel="noopener noreferrer">
    Abrir ambiente seguro da Belvo
   </a>}
