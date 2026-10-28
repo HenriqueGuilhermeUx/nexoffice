@@ -7,6 +7,7 @@ import NexaMayaCoordinator from './NexaMayaCoordinator';
 import PersonalFInsight from './PersonalFInsight';
 import PersonalPrivacyCenter from './PersonalPrivacyCenter';
 import NexaCryptoHub from './NexaCryptoHub';
+import NexaPremiumDashboard from './NexaPremiumDashboard';
 import './nexa-life-rebrand.css';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
@@ -59,7 +60,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'crypto'|'agents'|'maya'|'privacy'>('office');
+  const [section,setSection]=useState<'overview'|'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'crypto'|'agents'|'maya'|'privacy'>('overview');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [initialSpecialist,setInitialSpecialist]=useState<AgentId>('expenses');
   const [busy,setBusy]=useState(false);
@@ -199,14 +200,19 @@ export default function NexPersonal(){
     <aside className="np-sidebar">
       <div className="np-brand"><img className="np-nexa-logo" src="/nexa-logo.svg" alt="Símbolo Nexa" width="35" height="35"/> <strong>Nexa</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['crypto','Cripto & Wallet'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['overview','Visão completa'],['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['crypto','Cripto & Wallet'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
       <div className="np-sidebar-bottom"><span>Este espaço de organização não mantém custódia de dinheiro. A Nexa Wallet é um produto separado.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
     <main className="np-main">
       <header className="np-top"><div><div className="np-kicker">NEXA · SUA VIDA, UM SÓ LUGAR</div><h1>Olá, {displayName}.</h1><p>Sua vida mais simples. Seu tempo de volta.</p></div><span className="np-pill">Sem transferências reais</span></header>
       {error&&<div className="np-error" role="alert">{error}</div>}
-      {section==='office'&&<NexPersonalLifeOffice token={token} onOpenSection={setSection} onOpenAgent={(agent)=>{setInitialSpecialist(agent);setSection('agents');}}/>}
+      {section==='overview'&&<NexaPremiumDashboard key={token} token={token} displayName={displayName}
+         overview={overview} accounts={accounts} movements={movements} consents={consents}
+         onOpenSection={setSection}
+         onOpenAgent={agent=>{setInitialSpecialist(agent);setSection('agents');}}
+         onRefresh={()=>{void refresh(token);}}/>}
+       {section==='office'&&<NexPersonalLifeOffice token={token} onOpenSection={setSection} onOpenAgent={(agent)=>{setInitialSpecialist(agent);setSection('agents');}}/>}
       {section==='today'&&<>
         <div className="np-stats">
           <div className="np-stat"><span>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Disponível conectado':'Saldo declarado'}</span><strong>{money(overview?.availableMinor??overview?.manualAvailableMinor)}</strong><small>{overview?.availableMinor!==null&&overview?.availableMinor!==undefined?'Saldo informado pelas instituições':'Informado por você · sem verificação bancária'}</small></div>
