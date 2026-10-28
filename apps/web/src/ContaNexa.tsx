@@ -105,13 +105,13 @@ export default function ContaNexa({
         </div>
         <span className="pj-bank-readiness" role="status">{state?.structuralBindingPresent?'Vínculo identificado · aprovação pendente':'Conta PJ ainda não habilitada'}</span>
       </div>
-      <div className="pj-bank-quick-actions" aria-label="Atalhos financeiros">
-        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar recursos de recebimento no portal Nexa, sujeito a habilitação">Receber <span>↗</span></a>
-        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar recursos de pagamentos no portal Nexa, sujeito a habilitação">Pagar <span>↗</span></a>
-        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar recursos de transferência no portal Nexa, sujeito a habilitação">Transferir <span>↗</span></a>
+      <div className="pj-bank-quick-actions" aria-label="Atalhos financeiros com habilitação pendente">
+        {(['Receber','Pagar','Transferir','Extrato'] as const).map(label=>
+          <button key={label} type="button" disabled aria-disabled="true" title="Disponível somente após KYB, autorização do representante e autenticação PJ">{label} <span>🔒</span></button>
+        )}
         <button type="button" onClick={()=>navigateErp('finance')}>Cobranças e ERP <span>→</span></button>
-        <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Consultar extrato empresarial no portal Nexa, sujeito a habilitação">Extrato <span>↗</span></a>
       </div>
+      <p className="pj-banking-lock-note" role="status">Recebimentos, pagamentos, transferências e extrato bancário ficam indisponíveis neste ERP até a habilitação da Conta Nexa PJ. A gestão financeira administrativa continua disponível.</p>
       <div className="pj-bank-activity" aria-label="Movimentações da Conta Nexa">
         <div><h4>Movimentações da conta</h4><p>O extrato bancário da empresa aparece aqui somente após integração, aprovação e sessão PJ independente.</p></div>
         <span>Sem acesso financeiro autorizado</span>
