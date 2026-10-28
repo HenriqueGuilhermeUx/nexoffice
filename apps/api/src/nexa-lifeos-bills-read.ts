@@ -5,7 +5,7 @@
  */
 import type {Pool} from 'pg';
 import {db} from './db.js';
-import {withLifeosAuthenticatedTransaction} from './nexa-lifeos-tenant-tx.js';
+import {withLifeosAuthenticatedReadTransaction} from './nexa-lifeos-tenant-tx.js';
 
 export type LifeosPersonalBill=Readonly<{
  id:string;name:string;amountMinor:string;nextDueOn:string;intervalMonths:number
@@ -15,7 +15,7 @@ export async function readLifeosPersonalBills(
  opaqueBearerToken:string,
  connection:Pick<Pool,'connect'>|null=db
 ):Promise<{bills:LifeosPersonalBill[];readOnly:true;paymentsEnabled:false}>{
- return withLifeosAuthenticatedTransaction(opaqueBearerToken,async({client,userId})=>{
+ return withLifeosAuthenticatedReadTransaction(opaqueBearerToken,async({client,userId})=>{
   const {rows}=await client.query<{
    id:string;name:string;amount_minor:string;next_due_on:string;interval_months:number
   }>(`
