@@ -14,6 +14,7 @@ import {readFileSync} from 'node:fs';
 import pg from 'pg';
 import {readLifeosPersonalGoals} from '../apps/api/dist/nexa-lifeos-goals-read.js';
 import {readLifeosPersonalBills} from '../apps/api/dist/nexa-lifeos-bills-read.js';
+import {withLifeosAuthenticatedReadTransaction} from '../apps/api/dist/nexa-lifeos-tenant-tx.js';
 
 if (process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||
     process.env.NEXA_LIFEOS_SCHEMA_REHEARSAL!=='true'||
@@ -198,6 +199,17 @@ try {
   assert.deepEqual(billsA.bills.map(x=>x.name),['Luz Alice']);
   assert.deepEqual(billsB.bills.map(x=>x.name),['Internet Bob']);
   assert.equal(billsA.paymentsEnabled,false);
+  // PostgreSQL itself must reject modifications even when the verified
+  // principal OWNS the row. This tests READ ONLY beyond route-level promises.
+  await assert.rejects(
+   withLifeosAuthenticatedReadTransaction(tokenA,async({client,userId})=>{
+    await client.query(
+     "insert into nex_personal.goals(owner_user_id,name,target_minor) values($1,'Forbidden accidental write',100)",
+     [userId]
+    );
+   },roleRestricted),
+   error=>error.code==='25006'
+  );
   assert.deepEqual(resultsA.goals.map(x=>x.name),['Reserva Alice']);
   assert.deepEqual(resultsB.goals.map(x=>x.name),['Viagem Bob']);
   assert.equal(resultsA.readOnly,true);
