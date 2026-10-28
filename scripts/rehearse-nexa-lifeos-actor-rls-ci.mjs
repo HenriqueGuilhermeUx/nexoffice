@@ -13,6 +13,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import pg from 'pg';
 import {readLifeosPersonalGoals} from '../apps/api/dist/nexa-lifeos-goals-read.js';
+import {readLifeosPersonalBills} from '../apps/api/dist/nexa-lifeos-bills-read.js';
 
 if (process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||
     process.env.NEXA_LIFEOS_SCHEMA_REHEARSAL!=='true'||
@@ -148,6 +149,7 @@ try {
   [A,createHash('sha256').update(tokenA).digest('hex'),B,createHash('sha256').update(tokenB).digest('hex')]
  );
  await admin.query("INSERT INTO nex_personal.goals(owner_user_id,name,target_minor,saved_minor) VALUES($1,'Reserva Alice',250000,30000),($2,'Viagem Bob',100000,20000)",[A,B]);
+ await admin.query("INSERT INTO nex_personal.bills(owner_user_id,name,amount_minor,next_due_on) VALUES($1,'Luz Alice',9900,'2026-11-01'),($2,'Internet Bob',11000,'2026-11-02')",[A,B]);
  const realAppPool=new pg.Pool({connectionString:source,max:1,connectionTimeoutMillis:5000});
  // The CI admin login may SET ROLE; production must instead have its own
  // non-privileged login role and separate database credentials.
@@ -161,6 +163,11 @@ try {
   process.env.NEXA_LIFEOS_ENV='production';
   const resultsA=await readLifeosPersonalGoals(tokenA,roleRestricted);
   const resultsB=await readLifeosPersonalGoals(tokenB,roleRestricted);
+  const billsA=await readLifeosPersonalBills(tokenA,roleRestricted);
+  const billsB=await readLifeosPersonalBills(tokenB,roleRestricted);
+  assert.deepEqual(billsA.bills.map(x=>x.name),['Luz Alice']);
+  assert.deepEqual(billsB.bills.map(x=>x.name),['Internet Bob']);
+  assert.equal(billsA.paymentsEnabled,false);
   assert.deepEqual(resultsA.goals.map(x=>x.name),['Reserva Alice']);
   assert.deepEqual(resultsB.goals.map(x=>x.name),['Viagem Bob']);
   assert.equal(resultsA.readOnly,true);
