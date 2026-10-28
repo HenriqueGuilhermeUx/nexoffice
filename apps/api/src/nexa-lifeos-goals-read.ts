@@ -10,7 +10,7 @@
  */
 import type {Pool} from 'pg';
 import {db} from './db.js';
-import {withLifeosAuthenticatedTransaction} from './nexa-lifeos-tenant-tx.js';
+import {withLifeosAuthenticatedReadTransaction} from './nexa-lifeos-tenant-tx.js';
 
 export type LifeosPersonalGoal=Readonly<{
   id:string;
@@ -25,7 +25,7 @@ export async function readLifeosPersonalGoals(
   opaqueBearerToken:string,
   connection:Pick<Pool,'connect'>|null=db
 ):Promise<{goals:LifeosPersonalGoal[];readOnly:true;externalFinancialActions:false}>{
-  return withLifeosAuthenticatedTransaction(opaqueBearerToken,async({client,userId})=>{
+  return withLifeosAuthenticatedReadTransaction(opaqueBearerToken,async({client,userId})=>{
     // Owner predicate complements, but does NOT replace, forced PostgreSQL RLS.
     // The two protections must agree on exactly the server-resolved identity.
     const response=await client.query<{
