@@ -49,6 +49,8 @@ jobs:
         run: node --experimental-strip-types --test scripts/smoke-nexa-pf-premium-bridge.mjs
       - name: Verify Belvo sandbox credentials and environment isolation offline
         run: node --test scripts/smoke-nexa-belvo-sandbox.mjs
+      - name: Verify Belvo sandbox probe cannot escape preview or expose secrets
+        run: node --test scripts/smoke-nexa-belvo-preview-boot.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
