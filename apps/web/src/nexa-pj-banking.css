@@ -140,3 +140,6 @@
 .nexa-pj-theme .pj-maya-actions button{min-height:44px;padding:11px 16px;border-radius:10px;cursor:pointer}
 .nexa-pj-theme .sidebar{background:linear-gradient(180deg,#080D16,#101C30)}
 .nexa-pj-theme .shell{background:#090F1B}
+
+/* Enterprise financial aggregation readiness — no live data or actions. */
+.pj-premium-connectors{padding:24px;border-radius:20px;border:1px solid rgba(82,156,235,.22);background:rgba(20,42,75,.2);margin:18px 0}.pj-premium-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.pj-premium-card{border:1px solid rgba(148,163,184,.20);border-radius:14px;padding:16px;background:rgba(15,23,42,.25)}.pj-premium-card h4{margin:0 0 8px}.pj-premium-card p{line-height:1.5;margin:0 0 12px}.pj-premium-card small{font-weight:700;opacity:.85}@media(max-width:1000px){.pj-premium-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.pj-premium-grid{grid-template-columns:1fr}.pj-premium-connectors{padding:16px}}
