@@ -67,6 +67,11 @@ test('the actual PF provider remains explicitly unconfigured; check is not mount
  const api=readFileSync('apps/api/src/server-personal.ts','utf8');
  assert.match(source,/class BelvoProvider implements OpenFinanceProvider/);
  assert.match(source,/throw new ProviderNotConfiguredError\(this.name\)/);
- assert.doesNotMatch(api,/check-nexa-belvo-sandbox/);
+ assert.ok(api.includes("scripts/check-nexa-belvo-sandbox.mjs"),
+  'Belvo check runs as one-off preview-only process, not an HTTP route');
+ assert.doesNotMatch(api,/app\\.(?:get|post|put|patch|delete)\\([^\\n]*belvo/i,
+  'Must never expose a Belvo diagnostic HTTP endpoint');
+ assert.ok(api.includes("process.env.BELVO_ENV==='sandbox'"));
+ assert.ok(api.includes("process.env.BELVO_SANDBOX_ENABLED==='true'"));
  assert.doesNotMatch(api,/BELVO_SANDBOX_SECRET/);
 });
