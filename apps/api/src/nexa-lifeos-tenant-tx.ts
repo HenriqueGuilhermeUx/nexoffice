@@ -27,6 +27,21 @@ export async function withLifeosAuthenticatedTransaction<T>(
   try{
     await client.query('BEGIN');
     begun=true;
+    // The authenticated principal is not enough if this pooled connection
+    // accidentally uses the database owner, an admin role or BYPASSRLS.
+    // Assert the *effective* role before any session lookup or personal read.
+    // This is defense-in-depth; production HTTP remains closed separately.
+    const databaseRole=await client.query<{
+      name:string;rolsuper:boolean;rolbypassrls:boolean;
+      rolcreatedb:boolean;rolcreaterole:boolean
+    }>(`
+      select rolname::text as name,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole
+      from pg_catalog.pg_roles where rolname=current_user
+    `);
+    const role=databaseRole.rows.length===1?databaseRole.rows[0]:null;
+    if(!role||role.name!=='nexa_lifeos_app'||role.rolsuper
+      ||role.rolbypassrls||role.rolcreatedb||role.rolcreaterole)
+      throw new ApiError(503,'tenant_role_unsafe','Ambiente de dados não autorizado.');
     // resolve_api_session is *not* part of any existing migration.
     // It must safely validate the opaque token SHA256 under an isolated
     // least-privilege role without exposing auth_sessions to other users.
