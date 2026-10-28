@@ -21,6 +21,15 @@ execFileSync('npm',['exec','--','vite','build','--config','sites/nex-personal-us
  {cwd:root,stdio:'pipe',timeout:120_000,env:{...process.env,CI:'true'}});
 assert.ok(existsSync(resolve(out,'index.html')),'Standalone USA HTML build missing');
 assert.ok(existsSync(resolve(out,'robots.txt')),'USA robots preview gate missing');
+assert.ok(existsSync(resolve(out,'_headers')),'Netlify security headers file missing from published USA bundle');
+assert.ok(existsSync(resolve(out,'_redirects')),'Netlify SPA rewrite file missing from published USA bundle');
+const deployedHeaders=readFileSync(resolve(out,'_headers'),'utf8');
+const deployedRedirects=readFileSync(resolve(out,'_redirects'),'utf8');
+assert.match(deployedHeaders,/X-Frame-Options: DENY/);
+assert.match(deployedHeaders,/X-Content-Type-Options: nosniff/);
+assert.match(deployedHeaders,/Content-Security-Policy:/);
+assert.match(deployedHeaders,/X-Robots-Tag: noindex, nofollow/);
+assert.match(deployedRedirects,/^\/\* \/index\.html 200\s*$/);
 const builtHtml=readFileSync(resolve(out,'index.html'),'utf8');
 const builtFiles=readdirSync(resolve(out,'assets'));
 assert.match(builtHtml,/<html lang="en-US">/);
