@@ -22,7 +22,7 @@ export type ConsentVerificationInput={externalId:string;linkId:string};
 export async function verifyBelvoSandboxConsent(
  env:SandboxConfig,input:ConsentVerificationInput,
  http:typeof fetch=fetch,
- now=new Date()
+ now=new Date(),requireTransactions=false
 ):Promise<VerifiedSandboxConsent|null>{
  if(!widgetReady(env))throw new BelvoVerificationError('disabled');
  if(!externalPattern.test(input.externalId)||!uuidPattern.test(input.linkId)
@@ -71,6 +71,8 @@ export async function verifyBelvoSandboxConsent(
   if(!permissions||typeof permissions!=='object'||Array.isArray(permissions)
    ||!Array.isArray((permissions as Record<string,unknown>).ACCOUNTS)
    ||!(permissions as {ACCOUNTS:unknown[]}).ACCOUNTS.length)continue;
+  if(requireTransactions&&(!Array.isArray((permissions as Record<string,unknown>).TRANSACTIONS)
+    ||!(permissions as {TRANSACTIONS:unknown[]}).TRANSACTIONS.length))continue;
   const noExpiration=consent.undefined_consent_expiration===true
     &&consent.expired_at===null;
   const expiration=typeof consent.expired_at==='string'
