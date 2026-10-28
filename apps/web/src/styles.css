@@ -31,3 +31,9 @@
 .nexa-pj-gate-grid h3{font-size:18px;margin:0 0 8px}
 .nexa-pj-gate-grid p{margin:0;color:#acc8e7;font-size:14px;line-height:1.55}
 .nexa-pj-gate-main .nexa-pj-gate-footnote{font-size:13px;margin-top:26px}
+
+/* Nexa PJ grouped navigation; standalone NexOffice remains unchanged. */
+.pj-nav-group{margin:0 0 12px}
+.pj-nav-heading{font-size:10px;font-weight:800;letter-spacing:.12em;opacity:.65;padding:14px 13px 7px}
+.pj-nav-group+ .pj-nav-group{border-top:1px solid rgba(148,163,184,.13);padding-top:4px}
+.pj-nav-group button{width:100%}
