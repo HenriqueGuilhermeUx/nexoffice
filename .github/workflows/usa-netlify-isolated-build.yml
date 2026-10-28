@@ -1,0 +1,76 @@
+name: NexOffices USA dedicated Netlify artifact
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/usa-preview/**'
+      - 'apps/web/vite.usa.config.ts'
+      - 'apps/web/src/US*.tsx'
+      - 'apps/web/src/US*.css'
+      - 'scripts/usa-netlify-site-guard.mjs'
+      - 'scripts/usa-netlify-isolation-check.mjs'
+      - 'scripts/usa-standalone-browser.mjs'
+      - 'deploy/netlify/nexoffices/netlify.toml'
+      - '.github/workflows/usa-netlify-isolated-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-netlify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact reviewed commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exercise Netlify site guard and negative cases
+        env:
+          SITE_ID: a0b4370c-0f17-4aca-a07d-0d16f9640c61
+          SITE_NAME: av-usa-nexoffices
+          BRANCH: feature/usa-localized-preview-20261024
+          CONTEXT: production
+          NETLIFY: 'true'
+          COMMIT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          node scripts/usa-netlify-site-guard.mjs
+          if SITE_ID=wrong node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if SITE_NAME=wrong node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if BRANCH=main node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if CONTEXT=deploy-preview node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if COMMIT_REF=0000000000000000000000000000000000000000 node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if VITE_API_URL=https://example.invalid node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if DATABASE_URL=postgres://example.invalid/db node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          echo 'PASS: only exact USA Netlify identity, branch, context and source are accepted'
+      - name: Install existing workspace dependencies
+        run: npm install --include=dev
+      - name: Build standalone USA-only output
+        env:
+          USA_PREVIEW_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: cd apps/web && npx vite build --config vite.usa.config.ts
+      - name: Audit isolated deployable files
+        env:
+          COMMIT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/usa-netlify-isolation-check.mjs
+      - name: Install browser test dependency
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.57.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run standalone mobile/browser isolation QA
+        env:
+          USA_PREVIEW_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/usa-standalone-browser.mjs
+      - name: Archive review-only files (no deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexoffices-usa-netlify-standalone
+          path: apps/web/dist-usa/
+          if-no-files-found: error
+          retention-days: 7

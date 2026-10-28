@@ -1,0 +1,2 @@
+# Netlify SPA fallback: serve existing static files first, then let client routes load.
+/* /index.html 200

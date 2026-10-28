@@ -1,0 +1,76 @@
+name: NexOffices USA isolated browser QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/src/USPreview.tsx'
+      - 'apps/web/src/USWorkbench.tsx'
+      - 'apps/web/src/USWorkbench.css'
+      - 'apps/web/src/USSalesPipeline.tsx'
+      - 'apps/web/src/USSalesPipeline.css'
+      - 'apps/web/src/USDocumentReviews.tsx'
+      - 'apps/web/src/USDocumentReviews.css'
+      - 'apps/web/src/USCoordinationBrief.tsx'
+      - 'apps/web/src/USCoordinationBrief.css'
+      - 'apps/web/src/USSharedActivity.tsx'
+      - 'apps/web/src/USSharedActivity.css'
+      - 'scripts/usa-preview-check.mjs'
+      - 'apps/web/src/main.tsx'
+      - 'scripts/usa-browser-smoke.mjs'
+      - 'scripts/usa-standalone-browser.mjs'
+      - 'apps/web/vite.usa.config.ts'
+      - 'apps/web/usa-preview/**'
+      - '.github/workflows/usa-browser-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  usa-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build the PR HEAD itself, not GitHub's synthetic merge ref.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact USA PR source revision
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+          echo "USA preview checkout verified: $EXPECTED_SOURCE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install existing workspace dependencies
+        run: npm install --include=dev
+      - name: Install test-only browser dependency
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.57.0
+      - name: Build isolated web frontend
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: npm run build --workspace=@nexoffice/web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run USA preview browser checks
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: node scripts/usa-browser-smoke.mjs
+      - name: Build US-only static staging package
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+          USA_PREVIEW_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: cd apps/web && npx vite build --config vite.usa.config.ts
+      - name: Verify standalone USA bundle in Chromium
+        env:
+          USA_PREVIEW_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/usa-standalone-browser.mjs
+      - name: Archive nonproduction static preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexoffices-usa-standalone-preview
+          path: apps/web/dist-usa/
+          if-no-files-found: error
+          retention-days: 7
+

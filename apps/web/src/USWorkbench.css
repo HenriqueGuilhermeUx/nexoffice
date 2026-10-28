@@ -1,0 +1,24 @@
+.avus .avnw{max-width:1132px;margin:0 auto 70px;padding:32px 24px}
+.avus .avnw-head{max-width:800px}
+.avus .avnw-head h2{font-size:clamp(29px,3vw,40px);margin:14px 0}
+.avus .avnw-head p:not(.avus-eyebrow){color:#54677f;font-size:15px;line-height:1.75}
+.avus .avnw-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:23px 0}
+.avus .avnw-metrics div{background:#e8f4f8;border-radius:12px;padding:18px;display:grid;gap:9px}
+.avus .avnw-metrics small{font-size:12px;color:#53677a;font-weight:750}
+.avus .avnw-metrics strong{font-size:26px}
+.avus .avnw-grid{display:grid;grid-template-columns:1.25fr .75fr;align-items:start;gap:16px}
+.avus .avnw-card{background:#fff;border:1px solid #dbe6f0;border-radius:17px;padding:22px}
+.avus .avnw-card h3{font-size:18px;margin:4px 0 18px}
+.avus .avnw-list{display:grid;gap:10px}
+.avus .avnw-list article{padding:15px;background:#f7fafc;border:1px solid #e2eaf2;border-radius:10px}
+.avus .avnw-list article>strong{font-size:14px}
+.avus .avnw-list article>div{display:flex;gap:15px;align-items:center;justify-content:space-between;margin-top:12px}
+.avus .avnw-list article span{font-size:12px;color:#526a82}
+.avus .avnw-card form{display:grid;gap:15px}
+.avus .avnw-card label{display:grid;gap:8px;font-size:13px;font-weight:750}
+.avus .avnw-card input,.avus .avnw-card select{padding:11px;font-size:13px;width:100%;background:#fff;color:#14213e;border:1px solid #c7d5e1;border-radius:9px}
+.avus .avnw-card button{padding:11px 15px;background:#156a95;border:1px solid #156a95;color:white;border-radius:9px;font-weight:750;cursor:pointer;margin:6px 0}
+.avus .avnw-card .avnw-reset{color:#156a95;background:white}
+.avus .avnw-card p{color:#60758c;font-size:12px;line-height:1.7}
+.avus .avnw-disclaimer{color:#60758c;font-size:12px;line-height:1.6}
+@media(max-width:800px){.avus .avnw-grid{grid-template-columns:1fr}}

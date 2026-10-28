@@ -1,0 +1,40 @@
+name: NexOffices USA isolated Postgres RLS QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/usa-lab/postgres/**'
+      - '.github/workflows/usa-postgres-rls.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  usa-postgres-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: fixture_only_not_a_secret
+          POSTGRES_DB: us_lab_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d us_lab_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: fixture_only_not_a_secret
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Ephemeral USA schema and RLS isolation tests
+        run: bash apps/usa-lab/postgres/check-rls.sh

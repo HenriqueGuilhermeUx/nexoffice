@@ -1,0 +1,12 @@
+# Dedicated USA-only NexOffices demonstration. Never select on Brazil projects.
+# Netlify site: av-usa-nexoffices (a0b4370c-0f17-4aca-a07d-0d16f9640c61).
+# Netlify UI: Package directory = deploy/netlify/nexoffices; Base directory unset.
+# Branch: feature/usa-localized-preview-20261024 (production branch for THIS site only).
+# No production credentials, APIs, accounts, billing, or Brazilian route fallback.
+[build]
+  base = "."
+  command = "node scripts/usa-netlify-site-guard.mjs && npm install --include=dev && cd apps/web && USA_PREVIEW_SOURCE_SHA=$COMMIT_REF npx vite build --config vite.usa.config.ts && cd ../.. && node scripts/usa-netlify-isolation-check.mjs"
+  publish = "apps/web/dist-usa"
+
+[build.environment]
+  NODE_VERSION = "24"
