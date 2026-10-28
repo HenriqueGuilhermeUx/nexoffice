@@ -16,7 +16,12 @@ function displayUsdc(value:string){
  const n=BigInt(value),whole=n/1000000n,fraction=(n%1000000n).toString().padStart(6,'0').replace(/0+$/,'');
  return whole.toLocaleString('en-US')+(fraction?'.'+fraction:'')+' USDC';
 }
-export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onShareReview?:(observation:SharedCryptoObservation)=>void;onRevokeReview?:()=>void}){
+export default function NexPersonalUSCrypto({onShareReview,onRevokeReview,hasActiveMayaGrant=false}:{
+ onShareReview?:(observation:SharedCryptoObservation)=>void;
+ onRevokeReview?:()=>void;
+ /** Reflects actual browser-memory TTL, never server-authorized consent. */
+ hasActiveMayaGrant?:boolean
+}){
  const [connection,setConnection]=useState<Connection|null>(null);
  const [detected,setDetected]=useState<DiscoveredUSWallet[]>([]);
  const [selectedProviderId,setSelectedProviderId]=useState('');
@@ -26,7 +31,6 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
  const [error,setError]=useState('');
  const [nonce,setNonce]=useState(0);
  const operationRef=useRef(0);
- const [shared,setShared]=useState(false);
  const mayaReview=connection&&balance?buildReadOnlyCryptoReview({rawBalance:balance.raw,address:connection.address,observedAt:balance.checkedAt}):null;
  useEffect(()=>{
   const announce=(event:Event)=>{
@@ -40,7 +44,7 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
  },[]);
  const clear=useCallback(()=>{
   operationRef.current++;
-  setConnection(null);setBalance(null);setStatus('Not connected');setShared(false);
+  setConnection(null);setBalance(null);setStatus('Not connected');
   onRevokeReview?.();
  },[onRevokeReview]);
  useEffect(()=>{
@@ -60,7 +64,7 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
  },[connection,clear]);
  async function connect(){
   const operation=++operationRef.current;
-  setBusy(true);setError('');setBalance(null);setShared(false);onRevokeReview?.();
+  setBusy(true);setError('');setBalance(null);onRevokeReview?.();
   try{
    const selected=detected.find(w=>w.id===selectedProviderId);
    const provider=selected?.provider;
@@ -87,7 +91,7 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
  const loadBalance=useCallback(async()=>{
   if(!connection)return;
   const operation=++operationRef.current;
-  setBusy(true);setError('');setBalance(null);setShared(false);onRevokeReview?.();
+  setBusy(true);setError('');setBalance(null);onRevokeReview?.();
   try{
    const chainBefore=await walletReadRequest(connection.provider,'eth_chainId');
    const active=await walletReadRequest(connection.provider,'eth_accounts');
@@ -114,8 +118,12 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
     throw Error('Wallet changed since this snapshot. Please reconnect and refresh.');
    if(operation!==operationRef.current)return;
    onShareReview({address:connection.address,chainId:137,rawBalance:balance.raw,observedAt:balance.checkedAt,sharedAt:new Date().toISOString()});
-   setShared(true);
-  }catch(e){if(operation===operationRef.current)setError(e instanceof Error?e.message:'Unable to share snapshot.');}
+   }catch(e){if(operation===operationRef.current){
+   const message=e instanceof Error?e.message:'Unable to share snapshot.';
+   setError(message==='MAYA_LOCAL_PREVIEW_SNAPSHOT_STALE'
+    ?'This wallet snapshot is more than five minutes old. Refresh the on-chain balance before sharing with Maya.'
+    :message);
+  }}
   finally{if(operation===operationRef.current)setBusy(false);}
  }
  useEffect(()=>{if(connection&&nonce>0)void loadBalance();},[connection,nonce,loadBalance]);
@@ -144,7 +152,7 @@ export default function NexPersonalUSCrypto({onShareReview,onRevokeReview}:{onSh
      <div className="npu-wallet-amount">{balance?displayUsdc(balance.raw):'Balance unavailable'}</div>
      <small>{balance?'Read at '+new Date(balance.checkedAt).toLocaleString('en-US'):'Native Polygon USDC · chain 137'}</small>
      <div className="npu-buttons"><button type="button" disabled={busy} onClick={()=>void loadBalance()}>Refresh on-chain read</button><button type="button" onClick={()=>{clear();setError('');}}>Disconnect in app</button></div>
-     {balance&&onShareReview&&<button type="button" className="npu-action" disabled={busy||shared} onClick={()=>void shareWithMaya()}>{shared?'Snapshot shared locally':'Share this snapshot with Maya'}</button>}
+     {balance&&onShareReview&&<button type="button" className="npu-action" disabled={busy||hasActiveMayaGrant} onClick={()=>void shareWithMaya()}>{hasActiveMayaGrant?'Snapshot shared locally':'Share this snapshot with Maya'}</button>}
     </>:<button className="npu-action" type="button" disabled={busy||!detected.some(w=>w.id===selectedProviderId)} onClick={()=>void connect()}>{busy?'Connecting…':'Connect browser wallet'}</button>}
    </div>
   </div>
