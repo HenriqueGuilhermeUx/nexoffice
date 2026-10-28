@@ -12,7 +12,7 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const [widgetUrl,setWidgetUrl]=useState('');
- const [verification,setVerification]=useState<'idle'|'awaiting_webhook'|'verified_sandbox_consent'|'not_confirmed'|'unavailable'>('idle');
+ const [verification,setVerification]=useState<'idle'|'awaiting_webhook'|'verified_sandbox_consent'|'not_confirmed'|'expired_or_revoked'|'unavailable'>('idle');
  const activeToken=useRef(token);activeToken.current=token;
  useEffect(()=>{
   const controller=new AbortController();
@@ -40,7 +40,8 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
    const result=await response.json() as {status?:string};
    if(activeToken.current===token){
     setVerification(result.status==='verified_sandbox_consent'?'verified_sandbox_consent'
-     :result.status==='awaiting_webhook'?'awaiting_webhook':'not_confirmed');
+     :result.status==='awaiting_webhook'?'awaiting_webhook'
+     :result.status==='expired_or_revoked'?'expired_or_revoked':'not_confirmed');
    }
   }catch{
    if(activeToken.current===token){setVerification('unavailable');setError('Verificação indisponível. Nenhum saldo foi importado.');}
@@ -79,6 +80,7 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
    ?'Consentimento do banco fictício confirmado na Belvo. Nenhum saldo foi importado.'
    :verification==='awaiting_webhook'?'Aguardando evento do banco fictício.'
    :verification==='not_confirmed'?'Consentimento ainda não confirmado pela Belvo.'
+   :verification==='expired_or_revoked'?'Consentimento fictício expirado ou revogado. Nenhum saldo foi importado.'
    :'Falha temporária na verificação.'}</small>}
   {widgetUrl&&<a className="npx-secondary" href={widgetUrl} target="_blank" rel="noopener noreferrer">
    Abrir ambiente seguro da Belvo
