@@ -91,7 +91,7 @@ test('preview migration and routes retain fail-closed safety boundaries',()=>{
  assert.match(api,/const actor=await owner\(req\)/);
  assert.match(api,/confirmSandbox/);
  assert.match(api,/authorizedSandboxWebhook/);
- assert.match(api,/ON CONFLICT\(webhook_id\) DO NOTHING/);
+ assert.match(api,/ON CONFLICT\(webhook_id\) DO NOTHING RETURNING webhook_id/);
  assert.match(sql,/pending_provider_verification/);
  assert.doesNotMatch(api,/status='active'/);
  assert.doesNotMatch(api,/paymentInitiated:true/);
