@@ -30,7 +30,19 @@ assert.equal(embeddedSourceSha, expectedSourceSha, 'USA static bundle source SHA
 assert.match(html, /<meta\s+name="usa-preview-source"\s+content="(?:render|ci|unverified)"/i,
   'USA static bundle must identify its source SHA provenance');
 assert.match(html, /noindex,nofollow/);
-assert.match(redirects, /\/us\s+\/index\.html\s+200/);
+assert.match(redirects, /^\\/us\\s+\\/index\\.html\\s+200$/m);
+assert.match(redirects, /^\\/us\\/\\s+\\/index\\.html\\s+200$/m);
+assert.match(redirects, /^\\/\\*\\s+\\/404\\.html\\s+404$/m,
+  'Netlify must return a 404 for disabled Brazilian and API routes');
+assert.doesNotMatch(redirects, /^\\/us\\/\\*\\s+\\/index\\.html\\s+200$/m,
+  'No catch-all USA SPA rewrite is permitted');
+assert.doesNotMatch(redirects, /^\\/\\*\\s+\\/index\\.html\\s+200$/m,
+  'No global SPA rewrite is permitted');
+const notFound = readFileSync(join(output, '404.html'), 'utf8');
+assert.match(notFound, /<html lang="en-US">/);
+assert.match(notFound, /noindex,nofollow/);
+assert.match(notFound, /Page not available in this preview/);
+assert.match(notFound, /href="\\/us\\/"/);
 const assets = readdirSync(join(output, 'assets')).filter(file => file.endsWith('.js'));
 assert.ok(assets.length, 'Expected built JS chunks');
 const js = assets.map(file => readFileSync(join(output, 'assets', file), 'utf8')).join('\n');
@@ -58,6 +70,8 @@ try {
   });
   await page.goto('http://127.0.0.1:4186/us/', {waitUntil:'domcontentloaded'});
   await page.getByRole('heading', {name:'One place to keep the business moving.'}).waitFor();
+  assert.equal(await page.locator('a[href^="http://"], a[href^="https://"]').count(), 0,
+    'US-only preview must not send visitors to external or Brazilian sites');
   assert.equal(await page.locator('meta[name="usa-preview-source-sha"]').getAttribute('content'),
     expectedSourceSha, 'Published /us/ HTML must expose the exact build source SHA');
   assert.equal(new URL(page.url()).pathname, '/us/', 'Render staging must support direct /us/ loading');
