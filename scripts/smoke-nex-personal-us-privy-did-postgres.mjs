@@ -106,6 +106,28 @@ try{
  await assert.rejects(attestUSReadOnlyPostgresSession({
   client:admin,expectedDatabaseName:db,expectedRoleName:role
  }),/US_RUNTIME_DB_SESSION_NOT_ISOLATED/);
+ // Even when the database name is correct, the privileged schema owner
+ // cannot impersonate the least-privilege USA service attestation.
+ const adminOnUSDatabase=await pool.connect();
+ try{
+  await assert.rejects(attestUSReadOnlyPostgresSession({
+   client:adminOnUSDatabase,expectedDatabaseName:db,expectedRoleName:role
+  }),/US_RUNTIME_DB_SESSION_NOT_ISOLATED/);
+ }finally{adminOnUSDatabase.release();}
+ // Simulate removal of FORCE RLS on one table in an uncommitted, disposable
+ // PostgreSQL transaction; the verifier MUST deny before serving anything.
+ const unsafeTxn=await pool.connect();
+ try{
+  await unsafeTxn.query('BEGIN');
+  await unsafeTxn.query('ALTER TABLE nex_personal_us.profiles NO FORCE ROW LEVEL SECURITY');
+  await unsafeTxn.query('SET LOCAL ROLE '+role);
+  await assert.rejects(attestUSReadOnlyPostgresSession({
+   client:unsafeTxn,expectedDatabaseName:db,expectedRoleName:role
+  }),/US_RUNTIME_DB_FORCED_RLS_REQUIRED/);
+ }finally{
+  await unsafeTxn.query('ROLLBACK');
+  unsafeTxn.release();
+ }
  const t=Math.floor(Date.now()/1000);
  const jwt='eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJkaWQ6cHJpdnk6dXMiLCJhdWQiOiJ1cyJ9.c2ln';
  let sdkCalls=0,approvedCalls=0;
