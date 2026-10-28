@@ -21,5 +21,4 @@ CREATE TABLE IF NOT EXISTS nex_personal.belvo_sandbox_verified_consents (
 CREATE INDEX IF NOT EXISTS belvo_sb_verified_consents_owner_idx
  ON nex_personal.belvo_sandbox_verified_consents(owner_user_id,verified_at DESC);
 COMMENT ON TABLE nex_personal.belvo_sandbox_verified_consents IS
- 'Belvo sandbox-only server-to-server verification of mockbank link+active consent. '
- 'Not a real bank connection, transaction or account balance. Never trust webhook alone.';
+ 'Belvo sandbox-only verified link and active consent. Not a real bank account or balance. Never trust webhook alone.';
