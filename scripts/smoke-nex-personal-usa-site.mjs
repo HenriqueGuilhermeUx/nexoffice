@@ -39,4 +39,9 @@ const bundledJS=builtFiles.filter(f=>f.endsWith('.js')).map(f=>readFileSync(reso
 assert.ok(bundledJS.includes('Nex Personal'),'USA product preview not included in bundle');
 assert.ok(!bundledJS.includes('nexoffices.com.br'),'Brazilian NexOffices canonical hostname bundled into USA site');
 assert.ok(!bundledJS.includes('trynexa.com.br'),'Brazilian Nexa production hostname bundled into USA site');
+assert.ok(bundledJS.includes('Manage Access'),'Maya access navigation missing from USA bundle');
+assert.ok(bundledJS.includes('Revoke this local snapshot'),'Local-only access revocation control missing');
+assert.ok(bundledJS.includes('Real account access remains disabled'),'US financial authentication gate disclosure missing');
+execFileSync(process.execPath,['--experimental-strip-types','scripts/smoke-nex-personal-us-maya-local-session.mjs'],
+ {cwd:root,stdio:'pipe',timeout:10_000,env:{...process.env,CI:'true'}});
 console.log('PASS: isolated Nex Personal USA Netlify static bundle and en-US marketing/preview safeguards');
