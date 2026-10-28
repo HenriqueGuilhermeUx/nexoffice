@@ -12,6 +12,9 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import pg from 'pg';
+import {readLifeosPersonalGoals} from '../apps/api/dist/nexa-lifeos-goals-read.js';
+import {readLifeosPersonalBills} from '../apps/api/dist/nexa-lifeos-bills-read.js';
+import {withLifeosAuthenticatedReadTransaction} from '../apps/api/dist/nexa-lifeos-tenant-tx.js';
 
 if (process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||
     process.env.NEXA_LIFEOS_SCHEMA_REHEARSAL!=='true'||
@@ -62,10 +65,12 @@ try {
  await admin.query('CREATE ROLE nexa_lifeos_app NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE');
  const sql=readFileSync('infra/nexa-lifeos-prod/001_owner_rls.sql','utf8');
  const resolverSql=readFileSync('infra/nexa-lifeos-prod/002_ci_only_session_resolver.sql','utf8');
+ const identitySql=readFileSync('infra/nexa-lifeos-prod/003_ci_only_identity_rls.sql','utf8');
  assert.ok(sql.includes('nexa_lifeos_schema_rehearsal_ci'));
  assert.ok(resolverSql.includes('nexa_lifeos_schema_rehearsal_ci'));
+ assert.ok(identitySql.includes("current_database() <> 'nexa_lifeos_schema_rehearsal_ci'"));
  await admin.query('BEGIN');
- try {await admin.query(sql);await admin.query(resolverSql);await admin.query('COMMIT');}
+ try {await admin.query(sql);await admin.query(resolverSql);await admin.query(identitySql);await admin.query('COMMIT');}
  catch(error){await admin.query('ROLLBACK');throw error;}
  await admin.query('GRANT USAGE ON SCHEMA nex_personal TO nexa_lifeos_app');
  await admin.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA nex_personal TO nexa_lifeos_app');
@@ -77,6 +82,29 @@ try {
  assert.equal(policies.rows.length,13);
  assert.ok(policies.rows.every(p=>Array.isArray(p.roles)&&p.roles.length===1&&p.roles[0]===ACTOR_ROLE));
  assert.deepEqual(policies.rows.filter(p=>p.tablename==='audit_events').map(p=>p.cmd).sort(),['INSERT','SELECT']);
+ const identityTables=await admin.query(
+  "select c.relname,c.relrowsecurity,c.relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('users','auth_sessions') order by c.relname"
+ );
+ assert.equal(identityTables.rows.length,2);
+ assert.ok(identityTables.rows.every(row=>row.relrowsecurity&&row.relforcerowsecurity),
+   'Identity and sessions must have FORCE RLS, not only table grants');
+ const identityPolicies=await admin.query(
+  "select tablename,cmd,roles::text[] AS roles,qual,with_check from pg_policies where schemaname='public' and tablename in ('users','auth_sessions') order by tablename"
+ );
+ assert.equal(identityPolicies.rows.length,2);
+ assert.deepEqual(identityPolicies.rows.map(p=>p.tablename),['auth_sessions','users']);
+ for(const policy of identityPolicies.rows){
+  assert.equal(policy.cmd,'SELECT');
+  assert.deepEqual(policy.roles,['nexa_lifeos_ci_session_owner']);
+  assert.equal(policy.qual,'true');
+  assert.equal(policy.with_check,null);
+ }
+ const identityAppGrant=await admin.query(
+  "select has_table_privilege($1,'public.users','SELECT') user_select,has_table_privilege($1,'public.auth_sessions','SELECT') session_select",
+  [ACTOR_ROLE]
+ );
+ assert.deepEqual(identityAppGrant.rows,[{user_select:false,session_select:false}],
+   'PF API role must not directly read identity or hashed sessions');
  const owner=await admin.query("select rolsuper,rolbypassrls,rolcanlogin from pg_roles where rolname='nexa_lifeos_ci_session_owner'");
  assert.equal(owner.rows.length,1);
  assert.deepEqual(owner.rows[0],{rolsuper:false,rolbypassrls:false,rolcanlogin:false},
@@ -114,6 +142,11 @@ try {
  try{await anonymous.query('SELECT token_hash FROM public.auth_sessions LIMIT 1');}
  catch(e){sessionTableDenied=e.code==='42501';await anonymous.query('ROLLBACK TO SAVEPOINT deny_direct_session');}
  assert.equal(sessionTableDenied,true,'No SELECT on public.auth_sessions for app role');
+ await anonymous.query('SAVEPOINT deny_direct_user');
+ let userTableDenied=false;
+ try{await anonymous.query('SELECT id FROM public.users LIMIT 1');}
+ catch(e){userTableDenied=e.code==='42501';await anonymous.query('ROLLBACK TO SAVEPOINT deny_direct_user');}
+ assert.equal(userTableDenied,true,'PF application role must not read identity rows directly');
  const sessionClient=await tenantClient(null);
  async function resolve(token){
   const r=await sessionClient.query('select user_id from nex_personal.resolve_api_session($1::text)',[token]);
@@ -137,6 +170,66 @@ try {
  await sessionClient.query("select set_config('app.user_id',$1,true)",[verified[0]]);
  assert.deepEqual(await countOwnProfiles(sessionClient),[A]);
  assert.equal((await alice.query('update nex_personal.life_intents set status=$1 where owner_user_id=$2',['done',B])).rowCount,0);
+
+
+ // Run the ACTUAL compiled application read path under PostgreSQL FORCE RLS,
+ // not only a mocked pool. Production guard remains closed despite this CI proof.
+ const tokenA='A'.repeat(43),tokenB='B'.repeat(43);
+ await admin.query(
+  "INSERT INTO public.auth_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour'),($3,$4,now()+interval '1 hour')",
+  [A,createHash('sha256').update(tokenA).digest('hex'),B,createHash('sha256').update(tokenB).digest('hex')]
+ );
+ await admin.query("INSERT INTO nex_personal.goals(owner_user_id,name,target_minor,saved_minor) VALUES($1,'Reserva Alice',250000,30000),($2,'Viagem Bob',100000,20000)",[A,B]);
+ await admin.query("INSERT INTO nex_personal.bills(owner_user_id,name,amount_minor,next_due_on) VALUES($1,'Luz Alice',9900,'2026-11-01'),($2,'Internet Bob',11000,'2026-11-02')",[A,B]);
+ const realAppPool=new pg.Pool({connectionString:source,max:1,connectionTimeoutMillis:5000});
+ // The CI admin login may SET ROLE; production must instead have its own
+ // non-privileged login role and separate database credentials.
+ const roleRestricted={async connect(){
+  const client=await realAppPool.connect();
+  try{await client.query('SET ROLE nexa_lifeos_app');return client;}
+  catch(e){client.release();throw e;}
+ }};
+ const previousLifeosEnv=process.env.NEXA_LIFEOS_ENV;
+ try{
+  process.env.NEXA_LIFEOS_ENV='production';
+  const resultsA=await readLifeosPersonalGoals(tokenA,roleRestricted);
+  const resultsB=await readLifeosPersonalGoals(tokenB,roleRestricted);
+  const billsA=await readLifeosPersonalBills(tokenA,roleRestricted);
+  const billsB=await readLifeosPersonalBills(tokenB,roleRestricted);
+  assert.deepEqual(billsA.bills.map(x=>x.name),['Luz Alice']);
+  assert.deepEqual(billsB.bills.map(x=>x.name),['Internet Bob']);
+  assert.equal(billsA.paymentsEnabled,false);
+  // PostgreSQL itself must reject modifications even when the verified
+  // principal OWNS the row. This tests READ ONLY beyond route-level promises.
+  await assert.rejects(
+   withLifeosAuthenticatedReadTransaction(tokenA,async({client,userId})=>{
+    await client.query(
+     "insert into nex_personal.goals(owner_user_id,name,target_minor) values($1,'Forbidden accidental write',100)",
+     [userId]
+    );
+   },roleRestricted),
+   error=>error.code==='25006'
+  );
+  assert.deepEqual(resultsA.goals.map(x=>x.name),['Reserva Alice']);
+  assert.deepEqual(resultsB.goals.map(x=>x.name),['Viagem Bob']);
+  assert.equal(resultsA.readOnly,true);
+  assert.equal(resultsA.externalFinancialActions,false);
+  await assert.rejects(
+   readLifeosPersonalGoals('C'.repeat(43),roleRestricted),
+   e=>e.statusCode===401 && e.code==='invalid_session'
+  );
+  // A fresh checkout of the reused connection has no tenant actor GUC.
+  const unauthenticated=await roleRestricted.connect();
+  try{
+   await unauthenticated.query('BEGIN');
+   assert.equal((await unauthenticated.query('select count(*)::int n from nex_personal.goals')).rows[0].n,0);
+   await unauthenticated.query('ROLLBACK');
+  }finally{unauthenticated.release();}
+ }finally{
+  if(previousLifeosEnv===undefined)delete process.env.NEXA_LIFEOS_ENV;
+  else process.env.NEXA_LIFEOS_ENV=previousLifeosEnv;
+  await realAppPool.end();
+ }
 
  await alice.query('SAVEPOINT deny_insert');
  let blockedForeignInsert=false;
@@ -166,9 +259,9 @@ try {
   activeRole:ACTOR_ROLE,simultaneousClients:4,crossReadDenied:true,
   crossWriteDenied:true,auditAppendOnly:true,transactionContextResets:true,
   ciOnlySessionResolver:true,expiredSessionDenied:true,revokedSessionDenied:true,disabledAccountDenied:true,
-  directSessionTableDenied:true,nonSuperuserFunctionOwner:true,
+  directSessionTableDenied:true,directIdentityTableDenied:true,forcedIdentityRls:true,nonSuperuserFunctionOwner:true,
   productionReady:false,
-  pending:['production session resolver and public users/auth_sessions RLS','trusted API auth binding','web E2E','LGPD','production backup and rollback']
+  pending:['production identity/session RLS (CI proof only), separate nonprivileged production DB role and reviewed resolver','trusted API auth binding','web E2E','LGPD','production backup and rollback']
  }));
 }finally{
  for(const client of clients)try{await client.query('ROLLBACK');await client.end()}catch{}
