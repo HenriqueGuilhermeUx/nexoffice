@@ -68,7 +68,7 @@ export async function readBelvoSandboxDemo(
  if(!UUID.test(input.linkId)||!/^nexa_pf_sb_[a-f0-9]{32}$/.test(input.externalId)
    ||!Number.isFinite(now.getTime()))throw new SandboxReadError('invalid_reference');
  let permission;
- try{permission=await verifyBelvoSandboxConsent(env,input,http,now);}
+ try{permission=await verifyBelvoSandboxConsent(env,input,http,now,true);}
  catch(e){if(e instanceof BelvoVerificationError)throw new SandboxReadError('provider_failed');
   throw new SandboxReadError('provider_failed');}
  if(!permission)return null;
