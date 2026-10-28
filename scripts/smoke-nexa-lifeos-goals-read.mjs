@@ -32,7 +32,7 @@ function fakePool({failQuery=false}={}){
   async query(statement,params=[]){
    const sql=String(statement).trim();
    log.push({sql,params});
-   if(sql==='BEGIN'){assert.equal(inTransaction,false);inTransaction=true;actor=null;return{rows:[]};}
+   if(sql==='BEGIN READ ONLY'){assert.equal(inTransaction,false);inTransaction=true;actor=null;return{rows:[]};}
    if(sql==='COMMIT'||sql==='ROLLBACK'){assert.equal(inTransaction,true);inTransaction=false;actor=null;return{rows:[]};}
    assert.equal(inTransaction,true,'All database statements must execute in one transaction');
    if(sql.includes('from pg_catalog.pg_roles')){
@@ -84,7 +84,7 @@ test('Alice sees only her goals; Bob sees only his; no state leaks across pooled
  assert.equal(f.releases,2);
  assert.equal(f.actor,null);
  assert.equal(f.inTransaction,false);
- assert.equal(f.log.filter(x=>x.sql==='BEGIN').length,2);
+ assert.equal(f.log.filter(x=>x.sql==='BEGIN READ ONLY').length,2);
  assert.equal(f.log.filter(x=>x.sql==='COMMIT').length,2);
  assert.equal(f.log.filter(x=>x.sql.includes('nex_personal.goals')).length,2);
  assert.equal(JSON.stringify(a).includes(aliceToken),false);
@@ -113,7 +113,7 @@ test('production gate stays closed; no global query pool or financial API shortc
  const source=readFileSync('apps/api/src/nexa-lifeos-goals-read.ts','utf8');
  const gate=readFileSync('apps/api/src/nexa-lifeos-prod-schema-ready.ts','utf8');
  const server=readFileSync('apps/api/src/server-personal-production.ts','utf8');
- assert.match(source,/withLifeosAuthenticatedTransaction\(/);
+ assert.match(source,/withLifeosAuthenticatedReadTransaction\(/);
  assert.match(source,/client\.query</);
  assert.doesNotMatch(source,/import\s*\{[^}]*\bquery\b[^}]*\}\s*from\s*['"]\.\/db/);
  assert.doesNotMatch(server,/nexa-lifeos-goals-read\.js/,'Preparatory read must not bypass production gate');
