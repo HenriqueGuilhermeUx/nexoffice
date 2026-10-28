@@ -1,7 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 type Status={
  environment:'sandbox';provider:'belvo';institution:'ofmockbank_br_retail';
- credentialsConfigured?:boolean;widgetAvailable:boolean;simulatedData:true
+ credentialsConfigured?:boolean;widgetAvailable:boolean;simulatedData:true;
+ consentReview?:{status:'not_verified'|'verified_recent'|'review_required'|'verification_stale';verifiedAt:string|null}
 };
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true'
  ?'':((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
@@ -39,6 +40,13 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
    if(!response.ok)throw new Error('Não foi possível verificar com a Belvo.');
    const result=await response.json() as {status?:string};
    if(activeToken.current===token){
+    // After the explicit provider check, refresh owner-scoped status from the
+    // backend instead of treating a browser success callback as proof.
+    const current=await fetch(API+'/v1/personal/belvo-sandbox/status',{
+      method:'GET',headers:{authorization:'Bearer '+token},cache:'no-store'
+    });
+    if(current.ok&&activeToken.current===token)
+      setStatus(await current.json() as Status);
     setVerification(result.status==='verified_sandbox_consent'?'verified_sandbox_consent'
      :result.status==='awaiting_webhook'?'awaiting_webhook':'not_confirmed');
    }
@@ -70,6 +78,15 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
   <div><strong>Belvo Open Finance · banco fictício</strong>
    <small>Teste com dados simulados. Nenhuma instituição real ou pagamento é conectado aqui.</small></div>
   <span className="npx-status npx-status-pending">{status?.widgetAvailable?'Teste liberado':'Preparando conexão segura'}</span>
+  {status?.consentReview&&<small role="status">{
+   status.consentReview.status==='verified_recent'
+    ?'Banco fictício: consentimento verificado recentemente na Belvo (sem saldo importado).'
+   :status.consentReview.status==='review_required'
+    ?'Consentimento fictício: alteração recebida. Nova verificação obrigatória.'
+   :status.consentReview.status==='verification_stale'
+    ?'Consentimento fictício: confirmação antiga. Verifique novamente.'
+    :'Nenhum consentimento de demonstração verificado ainda.'
+  }</small>}
   {status?.widgetAvailable&&<button type="button" className="npx-secondary" disabled={busy} onClick={()=>void connect()}>
    {busy?'Preparando…':'Testar banco fictício'}
   </button>}
