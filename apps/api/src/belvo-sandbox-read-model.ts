@@ -112,7 +112,8 @@ export async function readBelvoSandboxDemo(
  const accounts=rawAccounts.map(a=>{
   const balance=record(a.balance);
   const currency=a.currency==='BRL'||balance?.currency==='BRL'?'BRL' as const:null;
-  const balanceType=a.balance_type==='ASSET'||a.balance_type==='LIABILITY'?a.balance_type:'UNKNOWN';
+  const balanceType:SandboxAccount['balanceType']=
+    a.balance_type==='ASSET'?'ASSET':a.balance_type==='LIABILITY'?'LIABILITY':'UNKNOWN';
   return {
    id:String(a.id),kind:shortText(a.category,50)||'UNCATEGORIZED',
    balanceType,currency,
