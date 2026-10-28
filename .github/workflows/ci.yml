@@ -17,6 +17,8 @@ jobs:
       - name: Audit dependencies for high severity vulnerabilities
         run: npm audit --audit-level=high
       - run: npm run build
+      - name: Verify corporate finance consent policy
+        run: node scripts/smoke-nexa-pj-finance-consent.mjs
       - name: Nexa PJ desktop fail-closed release guard
         run: node scripts/check-nexa-pj-desktop-gate.mjs
       - name: Smoke test PowerPoint export dependency
