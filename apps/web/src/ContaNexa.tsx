@@ -27,6 +27,12 @@ type PjConnectionPreflight={
  * ledger. This panel shows only a read-only structural workspace diagnostic.
  * It cannot trigger KYB, wallet provisioning, Pix, USDC or session exchange.
  */
+type FinanceHubReadiness={
+  schemaVersion:1; mode:'read_only'; aggregatedBalance:null; investmentsTotal:null;
+  outstandingDebt:null; agenticActionsEnabled:false; paymentInitiationEnabled:false;
+  walletProvisioningEnabled:false; externalEffectsEnabled:false;
+  sources:Array<{id:string;label:string;status:'not_connected';dataAvailable:false}>;
+};
 type ErpFinanceOverview={
   receivable_minor?:number|string;
   payable_minor?:number|string;
@@ -48,6 +54,7 @@ export default function ContaNexa({
   const [state,setState]=useState<PjConnectionPreflight|null>(null);
   const [pending,setPending]=useState(true);
   const [unavailable,setUnavailable]=useState(false);
+  const [financeHub,setFinanceHub]=useState<FinanceHubReadiness|null>(null);
 
   useEffect(()=>{
     let active=true;
@@ -80,6 +87,25 @@ export default function ContaNexa({
       .catch(()=>{if(active){setUnavailable(true);setState(null)}})
       .finally(()=>{if(active)setPending(false)});
     return()=>{active=false};
+  },[workspaceId]);
+
+  useEffect(()=>{
+    let mounted=true;
+    setFinanceHub(null);
+    if(!workspaceId||!session.token())return()=>{mounted=false};
+    void api<FinanceHubReadiness>('/v1/platform/nexa-pj/finance-hub/readiness')
+      .then(result=>{
+        if(!mounted)return;
+        if(result.schemaVersion!==1||result.mode!=='read_only'||
+          result.aggregatedBalance!==null||result.investmentsTotal!==null||
+          result.outstandingDebt!==null||result.agenticActionsEnabled!==false||
+          result.paymentInitiationEnabled!==false||result.walletProvisioningEnabled!==false||
+          result.externalEffectsEnabled!==false||
+          !Array.isArray(result.sources)||result.sources.some(s=>s.status!=='not_connected'||s.dataAvailable!==false))
+          throw new Error('Contrato financeiro não homologado');
+        setFinanceHub(result);
+      }).catch(()=>{if(mounted)setFinanceHub(null)});
+    return()=>{mounted=false};
   },[workspaceId]);
 
   const connectionLabel=pending?'Verificando vínculo empresarial…':
@@ -136,7 +162,7 @@ export default function ContaNexa({
       </div>
     </div>
     <section className="pj-premium-connectors" aria-label="Ecossistema financeiro Nexa PJ">
-      <div className="pj-bank-workspace-heading"><div><small className="eyebrow">VISÃO FINANCEIRA GLOBAL DA EMPRESA</small><h3>Seu patrimônio e suas obrigações em uma só visão</h3><p>Arquitetura preparada para conectar instituições financeiras, investimentos e carteiras; acesso a dados reais somente com autorização e identidade PJ verificadas.</p></div><span className="pj-bank-readiness">Conexões em preparação</span></div>
+      <div className="pj-bank-workspace-heading"><div><small className="eyebrow">VISÃO FINANCEIRA GLOBAL DA EMPRESA</small><h3>Seu patrimônio e suas obrigações em uma só visão</h3><p>Arquitetura preparada para conectar instituições financeiras, investimentos e carteiras; acesso a dados reais somente com autorização e identidade PJ verificadas.</p></div><span className="pj-bank-readiness">{financeHub?`${financeHub.sources.length} fontes aguardando habilitação`:"Conexões em preparação"}</span></div>
       <div className="pj-premium-grid">
         {[
           {name:'Open Finance',description:'Contas, saldos e transações de instituições autorizadas, mediante consentimento empresarial.',status:'Aguardando parceiro e consentimento'},
