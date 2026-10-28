@@ -91,7 +91,7 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
   const existing=await query<{provider_consent_ref:string}>(
    `SELECT provider_consent_ref FROM nex_personal.belvo_sandbox_verified_consents
       WHERE attempt_id=$1::uuid AND owner_user_id=$2::uuid
-        AND provider_link_ref=$3::uuid LIMIT 1`,
+        AND provider_link_ref::text=$3 LIMIT 1`,
    [events[0].id,actor,events[0].link_id]);
   let proof;
   try{
@@ -111,7 +111,7 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
    if(existing.length)await query(
     `DELETE FROM nex_personal.belvo_sandbox_verified_consents
       WHERE attempt_id=$1::uuid AND owner_user_id=$2::uuid
-        AND provider_link_ref=$3::uuid AND provider_consent_ref=$4::uuid`,
+        AND provider_link_ref::text=$3 AND provider_consent_ref=$4::uuid`,
     [events[0].id,actor,events[0].link_id,existing[0].provider_consent_ref]);
    return {verified:false,status:existing.length?'expired_or_revoked':'not_confirmed',
     sandbox:true,bankDataImported:false,paymentsEnabled:false};
