@@ -6,6 +6,8 @@ import {withVerifiedUSPrivyIdentity}
  from '../apps/api/dist/personal-us-privy-owner-store.js';
 import {bindUSPrivyWalletFromServerDID}
  from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
+import {attestUSReadOnlyPostgresSession}
+ from '../apps/api/dist/personal-us-runtime-db-attestation.js';
 import {assessVerifiedPrivyUSNativeUSDCRead,
  authorizeVerifiedPrivyUSAgenticWalletRead,revokeVerifiedPrivyUSAgenticWalletRead,
  listVerifiedPrivyUSMayaReadConsents}
@@ -74,6 +76,36 @@ try{
    },release:()=>client.release()
   };
  }};
+ // A preflight URL/name check alone cannot authenticate physical database
+ // privileges. Attest the actual disposable PG role and FORCE-RLS catalogs
+ // under the SAME transaction-scoped restricted service role.
+ const sessionClient=await scopedPool.connect();
+ let attestationTxn=false;
+ try{
+  await sessionClient.query('BEGIN');attestationTxn=true;
+  const proof=await attestUSReadOnlyPostgresSession({
+   client:sessionClient,expectedDatabaseName:db,expectedRoleName:role
+  });
+  assert.deepEqual(proof,{
+   databaseVerified:true,restrictedSessionRoleVerified:true,
+   forcedRLSVerified:true,verifiedTables:6,
+   usHostingRegionVerified:false,providerIdentityVerified:false,
+   financialExecutionAllowed:false,agentSigningAllowed:false
+  });
+  await assert.rejects(attestUSReadOnlyPostgresSession({
+   client:sessionClient,expectedDatabaseName:'nex_personal_us_wrong',expectedRoleName:role
+  }),/US_RUNTIME_DB_SESSION_NOT_ISOLATED/);
+  await assert.rejects(attestUSReadOnlyPostgresSession({
+   client:sessionClient,expectedDatabaseName:db,expectedRoleName:'npu_us_wrong_service'
+  }),/US_RUNTIME_DB_SESSION_NOT_ISOLATED/);
+  await sessionClient.query('COMMIT');attestationTxn=false;
+ }finally{
+  if(attestationTxn)try{await sessionClient.query('ROLLBACK');}catch{}
+  sessionClient.release();
+ }
+ await assert.rejects(attestUSReadOnlyPostgresSession({
+  client:admin,expectedDatabaseName:db,expectedRoleName:role
+ }),/US_RUNTIME_DB_SESSION_NOT_ISOLATED/);
  const t=Math.floor(Date.now()/1000);
  const jwt='eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJkaWQ6cHJpdnk6dXMiLCJhdWQiOiJ1cyJ9.c2ln';
  let sdkCalls=0,approvedCalls=0;
