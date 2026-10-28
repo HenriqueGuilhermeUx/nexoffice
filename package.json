@@ -15,7 +15,8 @@
     "mobile:start": "npm --prefix apps/mobile run start",
     "mobile:android": "npm --prefix apps/mobile run android",
     "db:migrate": "node scripts/migrate.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "test:agentics": "node --test scripts/nexa-agentics-contract.test.mjs"
   },
   "engines": {"node": "24.x"}
 }

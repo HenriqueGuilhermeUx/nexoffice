@@ -8,7 +8,9 @@ const migrationPaths=[
  'infra/postgres/046_nex_personal_foundation.sql',
  'infra/postgres/047_nex_personal_planning.sql',
  'infra/postgres/048_nex_personal_life_os.sql',
- 'infra/postgres/049_nex_personal_transaction_enrichment.sql'
+ 'infra/postgres/049_nex_personal_transaction_enrichment.sql',
+ 'infra/postgres/20261027_nexa_agentics_entitlements.sql',
+ 'infra/postgres/20261027_nexa_agentics_missions.sql'
 ];
 /** Refuse to bootstrap preview tables inside business or unknown existing databases. */
 export async function runPersonalPreviewMigrations(){

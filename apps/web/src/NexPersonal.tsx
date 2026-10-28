@@ -6,6 +6,7 @@ import NexPersonalLifeOffice from './NexPersonalLifeOffice';
 import PersonalFInsight from './PersonalFInsight';
 import PersonalPrivacyCenter from './PersonalPrivacyCenter';
 import NexaCryptoHub from './NexaCryptoHub';
+import NexaAgenticsCenter from './NexaAgenticsCenter';
 import './nexa-life-rebrand.css';
 
 const API=(import.meta as any).env?.VITE_PERSONAL_SINGLE_ORIGIN==='true' ? '' : ((import.meta as any).env?.VITE_API_URL||'http://localhost:4000');
@@ -58,7 +59,7 @@ export default function NexPersonal(){
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [movements,setMovements]=useState<Movement[]>([]);
   const [consents,setConsents]=useState<Consent[]>([]);
-  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'crypto'|'agents'|'maya'|'privacy'>('office');
+  const [section,setSection]=useState<'office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'crypto'|'agents'|'maya'|'agentics'|'privacy'>('office');
   const [mode,setMode]=useState<'login'|'register'>('login');
   const [initialSpecialist,setInitialSpecialist]=useState<AgentId>('expenses');
   const [busy,setBusy]=useState(false);
@@ -198,7 +199,7 @@ export default function NexPersonal(){
     <aside className="np-sidebar">
       <div className="np-brand"><img className="np-nexa-logo" src="/nexa-logo.svg" alt="Símbolo Nexa" width="35" height="35"/> <strong>Nexa</strong></div>
       <div className="np-nav-label">SEU ESPAÇO</div>
-      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['crypto','Cripto & Wallet'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['privacy','Privacidade']] as const).map(([key,title])=>
+      {([['office','Meu escritório 2D'],['today','Hoje'],['money','Meu Dinheiro'],['spending','Gastos'],['planning','Metas & Contas'],['wealth','Patrimônio'],['market','Investimentos & Mercados'],['crypto','Cripto & Wallet'],['agents','Agentes especializados'],['maya','Maya · Coordenadora'],['agentics','Nexa IA & Missões'],['privacy','Privacidade']] as const).map(([key,title])=>
         <button key={key} className={'np-nav '+(section===key?'np-active':'')} onClick={()=>setSection(key)}>{title}</button>)}
       <div className="np-sidebar-bottom"><span>Este espaço de organização não mantém custódia de dinheiro. A Nexa Wallet é um produto separado.</span><button className="np-text-button" onClick={logout}>Sair</button></div>
     </aside>
@@ -234,6 +235,7 @@ export default function NexPersonal(){
       {section==='crypto'&&<NexaCryptoHub key={token}/>}
       {section==='agents'&&<NexPersonalAgents key={initialSpecialist} token={token} initialAgent={initialSpecialist} onOpenSection={setSection}/>}
             {section==='maya'&&<NexPersonalStudio key={token} view="maya" token={token} onChanged={()=>void refresh(token)}/>}
+      {section==='agentics'&&<NexaAgenticsCenter token={token} onOpenMaya={()=>setSection('maya')}/>}
       {section==='privacy'&&<PersonalPrivacyCenter token={token}/>}
     </main>
   </div>;
