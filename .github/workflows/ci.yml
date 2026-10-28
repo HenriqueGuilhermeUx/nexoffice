@@ -51,6 +51,8 @@ jobs:
         run: node --test scripts/smoke-nexa-belvo-sandbox.mjs
       - name: Verify Belvo sandbox probe cannot escape preview or expose secrets
         run: node --test scripts/smoke-nexa-belvo-preview-boot.mjs
+      - name: Verify Belvo PF sandbox hosted widget and webhook safety contract
+        run: node --experimental-strip-types --test scripts/smoke-nexa-belvo-sandbox-contract.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
