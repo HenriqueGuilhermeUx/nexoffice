@@ -53,22 +53,14 @@ export default function App(){
   const openPipeline=dashboard.crm?.open_pipeline_minor||0;const balance=Number(dashboard.finance?.income_paid_minor||0)-Number(dashboard.finance?.expense_paid_minor||0);
   // The standalone NexOffice product keeps exactly its original
   // navigation. The PJ build expresses the integrated banking+ERP hierarchy.
-  const nav=nexaPjBuild?[
-    ['conta-nexa','Conta Nexa PJ','◉'],
-    ['finance','Financeiro & ERP','▤'],
-    ['command','Visão geral','◈'],
-    ['crm','Clientes e Vendas','◎'],
-    ['operations','Operações','↗'],
-    ['agenda','Agenda & Tarefas','◷'],
-    ['documents','Documentos','▱'],
-    ['materials','Materiais','▦'],
-    ['agents-pj','Agentes e IA','✦'],
-    ['office-2d','Escritório 2D','▦'],
-    ['marketing','Marketing','◉'],
-    ['compliance','Governança','✓'],
-    ['integrations','Integrações','⇄'],
-    ['settings','Empresa & Acessos','⚙'],
-  ]:[
+  const pjNavGroups=[
+    {title:'INÍCIO',items:[['command','Visão geral','◈']]},
+    {title:'CONTA E FINANÇAS',items:[['conta-nexa','Conta Nexa PJ','◉'],['finance','Finanças e ERP','▤']]},
+    {title:'GESTÃO EMPRESARIAL',items:[['crm','CRM e Vendas','◎'],['operations','Operações','↗'],['agenda','Agenda e Tarefas','◷'],['documents','Documentos','▱'],['materials','Materiais','▦'],['marketing','Marketing','◉']]},
+    {title:'INTELIGÊNCIA E IA',items:[['agents-pj','Agentes e IA','✦'],['office-2d','Escritório 2D','▦']]},
+    {title:'ADMINISTRAÇÃO',items:[['compliance','Governança','✓'],['integrations','Integrações','⇄'],['settings','Empresa e Acessos','⚙']]},
+  ];
+  const nav=[
     ['command','Central de Comando','◈'],['crm','CRM','◎'],
     ['finance','Financeiro','▤'],['operations','Operação','↗'],
     ['agenda','Agenda & Tarefas','◷'],['documents','Documentos','▱'],
@@ -84,7 +76,7 @@ export default function App(){
   async function markPaid(id:string){await patch(`/v1/ledger/${id}`,{status:'paid'});await refresh()}
 
   return <div className="shell">
-    <aside className="sidebar"><div className="brand"><div className="brandMark">N</div><div><strong>{productName}</strong><small>{productTagline}</small></div></div><nav>{nav.map(([key,label,icon])=><button key={key} className={view===key?'active':''} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sideFoot"><div className="statusDot"/> {nexaPjBuild?"Nexa PJ · ERP ativo · Conta financeira sob habilitação":"Core v0.2 · Live"}</div></aside>
+    <aside className="sidebar"><div className="brand"><div className="brandMark">N</div><div><strong>{productName}</strong><small>{productTagline}</small></div></div><nav aria-label="Módulos da plataforma">{nexaPjBuild?pjNavGroups.map(group=><div key={group.title} className="pj-nav-group"><div className="pj-nav-heading">{group.title}</div>{group.items.map(([key,label,icon])=><button key={key} className={view===key?'active':''} aria-current={view===key?'page':undefined} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</div>):nav.map(([key,label,icon])=><button key={key} className={view===key?'active':''} onClick={()=>setView(key)}><span>{icon}</span>{label}</button>)}</nav><div className="sideFoot"><div className="statusDot"/> {nexaPjBuild?"Nexa PJ · ERP ativo · Conta financeira sob habilitação":"Core v0.2 · Live"}</div></aside>
     <main><header className="topbar"><div><p className="eyebrow">{nexaPjBuild?'NEXA PJ':'NEXOFFICE'}</p><h1>{view==='conta-nexa'?'Conta Nexa':title(view)}</h1><p>{productTagline}</p></div><div className="topActions"><select value={activeWorkspace?.id||''} onChange={e=>switchWorkspace(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select><div className="userChip"><b>{user.name}</b><small>{activeWorkspace?.role}</small></div><button className="ghost" onClick={async()=>{try{await post('/v1/auth/logout',{})}catch{}session.clear();location.reload()}}>Sair</button></div></header>
     <section className="content">{nexaPjBuild&&<div className="pj-sector-bar"><strong>ERP do seu setor:</strong><span>{({general:"Geral",legal:"Jurídico",health:"Saúde",condo:"Condomínios",commerce:"Comércio"} as Record<string,string>)[activeWorkspace?.vertical||"general"]||activeWorkspace?.vertical||"Geral"}</span><button type="button" onClick={()=>setView("office-2d")}>Explorar escritório 2D →</button><small>Perfil definido no cadastro desta empresa. Alterações de setor dependem das configurações autorizadas do workspace.</small></div>}{error&&<div className="errorBanner">{error}<button onClick={()=>setError('')}>×</button></div>}{busy&&<div className="busyLine"/>}{renderView()}</section></main>
     {modal&&<Modal onClose={()=>setModal(null)}>{renderModal()}</Modal>}
