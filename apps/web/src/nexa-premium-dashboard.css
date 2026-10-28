@@ -85,3 +85,13 @@
 @media(max-width:650px){.npx-hero{padding:23px}.npx-panel{padding:17px}.npx-half,.npx-side-col{grid-template-columns:1fr}.npx-metrics{grid-template-columns:1fr 1fr}.npx-kpi{padding:15px}.npx-kpi strong{font-size:19px}.npx-list-row{grid-template-columns:33px minmax(0,1fr) auto}.npx-list-row strong{white-space:normal}.npx-services{grid-template-columns:1fr 1fr}}
 @media(max-width:400px){.npx-metrics,.npx-services{grid-template-columns:1fr}.npx-hero-buttons>*{flex:1 1 100%}}
 @media(prefers-reduced-motion:reduce){.npx-premium *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Explicitly isolated demonstration: no bank-branded verified balances. */
+.npx-belvo-sandbox{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+ margin-top:14px;padding:15px;background:linear-gradient(110deg,#f0f7fd,#e9f3fa);
+ border:1px dashed #b2cddd;border-radius:13px;color:#183b51}
+.npx-belvo-sandbox>div{flex:1 1 200px;min-width:0}
+.npx-belvo-sandbox strong{font-size:12px}
+.npx-belvo-sandbox small{display:block;font-size:10px;color:#5f798e;line-height:1.5;margin-top:5px}
+.npx-belvo-sandbox button,.npx-belvo-sandbox a{flex-shrink:0}
+.npx-belvo-sandbox>small{flex:1 1 100%}

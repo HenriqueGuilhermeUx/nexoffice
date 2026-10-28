@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState,type FormEvent,type ReactNode} fro
 import type {AgentId} from './NexPersonalAgents';
 import {routeMayaIntent} from './personal-assistant-routing';
 import {buildPremiumFinancialTruth,type PersonalBalance,type PersonalOverview,type PersonalStudioSummary} from './personal-premium-model';
+import NexaBelvoSandboxPanel from './NexaBelvoSandboxPanel';
 import './nexa-premium-dashboard.css';
 
 type Section='office'|'today'|'money'|'spending'|'planning'|'wealth'|'market'|'crypto'|'agents'|'maya'|'privacy'|'overview';
@@ -149,7 +150,8 @@ export default function NexaPremiumDashboard({
     <Panel id="npx-financas" title="Suas instituições" sub="Dados reais importados ou informações inseridas por você" action={<button type="button" className="npx-link" onClick={()=>onOpenSection('money')}>Gerenciar contas</button>}>
      {accounts.length===0?<div className="npx-empty">Nenhuma conta cadastrada. Você pode começar manualmente enquanto o Open Finance é homologado.</div>:
       <div className="npx-list">{accounts.slice(0,5).map(a=><div className="npx-list-row" key={a.id}><div className="npx-symbol">▣</div><div><b>{a.institution_name}</b><small>{a.name} · {a.manually_reported?'Informado manualmente':a.fresh?'Atualização recente':'Dados pendentes'}</small></div><strong>{a.manually_reported||a.fresh?money(a.available_minor,a.currency):'—'}</strong></div>)}</div>}
-     <div className="npx-integration-strip"><div><strong>Open Finance</strong><small>{opAvailable?'Conector assinalado no backend; aguarda validação da jornada':'Integração com parceiro em preparação; ainda não há conexão para iniciar'}</small></div><Status type={opAvailable?'manual':'pending'}>{opAvailable?'Revisão necessária':'Em integração'}</Status></div>
+     <NexaBelvoSandboxPanel key={token} token={token}/>
+    <div className="npx-integration-strip"><div><strong>Open Finance</strong><small>{opAvailable?'Conector assinalado no backend; aguarda validação da jornada':'Integração com parceiro em preparação; ainda não há conexão para iniciar'}</small></div><Status type={opAvailable?'manual':'pending'}>{opAvailable?'Revisão necessária':'Em integração'}</Status></div>
     </Panel>
 
     <div className="npx-half">
