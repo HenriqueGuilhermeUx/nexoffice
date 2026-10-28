@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {ApiError,hashOpaqueToken,issueSession,newInviteToken,slugify,workspaceContext} from './auth.js';
 import {query,transaction} from './db.js';
 import {verticalPack} from './vertical-packs.js';
+import {DisabledOpenFinanceConnector} from './nexa-pj-finance-connector.js';
 
 const Source=z.enum(['nexjud','sindcopilot','mydatamed','health-wallet','smartbots','modo','docwallet','nextgen','taxagent','connexio','mindcompliance','mindsteps','f-insight','ecotracker','nexa','staff']);
 const Vertical=z.enum(['general','legal','health','condo','commerce']);
@@ -101,8 +102,9 @@ export async function registerPlatformRoutes(app:FastifyInstance){
    */
   app.get('/v1/platform/nexa-pj/finance-hub/readiness',async req=>{
     await workspaceContext(req,'workspace.read');
+    const openFinanceStatus=await new DisabledOpenFinanceConnector().getConnectionStatus({workspaceId:'unbound',representativeUserId:'unbound',verifiedCorporateIdentityRef:'',consentRef:'',requestedScopes:[]});
     const source=(id:string,label:string,kind:string)=>({
-      id,label,kind,status:'not_connected' as const,
+      id,label,kind,status:id==='open-finance'?openFinanceStatus:'not_connected' as const,
       consent:'not_granted' as const,
       lastSyncedAt:null,
       accountCount:0,
