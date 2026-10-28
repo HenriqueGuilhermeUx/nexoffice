@@ -18,7 +18,7 @@ export type VerifiedSandboxConsent={
  institution:typeof BELVO_MOCKBANK;verifiedAt:string;
  accountsPermission:true;portfolioImported:false;paymentsEnabled:false;
 };
-export type ConsentVerificationInput={externalId:string;linkId:string};
+export type ConsentVerificationInput={externalId:string;linkId:string;expectedConsentId?:string};
 export async function verifyBelvoSandboxConsent(
  env:SandboxConfig,input:ConsentVerificationInput,
  http:typeof fetch=fetch,
@@ -26,6 +26,7 @@ export async function verifyBelvoSandboxConsent(
 ):Promise<VerifiedSandboxConsent|null>{
  if(!widgetReady(env))throw new BelvoVerificationError('disabled');
  if(!externalPattern.test(input.externalId)||!uuidPattern.test(input.linkId)
+  ||(input.expectedConsentId!==undefined&&!uuidPattern.test(input.expectedConsentId))
   ||!Number.isFinite(now.getTime()))throw new BelvoVerificationError('invalid_reference');
  const authorization='Basic '+Buffer.from(env.BELVO_SANDBOX_SECRET_ID!+':'
    +env.BELVO_SANDBOX_SECRET_PASSWORD!,'utf8').toString('base64');
@@ -59,14 +60,15 @@ export async function verifyBelvoSandboxConsent(
  const records=data.results;
  if(!Array.isArray(records)||typeof data.count!=='number'
   ||!Number.isSafeInteger(data.count)||data.count<0
-  ||data.count>records.length||data.next!==null)
+  ||data.count!==records.length||records.length>1000||data.next!==null)
   throw new BelvoVerificationError('invalid_response');
  for(const item of records){
   if(!item||typeof item!=='object'||Array.isArray(item))continue;
   const consent=item as Record<string,unknown>;
   if(consent.link_id!==input.linkId||consent.belvo_institution_name!==BELVO_MOCKBANK
    ||consent.document_number!==document||consent.status!=='AUTHORISED'
-   ||typeof consent.id!=='string'||!uuidPattern.test(consent.id))continue;
+   ||typeof consent.id!=='string'||!uuidPattern.test(consent.id)
+   ||(input.expectedConsentId!==undefined&&consent.id!==input.expectedConsentId))continue;
   const permissions=consent.permissions;
   if(!permissions||typeof permissions!=='object'||Array.isArray(permissions)
    ||!Array.isArray((permissions as Record<string,unknown>).ACCOUNTS)

@@ -86,10 +86,18 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
    verified:false,status:'awaiting_webhook',sandbox:true,
    bankDataImported:false,paymentsEnabled:false
   };
+  // An earlier proof is NOT perpetual authorization. Pin its exact consent
+  // reference when rechecking, and never substitute another consent silently.
+  const existing=await query<{provider_consent_ref:string}>(
+   `SELECT provider_consent_ref FROM nex_personal.belvo_sandbox_verified_consents
+      WHERE attempt_id=$1::uuid AND owner_user_id=$2::uuid
+        AND provider_link_ref::text=$3 LIMIT 1`,
+   [events[0].id,actor,events[0].link_id]);
   let proof;
   try{
    proof=await verifyBelvoSandboxConsent(env,{
-    externalId:events[0].external_id,linkId:events[0].link_id
+    externalId:events[0].external_id,linkId:events[0].link_id,
+    expectedConsentId:existing[0]?.provider_consent_ref
    });
   }catch(err){
    if(err instanceof BelvoVerificationError)
@@ -97,9 +105,21 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
      'Não foi possível confirmar o consentimento no banco fictício.');
    throw new ApiError(502,'sandbox_provider_unavailable','Verificação indisponível.');
   }
-  if(!proof)return {
-   verified:false,status:'not_confirmed',sandbox:true,
-   bankDataImported:false,paymentsEnabled:false
+  if(!proof){
+   // Provider confirms no currently valid pinned consent. Remove ONLY this
+   // owner's obsolete sandbox proof; never touch accounts or transactions.
+   if(existing.length)await query(
+    `DELETE FROM nex_personal.belvo_sandbox_verified_consents
+      WHERE attempt_id=$1::uuid AND owner_user_id=$2::uuid
+        AND provider_link_ref::text=$3 AND provider_consent_ref=$4::uuid`,
+    [events[0].id,actor,events[0].link_id,existing[0].provider_consent_ref]);
+   return {verified:false,status:existing.length?'expired_or_revoked':'not_confirmed',
+    sandbox:true,bankDataImported:false,paymentsEnabled:false};
+  }
+  if(existing.length)return {
+   verified:true,status:'verified_sandbox_consent',sandbox:true,
+   institution:'ofmockbank_br_retail',bankDataImported:false,
+   paymentsEnabled:false,realBankConnection:false
   };
   // Persist only server-checked refs with the authenticated PF owner.
   // Never copy PII, balances, permissions JSON or bank transactions.

@@ -104,6 +104,34 @@ test('indefinite consent may be recognized only when provider explicitly marks i
  const p=provider({consents:[{...consent,expired_at:null,undefined_consent_expiration:true}]});
  assert.equal((await verifyBelvoSandboxConsent(env,input,p.fetcher,now))?.verified,true);
 });
+
+test('recheck pins the original consent ID; a replacement consent cannot silently renew it',async()=>{
+ const original=provider();
+ assert.equal((await verifyBelvoSandboxConsent(env,{...input,expectedConsentId:consentId},original.fetcher,now))?.verified,true);
+ const changed=provider({consents:[{...consent,id:'33000000-0000-4000-8000-000000000001'}]});
+ assert.equal(await verifyBelvoSandboxConsent(env,{...input,expectedConsentId:consentId},changed.fetcher,now),null);
+ const revoked=provider({consents:[{...consent,status:'REVOKED'}]});
+ assert.equal(await verifyBelvoSandboxConsent(env,{...input,expectedConsentId:consentId},revoked.fetcher,now),null);
+ const expired=provider({consents:[{...consent,expired_at:'2026-10-28T19:59:59.999Z'}]});
+ assert.equal(await verifyBelvoSandboxConsent(env,{...input,expectedConsentId:consentId},expired.fetcher,now),null);
+ const invalid=provider();
+ await assert.rejects(verifyBelvoSandboxConsent(env,{...input,expectedConsentId:'not-a-uuid'},invalid.fetcher,now),rejectsCode('invalid_reference'));
+ assert.equal(invalid.calls.length,0);
+});
+test('provider pagination count must exactly match records; stale proofs are owner-scoped',async()=>{
+ for(const p of [provider({count:0,consents:[consent]}),provider({count:2,consents:[consent]})]){
+  await assert.rejects(verifyBelvoSandboxConsent(env,input,p.fetcher,now),rejectsCode('invalid_response'));
+ }
+ const source=readFileSync('apps/api/src/routes-belvo-sandbox-preview.ts','utf8');
+ const route=source.slice(source.indexOf("app.post('/v1/personal/belvo-sandbox/verify'"));
+ assert.match(route,/expectedConsentId:existing\[0\]\?\.provider_consent_ref/);
+ assert.match(route,/DELETE FROM nex_personal\.belvo_sandbox_verified_consents/);
+ assert.match(route,/provider_consent_ref=\$4::uuid/);
+ assert.match(route,/owner_user_id=\$2::uuid/);
+ assert.match(route,/expired_or_revoked/);
+ assert.ok(!route.includes('UPDATE nex_personal.accounts'));
+ assert.ok(!route.includes('INSERT INTO nex_personal.transactions'));
+});
 test('partial pagination and malformed responses fail closed',async()=>{
  for(const setting of [
   {count:2,consents:[consent]},{count:1,consents:[consent],next:'https://sandbox.belvo.com/api/consents/?page=2'},
