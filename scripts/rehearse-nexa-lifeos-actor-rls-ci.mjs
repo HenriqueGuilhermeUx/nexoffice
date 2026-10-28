@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import pg from 'pg';
+import {readLifeosPersonalGoals} from '../apps/api/dist/nexa-lifeos-goals-read.js';
 
 if (process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||
     process.env.NEXA_LIFEOS_SCHEMA_REHEARSAL!=='true'||
@@ -137,6 +138,49 @@ try {
  await sessionClient.query("select set_config('app.user_id',$1,true)",[verified[0]]);
  assert.deepEqual(await countOwnProfiles(sessionClient),[A]);
  assert.equal((await alice.query('update nex_personal.life_intents set status=$1 where owner_user_id=$2',['done',B])).rowCount,0);
+
+
+ // Run the ACTUAL compiled application read path under PostgreSQL FORCE RLS,
+ // not only a mocked pool. Production guard remains closed despite this CI proof.
+ const tokenA='A'.repeat(43),tokenB='B'.repeat(43);
+ await admin.query(
+  "INSERT INTO public.auth_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour'),($3,$4,now()+interval '1 hour')",
+  [A,createHash('sha256').update(tokenA).digest('hex'),B,createHash('sha256').update(tokenB).digest('hex')]
+ );
+ await admin.query("INSERT INTO nex_personal.goals(owner_user_id,name,target_minor,saved_minor) VALUES($1,'Reserva Alice',250000,30000),($2,'Viagem Bob',100000,20000)",[A,B]);
+ const realAppPool=new pg.Pool({connectionString:source,max:1,connectionTimeoutMillis:5000});
+ // The CI admin login may SET ROLE; production must instead have its own
+ // non-privileged login role and separate database credentials.
+ const roleRestricted={async connect(){
+  const client=await realAppPool.connect();
+  try{await client.query('SET ROLE nexa_lifeos_app');return client;}
+  catch(e){client.release();throw e;}
+ }};
+ const previousLifeosEnv=process.env.NEXA_LIFEOS_ENV;
+ try{
+  process.env.NEXA_LIFEOS_ENV='production';
+  const resultsA=await readLifeosPersonalGoals(tokenA,roleRestricted);
+  const resultsB=await readLifeosPersonalGoals(tokenB,roleRestricted);
+  assert.deepEqual(resultsA.goals.map(x=>x.name),['Reserva Alice']);
+  assert.deepEqual(resultsB.goals.map(x=>x.name),['Viagem Bob']);
+  assert.equal(resultsA.readOnly,true);
+  assert.equal(resultsA.externalFinancialActions,false);
+  await assert.rejects(
+   readLifeosPersonalGoals('C'.repeat(43),roleRestricted),
+   e=>e.statusCode===401 && e.code==='invalid_session'
+  );
+  // A fresh checkout of the reused connection has no tenant actor GUC.
+  const unauthenticated=await roleRestricted.connect();
+  try{
+   await unauthenticated.query('BEGIN');
+   assert.equal((await unauthenticated.query('select count(*)::int n from nex_personal.goals')).rows[0].n,0);
+   await unauthenticated.query('ROLLBACK');
+  }finally{unauthenticated.release();}
+ }finally{
+  if(previousLifeosEnv===undefined)delete process.env.NEXA_LIFEOS_ENV;
+  else process.env.NEXA_LIFEOS_ENV=previousLifeosEnv;
+  await realAppPool.end();
+ }
 
  await alice.query('SAVEPOINT deny_insert');
  let blockedForeignInsert=false;
