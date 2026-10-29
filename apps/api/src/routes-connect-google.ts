@@ -7,7 +7,7 @@ import {connectorSecretsConfigured,connectorStateSecret,decryptConnectorSecret,e
 
 const GMAIL_METADATA_SCOPE='https://www.googleapis.com/auth/gmail.metadata';
 const CALENDAR_READONLY_SCOPE='https://www.googleapis.com/auth/calendar.readonly';
-const GOOGLE_SCOPES=[GMAIL_METADATA_SCOPE,CALENDAR_READONLY_SCOPE,'openid','email'];
+const GOOGLE_SCOPES=[GMAIL_METADATA_SCOPE,CALENDAR_READONLY_SCOPE];
 
 type GoogleTokenSecret={
   accessToken:string;
@@ -343,7 +343,7 @@ export async function registerGoogleConnectRoutes(app:FastifyInstance){
   app.post('/v1/connect/google/disconnect',async req=>{
     const ctx=await workspaceContext(req,'integrations.manage');
     await query(
-      `update integrations set status='disconnected',secret_ref=null,capabilities='{}',config=config||$3::jsonb,updated_at=now() where workspace_id=$1 and provider=$2`,
+      `update integrations set status='disconnected',external_account_ref=null,secret_ref=null,capabilities='{}',config=config||$3::jsonb,updated_at=now() where workspace_id=$1 and provider=$2`,
       [ctx.workspaceId,'google_workspace',JSON.stringify({disconnectedAt:new Date().toISOString()})]
     );
     await auditLog(ctx,'nex_connect.google_disconnected','workspace',ctx.workspaceId,null,{provider:'google_workspace',tokensRemoved:true,externalEffect:false});
