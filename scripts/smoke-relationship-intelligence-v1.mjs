@@ -9,8 +9,10 @@ const panel=read('apps/web/src/RelationshipIntelligencePanel.tsx');
 const app=read('apps/web/src/App.tsx');
 const server=read('apps/api/src/server.ts');
 const materials=read('apps/web/src/MaterialsCenter.tsx');
+const executive=read('apps/api/src/executive-context.ts');
 
 has(route,"/v1/crm/relationship-intelligence",'relationship intelligence endpoint');
+has(route,'export async function buildRelationshipIntelligence','relationship intelligence must expose shared builder');
 has(route,"workspaceContext(req,'crm.read')",'CRM read permission boundary');
 has(route,'readDocWalletUpcomingExpirations','optional DocWallet expiration signal');
 has(route,"docwallet_unavailable",'DocWallet failure must degrade safely');
@@ -46,5 +48,9 @@ has(panel,'não altera agenda','panel must disclose calendar write prohibition')
 has(app,'<RelationshipIntelligencePanel/>','relationship panel mounted in CRM');
 has(server,'registerRelationshipIntelligenceRoutes','relationship route registered');
 has(materials,"nexoffice.material.contactId",'Materials must consume preselected relationship client');
+has(executive,"buildRelationshipIntelligence(workspaceId,false)",'Maya Executive Context must reuse the same relationship builder');
+has(executive,"relationship_at_risk",'Maya must surface relationship risk priority');
+has(executive,"relationship_renewal_soon",'Maya must surface renewal priority');
+has(executive,"nex.relationship_intelligence",'Maya relationship priorities must cite shared evidence source');
 
 console.log('NexOffice Relationship & Renewal Intelligence V1 contract OK');
