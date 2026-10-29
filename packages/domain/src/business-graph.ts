@@ -10,6 +10,8 @@ export type BusinessGraphNodeKind=
   |'financial_entry'
   |'task'
   |'appointment'
+  |'email_message'
+  |'calendar_event'
   |'document'
   |'event'
   |'goal';
@@ -22,6 +24,8 @@ export type BusinessGraphEdgeKind=
   |'related_to'
   |'assigned_to'
   |'scheduled_with'
+  |'communicated_with'
+  |'attended'
   |'document_for'
   |'financial_activity'
   |'generated'
