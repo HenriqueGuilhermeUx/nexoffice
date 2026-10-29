@@ -133,11 +133,11 @@ const atlasNode=graph.graph.nodes.find(node=>node.label==='Cliente Atlas'&&(node
 assert(atlasNode,'Atlas contact node exists');
 const gmailEvent=graph.graph.nodes.find(node=>node.source==='external.google.gmail'&&node.label==='Renovação Atlas');
 const calendarEvent=graph.graph.nodes.find(node=>node.source==='external.google.calendar'&&node.label==='Reunião com Atlas');
-const sheetEvent=graph.graph.nodes.find(node=>node.source==='external.spreadsheet'&&String(node.label).includes('Clientes externos'));
-assert(gmailEvent&&calendarEvent&&sheetEvent,'external context nodes have semantic labels');
+const sheetEvents=graph.graph.nodes.filter(node=>node.source==='external.spreadsheet'&&String(node.label).includes('Clientes externos'));
+assert(gmailEvent&&calendarEvent&&sheetEvents.length===3,'external context nodes have semantic labels');
 assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===gmailEvent.id&&edge.kind==='related_to'&&edge.attributes?.match==='email'),'Gmail metadata links to CRM contact by exact email');
 assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===calendarEvent.id&&edge.kind==='scheduled_with'&&edge.attributes?.match==='email'),'Calendar event links to CRM contact by exact email');
-assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===sheetEvent.id&&edge.kind==='related_to'&&edge.attributes?.match==='email'),'Spreadsheet row links to CRM contact by exact email');
+assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&sheetEvents.some(node=>node.id===edge.to)&&edge.kind==='related_to'&&edge.attributes?.match==='email'),'Spreadsheet row links to CRM contact by exact email');
 assert(graph.graph.nodes.some(node=>node.kind==='event'&&node.source==='external.spreadsheet'),'spreadsheet observations flow into Business Graph');
 assert(graph.graph.edges.some(edge=>edge.kind==='has_deal'),'customer-to-deal relation exists');
 assert(graph.graph.edges.some(edge=>edge.kind==='financial_activity'),'customer-to-finance relation exists');
