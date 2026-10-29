@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {evaluateCorporateWalletBinding,verifyCorporateWalletBinding,DisabledCorporateWalletOwnershipVerifier} from '../apps/api/dist/nexa-pj-wallet-binding.js';
 import {evaluateCorporateReadConsent,evaluateVerifiedCorporateReadConsent,authorizeCorporateRead,authorizeCorporateReadWithinDeadline,DisabledCorporateConsentVerifier,DisabledOpenFinanceConnector} from '../apps/api/dist/nexa-pj-finance-connector.js';
 const now=new Date('2026-10-28T12:00:00Z');
 const ctx={workspaceId:'company-A',representativeUserId:'member-A',verifiedCorporateIdentityRef:'kyb-A',consentRef:'consent-A',requestedScopes:['accounts.read']};
@@ -45,4 +46,12 @@ assert.equal(await authorizeCorporateReadWithinDeadline({verify:async()=>proof},
 const disabled=new DisabledOpenFinanceConnector();
 assert.equal(await disabled.getConnectionStatus(ctx),'not_connected');
 await assert.rejects(()=>disabled.listBalances(ctx),/NOT_AUTHORIZED/);
+const wreq={workspaceId:'company-A',representativeUserId:'member-A',corporateIdentityRef:'kyb-A',walletAccountRef:'wallet-A',walletAddress:'0x'+'a'.repeat(40),chainId:137};
+const validProof={...wreq,holderType:'corporate',proofOrigin:'nexa_wallet_backend',signatureVerified:true,corporateAuthorityVerified:true,verifiedAt:now.toISOString()};
+assert.equal(evaluateCorporateWalletBinding(wreq,validProof,now),'verified_read_only');
+for(const invalid of [null,{...validProof,workspaceId:'company-B'},{...validProof,representativeUserId:'member-B'},{...validProof,corporateIdentityRef:'kyb-B'},{...validProof,walletAccountRef:'wallet-B'},{...validProof,walletAddress:'0x'+'b'.repeat(40)},{...validProof,chainId:1},{...validProof,holderType:'personal'},{...validProof,signatureVerified:false},{...validProof,corporateAuthorityVerified:false},{...validProof,verifiedAt:'2026-10-28T11:00:00Z'}]){
+ assert.equal(evaluateCorporateWalletBinding(wreq,invalid,now),'deny');
+}
+assert.equal(await verifyCorporateWalletBinding(new DisabledCorporateWalletOwnershipVerifier(),wreq,now),'deny');
+assert.equal(await verifyCorporateWalletBinding({verifyOwnership:async()=>{throw Error('provider error')}},wreq,now),'deny');
 console.log('PASS corporate Finance Hub consent policy, revoked and expired access, scope and tenant isolation');
