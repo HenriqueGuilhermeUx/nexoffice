@@ -32,7 +32,8 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
       (select count(*) from ledger_entries where workspace_id=$1)::int ledger,
       (select count(*) from document_refs where workspace_id=$1)::int documents,
       (select count(*) from appointments where workspace_id=$1)::int appointments,
-      (select count(*) from tasks where workspace_id=$1)::int tasks`,[workspaceId])
+      (select count(*) from tasks where workspace_id=$1)::int tasks,
+      (select count(*) from business_events where workspace_id=$1 and source='external.spreadsheet')::int spreadsheet_records`,[workspaceId])
   ]);
 
   const metadata=asObject(profile.metadata);
@@ -101,9 +102,9 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
   if(currentTools.includes('spreadsheets'))add(recommendation(
     'spreadsheets','Planilhas',
     'normal',
-    'Planilhas normalmente carregam controles críticos que ainda não viraram sistema.',
+    n(c.spreadsheet_records)>0?'Planilhas externas já estão alimentando o Business Graph.':'Planilhas normalmente carregam controles críticos que ainda não viraram sistema.',
     ['metas','orçamentos','cadastros auxiliares','controles operacionais e financeiros'],
-    'planned'
+    n(c.spreadsheet_records)>0?'connected':'planned'
   ));
 
   if(currentTools.includes('whatsapp')||digital.whatsapp||bottleneck==='service')add(recommendation(
