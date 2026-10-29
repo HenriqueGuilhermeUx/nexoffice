@@ -102,7 +102,7 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       level:signal.level,
       title:signal.title,
       detail:signal.detail,
-      recommendedNextStep:signal.code==='receivables_overdue'
+      recommendedNextStep:signal.code==='receivables_overdue'||signal.code==='external_receivables_overdue'
         ?'Revisar os maiores recebíveis vencidos e confirmar cobrança, conciliação ou renegociação.'
         :signal.code==='tasks_overdue'
           ?'Priorizar tarefas atrasadas ligadas a clientes, vendas ou entregas relevantes.'
