@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {readFileSync,readdirSync,existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {resolve,dirname} from 'node:path';
+
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const site=resolve(root,'sites/nex-personal-usa');
+const out=resolve(site,'dist');
+const config=readFileSync(resolve(site,'netlify.toml'),'utf8');
+const entry=readFileSync(resolve(site,'site-main.tsx'),'utf8');
+const html=readFileSync(resolve(site,'index.html'),'utf8');
+assert.match(config,/publish = "sites\/nex-personal-usa\/dist"/);
+assert.match(config,/NODE_VERSION = "24"/);
+assert.match(config,/noindex, nofollow/);
+assert.match(entry,/import NexPersonalUSA from '\.\.\/\.\.\/apps\/web\/src\/NexPersonalUSA'/);
+assert.doesNotMatch(entry,/from ['"].*apps\/web\/src\/main/);
+assert.match(html,/<html lang="en-US">/);
+assert.doesNotMatch(html,/https:\/\/(?:trynexa|nexoffices)\.com\.br/);
+execFileSync('npm',['exec','--','vite','build','--config','sites/nex-personal-usa/vite.config.ts'],
+ {cwd:root,stdio:'pipe',timeout:120_000,env:{...process.env,CI:'true'}});
+assert.ok(existsSync(resolve(out,'index.html')),'Standalone USA HTML build missing');
+assert.ok(existsSync(resolve(out,'robots.txt')),'USA robots preview gate missing');
+assert.ok(existsSync(resolve(out,'_headers')),'Netlify security headers file missing from published USA bundle');
+assert.ok(existsSync(resolve(out,'_redirects')),'Netlify SPA rewrite file missing from published USA bundle');
+const deployedHeaders=readFileSync(resolve(out,'_headers'),'utf8');
+const deployedRedirects=readFileSync(resolve(out,'_redirects'),'utf8');
+assert.match(deployedHeaders,/X-Frame-Options: DENY/);
+assert.match(deployedHeaders,/X-Content-Type-Options: nosniff/);
+assert.match(deployedHeaders,/Content-Security-Policy:/);
+assert.match(deployedHeaders,/X-Robots-Tag: noindex, nofollow/);
+assert.match(deployedRedirects,/^\/\* \/index\.html 200\s*$/);
+const builtHtml=readFileSync(resolve(out,'index.html'),'utf8');
+const builtFiles=readdirSync(resolve(out,'assets'));
+assert.match(builtHtml,/<html lang="en-US">/);
+assert.ok(builtFiles.some(f=>f.endsWith('.js')),'USA build JS missing');
+assert.ok(builtFiles.some(f=>f.endsWith('.css')),'USA build CSS missing');
+const bundledJS=builtFiles.filter(f=>f.endsWith('.js')).map(f=>readFileSync(resolve(out,'assets',f),'utf8')).join('\n');
+assert.ok(bundledJS.includes('Nex Personal'),'USA product preview not included in bundle');
+assert.ok(!bundledJS.includes('nexoffices.com.br'),'Brazilian NexOffices canonical hostname bundled into USA site');
+assert.ok(!bundledJS.includes('trynexa.com.br'),'Brazilian Nexa production hostname bundled into USA site');
+assert.ok(bundledJS.includes('Manage Access'),'Maya access navigation missing from USA bundle');
+assert.ok(bundledJS.includes('Revoke this local snapshot'),'Local-only access revocation control missing');
+assert.ok(bundledJS.includes('Real account access remains disabled'),'US financial authentication gate disclosure missing');
+assert.ok(bundledJS.includes('This wallet snapshot is more than five minutes old. Refresh the on-chain balance before sharing with Maya.'),
+ 'Stale Maya sharing must explain refresh instead of exposing internal error code');
+const walletComponent=readFileSync(resolve(root,'apps/web/src/NexPersonalUSCrypto.tsx'),'utf8');
+const accountComponent=readFileSync(resolve(root,'apps/web/src/NexPersonalUSA.tsx'),'utf8');
+assert.match(walletComponent,/disabled=\{busy\|\|hasActiveMayaGrant\}/,'Share action must derive disabled state from active grant');
+assert.doesNotMatch(walletComponent,/setShared\(/,'Stale widget-local shared flag must not persist past grant expiry');
+assert.match(accountComponent,/hasActiveMayaGrant=\{Boolean\(activeSnapshot\)\}/,'Parent must supply verified active browser TTL');
+
+execFileSync(process.execPath,['--experimental-strip-types','scripts/smoke-nex-personal-us-maya-local-session.mjs'],
+ {cwd:root,stdio:'pipe',timeout:10_000,env:{...process.env,CI:'true'}});
+console.log('PASS: isolated Nex Personal USA Netlify static bundle and en-US marketing/preview safeguards');

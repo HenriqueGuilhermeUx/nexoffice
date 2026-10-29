@@ -1,0 +1,211 @@
+import type {USWalletPool} from './personal-us-wallet-binding-store.js';
+import type {OfficialPrivyUSVerifyAccessToken} from './personal-us-privy-session.js';
+import {withVerifiedUSPrivyIdentity,type USPrivyVerifiedOwner} from './personal-us-privy-owner-store.js';
+import {
+ authorizeUSAgenticWalletRead,revokeUSAgenticWalletRead,
+ type VerifiedUSReadApproval,type USReadConsentResult
+} from './personal-us-agentic-consent-store.js';
+import {
+ assessServerUSAgenticRead,type USServerReadResult
+} from './personal-us-agentic-server-read.js';
+import {
+ createUSPolygonNativeUSDCReader,type USPolygonPublicReadClient
+} from './personal-us-polygon-usdc-reader.js';
+
+/**
+ * USA ONLY — internal authenticated Maya read composition; NO PUBLIC ROUTE.
+ *
+ * An untrusted caller may supply a bearer token and a consent UUID but NEVER
+ * an owner subject, DID, evidence object, wallet address, RPC URL, or chain.
+ * The official Privy verifier and dedicated USA database DID link determine
+ * ownership. This reuses the same fenced PostgreSQL transaction and row locks
+ * for the consent read, avoiding a nested DB connection or auth/revoke gap.
+ *
+ * Read-only native Polygon USDC. No keys, signing, swaps or delegated authority.
+ */
+export async function assessVerifiedPrivyUSNativeUSDCRead(input:{
+ pool:USWalletPool;
+ bearerToken:string;
+ dedicatedUSPrivyAppId:string;
+ verificationKey:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ consentId:string;
+ polygonClient:USPolygonPublicReadClient;
+ now:Date;
+}):Promise<USServerReadResult>{
+ return withVerifiedUSPrivyIdentity({
+  pool:input.pool,
+  bearerToken:input.bearerToken,
+  dedicatedUSPrivyAppId:input.dedicatedUSPrivyAppId,
+  verificationKey:input.verificationKey,
+  verifyAccessToken:input.verifyAccessToken,
+  now:input.now,
+  onVerifiedOwner:async(owner,client)=>{
+   const readUSDC=createUSPolygonNativeUSDCReader({
+    client:input.polygonClient
+   });
+   return assessServerUSAgenticRead({
+    pool:input.pool,
+    authenticatedUSSubject:owner.authenticatedUSSubject,
+    consentId:input.consentId,
+    now:input.now,
+    fetchUSDCFromTrustedServer:readUSDC,
+    verifiedPrivyTransactionClient:client
+   });
+  }
+ });
+}
+
+/**
+ * INTERNAL USA ONLY — revoke the owner's specific Maya read consent under
+ * the same verified Privy DID link and dedicated USA transaction/row locks.
+ * DID and owner are resolved from the official SDK and server database;
+ * no browser-provided owner or LLM decision is trusted.
+ * This function does not register an HTTP endpoint.
+ */
+export async function revokeVerifiedPrivyUSAgenticWalletRead(input:{
+ pool:USWalletPool;
+ bearerToken:string;
+ dedicatedUSPrivyAppId:string;
+ verificationKey:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ consentId:string;
+ now:Date;
+}):Promise<{revoked:boolean;executionAllowed:false}>{
+ return withVerifiedUSPrivyIdentity({
+  pool:input.pool,
+  bearerToken:input.bearerToken,
+  dedicatedUSPrivyAppId:input.dedicatedUSPrivyAppId,
+  verificationKey:input.verificationKey,
+  verifyAccessToken:input.verifyAccessToken,
+  now:input.now,
+  onVerifiedOwner:(owner,client)=>revokeUSAgenticWalletRead({
+   pool:input.pool,
+   authenticatedUSSubject:owner.authenticatedUSSubject,
+   consentId:input.consentId,
+   now:input.now,
+   verifiedPrivyTransactionClient:client
+  })
+ });
+}
+
+/**
+ * INTERNAL USA ONLY — grant short-lived Maya read consent AFTER an explicit
+ * gesture attested by a trusted server-side verifier. The approval callback
+ * MUST NOT be passed from browser JSON, agent output or an unverified cookie.
+ * It sees the already authenticated USA profile, never an unverified DID.
+ * All operations, ownership/consent locks and audit writes use one fenced
+ * PostgreSQL transaction. No HTTP route or financial signing is enabled.
+ */
+export async function authorizeVerifiedPrivyUSAgenticWalletRead(input:{
+ pool:USWalletPool;
+ bearerToken:string;
+ dedicatedUSPrivyAppId:string;
+ verificationKey:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ bindingId:string;
+ now:Date;
+ /** Internal server policy: bounded wait; not a client-controlled request field. */
+ gestureTimeoutMs?:number;
+ verifyExplicitGesture:(owner:USPrivyVerifiedOwner,signal?:AbortSignal)=>Promise<VerifiedUSReadApproval>;
+}):Promise<USReadConsentResult>{
+ if(typeof input.verifyExplicitGesture!=='function')
+  throw Error('US_AGENTIC_TRUSTED_GESTURE_VERIFIER_MISSING');
+ return withVerifiedUSPrivyIdentity({
+  pool:input.pool,
+  bearerToken:input.bearerToken,
+  dedicatedUSPrivyAppId:input.dedicatedUSPrivyAppId,
+  verificationKey:input.verificationKey,
+  verifyAccessToken:input.verifyAccessToken,
+  now:input.now,
+  onVerifiedOwner:(owner,client)=>authorizeUSAgenticWalletRead({
+   pool:input.pool,
+   authenticatedUSSubject:owner.authenticatedUSSubject,
+   bindingId:input.bindingId,
+   now:input.now,
+   gestureTimeoutMs:input.gestureTimeoutMs,
+   verifyExplicitGesture:signal=>input.verifyExplicitGesture(owner,signal),
+   verifiedPrivyTransactionClient:client
+  })
+ });
+}
+
+/**
+ * INTERNAL USA ONLY — owner-scoped inventory for a future "Manage Maya access"
+ * screen. This is NOT an API route. The only owner identifier comes from
+ * official Privy token verification and a locked dedicated USA DID/profile
+ * link; no caller-supplied subject or wallet address participates.
+ *
+ * At most 20 active read-only grants are returned. Pagination/truncation
+ * is explicit so a future caller cannot mistake the list for an unlimited
+ * audit history. Revoked/expired grants and revoked wallets are suppressed.
+ * Locking the selected grants/bindings prevents a concurrent revoke from
+ * overtaking the consistent inventory transaction.
+ */
+export type USMayaReadConsentInventory={
+ consents:Array<{
+  consentId:string;walletBindingId:string;walletAddress:string;
+  source:'privy'|'external';capability:'wallet.read.polygon_usdc';
+  issuedAt:string;expiresAt:string
+ }>;
+ truncated:boolean;executionAllowed:false;signingAllowed:false
+};
+type USMayaReadConsentRow={
+ consent_id:string;wallet_binding_id:string;wallet_address:string;
+ source:string;issued_at:Date|string;expires_at:Date|string
+};
+export async function listVerifiedPrivyUSMayaReadConsents(input:{
+ pool:USWalletPool;
+ bearerToken:string;
+ dedicatedUSPrivyAppId:string;
+ verificationKey:string;
+ verifyAccessToken:OfficialPrivyUSVerifyAccessToken;
+ now:Date;
+}):Promise<USMayaReadConsentInventory>{
+ if(!(input.now instanceof Date)||!Number.isFinite(input.now.getTime()))
+  throw Error('US_AGENTIC_INVENTORY_CLOCK_INVALID');
+ return withVerifiedUSPrivyIdentity({
+  pool:input.pool,
+  bearerToken:input.bearerToken,
+  dedicatedUSPrivyAppId:input.dedicatedUSPrivyAppId,
+  verificationKey:input.verificationKey,
+  verifyAccessToken:input.verifyAccessToken,
+  now:input.now,
+  onVerifiedOwner:async(owner,client)=>{
+   const result=await client.query<USMayaReadConsentRow>(`
+    SELECT c.id AS consent_id,c.wallet_binding_id,
+           b.wallet_address,b.source,c.issued_at,c.expires_at
+      FROM nex_personal_us.wallet_agentic_read_consents c
+      JOIN nex_personal_us.wallet_bindings b
+        ON b.id=c.wallet_binding_id AND b.owner_profile_id=c.owner_profile_id
+     WHERE c.owner_profile_id=$1 AND c.capability='wallet.read.polygon_usdc'
+       AND c.revoked_at IS NULL AND c.issued_at<=$2 AND c.expires_at>$2
+       AND b.chain_id=137 AND b.revoked_at IS NULL
+       AND b.source IN ('privy','external')
+     ORDER BY c.expires_at ASC,c.id ASC LIMIT 21
+     FOR SHARE OF c,b`,[owner.profileId,input.now.toISOString()]);
+   const completedAt=Math.max(input.now.getTime(),Date.now());
+   const entries=result.rows.map(row=>{
+    const issuedAt=new Date(row.issued_at);
+    const expiresAt=new Date(row.expires_at);
+    if(!Number.isFinite(issuedAt.getTime())||!Number.isFinite(expiresAt.getTime())||
+       !/^0x[0-9a-fA-F]{40}$/.test(row.wallet_address)||
+       (row.source!=='privy'&&row.source!=='external'))
+     throw Error('US_AGENTIC_INVENTORY_ROW_INVALID');
+    const source:'privy'|'external'=row.source==='privy'?'privy':'external';
+    return {
+     consentId:row.consent_id,walletBindingId:row.wallet_binding_id,
+     walletAddress:row.wallet_address,source,
+     capability:'wallet.read.polygon_usdc' as const,
+     issuedAt:issuedAt.toISOString(),expiresAt:expiresAt.toISOString(),
+     validUntil:expiresAt.getTime()
+    };
+   }).filter(row=>row.validUntil>completedAt);
+   return {
+    consents:entries.slice(0,20).map(({validUntil,...item})=>item),
+    truncated:result.rows.length>20,
+    executionAllowed:false as const,signingAllowed:false as const
+   };
+  }
+ });
+}

@@ -27,6 +27,22 @@ jobs:
         run: node scripts/smoke-nex-personal-session-resilience.mjs
       - name: Smoke test Personal marketplace independence and privacy
         run: node --experimental-strip-types scripts/smoke-nex-personal-marketplace.mjs
+      - name: Smoke test Nex Personal USA crypto execution firewall
+        run: node --experimental-strip-types scripts/smoke-nex-personal-us-crypto.mjs
+      - name: Smoke test Nex Personal USA EIP-6963 wallet discovery
+        run: node --experimental-strip-types scripts/smoke-nex-personal-us-wallet-discovery.mjs
+      - name: Smoke test Nex Personal USA wallet proof and Privy isolation
+        run: node --experimental-strip-types scripts/smoke-nex-personal-us-wallet-ownership.mjs
+      - name: Smoke test isolated Privy USA access-token verification seam
+        run: node scripts/smoke-nex-personal-us-privy-session.mjs
+      - name: Smoke test Polygon EOA and ERC-1271 verifier adapter fail-closed behavior
+        run: node scripts/smoke-nex-personal-us-wallet-viem-verifier.mjs
+      - name: Smoke test Nex Personal USA Maya read-only Trust policy
+        run: node scripts/smoke-nex-personal-us-agentic-trust.mjs
+      - name: Smoke test pinned Polygon native USDC read-only server RPC
+        run: node scripts/smoke-nex-personal-us-polygon-usdc-reader.mjs
+      - name: Smoke test US wallet atomic linkage and revocation
+        run: node scripts/smoke-nex-personal-us-wallet-binding.mjs
       - name: Smoke test Nex Personal F-Insight isolated market research
         run: node --experimental-strip-types scripts/smoke-nex-personal-finsight.mjs
       - name: Smoke test Nex Personal future brokerage safety gates
@@ -131,6 +147,26 @@ jobs:
           node-version: 24
       - run: npm ci
       - run: npm run build
+      - name: Validate Nex Personal USA wallet isolation on disposable PostgreSQL 16
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-wallet-postgres.mjs
+      - name: Validate USA Maya short-lived read consent and revocation in PostgreSQL
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-agentic-consent-postgres.mjs
+      - name: Assert US wallets and Maya cannot be read or written by untrusted PostgreSQL roles
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-rls-least-privilege.mjs
+      - name: Enforce dedicated US backend service SQL privileges and customer role denial
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-service-role-postgres.mjs
+      - name: Verify US Privy DID identity lookup and revoked sessions under PostgreSQL RLS
+        env:
+          NEX_PERSONAL_US_PG_CI: "true"
+        run: node scripts/smoke-nex-personal-us-privy-did-postgres.mjs
       - name: Apply database schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/schema.sql
@@ -302,3 +338,136 @@ jobs:
         run: |
           cat /tmp/nexoffice-api.log || true
           cat /tmp/nex-personal-preview-api.log || true
+
+  # Isolated job, no project keys or database; viem is PINNED and ephemeral.
+  # Does not alter package.json/package-lock or shipped production artifacts.
+  us_wallet_real_cryptography:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_PASSWORD: nexoffice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NPU_REAL_CRYPTO_CI: "true"
+      DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nexoffice
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Build internal domain, integrations, then USA API
+        run: |
+          npm run build -w @nexoffice/domain
+          npm run build -w @nexoffice/integrations
+          npm run build -w @nexoffice/api
+      - name: Install exact viem version for ephemeral real-ECDSA test only
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund viem@2.57.10
+      - name: Verify real ephemeral EOA ECDSA signatures against the USA adapter
+        run: node scripts/smoke-nex-personal-us-real-viem.mjs
+      - name: Bind real ephemeral EOA signature atomically in throwaway USA PostgreSQL
+        run: node scripts/smoke-nex-personal-us-real-binding.mjs
+
+  # Isolated official Privy SDK JWT verification; synthetic ES256 test key only.
+  us_wallet_official_privy_cryptography:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_PASSWORD: nexoffice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NPU_OFFICIAL_PRIVY_CRYPTO_CI: "true"
+      DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nexoffice
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Install exact official Privy Node SDK for isolated JWT test
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @privy-io/node@0.36.0
+      - name: Build US identity adapter for isolated official SDK and PostgreSQL test
+        run: |
+          npm run build -w @nexoffice/domain
+          npm run build -w @nexoffice/integrations
+          npm run build -w @nexoffice/api
+      - name: Validate ephemeral ES256 JWTs using Privy's official verifier
+        run: node --experimental-strip-types scripts/smoke-nex-personal-us-official-privy-crypto.mjs
+      - name: Verify real Privy-signed JWT plus US-only DID-to-owner mapping in PostgreSQL
+        run: node scripts/smoke-nex-personal-us-official-privy-did.mjs
+
+  # Ephemeral EVM only: deployed test contract, fake local gas, no public RPC.
+  us_wallet_erc1271_local_chain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexoffice
+          POSTGRES_USER: nexoffice
+          POSTGRES_PASSWORD: nexoffice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexoffice -d nexoffice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NPU_LOCAL_ERC1271_CI: "true"
+      DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nexoffice
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Build internal packages and USA verification adapter
+        run: |
+          npm run build -w @nexoffice/domain
+          npm run build -w @nexoffice/integrations
+          npm run build -w @nexoffice/api
+      - name: Install exact isolated local-chain test packages
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund viem@2.57.10 ganache@7.9.2 solc@0.8.30
+      - name: Start disposable Polygon-id Ganache chain
+        run: |
+          ./node_modules/.bin/ganache --server.host 127.0.0.1 --server.port 8545 --chain.chainId 137 --wallet.totalAccounts 2 --miner.blockTime 0 > /tmp/npu-erc1271-ganache.log 2>&1 &
+          echo $! > /tmp/npu-erc1271-ganache.pid
+          for i in {1..30}; do
+            if node --input-type=module -e "let r=await fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})});let j=await r.json();if(j.result!=='0x89')process.exit(1)" >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/npu-erc1271-ganache.log
+          exit 1
+      - name: Verify deployed ERC-1271 smart-wallet signatures on local chain
+        run: node scripts/smoke-nex-personal-us-erc1271-local.mjs
+      - name: Stop local EVM
+        if: always()
+        run: |
+          if [ -f /tmp/npu-erc1271-ganache.pid ]; then kill "$(cat /tmp/npu-erc1271-ganache.pid)" || true; fi
