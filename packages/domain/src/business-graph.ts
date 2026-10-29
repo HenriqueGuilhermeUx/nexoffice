@@ -7,6 +7,7 @@ export type BusinessGraphNodeKind=
   |'product_service'
   |'financial_account'
   |'deal'
+  |'sale'
   |'financial_entry'
   |'task'
   |'appointment'
