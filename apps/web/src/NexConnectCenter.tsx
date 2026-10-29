@@ -21,6 +21,10 @@ type Recommendation={
   status:'connected'|'available'|'planned';
   providerHint?:string|null;
 };
+type GoogleStatus={
+  provider:string;configured:boolean;status:string;accountEmail?:string|null;capabilities:string[];lastSyncAt?:string|null;lastSync?:any;
+  scopes:{gmail:string;calendar:string};safety:{sendEmail:boolean;modifyMailbox:boolean;createCalendarEvent:boolean;modifyCalendarEvent:boolean;readOnly:boolean}
+};
 type Diagnosis={
   profile:{currentTools:string[];namedTools:string[];primaryGoal?:string|null;biggestBottleneck?:string|null};
   firstDiagnosis:{state:string;title:string;detail:string;nextStep:string};
@@ -47,23 +51,50 @@ const priorityLabel=(value:string)=>value==='high'?'Prioridade alta':value==='no
 const stateLabel=(value:string)=>value==='connected'?'Conectado':value==='available'?'Disponível':'Planejado';
 
 export default function NexConnectCenter({workspaceId,current}:{workspaceId:string;current:Integration[]}){
-  const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[google,setGoogle]=useState<GoogleStatus|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const[filePreview,setFilePreview]=useState<any>(null),[fileContent,setFileContent]=useState(''),[datasetName,setDatasetName]=useState(''),[importBusy,setImportBusy]=useState(false),[importMessage,setImportMessage]=useState('');
+  const[googleBusy,setGoogleBusy]=useState(false),[googleMessage,setGoogleMessage]=useState('');
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
     setLoading(true);setError('');
     try{
-      const[r,d]=await Promise.all([
+      const[r,d,g]=await Promise.all([
         api<Registry>('/v1/business-graph/sources'),
-        api<Diagnosis>('/v1/onboarding/business/diagnosis')
+        api<Diagnosis>('/v1/onboarding/business/diagnosis'),
+        api<GoogleStatus>('/v1/connect/google/status').catch(()=>null)
       ]);
-      setRegistry(r);setDiagnosis(d);
+      setRegistry(r);setDiagnosis(d);setGoogle(g);
     }catch(e:any){setError(e?.message||'Não foi possível montar o mapa de conexões.')}
     finally{setLoading(false)}
   },[workspaceId]);
 
   useEffect(()=>{void load()},[load]);
+
+  async function startGoogleConnect(){
+    setGoogleBusy(true);setGoogleMessage('');
+    try{
+      const result=await post<any>('/v1/connect/google/start',{});
+      if(!result?.authorizationUrl)throw new Error('URL de autorização Google não retornada.');
+      location.href=String(result.authorizationUrl);
+    }catch(e:any){setGoogleMessage(e?.message||'Não foi possível iniciar a conexão Google.');setGoogleBusy(false)}
+  }
+  async function syncGoogle(){
+    setGoogleBusy(true);setGoogleMessage('');
+    try{
+      const result=await post<any>('/v1/connect/google/sync',{});
+      setGoogleMessage(`Sincronização concluída: ${result.gmail?.inserted||0} email(s) e ${result.calendar?.inserted||0} evento(s) novos no contexto.`);
+      await load();
+    }catch(e:any){setGoogleMessage(e?.message||'Não foi possível sincronizar o Google Workspace.')}
+    finally{setGoogleBusy(false)}
+  }
+  async function disconnectGoogle(){
+    if(!window.confirm('Desconectar Google Workspace e remover os tokens armazenados? Os eventos já observados permanecem no histórico do Business Graph.'))return;
+    setGoogleBusy(true);setGoogleMessage('');
+    try{await post<any>('/v1/connect/google/disconnect',{});setGoogleMessage('Google Workspace desconectado e tokens removidos.');await load()}
+    catch(e:any){setGoogleMessage(e?.message||'Não foi possível desconectar o Google Workspace.')}
+    finally{setGoogleBusy(false)}
+  }
 
   async function previewSpreadsheet(file:File){
     setImportMessage('');setFilePreview(null);setFileContent('');
@@ -150,6 +181,27 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       <div className="connectSectionHead"><div><p className="eyebrow">O CLIENTE JÁ USA</p><h3>Não vamos pedir para começar de novo</h3></div><span>Informado no Business Discovery</span></div>
       <div className="connectToolCloud">{declaredTools.map(tool=><span key={tool}>{tool}</span>)}</div>
     </div>}
+
+    <div className="connectSection connectGoogle">
+      <div className="connectSectionHead"><div><p className="eyebrow">E-MAIL + CALENDÁRIO</p><h3>Google Workspace</h3><p>Conexão somente leitura. Gmail entra apenas com metadados e cabeçalhos — sem corpo e sem anexos. Calendário entra somente para leitura; a Nex não cria nem altera eventos.</p></div><span>{google?.status==='connected'?'Conectado':google?.configured?'Pronto para conectar':'Aguardando configuração'}</span></div>
+      <div className="connectGoogleGrid">
+        <article><div className="connectSourceIcon">✉</div><div><b>Gmail</b><p>Assunto, remetente, destinatários, data, thread e labels.</p><small>Escopo: gmail.metadata · sem envio · sem corpo</small></div></article>
+        <article><div className="connectSourceIcon">◷</div><div><b>Google Calendar</b><p>Compromissos, organizador, participantes, horários e recorrência.</p><small>Escopo: calendar.readonly · sem criação/alteração</small></div></article>
+      </div>
+      <div className="connectGoogleState">
+        <div><span>Conta</span><b>{google?.accountEmail||'—'}</b></div>
+        <div><span>Última sincronização</span><b>{google?.lastSyncAt?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(google.lastSyncAt)):'Ainda não sincronizado'}</b></div>
+        <div><span>Modo</span><b>Somente leitura</b></div>
+      </div>
+      <div className="connectGoogleActions">
+        {google?.status!=='connected'?<button className="primary" disabled={!google?.configured||googleBusy} onClick={()=>void startGoogleConnect()}>{googleBusy?'Abrindo…':google?.configured?'Conectar Google Workspace':'Configure as credenciais no servidor'}</button>:<>
+          <button className="primary" disabled={googleBusy} onClick={()=>void syncGoogle()}>{googleBusy?'Sincronizando…':'Sincronizar agora'}</button>
+          <button disabled={googleBusy} onClick={()=>void disconnectGoogle()}>Desconectar</button>
+        </>}
+      </div>
+      {googleMessage&&<div className="connectImportMessage">{googleMessage}</div>}
+      <div className="connectTrust"><span>✓ OAuth assinado</span><span>✓ Tokens criptografados</span><span>✓ Gmail sem corpo/anexos</span><span>✓ Agenda sem escrita</span></div>
+    </div>
 
     <div className="connectSection connectSpreadsheet">
       <div className="connectSectionHead"><div><p className="eyebrow">PRIMEIRO CONECTOR EXTERNO REAL</p><h3>Planilhas / CSV</h3><p>Traga controles que já existem fora da NexOffices. Primeiro fazemos preview; só depois da sua confirmação os registros entram no Business Graph.</p></div><span>{(registry.external||[]).find(item=>item.source==='external.spreadsheet')?.records||0} registro(s) conectados</span></div>
