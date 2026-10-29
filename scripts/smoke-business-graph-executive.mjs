@@ -79,11 +79,29 @@ await call('/v1/onboarding/business/confirm',{method:'PUT',body:{
   complete:true
 }});
 
+const csv=[
+  'Cliente,Email,Valor,Status,Data',
+  'Acme,financeiro@acme.test,15000,Ativo,2026-10-20',
+  'Beta,contato@beta.test,8200,Em negociação,2026-10-21'
+].join('\n');
+const preview=await call('/v1/connect/spreadsheet/preview',{method:'POST',body:{filename:'clientes.csv',content:csv}});
+assert(preview.safety?.persisted===false&&preview.safety?.externalEffects===false,'spreadsheet preview persists nothing');
+assert(preview.rows===2,'spreadsheet preview counts rows');
+assert(preview.inferred.some(item=>item.semantic==='email'),'spreadsheet preview infers email');
+assert(preview.inferred.some(item=>item.semantic==='amount'),'spreadsheet preview infers amount');
+
+const imported=await call('/v1/connect/spreadsheet/import',{method:'POST',body:{filename:'clientes.csv',content:csv,datasetName:'Clientes externos',humanConfirmed:true}});
+assert(imported.imported===2,'spreadsheet import stores external observations');
+assert(imported.safety?.rawFileStored===false&&imported.safety?.externalEffects===false&&imported.safety?.automationsTriggered===false,'spreadsheet import is context-only');
+const duplicateImport=await call('/v1/connect/spreadsheet/import',{method:'POST',body:{filename:'clientes.csv',content:csv,datasetName:'Clientes externos',humanConfirmed:true}});
+assert(duplicateImport.imported===0&&duplicateImport.duplicates===2,'spreadsheet reimport is deduplicated');
+
 const sources=await call('/v1/business-graph/sources');
 assert(sources.workspace.id===workspace,'source registry is workspace scoped');
 assert(sources.connectorContract?.version==='nex-connect-v1','Nex Connect contract is exposed');
 assert(Array.isArray(sources.native)&&sources.native.some(item=>item.source==='nexoffice.crm'),'native CRM source is registered');
 assert(sources.safety?.secretsReturned===false&&sources.safety?.externalEffects===false,'source registry leaks no secrets and executes nothing');
+assert(Array.isArray(sources.external)&&sources.external.some(item=>item.source==='external.spreadsheet'&&item.records===2),'source registry exposes imported spreadsheet context');
 
 const graph=await call('/v1/business-graph/overview?days=90&includeGraph=true');
 assert(graph.workspace.id===workspace,'graph is workspace scoped');
@@ -95,6 +113,7 @@ assert(graph.graph.nodes.some(node=>node.kind==='external_organization'&&node.la
 assert(graph.graph.nodes.some(node=>node.kind==='deal'&&node.sourceId===deal.id),'deal mapped to business graph');
 assert(graph.graph.nodes.some(node=>node.kind==='financial_entry'&&node.sourceId===ledger.id),'financial entry mapped to business graph');
 assert(graph.graph.nodes.some(node=>node.kind==='task'&&node.sourceId===task.id),'task mapped to business graph');
+assert(graph.graph.nodes.some(node=>node.kind==='event'&&node.source==='external.spreadsheet'),'spreadsheet observations flow into Business Graph');
 assert(graph.graph.edges.some(edge=>edge.kind==='has_deal'),'customer-to-deal relation exists');
 assert(graph.graph.edges.some(edge=>edge.kind==='financial_activity'),'customer-to-finance relation exists');
 assert(graph.graph.edges.some(edge=>edge.kind==='supports'),'task-to-deal relation exists');
@@ -111,6 +130,7 @@ assert(Array.isArray(diagnosis.connections?.recommended)&&diagnosis.connections.
 assert(diagnosis.connections.recommended.some(item=>item.key==='open_finance'),'cash goal prioritizes Open Finance context');
 assert(diagnosis.connections.recommended.some(item=>item.key==='email'),'existing email use becomes a connection recommendation');
 assert(Array.isArray(diagnosis.profile?.currentTools)&&diagnosis.profile.currentTools.includes('spreadsheets'),'existing tools are preserved in the profile');
+assert(diagnosis.connections.connected.some(item=>item.key==='spreadsheets'),'spreadsheet recommendation becomes connected after import');
 assert(diagnosis.firstDiagnosis?.title,'diagnosis produces a first finding or learning state');
 
 const executive=await call('/v1/assistant/executive-context');
@@ -132,7 +152,8 @@ console.log(JSON.stringify({
   ok:true,
   workspace,
   graph:{nodes:graph.coverage.nodes,edges:graph.coverage.edges,sources:graph.coverage.sources},
-  sourceRegistry:{native:sources.native.length,integrations:sources.integrations.length,alternativeVentures:sources.alternativeVentures.length},
+  sourceRegistry:{native:sources.native.length,integrations:sources.integrations.length,alternativeVentures:sources.alternativeVentures.length,external:sources.external.length},
+  spreadsheet:{previewRows:preview.rows,imported:imported.imported,duplicates:duplicateImport.duplicates},
   diagnosis:{state:diagnosis.firstDiagnosis.state,recommendedConnections:diagnosis.connections.recommended.map(item=>item.key)},
   signals:graph.executiveSignals.map(signal=>signal.code),
   priorities:executive.priorities.map(item=>({code:item.code,level:item.level})),
