@@ -17,11 +17,17 @@ type GoogleTokenSecret={
   scope?:string|null;
 };
 
+function googleRedirectUri(){
+  const explicit=String(process.env.GOOGLE_CONNECT_REDIRECT_URI||'').trim();
+  if(explicit)return explicit;
+  const apiBase=String(process.env.NEXOFFICE_PUBLIC_API_URL||'').trim().replace(/\/$/,'');
+  return apiBase?`${apiBase}/v1/connect/google/callback`:'';
+}
 function googleConfigured(){
   return Boolean(
     String(process.env.GOOGLE_CONNECT_CLIENT_ID||'').trim()&&
     String(process.env.GOOGLE_CONNECT_CLIENT_SECRET||'').trim()&&
-    String(process.env.GOOGLE_CONNECT_REDIRECT_URI||'').trim()&&
+    googleRedirectUri()&&
     connectorSecretsConfigured()
   );
 }
@@ -44,13 +50,13 @@ function verifyState(value:string){
 }
 
 function webReturnUrl(){
-  return String(process.env.NEXOFFICE_WEB_URL||process.env.PUBLIC_WEB_URL||'https://nexoffices.com.br').trim().replace(/\/$/,'');
+  return String(process.env.NEXOFFICE_WEB_URL||process.env.PUBLIC_WEB_URL||process.env.WEB_APP_URL||'https://nexoffices.com.br').trim().replace(/\/$/,'');
 }
 
 function authUrl(state:string){
   const url=new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id',String(process.env.GOOGLE_CONNECT_CLIENT_ID));
-  url.searchParams.set('redirect_uri',String(process.env.GOOGLE_CONNECT_REDIRECT_URI));
+  url.searchParams.set('redirect_uri',googleRedirectUri());
   url.searchParams.set('response_type','code');
   url.searchParams.set('scope',GOOGLE_SCOPES.join(' '));
   url.searchParams.set('access_type','offline');
@@ -68,7 +74,7 @@ async function exchangeCode(code:string){
       code,
       client_id:String(process.env.GOOGLE_CONNECT_CLIENT_ID),
       client_secret:String(process.env.GOOGLE_CONNECT_CLIENT_SECRET),
-      redirect_uri:String(process.env.GOOGLE_CONNECT_REDIRECT_URI),
+      redirect_uri:googleRedirectUri(),
       grant_type:'authorization_code'
     }),
     signal:AbortSignal.timeout(12_000)
