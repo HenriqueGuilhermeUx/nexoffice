@@ -128,6 +128,38 @@ try{
   await unsafeTxn.query('ROLLBACK');
   unsafeTxn.release();
  }
+ // A syntactically restricted role can still inherit dangerous effective
+ // privileges from accidental table/schema grants. All mutations below are
+ // inside rollback-only transactions on the disposable CI database.
+ for(const grant of [
+  'GRANT CREATE ON SCHEMA nex_personal_us TO '+role,
+  'GRANT UPDATE(revoked_at) ON nex_personal_us.privy_identity_links TO '+role,
+  'GRANT DELETE ON nex_personal_us.wallet_agentic_read_consents TO '+role,
+  'GRANT UPDATE(status) ON nex_personal_us.profiles TO '+role
+ ]){
+  const unsafePrivilegeClient=await pool.connect();
+  try{
+   await unsafePrivilegeClient.query('BEGIN');
+   await unsafePrivilegeClient.query(grant);
+   await unsafePrivilegeClient.query('SET LOCAL ROLE '+role);
+   await assert.rejects(attestUSReadOnlyPostgresSession({
+    client:unsafePrivilegeClient,expectedDatabaseName:db,expectedRoleName:role
+   }),/US_RUNTIME_DB_EXCESS_PRIVILEGES/);
+  }finally{
+   await unsafePrivilegeClient.query('ROLLBACK');
+   unsafePrivilegeClient.release();
+  }
+ }
+ // After rolling back each unauthorized grant, the authentic restricted role
+ // must attest successfully again; no real roles or production DB are touched.
+ const recheck=await scopedPool.connect();
+ try{
+  await recheck.query('BEGIN');
+  assert.equal((await attestUSReadOnlyPostgresSession({
+   client:recheck,expectedDatabaseName:db,expectedRoleName:role
+  })).restrictedSessionRoleVerified,true);
+  await recheck.query('COMMIT');
+ }finally{recheck.release();}
  const t=Math.floor(Date.now()/1000);
  const jwt='eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJkaWQ6cHJpdnk6dXMiLCJhdWQiOiJ1cyJ9.c2ln';
  let sdkCalls=0,approvedCalls=0;
