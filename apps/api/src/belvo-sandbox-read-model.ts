@@ -102,7 +102,13 @@ export async function readBelvoSandboxDemo(
    throw new SandboxReadError('malformed_data');
  }
  const accountIds=new Set(rawAccounts.map(x=>String(x.id)));
+ // Duplicate provider IDs would make the snapshot ambiguous: fail closed.
+ if(accountIds.size!==rawAccounts.length)throw new SandboxReadError('malformed_data');
+ const transactionIds=new Set<string>();
  for(const item of rawTransactions){
+  const transactionId=String(item.id||'');
+  if(transactionIds.has(transactionId))throw new SandboxReadError('malformed_data');
+  transactionIds.add(transactionId);
   const account=record(item.account);
   if(!UUID.test(String(item.id||''))||!account
    ||account.link!==input.linkId||!accountIds.has(String(account.id))
