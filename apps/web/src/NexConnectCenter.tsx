@@ -25,6 +25,10 @@ type GoogleStatus={
   provider:string;configured:boolean;status:string;accountEmail?:string|null;capabilities:string[];lastSyncAt?:string|null;lastSync?:any;
   scopes:{gmail:string;calendar:string};safety:{sendEmail:boolean;modifyMailbox:boolean;createCalendarEvent:boolean;modifyCalendarEvent:boolean;readOnly:boolean}
 };
+type MicrosoftStatus={
+  provider:string;configured:boolean;status:string;accountEmail?:string|null;capabilities:string[];lastSyncAt?:string|null;lastSync?:any;
+  scopes:{mail:string;calendar:string};safety:{sendEmail:boolean;modifyMailbox:boolean;createCalendarEvent:boolean;modifyCalendarEvent:boolean;readOnly:boolean}
+};
 type Diagnosis={
   profile:{currentTools:string[];namedTools:string[];primaryGoal?:string|null;biggestBottleneck?:string|null};
   firstDiagnosis:{state:string;title:string;detail:string;nextStep:string};
@@ -51,21 +55,23 @@ const priorityLabel=(value:string)=>value==='high'?'Prioridade alta':value==='no
 const stateLabel=(value:string)=>value==='connected'?'Conectado':value==='available'?'Disponível':'Planejado';
 
 export default function NexConnectCenter({workspaceId,current}:{workspaceId:string;current:Integration[]}){
-  const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[google,setGoogle]=useState<GoogleStatus|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[google,setGoogle]=useState<GoogleStatus|null>(null),[microsoft,setMicrosoft]=useState<MicrosoftStatus|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const[filePreview,setFilePreview]=useState<any>(null),[fileContent,setFileContent]=useState(''),[datasetName,setDatasetName]=useState(''),[importBusy,setImportBusy]=useState(false),[importMessage,setImportMessage]=useState('');
   const[contextPreview,setContextPreview]=useState<any>(null),[contextContent,setContextContent]=useState(''),[contextDatasetName,setContextDatasetName]=useState(''),[contextKind,setContextKind]=useState<'email'|'calendar'|null>(null),[contextBusy,setContextBusy]=useState(false),[contextMessage,setContextMessage]=useState('');
   const[googleBusy,setGoogleBusy]=useState(false),[googleMessage,setGoogleMessage]=useState('');
+  const[microsoftBusy,setMicrosoftBusy]=useState(false),[microsoftMessage,setMicrosoftMessage]=useState('');
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
     setLoading(true);setError('');
     try{
-      const[r,d,g]=await Promise.all([
+      const[r,d,g,m]=await Promise.all([
         api<Registry>('/v1/business-graph/sources'),
         api<Diagnosis>('/v1/onboarding/business/diagnosis'),
-        api<GoogleStatus>('/v1/connect/google/status').catch(()=>null)
+        api<GoogleStatus>('/v1/connect/google/status').catch(()=>null),
+        api<MicrosoftStatus>('/v1/connect/microsoft/status').catch(()=>null)
       ]);
-      setRegistry(r);setDiagnosis(d);setGoogle(g);
+      setRegistry(r);setDiagnosis(d);setGoogle(g);setMicrosoft(m);
     }catch(e:any){setError(e?.message||'Não foi possível montar o mapa de conexões.')}
     finally{setLoading(false)}
   },[workspaceId]);
@@ -95,6 +101,31 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
     try{await post<any>('/v1/connect/google/disconnect',{});setGoogleMessage('Google Workspace desconectado e tokens removidos.');await load()}
     catch(e:any){setGoogleMessage(e?.message||'Não foi possível desconectar o Google Workspace.')}
     finally{setGoogleBusy(false)}
+  }
+
+  async function startMicrosoftConnect(){
+    setMicrosoftBusy(true);setMicrosoftMessage('');
+    try{
+      const result=await post<any>('/v1/connect/microsoft/start',{});
+      if(!result?.authorizationUrl)throw new Error('URL de autorização Microsoft não retornada.');
+      location.href=String(result.authorizationUrl);
+    }catch(e:any){setMicrosoftMessage(e?.message||'Não foi possível iniciar a conexão Microsoft 365.');setMicrosoftBusy(false)}
+  }
+  async function syncMicrosoft(){
+    setMicrosoftBusy(true);setMicrosoftMessage('');
+    try{
+      const result=await post<any>('/v1/connect/microsoft/sync',{});
+      setMicrosoftMessage(`Sincronização concluída: ${result.mail?.inserted||0} email(s) e ${result.calendar?.inserted||0} evento(s) novos no contexto.`);
+      await load();
+    }catch(e:any){setMicrosoftMessage(e?.message||'Não foi possível sincronizar o Microsoft 365.')}
+    finally{setMicrosoftBusy(false)}
+  }
+  async function disconnectMicrosoft(){
+    if(!window.confirm('Desconectar Microsoft 365 e remover os tokens armazenados? Os eventos já observados permanecem no histórico do Business Graph.'))return;
+    setMicrosoftBusy(true);setMicrosoftMessage('');
+    try{await post<any>('/v1/connect/microsoft/disconnect',{});setMicrosoftMessage('Microsoft 365 desconectado e tokens removidos.');await load()}
+    catch(e:any){setMicrosoftMessage(e?.message||'Não foi possível desconectar o Microsoft 365.')}
+    finally{setMicrosoftBusy(false)}
   }
 
   async function previewWorkspaceContext(file:File,kind:'email'|'calendar'){
@@ -234,6 +265,27 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       </div>
       {googleMessage&&<div className="connectImportMessage">{googleMessage}</div>}
       <div className="connectTrust"><span>✓ OAuth assinado</span><span>✓ Tokens criptografados</span><span>✓ Gmail sem corpo/anexos</span><span>✓ Agenda sem escrita</span></div>
+    </div>
+
+    <div className="connectSection connectGoogle connectMicrosoft">
+      <div className="connectSectionHead"><div><p className="eyebrow">E-MAIL + CALENDÁRIO</p><h3>Microsoft 365</h3><p>Outlook entra com propriedades básicas de e-mail, sem corpo, preview ou anexos. O calendário usa leitura básica; a Nex não cria, altera ou remove eventos.</p></div><span>{microsoft?.status==='connected'?'Conectado':microsoft?.configured?'Pronto para conectar':'Aguardando configuração'}</span></div>
+      <div className="connectGoogleGrid">
+        <article><div className="connectSourceIcon">✉</div><div><b>Outlook Mail</b><p>Assunto, remetente, destinatários, datas, conversa, leitura e importância.</p><small>Escopo: Mail.ReadBasic · sem Mail.Send · sem corpo/anexos</small></div></article>
+        <article><div className="connectSourceIcon">◷</div><div><b>Microsoft Calendar</b><p>Eventos, organizador, participantes, horários, local e recorrência.</p><small>Escopo: Calendars.ReadBasic · sem Calendars.ReadWrite</small></div></article>
+      </div>
+      <div className="connectGoogleState">
+        <div><span>Conta</span><b>{microsoft?.accountEmail||'—'}</b></div>
+        <div><span>Última sincronização</span><b>{microsoft?.lastSyncAt?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(microsoft.lastSyncAt)):'Ainda não sincronizado'}</b></div>
+        <div><span>Modo</span><b>Somente leitura</b></div>
+      </div>
+      <div className="connectGoogleActions">
+        {microsoft?.status!=='connected'?<button className="primary" disabled={!microsoft?.configured||microsoftBusy} onClick={()=>void startMicrosoftConnect()}>{microsoftBusy?'Abrindo…':microsoft?.configured?'Conectar Microsoft 365':'Configure as credenciais no servidor'}</button>:<>
+          <button className="primary" disabled={microsoftBusy} onClick={()=>void syncMicrosoft()}>{microsoftBusy?'Sincronizando…':'Sincronizar agora'}</button>
+          <button disabled={microsoftBusy} onClick={()=>void disconnectMicrosoft()}>Desconectar</button>
+        </>}
+      </div>
+      {microsoftMessage&&<div className="connectImportMessage">{microsoftMessage}</div>}
+      <div className="connectTrust"><span>✓ OAuth assinado</span><span>✓ Tokens criptografados</span><span>✓ Outlook sem corpo/preview/anexos</span><span>✓ Agenda sem escrita</span></div>
     </div>
 
     <div className="connectSection connectManualContext">
