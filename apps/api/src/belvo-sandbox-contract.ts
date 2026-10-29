@@ -50,6 +50,26 @@ function safeHttpsPage(input:unknown):boolean{
   &&u.hostname.length>2&&!u.hash;
  }catch{return false;}
 }
+
+// Safe diagnostics: expose only missing configuration *names*, never values.
+// This never performs a provider call and does not enable the widget.
+export function sandboxWidgetMissingPrerequisites(env:SandboxConfig):string[]{
+ const checks:[string,boolean][]=[
+  ['NEX_PERSONAL_PREVIEW',env.NEX_PERSONAL_PREVIEW==='true'],
+  ['BELVO_ENV',env.BELVO_ENV==='sandbox'],
+  ['BELVO_SANDBOX_ENABLED',env.BELVO_SANDBOX_ENABLED==='true'],
+  ['BELVO_SANDBOX_WIDGET_ENABLED',env.BELVO_SANDBOX_WIDGET_ENABLED==='true'],
+  ['BELVO_SANDBOX_SECRET_ID',typeof env.BELVO_SANDBOX_SECRET_ID==='string'&&env.BELVO_SANDBOX_SECRET_ID.length>0],
+  ['BELVO_SANDBOX_SECRET_PASSWORD',typeof env.BELVO_SANDBOX_SECRET_PASSWORD==='string'&&env.BELVO_SANDBOX_SECRET_PASSWORD.length>0],
+  ['BELVO_SANDBOX_MOCK_CPF',/^[0-9]{11}$/.test(env.BELVO_SANDBOX_MOCK_CPF||'')],
+  ['BELVO_SANDBOX_MOCK_NAME',typeof env.BELVO_SANDBOX_MOCK_NAME==='string'&&env.BELVO_SANDBOX_MOCK_NAME.trim().length>=2&&env.BELVO_SANDBOX_MOCK_NAME.length<=120],
+  ['NEX_PERSONAL_PREVIEW_SELF_ORIGIN',safeHttpsOrigin(env.NEX_PERSONAL_PREVIEW_SELF_ORIGIN)],
+  ['BELVO_SANDBOX_TERMS_URL',safeHttpsPage(env.BELVO_SANDBOX_TERMS_URL)],
+  ['BELVO_SANDBOX_WEBHOOK_BEARER',typeof env.BELVO_SANDBOX_WEBHOOK_BEARER==='string'&&env.BELVO_SANDBOX_WEBHOOK_BEARER.length>=32]
+ ];
+ return checks.filter(([,ok])=>!ok).map(([name])=>name);
+}
+
 export function newSandboxExternalId():string{
  // No CPF, email, person name, internal owner UUID or card details.
  return 'nexa_pf_sb_'+randomUUID().replace(/-/g,'');

@@ -4,7 +4,7 @@ import {z} from 'zod';
 import {ApiError,authenticate} from './auth.js';
 import {query} from './db.js';
 import {
- sandboxReady,widgetReady,newSandboxExternalId,createSandboxWidgetAccess,
+ sandboxReady,widgetReady,sandboxWidgetMissingPrerequisites,newSandboxExternalId,createSandboxWidgetAccess,
  authorizedSandboxWebhook,parseSandboxWebhook,BelvoSandboxError
 } from './belvo-sandbox-contract.js';
 import {verifyBelvoSandboxConsent,BelvoVerificationError} from './belvo-sandbox-verification.js';
@@ -36,6 +36,7 @@ export async function registerBelvoSandboxPreviewRoutes(app:FastifyInstance){
   const state=getSandboxConsentReadStatus(rows[0]||null);
   return {environment:'sandbox',provider:'belvo',institution:'ofmockbank_br_retail',
    sandboxConfigured:sandboxReady(env),widgetAvailable:widgetReady(env),
+   missingSetup:sandboxWidgetMissingPrerequisites(env),
    consentReview:{status:state,verifiedAt:rows[0]?.verified_at||null},
    walletAccess:false,financialDataAvailable:false,paymentsEnabled:false,
    simulatedData:true,requiresIndividualConsent:true};
