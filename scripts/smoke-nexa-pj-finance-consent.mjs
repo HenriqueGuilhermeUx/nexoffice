@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {evaluateCorporateReadConsent,DisabledOpenFinanceConnector} from '../apps/api/dist/nexa-pj-finance-connector.js';
+import {evaluateCorporateReadConsent,evaluateVerifiedCorporateReadConsent,DisabledOpenFinanceConnector} from '../apps/api/dist/nexa-pj-finance-connector.js';
 const now=new Date('2026-10-28T12:00:00Z');
 const ctx={workspaceId:'company-A',representativeUserId:'member-A',verifiedCorporateIdentityRef:'kyb-A',consentRef:'consent-A',requestedScopes:['accounts.read']};
 const record={...ctx,providerId:'provider-A',scopes:['accounts.read','balances.read'],status:'active',expiresAt:'2026-10-29T12:00:00Z'};
@@ -13,6 +13,12 @@ assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:['payments.wri
 assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:['transfers.write']},{...record,scopes:['transfers.write']},true,'provider-A',now),'deny','transfers are not read-only scopes');
 assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:[]},record,true,'provider-A',now),'deny');
 assert.equal(evaluateCorporateReadConsent({...ctx,requestedScopes:['payments.write']},record,true,'provider-A',now),'deny');
+const proof={consent:record,verifiedBy:'trusted_provider_backchannel',verifiedAt:'2026-10-28T11:58:00Z',providerSignatureValidated:true,revocationChecked:true};
+assert.equal(evaluateVerifiedCorporateReadConsent(ctx,proof,true,'provider-A',now),'allow_read');
+for(const invalid of [null,{...proof,verifiedBy:'browser'},{...proof,providerSignatureValidated:false},{...proof,revocationChecked:false},{...proof,verifiedAt:'2026-10-28T11:54:00Z'},{...proof,verifiedAt:'2026-10-28T12:01:00Z'}, {...proof,consent:{...record,status:'revoked'}}])
+  assert.equal(evaluateVerifiedCorporateReadConsent(ctx,invalid,true,'provider-A',now),'deny');
+assert.equal(evaluateVerifiedCorporateReadConsent(ctx,proof,false,'provider-A',now),'deny');
+assert.equal(evaluateVerifiedCorporateReadConsent(ctx,proof,true,'provider-B',now),'deny');
 const disabled=new DisabledOpenFinanceConnector();
 assert.equal(await disabled.getConnectionStatus(ctx),'not_connected');
 await assert.rejects(()=>disabled.listBalances(ctx),/NOT_AUTHORIZED/);
