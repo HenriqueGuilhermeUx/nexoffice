@@ -175,3 +175,12 @@ test('readiness checklist excludes secret values and fails closed for absent fix
  assert.ok(!output.includes(fixture.BELVO_SANDBOX_SECRET_PASSWORD));
  assert.ok(!output.includes(fixture.BELVO_SANDBOX_MOCK_NAME));
 });
+
+test('premium sandbox panel displays sanitized readiness and formats integer cents',()=>{
+ const panel=readFileSync('apps/web/src/NexaBelvoSandboxPanel.tsx','utf8');
+ assert.ok(panel.includes('missingSetup?:string[]'));
+ assert.ok(panel.includes('status.missingSetup.map('));
+ assert.ok(panel.includes('Nenhum valor de configuração é exibido.'));
+ assert.ok(panel.includes(String.raw`/^[-]?\\d{1,16}$/`)===false);
+ assert.ok(panel.includes(String.raw`/^[-]?\d{1,16}$/`));
+});
