@@ -149,3 +149,11 @@ test('rejects duplicate transaction IDs rather than duplicating demo activity',a
  await assert.rejects(readBelvoSandboxDemo(fixture,input,p.fetcher,now),
   e=>e instanceof SandboxReadError&&e.code==='malformed_data');
 });
+
+test('status diagnostics report only missing sandbox setup key names, never secret values',()=>{
+ const contract=readFileSync('apps/api/src/belvo-sandbox-contract.ts','utf8');
+ const server=readFileSync('apps/api/src/routes-belvo-sandbox-preview.ts','utf8');
+ assert.ok(contract.includes('export function sandboxWidgetMissingPrerequisites'));
+ assert.ok(server.includes('missingSetup:sandboxWidgetMissingPrerequisites(env)'));
+ assert.ok(contract.includes("checks.filter(([,ok])=>!ok).map(([name])=>name)"));
+});
