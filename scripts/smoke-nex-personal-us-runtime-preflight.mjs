@@ -63,4 +63,26 @@ await assert.rejects(assessUSReadOnlyRuntimeCandidate({
  })}
 }),/US_RUNTIME_DB_CLEANUP_FAILED/);
 assert.equal(released,1,'The bad client must still be released');
+// Reject unsafe configuration before attempting any PostgreSQL pool connection.
+let attemptedConnections=0;
+await assert.rejects(assessUSReadOnlyRuntimeCandidate({
+ configuration:{...base,financialExecutionEnabled:true},
+ pool:{connect:async()=>{attemptedConnections++;throw Error('MUST_NOT_CONNECT');}}
+}),/US_RUNTIME_EXECUTION_NOT_DISABLED/);
+assert.equal(attemptedConnections,0,'Unsafe configuration must never touch the pool');
+
+// A client release error must also prevent a candidate-ready result.
+let releaseAttempts=0;
+await assert.rejects(assessUSReadOnlyRuntimeCandidate({
+ configuration:base,
+ pool:{connect:async()=>({
+  query:async sql=>{
+   if(sql.startsWith('SELECT'))throw Error('SIMULATED_SESSION_UNAVAILABLE');
+   return {rows:[]};
+  },
+  release:()=>{releaseAttempts++;throw Error('SIMULATED_RELEASE_FAILURE');}
+ })}
+}),/US_RUNTIME_DB_CLEANUP_FAILED/);
+assert.equal(releaseAttempts,1);
+
 console.log('PASS: read-only US API preflight rejects BR databases, non-US region declarations, unsafe origins, roles, and financial execution');
