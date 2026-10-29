@@ -3,6 +3,7 @@ import {readBusinessIntelligence} from './business-intelligence.js';
 import {financeSummary} from './events.js';
 import {query} from './db.js';
 import {buildRelationshipIntelligence} from './routes-relationship-intelligence.js';
+import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -47,6 +48,14 @@ export interface ExecutiveContext {
     relationshipRenewalSoon:number;
     relationshipAttention:number;
     externalRelationshipEvents:number;
+    crossSystemInsights:number;
+  };
+  crossSystem:{
+    insights:number;
+    critical:number;
+    attention:number;
+    customers:number;
+    sourceSystems:string[];
   };
   evidencePolicy:{
     causalClaimsRequireEvidence:true;
@@ -59,7 +68,7 @@ export interface ExecutiveContext {
 const n=(value:unknown)=>Number(value||0);
 
 export async function buildExecutiveContext(workspaceId:string,workspaceName:string):Promise<ExecutiveContext>{
-  const [graph,finance,business,crm,overdueByContact,relationship]=await Promise.all([
+  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem]=await Promise.all([
     buildBusinessGraph(workspaceId,workspaceName,90),
     financeSummary(workspaceId),
     readBusinessIntelligence(workspaceId).catch(()=>null),
@@ -84,7 +93,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       group by coalesce(c.name,l.description)
       order by amount_minor desc
       limit 5`,[workspaceId]),
-    buildRelationshipIntelligence(workspaceId,false).catch(()=>null)
+    buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
+    buildCrossSystemIntelligence(workspaceId).catch(()=>null)
   ]);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
@@ -110,6 +120,25 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
             ?'Revisar oportunidades fora do prazo e definir próximo passo, atualização de estágio ou encerramento.'
             :null,
       evidence
+    });
+  }
+
+  const crossInsights=Array.isArray((crossSystem as any)?.insights)?(crossSystem as any).insights:[];
+  for(const insight of crossInsights.slice(0,8)){
+    if(priorities.some(item=>item.code===String(insight.code)&&item.detail===String(insight.detail)))continue;
+    priorities.push({
+      code:String(insight.code||'cross_system_signal'),
+      level:String(insight.level||'info') as ExecutivePriorityLevel,
+      title:String(insight.title||'Correlação entre sistemas'),
+      detail:String(insight.detail||'A Nex encontrou uma relação entre fontes do negócio.'),
+      hypothesis:insight.hypothesis?String(insight.hypothesis):'Correlação observada entre fontes; não implica causalidade.',
+      recommendedNextStep:insight.recommendedNextStep?String(insight.recommendedNextStep):null,
+      evidence:[
+        {source:'nex.cross_system',label:'contact',value:{id:insight.contactId,name:insight.contactName}},
+        {source:'nex.cross_system',label:'confidence',value:insight.confidence||null},
+        {source:'nex.cross_system',label:'sourceSystems',value:Array.isArray(insight.sourceSystems)?insight.sourceSystems:[]},
+        ...(Array.isArray(insight.facts)?insight.facts.slice(0,6).map((fact:any)=>({source:String(fact.source||'nex.cross_system'),label:String(fact.label||'fact'),value:fact.value})):[])
+      ]
     });
   }
 
@@ -239,7 +268,15 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       relationshipAtRisk:n(relationshipSummary.atRisk),
       relationshipRenewalSoon:n(relationshipSummary.renewalSoon),
       relationshipAttention:n(relationshipSummary.attention),
-      externalRelationshipEvents:n((relationship as any)?.sources?.googleWorkspaceEventsObserved)
+      externalRelationshipEvents:n((relationship as any)?.sources?.externalContextEventsObserved),
+      crossSystemInsights:n((crossSystem as any)?.summary?.insights)
+    },
+    crossSystem:{
+      insights:n((crossSystem as any)?.summary?.insights),
+      critical:n((crossSystem as any)?.summary?.critical),
+      attention:n((crossSystem as any)?.summary?.attention),
+      customers:n((crossSystem as any)?.summary?.customers),
+      sourceSystems:Array.isArray((crossSystem as any)?.summary?.sourceSystems)?(crossSystem as any).summary.sourceSystems:[]
     },
     evidencePolicy:{
       causalClaimsRequireEvidence:true,
