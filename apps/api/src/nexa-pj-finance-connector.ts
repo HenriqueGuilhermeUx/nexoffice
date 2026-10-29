@@ -77,3 +77,26 @@ export function evaluateCorporateReadConsent(
   if(ctx.requestedScopes.length===0||ctx.requestedScopes.some(scope=>!readScopes.has(scope)||!evidence.scopes.includes(scope)))return 'deny';
   return 'allow_read';
 }
+
+/** Consent proof is accepted only from a trusted, server-side provider verifier. */
+export type VerifiedProviderConsentEvidence=Readonly<{
+  consent:CorporateFinanceConsent;
+  verifiedBy:'trusted_provider_backchannel';
+  verifiedAt:string;
+  providerSignatureValidated:boolean;
+  revocationChecked:boolean;
+}>;
+export function evaluateVerifiedCorporateReadConsent(
+  ctx:FinanceSourceContext,
+  verified:VerifiedProviderConsentEvidence|null,
+  serverVerifiedCorporateAuthority:boolean,
+  expectedProviderId:string,
+  now:Date=new Date(),
+):'allow_read'|'deny'{
+  if(!verified||verified.verifiedBy!=='trusted_provider_backchannel'||
+     verified.providerSignatureValidated!==true||verified.revocationChecked!==true)return 'deny';
+  const checkTime=Date.parse(verified.verifiedAt);
+  if(!Number.isFinite(checkTime)||checkTime>now.getTime()||
+     now.getTime()-checkTime>5*60_000)return 'deny';
+  return evaluateCorporateReadConsent(ctx,verified.consent,serverVerifiedCorporateAuthority,expectedProviderId,now);
+}
