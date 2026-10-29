@@ -1,14 +1,14 @@
 import {createCipheriv,createDecipheriv,createHash,randomBytes} from 'node:crypto';
 
 function connectorKey(){
-  const raw=String(process.env.NEXOFFICE_CONNECTOR_SECRET_KEY||'').trim();
-  if(!raw)throw new Error('NEXOFFICE_CONNECTOR_SECRET_KEY is not configured.');
+  const raw=String(process.env.NEXOFFICE_CONNECTOR_SECRET_KEY||process.env.NEXOFFICE_INTEGRATION_SECRET_KEY||'').trim();
+  if(!raw)throw new Error('NEXOFFICE_CONNECTOR_SECRET_KEY/NEXOFFICE_INTEGRATION_SECRET_KEY is not configured.');
   let key:Buffer;
   if(/^[0-9a-f]{64}$/i.test(raw))key=Buffer.from(raw,'hex');
   else {
     try{key=Buffer.from(raw,'base64')}catch{key=Buffer.alloc(0)}
   }
-  if(key.length!==32)throw new Error('NEXOFFICE_CONNECTOR_SECRET_KEY must be exactly 32 bytes (hex or base64).');
+  if(key.length!==32)throw new Error('Connector secret key must be exactly 32 bytes (hex or base64).');
   return key;
 }
 
