@@ -23,7 +23,11 @@ assert.ok(component.includes("api<Diagnosis>('/v1/onboarding/business/diagnosis'
 assert.ok(component.includes('button disabled'),'planned connectors must not pretend to execute');
 assert.ok(!component.includes('SERVICE_KEY'),'frontend must never expose service keys');
 assert.ok(!component.includes('SECRET_PASSWORD'),'frontend must never expose provider secrets');
-assert.ok(!component.includes("post('/v1/"),'Connect Center V1 must remain read-only');
+assert.ok(component.includes("post<any>('/v1/connect/spreadsheet/preview'"),'spreadsheet preview must be explicit');
+assert.ok(component.includes("post<any>('/v1/connect/spreadsheet/import'"),'spreadsheet import must be explicit');
+assert.ok(component.includes('humanConfirmed:true'),'spreadsheet import must require explicit human confirmation');
+const postTargets=[...component.matchAll(/post<any>\('([^']+)'/g)].map(match=>match[1]);
+assert.deepEqual([...new Set(postTargets)].sort(),['/v1/connect/spreadsheet/import','/v1/connect/spreadsheet/preview'],'Nex Connect Center must not introduce other write calls');
 assert.ok(app.includes("['integrations','Nex Connect','⇄']"),'navigation must expose Nex Connect');
 assert.ok(app.includes("<NexConnectCenter workspaceId={activeWorkspace?.id||''} current={integrations}/>"),'Nex Connect Center must replace legacy integration view');
 assert.ok(css.includes('.connectCenter'),'Nex Connect Center styles missing');
@@ -34,7 +38,8 @@ console.log(JSON.stringify({
   module:'Nex Connect Center V1',
   sourceRegistry:true,
   businessDiscoveryDiagnosis:true,
-  readOnly:true,
+  previewReadOnly:true,
+  importHumanConfirmed:true,
   externalEffects:false,
   secretExposure:false
 },null,2));
