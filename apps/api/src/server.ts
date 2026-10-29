@@ -30,6 +30,7 @@ import {registerCollectionsRoutes} from './routes-collections.js';
 import {registerReconciliationRoutes} from './routes-reconciliation.js';
 import {registerStatementImportRoutes} from './routes-statement-import.js';
 import {registerConnectSpreadsheetRoutes} from './routes-connect-spreadsheet.js';
+import {registerGoogleConnectRoutes} from './routes-connect-google.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
@@ -134,6 +135,7 @@ await registerCollectionsRoutes(app);
 await registerReconciliationRoutes(app);
 await registerStatementImportRoutes(app);
 await registerConnectSpreadsheetRoutes(app);
+await registerGoogleConnectRoutes(app);
 await registerStandaloneRoutes(app);
 await registerBillingRoutes(app);
 
