@@ -104,7 +104,7 @@ export async function registerErpConnectRoutes(app:FastifyInstance){
               rawRowStored:false
             }),
             externalRef,
-            normalized.occurredAt||normalized.dueAt||new Date().toISOString()
+            new Date().toISOString()
           ]
         );
         inserted++;
