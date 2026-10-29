@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {assertUSReadOnlyRuntimePreflight} from
  '../apps/api/dist/personal-us-runtime-preflight.js';
+import {assessUSReadOnlyRuntimeCandidate}
+ from '../apps/api/dist/personal-us-runtime-readiness.js';
 
 const base={
  dedicatedDatabaseUrl:'postgresql://nex_personal_us_api:CI_FAKE_SECRET_NEVER_CONNECT@ep-ci-us.aws.neon.tech/nex_personal_us_staging?sslmode=require',
@@ -46,4 +48,19 @@ deny({dedicatedDatabaseUrl:base.dedicatedDatabaseUrl+'&application_name=bad'},/D
 deny({dedicatedDatabaseUrl:base.dedicatedDatabaseUrl.replace('postgresql://','http://')},/DATABASE_URL_INVALID/);
 deny({dedicatedDatabaseUrl:base.dedicatedDatabaseUrl.replace('CI_FAKE_SECRET_NEVER_CONNECT','')},/DATABASE_URL_INVALID/);
 deny({dedicatedDatabaseUrl:base.dedicatedDatabaseUrl.replace('nex_personal_us_staging','nex_personal_us%2Fprod')},/DATABASE_URL_INVALID/);
+// Candidate readiness must fail closed on a broken transactional cleanup.
+// This is a deliberately synthetic transport; no DB is connected.
+let released=0;
+await assert.rejects(assessUSReadOnlyRuntimeCandidate({
+ configuration:base,
+ pool:{connect:async()=>({
+  query:async sql=>{
+   if(sql==='ROLLBACK')throw Error('SIMULATED_ROLLBACK_DISCONNECT');
+   if(sql.startsWith('SELECT'))throw Error('SIMULATED_SESSION_UNAVAILABLE');
+   return {rows:[]};
+  },
+  release:()=>{released++;}
+ })}
+}),/US_RUNTIME_DB_CLEANUP_FAILED/);
+assert.equal(released,1,'The bad client must still be released');
 console.log('PASS: read-only US API preflight rejects BR databases, non-US region declarations, unsafe origins, roles, and financial execution');
