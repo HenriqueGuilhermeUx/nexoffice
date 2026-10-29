@@ -7,7 +7,7 @@ const number=(value:unknown)=>Number(value||0);
 
 export async function buildBusinessGraph(workspaceId:string,workspaceName:string,windowDays=90):Promise<BusinessGraphSnapshot>{
   const days=Math.min(365,Math.max(7,Math.trunc(windowDays||90)));
-  const [workspaces,contacts,deals,accounts,ledger,tasks,appointments,documents,events]=await Promise.all([
+  const [workspaces,contacts,deals,accounts,ledger,tasks,appointments,documents,events,operationalSignals]=await Promise.all([
     query<any>(`select id,name,vertical,currency from workspaces where id=$1 limit 1`,[workspaceId]),
     query<any>(`select id,kind,name,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 150`,[workspaceId]),
     query<any>(`select id,contact_id,title,stage,value_minor,currency,next_action,expected_close_at,created_at,updated_at from crm_deals where workspace_id=$1 order by updated_at desc limit 150`,[workspaceId]),
@@ -16,7 +16,8 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     query<any>(`select id,contact_id,deal_id,title,status,priority,assigned_to,due_at,created_at,updated_at from tasks where workspace_id=$1 and (status not in ('done','cancelled') or coalesce(completed_at,updated_at)>=now()-($2::text||' days')::interval) order by updated_at desc limit 150`,[workspaceId,String(days)]),
     query<any>(`select id,contact_id,title,starts_at,ends_at,status,assigned_to,created_at,updated_at from appointments where workspace_id=$1 and starts_at>=now()-($2::text||' days')::interval order by starts_at desc limit 150`,[workspaceId,String(days)]),
     query<any>(`select id,contact_id,provider,external_ref,title,status,document_type,created_at,updated_at from document_refs where workspace_id=$1 order by updated_at desc limit 150`,[workspaceId]),
-    query<any>(`select id,type,source,subject_type,subject_id,occurred_at,payload from business_events where workspace_id=$1 and occurred_at>=now()-($2::text||' days')::interval order by occurred_at desc limit 300`,[workspaceId,String(days)])
+    query<any>(`select id,type,source,subject_type,subject_id,occurred_at,payload from business_events where workspace_id=$1 and occurred_at>=now()-($2::text||' days')::interval order by occurred_at desc limit 300`,[workspaceId,String(days)]),
+    query<any>(`select id,source_product,signal_type,period_start,period_end,metrics,dimensions,created_at from workspace_operational_signals where workspace_id=$1 and period_end>=now()-($2::text||' days')::interval order by period_end desc,created_at desc limit 120`,[workspaceId,String(days)])
   ]);
 
   const workspace=workspaces[0]||{id:workspaceId,name:workspaceName,vertical:'general',currency:'BRL'};
@@ -51,6 +52,7 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   for(const row of appointments)addNode({id:key('appointment',row.id),sourceId:row.id,kind:'appointment',label:String(row.title||'Compromisso'),source:'nexoffice.agenda',status:String(row.status||''),occurredAt:row.starts_at,attributes:{startsAt:row.starts_at,endsAt:row.ends_at||null,assignedTo:row.assigned_to||null}});
   for(const row of documents)addNode({id:key('document',row.id),sourceId:row.id,kind:'document',label:String(row.title||'Documento'),source:`nexoffice.documents.${row.provider||'internal'}`,status:String(row.status||''),occurredAt:row.updated_at,attributes:{documentType:row.document_type||null,provider:row.provider||null,externalRef:row.external_ref||null}});
   for(const row of events)addNode({id:key('event',row.id),sourceId:row.id,kind:'event',label:String(row.type||'Evento'),source:String(row.source||'nexoffice.events'),occurredAt:row.occurred_at,attributes:{eventType:row.type,payload:row.payload&&typeof row.payload==='object'?row.payload:{}}});
+  for(const row of operationalSignals)addNode({id:key('event',`external:${row.id}`),sourceId:row.id,kind:'event',label:String(row.signal_type||'Sinal operacional'),source:`alternative_ventures.${String(row.source_product||'unknown')}`,occurredAt:row.period_end||row.created_at,attributes:{eventType:row.signal_type,sourceProduct:row.source_product,periodStart:row.period_start,periodEnd:row.period_end,metrics:row.metrics&&typeof row.metrics==='object'?row.metrics:{},dimensions:row.dimensions&&typeof row.dimensions==='object'?row.dimensions:{},privacy:'aggregate_only'}});
 
   const contactNode=(id:string|null|undefined)=>{
     if(!id)return null;
@@ -104,6 +106,10 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     const event=key('event',row.id),subject=subjectKey(row.subject_type,row.subject_id);
     addEdge({id:edgeId('contains',organizationId,event),from:organizationId,to:event,kind:'contains',source:'nexoffice.events',attributes:{}});
     if(subject)addEdge({id:edgeId('generated',subject,event),from:subject,to:event,kind:'generated',source:String(row.source||'nexoffice.events'),attributes:{eventType:row.type}});
+  }
+  for(const row of operationalSignals){
+    const event=key('event',`external:${row.id}`);
+    addEdge({id:edgeId('contains',organizationId,event),from:organizationId,to:event,kind:'contains',source:`alternative_ventures.${String(row.source_product||'unknown')}`,attributes:{privacy:'aggregate_only'}});
   }
 
   const overdueReceivables=ledger.filter(row=>row.direction==='income'&&['open','overdue'].includes(String(row.status))&&row.due_at&&new Date(row.due_at).getTime()<Date.now());
