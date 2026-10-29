@@ -17,6 +17,10 @@ jobs:
       - name: Audit dependencies for high severity vulnerabilities
         run: npm audit --audit-level=high
       - run: npm run build
+      - name: Verify corporate finance consent policy
+        run: node scripts/smoke-nexa-pj-finance-consent.mjs
+      - name: Nexa PJ desktop fail-closed release guard
+        run: node scripts/check-nexa-pj-desktop-gate.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
@@ -80,6 +84,7 @@ jobs:
       WEB_APP_URL: http://localhost:5173
       NEXOFFICE_EXTERNAL_ACTIONS: "false"
       NEXOFFICE_INTERNAL_KEY: "platform-smoke-key"
+      NEXA_PJ_BINDING_PREFLIGHT_KEY: "ci-only-nexa-pj-separate-binding-key-2026"
       NEXOFFICE_ADMIN_EMAILS: "admin-smoke@nexoffice.test"
       NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
     steps:
@@ -146,6 +151,8 @@ jobs:
         run: node scripts/smoke-maya-playbooks-api.mjs
       - name: Smoke test Multi-Agent Playbooks V3 API
         run: node scripts/smoke-multi-agent-playbooks-api.mjs
+      - name: Nexa PJ registration and cross-company access CI
+        run: node scripts/smoke-nexa-pj-registration-ci.mjs
       - name: Smoke test standalone workspace activation
         run: node scripts/smoke-standalone-readiness.mjs
       - name: Smoke test billing trial
@@ -170,6 +177,8 @@ jobs:
         run: node scripts/smoke-statement-import.mjs
       - name: Smoke test AV platform provisioning
         run: node scripts/smoke-platform.mjs
+      - name: Smoke test Nexa PJ dedicated read-only company binding
+        run: node scripts/smoke-nexa-pj-binding-preflight.mjs
       - name: Smoke test AV vertical bridge SDK
         run: node scripts/smoke-platform-sdk.mjs
       - name: Smoke test health data firewall
@@ -197,3 +206,28 @@ jobs:
       - name: API logs on failure
         if: failure()
         run: cat /tmp/nexoffice-api.log || true
+
+  nexa-pj-public-endpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Verify Nexa PJ public API auth and migration guards (no writes)
+        run: node scripts/smoke-nexa-pj-live.mjs
+      - name: Verify Nexa PJ ERP frontend publicly reachable
+        run: |
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 10 --max-time 40 \
+            --output /tmp/nexa-pj-frontend.html \
+            https://nexa-pj-erp-only.onrender.com/
+          grep -qi '<html' /tmp/nexa-pj-frontend.html
+      - name: Verify Nexa PJ public landing calls to action and legacy portal
+        run: |
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 10 --max-time 40 --output /tmp/nexa-pj-landing.html https://trynexa.com.br/pj
+          grep -Fq 'https://nexa-pj-erp-only.onrender.com/?cadastro=1' /tmp/nexa-pj-landing.html
+          grep -Fq 'https://nexa-pj-erp-only.onrender.com/' /tmp/nexa-pj-landing.html
+          grep -Fq 'href="/merchant"' /tmp/nexa-pj-landing.html
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 10 --max-time 40 --output /tmp/nexa-pj-legacy.html https://trynexa.com.br/merchant
+          grep -qi '<html' /tmp/nexa-pj-legacy.html

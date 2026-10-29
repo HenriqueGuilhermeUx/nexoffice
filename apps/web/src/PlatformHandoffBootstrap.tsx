@@ -8,14 +8,21 @@ type HandoffResult={
   workspace:{id:string;name:string;slug:string;vertical:string;status:string;role:string;permissions:string[]};
 };
 
+const platformName=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj'?'Nexa PJ':'NexOffice';
 export default function PlatformHandoffBootstrap(){
   const [active,setActive]=useState(false);
-  const [message,setMessage]=useState('Abrindo seu NexOffice…');
+  const [message,setMessage]=useState(`Abrindo ${platformName}…`);
 
   useEffect(()=>{
     const params=new URLSearchParams(location.hash.replace(/^#/,''));
     const code=params.get('handoff');
     if(!code)return;
+    // Generic NexOffice handoff is not authority to open a Nexa PJ session.
+    if(platformName==='Nexa PJ'){
+      setActive(true);
+      setMessage('Acesso empresarial integrado ainda não habilitado. Utilize a abertura PJ para solicitar autorização.');
+      return;
+    }
     setActive(true);
     void (async()=>{
       try{
@@ -26,11 +33,11 @@ export default function PlatformHandoffBootstrap(){
         location.reload();
       }catch{
         history.replaceState({},'',`${location.pathname}${location.search}`);
-        setMessage('Este acesso expirou ou já foi utilizado. Volte ao produto de origem e abra o NexOffice novamente.');
+        setMessage('Este acesso expirou ou já foi utilizado. Volte ao produto de origem e abra a plataforma novamente.');
       }
     })();
   },[]);
 
   if(!active)return null;
-  return <div className="handoffOverlay" role="status" aria-live="polite"><div className="handoffCard"><div className="handoffMark">N</div><b>NexOffice</b><p>{message}</p></div></div>;
+  return <div className="handoffOverlay" role="status" aria-live="polite"><div className="handoffCard"><div className="handoffMark">N</div><b>{platformName}</b><p>{message}</p></div></div>;
 }

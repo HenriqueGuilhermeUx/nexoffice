@@ -1,9 +1,10 @@
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
-import {ApiError,hashOpaqueToken,issueSession,newInviteToken,slugify} from './auth.js';
+import {ApiError,hashOpaqueToken,issueSession,newInviteToken,slugify,workspaceContext} from './auth.js';
 import {query,transaction} from './db.js';
 import {verticalPack} from './vertical-packs.js';
+import {DisabledOpenFinanceConnector} from './nexa-pj-finance-connector.js';
 
 const Source=z.enum(['nexjud','sindcopilot','mydatamed','health-wallet','smartbots','modo','docwallet','nextgen','taxagent','connexio','mindcompliance','mindsteps','f-insight','ecotracker','nexa','staff']);
 const Vertical=z.enum(['general','legal','health','condo','commerce']);
@@ -31,7 +32,194 @@ async function resolvePlatformAccess(input:AccessInputType){
   return {origin,userId,membership};
 }
 
+// Dedicated, read-only binding check for the future Nexa PJ bridge.
+// This MUST NOT reuse the generic NexOffice platform key or the existing
+// sourceProduct='nexa' federation: that legacy rail has no corporate KYB
+// guarantees. A matching row is NOT authority to issue SSO or move funds.
+function authorizeNexaPjBinding(req:FastifyRequest){
+  const expected=String(process.env.NEXA_PJ_BINDING_PREFLIGHT_KEY||'').trim();
+  if(expected.length<32)throw new ApiError(503,'nexa_pj_bridge_not_configured','Vínculo empresarial Nexa PJ indisponível.');
+  const received=String(req.headers['x-nexa-pj-binding-key']||'');
+  if(!safeEqual(received,expected))throw new ApiError(401,'unauthorized','Credencial de vínculo Nexa PJ inválida.');
+}
+const NexaPjBindingInput=z.object({
+  merchantId:z.string().uuid(),
+  representativeUserId:z.string().uuid(),
+  workspaceId:z.string().uuid(),
+}).strict();
+
 export async function registerPlatformRoutes(app:FastifyInstance){
+  /**
+   * NexOffice user-facing, workspace-scoped CONNECTIVITY DIAGNOSTIC.
+   * This is not the privileged backchannel nor the generic federation API.
+   * A workspace membership is necessary but never proves corporate legal
+   * authority, Nexa KYB, wallet ownership or authorization to move funds.
+   * No personal or corporate identifiers are returned to the browser.
+   */
+  app.get('/v1/platform/nexa-pj/connection-preflight',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    const rows=await query<{matched:boolean}>(`
+      SELECT true AS matched
+        FROM workspace_origins o
+        JOIN workspaces w ON w.id=o.workspace_id AND w.status='active'
+        JOIN external_identities i ON i.workspace_id=o.workspace_id
+          AND i.provider='nexa-pj'
+          AND i.external_tenant_ref=o.external_workspace_ref
+          AND i.user_id=$2::uuid
+        JOIN users u ON u.id=i.user_id AND u.status='active'
+        JOIN workspace_members m ON m.workspace_id=o.workspace_id
+          AND m.user_id=i.user_id AND m.active=true
+       WHERE o.source_product='nexa-pj' AND o.workspace_id=$1::uuid
+       LIMIT 2
+    `,[ctx.workspaceId,ctx.user.id]);
+    const structuralBindingPresent=rows.length===1;
+    return {
+      structuralBindingPresent,
+      // Status of the *current authenticated* NexOffice membership only.
+      workspaceMembershipVerifiedByNexOffice:true,
+      companyKybApproved:false,
+      legalRepresentationVerified:false,
+      nexaAccountAuthenticated:false,
+      corporateWalletConnected:false,
+      financialAccess:false,
+      balancesVisible:false,
+      pixEnabled:false,
+      cryptoEnabled:false,
+      ssoAvailable:false,
+      handoffTokenIssued:false,
+      externalEffect:false,
+      reason:structuralBindingPresent
+        ? 'PJ_STRUCTURAL_MATCH_REQUIRES_NEXA_KYB_AND_INDEPENDENT_AUTHORITY'
+        : 'PJ_COMPANY_WORKSPACE_BINDING_NOT_CONFIRMED',
+    };
+  });
+
+  /** Nexa PJ Wallet integration is not federated yet. Deny by default. */
+  app.get('/v1/platform/nexa-pj/wallet/readiness',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    return {
+      schemaVersion:1,workspaceScoped:true,
+      workspaceId:ctx.workspaceId,
+      status:'requires_corporate_verification' as const,
+      corporateWalletVerified:false,
+      balancesVisible:false,
+      transactionsVisible:false,
+      transfersEnabled:false,
+      walletAddress:null,
+      balanceUsdc:null,
+      source:'nexa_wallet_pending_authenticated_bridge' as const,
+    };
+  });
+
+  /**
+   * Future finance hub contract: no institution credentials, no inferred
+   * balances, no account provisioning and no side effects.
+   * A source can only become connected after separate consent, corporate
+   * authority, integration verification and explicit release gating.
+   */
+  app.get('/v1/platform/nexa-pj/finance-hub/readiness',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    const openFinanceStatus=await new DisabledOpenFinanceConnector().getConnectionStatus({workspaceId:ctx.workspaceId,representativeUserId:ctx.user.id,verifiedCorporateIdentityRef:'',consentRef:'',requestedScopes:[]});
+    const source=(id:string,label:string,kind:string)=>({
+      id,label,kind,status:id==='open-finance'?openFinanceStatus:'not_connected' as const,
+      consent:'not_granted' as const,
+      lastSyncedAt:null,
+      accountCount:0,
+      dataAvailable:false,
+    });
+    return {
+      schemaVersion:1,
+      mode:'read_only',
+      scope:'current_workspace',
+      asOf:new Date().toISOString(),
+      aggregatedBalance:null,
+      investmentsTotal:null,
+      outstandingDebt:null,
+      currency:null,
+      accounts:[],
+      investments:[],
+      liabilities:[],
+      transactions:[],
+      agenticActionsEnabled:false,
+      paymentInitiationEnabled:false,
+      walletProvisioningEnabled:false,
+      externalEffectsEnabled:false,
+      sources:[
+        source('open-finance','Open Finance','banking'),
+        source('nexa-privy','Nexa / Privy','wallet'),
+        source('external-wallet','Carteiras externas','wallet'),
+        source('investments','Investimentos externos','investment'),
+        source('liabilities','Dívidas externas','liability'),
+      ],
+      consentRequirements:{
+        corporateIdentity:'required',
+        authorizedRepresentative:'required',
+        providerAuthorization:'required',
+        revocableConsent:'required',
+        dataMinimization:'required',
+        crossWorkspaceSharing:'forbidden',
+      },
+      activationGates:{
+        bankBalances:['verified_kyb','corporate_authority','provider_consent','authenticated_provider_session'],
+        walletBalances:['verified_kyb','wallet_ownership_proof','corporate_authority'],
+        investmentPositions:['provider_consent','data_scope_positions','verified_kyb'],
+        liabilities:['provider_consent','data_scope_liabilities','verified_kyb'],
+        payments:['independent_authorization','human_confirmation','audit_trail','provider_approval'],
+      },
+      gateEvaluation:{
+        evaluatedAt:new Date().toISOString(),
+        decision:'deny',
+        defaultPolicy:'fail_closed',
+        evidenceAccepted:false,
+        providerTokensInspected:false,
+        checks:[
+          {id:'workspace_membership',passed:true,source:'authenticated_erp_workspace'},
+          {id:'corporate_kyb',passed:false,source:'not_verified'},
+          {id:'representative_authority',passed:false,source:'not_verified'},
+          {id:'provider_consent',passed:false,source:'not_verified'},
+          {id:'provider_authentication',passed:false,source:'not_verified'},
+          {id:'wallet_ownership',passed:false,source:'not_verified'},
+          {id:'financial_release',passed:false,source:'not_enabled'},
+        ],
+      },
+      sourceHealth:'all_disconnected',
+      reason:'CORPORATE_AUTHORIZATION_AND_PROVIDER_CONNECTION_REQUIRED',
+    };
+  });
+
+  // Private backchannel only. Checks the *existing* NexOffice source origin,
+  // federated identity, active user, workspace, and active membership. Neither
+  // the generic 'nexa' source nor a client-submitted email is sufficient.
+  app.post('/v1/platform/nexa-pj/binding-preflight',async req=>{
+    authorizeNexaPjBinding(req);
+    const input=NexaPjBindingInput.parse(req.body);
+    const matched=await query<{matched:boolean}>(`
+      SELECT true AS matched FROM workspace_origins o
+      JOIN workspaces w ON w.id=o.workspace_id AND w.status='active'
+      JOIN external_identities i ON i.workspace_id=o.workspace_id
+        AND i.provider='nexa-pj'
+        AND i.external_subject=$2
+        AND i.external_tenant_ref=$1
+      JOIN users u ON u.id=i.user_id AND u.status='active'
+      JOIN workspace_members m ON m.workspace_id=w.id
+        AND m.user_id=u.id AND m.active=true
+      WHERE o.source_product='nexa-pj'
+        AND o.external_workspace_ref=$1
+        AND o.workspace_id=$3
+      LIMIT 1
+    `,[input.merchantId,input.representativeUserId,input.workspaceId]);
+    return {
+      bindingMatches:matched.length===1,
+      // This is a read-only consistency check, NOT legal representation
+      // verification or any kind of authorization.
+      legalRepresentationVerified:false,
+      pjApprovalVerified:false,
+      ssoAvailable:false,
+      financialAccess:false,
+      sessionIssued:false,
+    };
+  });
+
   app.get('/v1/platform/health',async req=>{authorize(req);return {status:'ok',service:'nexoffice-platform',capabilities:['provision','session-exchange','federated-user','browser-handoff','federated-rbac'],externalEffects:false}});
 
   app.post('/v1/platform/provision',async req=>{
