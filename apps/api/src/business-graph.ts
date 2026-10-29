@@ -137,6 +137,7 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
       }
       for(const contact of matched){
         addEdge({id:edgeId('communicated_with',message,contact),from:message,to:contact,kind:'communicated_with',source:String(row.source),attributes:{match:'email',relation:'message_participant'}});
+        addEdge({id:edgeId('related_to',contact,message),from:contact,to:message,kind:'related_to',source:String(row.source),attributes:{match:'email',relation:'message_participant',compatibility:'business_graph_v1'}});
         externallyMatchedRelations++;
       }
       continue;
@@ -149,6 +150,7 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
       }
       for(const contact of matched){
         addEdge({id:edgeId('attended',contact,calendarEvent),from:contact,to:calendarEvent,kind:'attended',source:String(row.source),attributes:{match:'email',relation:'calendar_participant'}});
+        addEdge({id:edgeId('scheduled_with',contact,calendarEvent),from:contact,to:calendarEvent,kind:'scheduled_with',source:String(row.source),attributes:{match:'email',relation:'calendar_participant',compatibility:'business_graph_v1'}});
         externallyMatchedRelations++;
       }
       continue;
