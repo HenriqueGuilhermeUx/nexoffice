@@ -36,7 +36,8 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
       (select count(*) from business_events where workspace_id=$1 and source='external.spreadsheet')::int spreadsheet_records,
       (select count(*) from business_events where workspace_id=$1 and source in ('external.email','external.google.gmail','external.microsoft.mail'))::int email_records,
       (select count(*) from business_events where workspace_id=$1 and source in ('external.calendar','external.google.calendar','external.microsoft.calendar'))::int calendar_records,
-      (select count(*) from business_events where workspace_id=$1 and source='external.erp')::int erp_records`,[workspaceId])
+      (select count(*) from business_events where workspace_id=$1 and source='external.erp')::int erp_records,
+      (select count(*) from business_events where workspace_id=$1 and source='external.crm')::int external_crm_records`,[workspaceId])
   ]);
 
   const metadata=asObject(profile.metadata);
@@ -99,7 +100,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
     'high',
     'O histórico comercial existente deve entrar no Business Graph antes de pedir que a equipe recrie tudo.',
     ['pipeline histórico','clientes e contatos','origem de vendas','atividades e follow-ups'],
-    [...connected].some(provider=>provider.includes('crm'))?'connected':'planned'
+    (n(c.external_crm_records)>0||[...connected].some(provider=>provider.includes('crm')))?'connected':'planned'
   ));
 
   if(currentTools.includes('spreadsheets'))add(recommendation(
