@@ -184,3 +184,18 @@ test('premium sandbox panel displays sanitized readiness and formats integer cen
  assert.ok(panel.includes(String.raw`/^[-]?\\d{1,16}$/`)===false);
  assert.ok(panel.includes(String.raw`/^[-]?\d{1,16}$/`));
 });
+
+test('revoked sandbox consent blocks account and transaction reads',async()=>{
+ const p=provider({consent:{...consent,status:'REVOKED'}});
+ const result=await readBelvoSandboxDemo(fixture,input,p.fetcher,now);
+ assert.equal(result,null);
+ assert.deepEqual(p.calls.map(x=>new URL(x.url).pathname),[
+  '/api/links/'+linkId+'/','/api/consents/'
+ ]);
+});
+test('expired sandbox consent blocks account and transaction reads',async()=>{
+ const p=provider({consent:{...consent,expired_at:'2026-10-27T00:00:00Z'}});
+ const result=await readBelvoSandboxDemo(fixture,input,p.fetcher,now);
+ assert.equal(result,null);
+ assert.equal(p.calls.length,2);
+});
