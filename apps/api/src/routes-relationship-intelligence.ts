@@ -35,7 +35,7 @@ export async function buildRelationshipIntelligence(workspaceId:string,includeDo
       query<any>("select contact_id,max(starts_at) filter(where status='completed') last_completed_appointment_at,count(*) filter(where status='no_show' and starts_at>=now()-interval '180 days')::int no_show_180 from appointments where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
       query<any>("select id,name,kind,price_minor,cost_minor,billing_cycle from business_catalog_items where workspace_id=$1 and active=true and price_minor>0 order by case when cost_minor is not null and price_minor>0 then (price_minor-cost_minor)::numeric/price_minor else -1 end desc,price_minor desc,name",[workspaceId]),
       query<any>("select contact_id,external_ref,title from document_refs where workspace_id=$1 and provider='docwallet' and contact_id is not null",[workspaceId]),
-      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar','external.microsoft.mail','external.microsoft.calendar','external.email','external.calendar') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[workspaceId]),
+      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar','external.microsoft.mail','external.microsoft.calendar','external.email','external.calendar','external.crm') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[workspaceId]),
       includeDocWallet?readDocWalletUpcomingExpirations(workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any)):Promise.resolve({ok:false,error:'docwallet_skipped'} as any)
     ]);
 
@@ -49,6 +49,23 @@ export async function buildRelationshipIntelligence(workspaceId:string,includeDo
     const externalByEmail=new Map<string,{last_activity_at:string;interactions_90:number;sources:Set<string>}>();
     for(const event of externalRelationshipEvents){
       const payload=event.payload&&typeof event.payload==='object'?event.payload:{};
+      if(event.source==='external.crm'){
+        const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+        if(String(payload.resourceKind||normalized.resourceKind)!=='activity')continue;
+        const emails=[...emailsFrom(normalized.email),...emailsFrom(normalized.partyEmail)];
+        for(const email of new Set(emails)){
+          const current=externalByEmail.get(email);
+          const occurredAt=String(normalized.occurredAt||event.occurred_at);
+          const within90=new Date(occurredAt).getTime()>=Date.now()-90*MS_DAY;
+          if(!current)externalByEmail.set(email,{last_activity_at:occurredAt,interactions_90:within90?1:0,sources:new Set([String(event.source)])});
+          else{
+            if(new Date(occurredAt).getTime()>new Date(current.last_activity_at).getTime())current.last_activity_at=occurredAt;
+            if(within90)current.interactions_90++;
+            current.sources.add(String(event.source));
+          }
+        }
+        continue;
+      }
       const isEmail=event.source==='external.google.gmail'||event.source==='external.microsoft.mail'||event.source==='external.email';
       const emails=isEmail
         ?[...emailsFrom(payload.from),...emailsFrom(payload.to),...emailsFrom(payload.cc)]
@@ -174,6 +191,7 @@ export async function buildRelationshipIntelligence(workspaceId:string,includeDo
         googleWorkspaceEventsObserved:externalRelationshipEvents.filter((event:any)=>String(event.source).startsWith('external.google.')).length,
         microsoft365EventsObserved:externalRelationshipEvents.filter((event:any)=>String(event.source).startsWith('external.microsoft.')).length,
         manualWorkspaceContextEventsObserved:externalRelationshipEvents.filter((event:any)=>event.source==='external.email'||event.source==='external.calendar').length,
+        externalCrmActivitiesObserved:externalRelationshipEvents.filter((event:any)=>event.source==='external.crm'&&String(event.payload?.resourceKind||event.payload?.normalized?.resourceKind)==='activity').length,
         googleWorkspaceEmailsObserved:externalRelationshipEvents.filter((event:any)=>event.source==='external.google.gmail').length
       }
     };
