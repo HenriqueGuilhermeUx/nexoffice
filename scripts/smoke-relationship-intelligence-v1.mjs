@@ -32,6 +32,9 @@ has(route,"external.google.gmail",'Gmail metadata activity source');
 has(route,"external.google.calendar",'Google Calendar activity source');
 has(route,"external.email",'manual EML activity source');
 has(route,"external.calendar",'manual ICS activity source');
+has(route,"external.microsoft.mail",'Microsoft Outlook activity source');
+has(route,"external.microsoft.calendar",'Microsoft Calendar activity source');
+has(route,'microsoft365EventsObserved','Microsoft context count must remain auditable');
 has(route,'externalContextEventsObserved','all external context must be counted');
 has(route,'manualWorkspaceContextEventsObserved','manual context count must remain auditable');
 has(route,"externalInteractions90",'external relationship activity count');
@@ -51,6 +54,8 @@ has(panel,'externalInteractions90','panel must expose external interaction count
 has(panel,'não altera agenda','panel must disclose calendar write prohibition');
 has(panel,'E-mail importado','manual EML source label');
 has(panel,'Calendário importado','manual ICS source label');
+has(panel,'Outlook','Microsoft Outlook source label');
+has(panel,'Microsoft Calendar','Microsoft Calendar source label');
 has(panel,'EML/ICS','manual Workspace Context safety copy');
 has(app,'<RelationshipIntelligencePanel/>','relationship panel mounted in CRM');
 has(server,'registerRelationshipIntelligenceRoutes','relationship route registered');
