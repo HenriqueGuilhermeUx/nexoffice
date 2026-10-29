@@ -58,13 +58,15 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   for(const row of documents)addNode({id:key('document',row.id),sourceId:row.id,kind:'document',label:String(row.title||'Documento'),source:`nexoffice.documents.${row.provider||'internal'}`,status:String(row.status||''),occurredAt:row.updated_at,attributes:{documentType:row.document_type||null,provider:row.provider||null,externalRef:row.external_ref||null}});
   for(const row of events){
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
-    const label=row.source==='external.google.gmail'
-      ?String(payload.subject||'E-mail observado')
-      :row.source==='external.google.calendar'
-        ?String(payload.summary||'Compromisso observado')
-        :row.source==='external.spreadsheet'
-          ?String(payload.datasetName?`Planilha · ${payload.datasetName}`:'Registro de planilha')
-          :String(row.type||'Evento');
+    if((row.source==='external.email'||row.source==='external.google.gmail')&&(row.type==='external_email.observed'||row.type==='external.google.gmail.observed')){
+      addNode({id:key('email_message',row.id),sourceId:row.id,kind:'email_message',label:String(payload.subject||'E-mail observado').slice(0,500),source:String(row.source),occurredAt:payload.occurredAt||row.occurred_at,attributes:{from:payload.from||[],to:payload.to||[],cc:payload.cc||[],excerpt:payload.excerpt||null,datasetId:payload.datasetId||null,eventType:row.type}});
+      continue;
+    }
+    if((row.source==='external.calendar'||row.source==='external.google.calendar')&&(row.type==='external_calendar.observed'||row.type==='external.google.calendar.observed')){
+      addNode({id:key('calendar_event',row.id),sourceId:row.id,kind:'calendar_event',label:String(payload.summary||'Compromisso observado').slice(0,500),source:String(row.source),occurredAt:payload.startAt||row.occurred_at,attributes:{startAt:payload.startAt||row.occurred_at,endAt:payload.endAt||null,organizer:payload.organizer||payload.organizerEmail||[],attendees:payload.attendees||payload.attendeeEmails||[],location:payload.location||null,descriptionExcerpt:payload.descriptionExcerpt||null,datasetId:payload.datasetId||null,eventType:row.type}});
+      continue;
+    }
+    const label=row.source==='external.spreadsheet'&&payload.datasetName?`Planilha · ${payload.datasetName}`:String(row.type||'Evento');
     addNode({id:key('event',row.id),sourceId:row.id,kind:'event',label:label.slice(0,500),source:String(row.source||'nexoffice.events'),occurredAt:row.occurred_at,attributes:{eventType:row.type,payload}});
   }
   for(const row of operationalSignals)addNode({id:key('event',`external:${row.id}`),sourceId:row.id,kind:'event',label:String(row.signal_type||'Sinal operacional'),source:`alternative_ventures.${String(row.source_product||'unknown')}`,occurredAt:row.period_end||row.created_at,attributes:{eventType:row.signal_type,sourceProduct:row.source_product,periodStart:row.period_start,periodEnd:row.period_end,metrics:row.metrics&&typeof row.metrics==='object'?row.metrics:{},dimensions:row.dimensions&&typeof row.dimensions==='object'?row.dimensions:{},privacy:'aggregate_only'}});
@@ -124,29 +126,39 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   };
   let externallyMatchedRelations=0;
   for(const row of events){
-    const event=key('event',row.id),subject=subjectKey(row.subject_type,row.subject_id);
-    addEdge({id:edgeId('contains',organizationId,event),from:organizationId,to:event,kind:'contains',source:'nexoffice.events',attributes:{}});
-    if(subject)addEdge({id:edgeId('generated',subject,event),from:subject,to:event,kind:'generated',source:String(row.source||'nexoffice.events'),attributes:{eventType:row.type}});
-
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
     const matched=new Set<string>();
-    if(row.source==='external.google.gmail'){
+
+    if(row.source==='external.email'||row.source==='external.google.gmail'){
+      const message=key('email_message',row.id);
+      addEdge({id:edgeId('contains',organizationId,message),from:organizationId,to:message,kind:'contains',source:String(row.source),attributes:{}});
       for(const email of [...emailsFrom(payload.from),...emailsFrom(payload.to),...emailsFrom(payload.cc)]){
         const contact=contactByEmail.get(email);if(contact)matched.add(contact);
       }
       for(const contact of matched){
-        addEdge({id:edgeId('related_to',contact,event),from:contact,to:event,kind:'related_to',source:'external.google.gmail',attributes:{match:'email',relation:'message_participant'}});
+        addEdge({id:edgeId('communicated_with',message,contact),from:message,to:contact,kind:'communicated_with',source:String(row.source),attributes:{match:'email',relation:'message_participant'}});
         externallyMatchedRelations++;
       }
-    }else if(row.source==='external.google.calendar'){
-      for(const email of [...emailsFrom(payload.organizerEmail),...emailsFrom(payload.attendeeEmails)]){
+      continue;
+    }
+    if(row.source==='external.calendar'||row.source==='external.google.calendar'){
+      const calendarEvent=key('calendar_event',row.id);
+      addEdge({id:edgeId('contains',organizationId,calendarEvent),from:organizationId,to:calendarEvent,kind:'contains',source:String(row.source),attributes:{}});
+      for(const email of [...emailsFrom(payload.organizer),...emailsFrom(payload.organizerEmail),...emailsFrom(payload.attendees),...emailsFrom(payload.attendeeEmails)]){
         const contact=contactByEmail.get(email);if(contact)matched.add(contact);
       }
       for(const contact of matched){
-        addEdge({id:edgeId('scheduled_with',contact,event),from:contact,to:event,kind:'scheduled_with',source:'external.google.calendar',attributes:{match:'email',relation:'calendar_participant'}});
+        addEdge({id:edgeId('attended',contact,calendarEvent),from:contact,to:calendarEvent,kind:'attended',source:String(row.source),attributes:{match:'email',relation:'calendar_participant'}});
         externallyMatchedRelations++;
       }
-    }else if(row.source==='external.spreadsheet'){
+      continue;
+    }
+
+    const event=key('event',row.id),subject=subjectKey(row.subject_type,row.subject_id);
+    addEdge({id:edgeId('contains',organizationId,event),from:organizationId,to:event,kind:'contains',source:'nexoffice.events',attributes:{}});
+    if(subject)addEdge({id:edgeId('generated',subject,event),from:subject,to:event,kind:'generated',source:String(row.source||'nexoffice.events'),attributes:{eventType:row.type}});
+
+    if(row.source==='external.spreadsheet'){
       const inferred=Array.isArray(payload.inferred)?payload.inferred:[];
       const record=payload.record&&typeof payload.record==='object'?payload.record:{};
       const emailFields=inferred.filter((item:any)=>item?.semantic==='email').map((item:any)=>String(item?.normalized||'')).filter(Boolean);
