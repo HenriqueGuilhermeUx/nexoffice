@@ -26,7 +26,9 @@ type ExecutiveContext={
     projectedCash30Minor:number|null;
     businessHealthScore:number|null;
     businessKnowledgePct:number|null;
+    crossSystemInsights:number;
   };
+  crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
 type SourceRegistry={
@@ -75,7 +77,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div>
         <p className="eyebrow">MAYA · VISÃO EXECUTIVA</p>
         <h3>{context.headline}</h3>
-        <p>Leitura cruzada de vendas, financeiro, operação, agenda, documentos e sinais conectados. Correlações aparecem como hipóteses; nenhuma ação é executada daqui.</p>
+        <p>Leitura cruzada de vendas, financeiro, operação, agenda, documentos e fontes externas. Correlações multi-sistema aparecem como hipóteses explicáveis; nenhuma ação é executada daqui.</p>
       </div>
       <button onClick={()=>void load()} disabled={loading}>{loading?'Analisando…':'Atualizar leitura'}</button>
     </div>
@@ -98,10 +100,12 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div><span>Sinais Alternative Ventures</span><b>{avSignals}</b></div>
       <div><span>Pipeline</span><b>{money(context.indicators.pipelineMinor)}</b></div>
       <div><span>Conhecimento do negócio</span><b>{context.indicators.businessKnowledgePct==null?'Aprendendo':`${Math.round(context.indicators.businessKnowledgePct)}%`}</b></div>
+      <div><span>Cruzamentos multi-sistema</span><b>{context.crossSystem?.insights||0}</b></div>
+      <div><span>Clientes correlacionados</span><b>{context.crossSystem?.customers||0}</b></div>
     </div>
 
     <div className="executiveContextTrust">
-      <span>✓ Workspace isolado</span><span>✓ Somente leitura</span><span>✓ Evidências rastreáveis</span><span>✓ Sem efeito externo</span>
+      <span>✓ Workspace isolado</span><span>✓ Somente leitura</span><span>✓ Evidências rastreáveis</span><span>✓ Mín. 2 fontes por correlação</span><span>✓ Sem efeito externo</span>
     </div>
   </section>;
 }
