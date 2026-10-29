@@ -142,6 +142,8 @@ jobs:
         run: node scripts/smoke-workspace-context.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
+      - name: Smoke test Microsoft 365 connector security contract
+        run: node scripts/smoke-microsoft-connect-contract.mjs
       - name: Smoke test Recurrence Intelligence API
         run: node scripts/smoke-recurrence-intelligence-api.mjs
       - name: Smoke test Relationship Intelligence API
