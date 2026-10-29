@@ -16,7 +16,7 @@ const importSchema=previewSchema.extend({
   humanConfirmed:z.literal(true)
 });
 
-type ParsedSheet={
+export type ParsedSheet={
   delimiter:string;
   headers:string[];
   normalizedHeaders:string[];
@@ -121,7 +121,7 @@ export async function registerConnectSpreadsheetRoutes(app:FastifyInstance){
   });
 }
 
-function parseSpreadsheet(filename:string,content:string,preview:boolean):ParsedSheet{
+export function parseSpreadsheet(filename:string,content:string,preview:boolean):ParsedSheet{
   const lower=filename.toLowerCase();
   if(!lower.endsWith('.csv')&&!lower.endsWith('.txt'))throw new ApiError(400,'spreadsheet_format_unsupported','Nesta primeira versão, envie CSV ou TXT delimitado.');
   const lines=content.replace(/^\uFEFF/,'').split(/\r?\n/).filter(line=>line.trim());
@@ -165,7 +165,7 @@ function inferSemantic(header:string,values:string[]){
   return{header,normalized,semantic:'generic',confidence:.4};
 }
 
-function sanitizeCell(value:string){
+export function sanitizeCell(value:string){
   const text=String(value||'').replace(/\u0000/g,'').trim().slice(0,2000);
   return /^[=+@]/.test(text)?`'${text}`:text;
 }
