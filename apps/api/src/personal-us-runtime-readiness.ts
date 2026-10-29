@@ -38,6 +38,7 @@ export async function assessUSReadOnlyRuntimeCandidate(input:{
   throw Error('US_RUNTIME_RESTRICTED_POOL_REQUIRED');
  const client=await input.pool.connect();
  let inTransaction=false;
+ let assessment:USReadOnlyRuntimeCandidateAssessment|undefined;
  try{
   await client.query('BEGIN');inTransaction=true;
   await client.query("SET LOCAL lock_timeout = '3000ms'");
@@ -46,10 +47,12 @@ export async function assessUSReadOnlyRuntimeCandidate(input:{
    client,expectedDatabaseName:config.databaseName,
    expectedRoleName:'npu_us_wallet_service'
   });
-  return {
+  if(proof.verifiedTables!==6)
+   throw Error('US_RUNTIME_DB_ATTESTATION_TABLE_COUNT_INVALID');
+  assessment={
    configurationValidated:true,
    isolatedDatabaseSessionValidated:true,
-   verifiedTables:proof.verifiedTables as 6,
+   verifiedTables:6,
    frontendOrigin:config.allowedFrontendOrigin,
    databaseName:config.databaseName,
    regionIndependentlyVerified:false,
@@ -60,7 +63,13 @@ export async function assessUSReadOnlyRuntimeCandidate(input:{
    operationalActivationApproved:false
   };
  }finally{
-  if(inTransaction)try{await client.query('ROLLBACK');}catch{}
-  client.release();
+  // A failed rollback must never produce a successful readiness result.
+  // Releasing a tainted client is left to the trusted pool implementation.
+  let cleanupFailed=false;
+  if(inTransaction)try{await client.query('ROLLBACK');}catch{cleanupFailed=true;}
+  try{client.release();}catch{cleanupFailed=true;}
+  if(cleanupFailed)throw Error('US_RUNTIME_DB_CLEANUP_FAILED');
  }
+ if(!assessment)throw Error('US_RUNTIME_DB_ASSESSMENT_INCOMPLETE');
+ return assessment;
 }
