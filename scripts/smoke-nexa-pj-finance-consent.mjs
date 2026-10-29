@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {evaluateCorporateReadConsent,evaluateVerifiedCorporateReadConsent,authorizeCorporateRead,DisabledCorporateConsentVerifier,DisabledOpenFinanceConnector} from '../apps/api/dist/nexa-pj-finance-connector.js';
+import {evaluateCorporateReadConsent,evaluateVerifiedCorporateReadConsent,authorizeCorporateRead,authorizeCorporateReadWithinDeadline,DisabledCorporateConsentVerifier,DisabledOpenFinanceConnector} from '../apps/api/dist/nexa-pj-finance-connector.js';
 const now=new Date('2026-10-28T12:00:00Z');
 const ctx={workspaceId:'company-A',representativeUserId:'member-A',verifiedCorporateIdentityRef:'kyb-A',consentRef:'consent-A',requestedScopes:['accounts.read']};
 const record={...ctx,providerId:'provider-A',scopes:['accounts.read','balances.read'],status:'active',expiresAt:'2026-10-29T12:00:00Z'};
@@ -39,6 +39,9 @@ for(const invalid of [
 }
 assert.equal(await authorizeCorporateRead(countingVerifier,ctx,'provider-A',false,now),'deny');
 assert.equal(verifierCalls,0,'invalid read authorization must not contact provider');
+assert.equal(await authorizeCorporateReadWithinDeadline({verify:async()=>new Promise(()=>{})},ctx,'provider-A',true,10,now),'deny','provider timeout must fail closed');
+assert.equal(await authorizeCorporateReadWithinDeadline({verify:async()=>proof},ctx,'provider-A',true,100,now),'allow_read');
+assert.equal(await authorizeCorporateReadWithinDeadline({verify:async()=>proof},ctx,'provider-A',true,0,now),'deny');
 const disabled=new DisabledOpenFinanceConnector();
 assert.equal(await disabled.getConnectionStatus(ctx),'not_connected');
 await assert.rejects(()=>disabled.listBalances(ctx),/NOT_AUTHORIZED/);
