@@ -33,7 +33,9 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
       (select count(*) from document_refs where workspace_id=$1)::int documents,
       (select count(*) from appointments where workspace_id=$1)::int appointments,
       (select count(*) from tasks where workspace_id=$1)::int tasks,
-      (select count(*) from business_events where workspace_id=$1 and source='external.spreadsheet')::int spreadsheet_records`,[workspaceId])
+      (select count(*) from business_events where workspace_id=$1 and source='external.spreadsheet')::int spreadsheet_records,
+      (select count(*) from business_events where workspace_id=$1 and source in ('external.email','external.google.gmail'))::int email_records,
+      (select count(*) from business_events where workspace_id=$1 and source in ('external.calendar','external.google.calendar'))::int calendar_records`,[workspaceId])
   ]);
 
   const metadata=asObject(profile.metadata);
@@ -69,7 +71,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
     ['sales','service'].includes(bottleneck)?'high':'normal',
     'Conversas comerciais e decisões importantes costumam ficar fora do CRM.',
     ['histórico de relacionamento','compromissos assumidos','follow-ups esquecidos','memória de decisões'],
-    [...connected].some(provider=>provider.includes('gmail')||provider.includes('microsoft')||provider.includes('google_workspace'))?'connected':'planned',
+    (n(c.email_records)>0||[...connected].some(provider=>provider.includes('gmail')||provider.includes('microsoft')||provider.includes('google_workspace')))?'connected':'planned',
     'Google / Microsoft'
   ));
 
@@ -79,7 +81,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
     bottleneck==='agenda'?'high':'normal',
     'Agenda conectada permite relacionar reuniões, clientes, oportunidades e atrasos operacionais.',
     ['reuniões ligadas a clientes','follow-up pós-reunião','capacidade da agenda','sinais de no-show e atraso'],
-    [...connected].some(provider=>provider.includes('calendar')||provider.includes('google_workspace')||provider.includes('microsoft'))?'connected':'planned',
+    (n(c.calendar_records)>0||[...connected].some(provider=>provider.includes('calendar')||provider.includes('google_workspace')||provider.includes('microsoft')))?'connected':'planned',
     'Google Calendar / Microsoft 365'
   ));
 
