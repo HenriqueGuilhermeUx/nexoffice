@@ -63,6 +63,12 @@ await call('/v1/events',{method:'POST',body:{
   payload:{reason:'expected close date exceeded'}
 }});
 
+const sources=await call('/v1/business-graph/sources');
+assert(sources.workspace.id===workspace,'source registry is workspace scoped');
+assert(sources.connectorContract?.version==='nex-connect-v1','Nex Connect contract is exposed');
+assert(Array.isArray(sources.native)&&sources.native.some(item=>item.source==='nexoffice.crm'),'native CRM source is registered');
+assert(sources.safety?.secretsReturned===false&&sources.safety?.externalEffects===false,'source registry leaks no secrets and executes nothing');
+
 const graph=await call('/v1/business-graph/overview?days=90&includeGraph=true');
 assert(graph.workspace.id===workspace,'graph is workspace scoped');
 assert(graph.safety?.readOnly===true&&graph.safety?.externalEffects===false,'graph is read-only');
@@ -99,6 +105,7 @@ console.log(JSON.stringify({
   ok:true,
   workspace,
   graph:{nodes:graph.coverage.nodes,edges:graph.coverage.edges,sources:graph.coverage.sources},
+  sourceRegistry:{native:sources.native.length,integrations:sources.integrations.length,alternativeVentures:sources.alternativeVentures.length},
   signals:graph.executiveSignals.map(signal=>signal.code),
   priorities:executive.priorities.map(item=>({code:item.code,level:item.level})),
   maya:{agentRole:chat.agentRole,text:chat.message.content}
