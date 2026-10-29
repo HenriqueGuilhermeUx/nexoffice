@@ -138,6 +138,8 @@ jobs:
         run: node scripts/smoke-business-graph-executive.mjs
       - name: Smoke test Nex Connect Center
         run: node scripts/smoke-nex-connect-center.mjs
+      - name: Smoke test Workspace Context email and calendar
+        run: node scripts/smoke-workspace-context.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Recurrence Intelligence API
