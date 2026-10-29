@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useState} from 'react';
 import {api,post,put,session} from './api';
 import './product-discovery.css';
 
@@ -9,10 +9,24 @@ type Enrichment={discovered:Discovered;sources:Source[];needsConfirmation:string
 type Form={businessName:string;cnpj:string;website:string;instagram:string;whatsapp:string;otherLink:string};
 type Answers={businessType:string;audienceType:string;leadSources:string[];salesChannels:string[];revenueBand:string;ticketBand:string;paymentMethods:string[];invoiceUsage:string;teamSize:string;bottleneck:string;goal:string;currentTools:string[];namedTools:string};
 type Diagnosis={firstDiagnosis:{state:string;title:string;detail:string;nextStep:string};findings:Array<{code:string;level:string;title:string;detail:string}>;context:{knowledgePct:number|null;businessGraph:{nodes:number;edges:number;sources:string[]};nativeSignals:number};connections:{connected:Array<{key:string;label:string;status:string}>;recommended:Array<{key:string;label:string;priority:string;reason:string;unlocks:string[];status:string;providerHint?:string|null}>};principles:{connectWhatExists:boolean;migrationNotRequired:boolean;readOnlyDiagnosis:boolean}};
+type Readiness={workspace:{id:string;name:string};completionPct:number;operationalReady:boolean;metrics:{contacts:number;deals:number;tasks:number;ledgerEntries:number;members:number;connectedIntegrations:number}};
+type CapabilityGraph={summary:{total:number;ready:number;approvalRequired:number;planned:number};capabilities:Array<{id:string;label:string;provider:string;availability:string;usableNow:boolean}>};
+type BackupState={agents:Array<{id:string;status:string;lastSeenAt?:string|null}>;profiles:Array<{id:string;status:string;lastBackupAt?:string|null;verificationStatus?:string|null}>};
+type InvestmentHealth={configured:boolean;provider:string;capabilities?:string[]};
+type CapabilityState='active'|'available'|'connect'|'planned';
+type Tile={id:string;icon:string;title:string;description:string;state:CapabilityState;detail:string};
 
 const initialForm:Form={businessName:'',cnpj:'',website:'',instagram:'',whatsapp:'',otherLink:''};
 const initialAnswers:Answers={businessType:'',audienceType:'',leadSources:[],salesChannels:[],revenueBand:'',ticketBand:'',paymentMethods:[],invoiceUsage:'',teamSize:'',bottleneck:'',goal:'',currentTools:[],namedTools:''};
 const navAliases:Record<string,string[]>={'Hoje':['Hoje','Central de Comando'],'Clientes':['Clientes','CRM'],'Financeiro':['Financeiro'],'Documentos':['Documentos'],'Operação':['Operação','Agenda & Tarefas'],'Crescimento':['Crescimento','Marketing'],'Assistentes IA':['Assistentes IA','Equipe Digital'],'Integrações':['Integrações']};
+const tour=[
+  {k:'command',eyebrow:'01 · CENTRAL DE COMANDO',title:'Este é o seu negócio agora.',text:'O NexOffice reúne prioridades, riscos, tarefas, cobranças, documentos e decisões para você não precisar descobrir onde procurar.',chips:['O que aconteceu','O que atrasou','Onde existe risco','Qual é a próxima ação']},
+  {k:'team',eyebrow:'02 · EQUIPE DIGITAL',title:'Você ganhou uma equipe que compartilha contexto.',text:'Sofia organiza. Clara acompanha oportunidades. Theo olha recebíveis. Dora cuida de documentos. Maya conecta capacidades e crescimento.',chips:['Sofia · Secretária','Clara · CRM','Theo · Financeiro','Dora · Documentos','Maya · Orquestração']},
+  {k:'knowledge',eyebrow:'03 · MEMÓRIA EMPRESARIAL',title:'Pergunte à sua própria empresa.',text:'O NexOffice consulta memória operacional e inteligência estruturada sem inventar resposta quando não encontra evidência suficiente.',chips:['O que mudou hoje?','Quem preciso cobrar?','Qual oportunidade está parada?','Que documento exige atenção?']},
+  {k:'lineage',eyebrow:'04 · OPERAÇÃO CONECTADA',title:'O trabalho deixa de quebrar entre sistemas.',text:'Cliente, venda, contrato, trabalho, fiscal, cobrança, pagamento e resultado podem continuar ligados numa mesma linha operacional.',chips:['CRM','DocWallet','TaxAgent','Cobrança','Network']},
+  {k:'memory',eyebrow:'05 · QUANTO MAIS USA, MAIS CONTEXTO EXISTE',title:'O NexOffice começa a lembrar junto com você.',text:'Briefing, inteligência, documentos, mudanças, backup e integrações transformam uso diário em contexto operacional útil.',chips:['Briefing','O que mudou?','Backup','Inteligência','Integrações']}
+];
+function stateLabel(state:CapabilityState){return state==='active'?'Ativo':state==='available'?'Disponível':state==='connect'?'Conectar':'Em evolução'}
 const choiceData={
   businessType:[['services','Serviços'],['products','Produtos'],['both','Produtos + serviços']],
   audienceType:[['people','Pessoas'],['businesses','Empresas'],['both','Pessoas + empresas']],
@@ -36,10 +50,16 @@ function Choice({items,value,onChange,multi=false}:{items:readonly (readonly [st
 
 export default function ProductDiscovery(){
   const workspaceId=session.workspace(),authenticated=Boolean(session.token()&&workspaceId);
+  const completedKey=workspaceId?`nexoffice.discovery.completed.${workspaceId}`:'';
+  const setupDismissedKey=workspaceId?`nexoffice.setup.dismissed.${workspaceId}`:'';
+  const tourCompleted=Boolean(authenticated&&completedKey&&localStorage.getItem(completedKey)==='1');
   const[open,setOpen]=useState(false),[step,setStep]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[completed,setCompleted]=useState(false);
   const[form,setForm]=useState<Form>(initialForm),[enrichment,setEnrichment]=useState<Enrichment|null>(null),[answers,setAnswers]=useState<Answers>(initialAnswers),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null);
   const[reviewName,setReviewName]=useState(''),[reviewDescription,setReviewDescription]=useState(''),[reviewOfferings,setReviewOfferings]=useState('');
+  const[tourOpen,setTourOpen]=useState(false),[tourMode,setTourMode]=useState<'tour'|'map'>('tour'),[tourStep,setTourStep]=useState(0),[capBusy,setCapBusy]=useState(false);
+  const[readiness,setReadiness]=useState<Readiness|null>(null),[graph,setGraph]=useState<CapabilityGraph|null>(null),[backup,setBackup]=useState<BackupState|null>(null),[investment,setInvestment]=useState<InvestmentHealth|null>(null);
 
+  useLayoutEffect(()=>{if(!authenticated||!workspaceId)return;if(!tourCompleted&&setupDismissedKey)localStorage.setItem(setupDismissedKey,'1')},[authenticated,workspaceId,tourCompleted,setupDismissedKey]);
   useEffect(()=>{if(!authenticated)return;void load()},[authenticated,workspaceId]);
   async function load(){try{
     const state=await api<OnboardingState>('/v1/onboarding/business');
@@ -57,10 +77,17 @@ export default function ProductDiscovery(){
       invoiceUsage:String(fiscal.invoiceUsage||''),teamSize:String(operations.teamSizeBand||''),bottleneck:String(operations.biggestBottleneck||state.profile?.main_dependency||''),goal:String(commercial.primaryGoal||onboarding.primaryGoal||''),currentTools:Array.isArray(systems.currentTools)?systems.currentTools.map(String):[],namedTools:Array.isArray(systems.namedTools)?systems.namedTools.join(', '):''
     });
     if(state.completed||Object.keys(meta).length)setEnrichment({discovered:{businessName,legalName:String(identity.legalName||'')||undefined,tradeName:String(identity.tradeName||'')||undefined,sector:String(registry.mainActivity||state.profile?.sector||'')||undefined,subsector:String(registry.secondaryActivity||state.profile?.subsector||'')||undefined,city:String(registry.city||'')||undefined,state:String(registry.state||'')||undefined,email:String(contact.email||'')||undefined,phone:String(contact.phone||contact.whatsapp||'')||undefined,description:String(offer.description||'')||undefined,productsOrServices:savedOfferings,socialLinks:savedSocial,registryStatus:String(registry.status||'')||undefined,cnpj:String(identity.cnpj||'')||undefined},sources:Array.isArray(discovery.sources)?discovery.sources:[],needsConfirmation:Array.isArray(discovery.needsConfirmation)?discovery.needsConfirmation:[],suggestions:[],existingProfile:state.profile});
-    if(state.completed){void api<Diagnosis>('/v1/onboarding/business/diagnosis').then(setDiagnosis).catch(()=>{})}
+    if(state.completed){void api<Diagnosis>('/v1/onboarding/business/diagnosis').then(setDiagnosis).catch(()=>{});if(!tourCompleted){setTourMode('tour');setTourStep(0);setTourOpen(true)}}
     if(!state.completed)setOpen(true);
   }catch{setOpen(true)}}
-  async function discover(){setBusy(true);setError('');try{const instagram=form.instagram.trim()?(form.instagram.includes('://')||form.instagram.includes('instagram.com')?form.instagram:`https://instagram.com/${form.instagram.replace(/^@/,'')}`):'';const result=await post<Enrichment>('/v1/onboarding/business/enrich',{businessName:form.businessName,cnpj:form.cnpj,website:form.website||null,instagram:instagram||null,whatsapp:form.whatsapp,socialUrls:form.otherLink?[form.otherLink]:[]});setEnrichment(result);const d=result.discovered;setReviewName(d.businessName||form.businessName);setReviewDescription(d.description||reviewDescription||'');setReviewOfferings((d.productsOrServices?.length?d.productsOrServices:reviewOfferings.split('\n')).slice(0,8).join('\n'));setStep(1)}catch(e:any){setError(e?.message||'Não consegui pesquisar seu negócio agora. Você pode continuar preenchendo manualmente.')}finally{setBusy(false)}}
+  async function loadCapabilities(){setCapBusy(true);try{const[r,g,b,i]=await Promise.all([
+    api<Readiness>('/v1/standalone/readiness').catch(()=>null),
+    api<CapabilityGraph>('/v1/capabilities').catch(()=>null),
+    api<BackupState>('/v1/security/backups').catch(()=>null),
+    api<InvestmentHealth>('/v1/investments/health').catch(()=>null)
+  ]);setReadiness(r);setGraph(g);setBackup(b);setInvestment(i)}finally{setCapBusy(false)}}
+  function finishTour(){if(!workspaceId)return;localStorage.setItem(completedKey,'1');localStorage.removeItem(setupDismissedKey);localStorage.setItem(`nexoffice.setup.reopen.${workspaceId}`,'1');setTourOpen(false);window.location.reload()}
+    async function discover(){setBusy(true);setError('');try{const instagram=form.instagram.trim()?(form.instagram.includes('://')||form.instagram.includes('instagram.com')?form.instagram:`https://instagram.com/${form.instagram.replace(/^@/,'')}`):'';const result=await post<Enrichment>('/v1/onboarding/business/enrich',{businessName:form.businessName,cnpj:form.cnpj,website:form.website||null,instagram:instagram||null,whatsapp:form.whatsapp,socialUrls:form.otherLink?[form.otherLink]:[]});setEnrichment(result);const d=result.discovered;setReviewName(d.businessName||form.businessName);setReviewDescription(d.description||reviewDescription||'');setReviewOfferings((d.productsOrServices?.length?d.productsOrServices:reviewOfferings.split('\n')).slice(0,8).join('\n'));setStep(1)}catch(e:any){setError(e?.message||'Não consegui pesquisar seu negócio agora. Você pode continuar preenchendo manualmente.')}finally{setBusy(false)}}
   function nextFromReview(){setStep(2)}
   async function finishProfile(){setBusy(true);setError('');try{const d=enrichment?.discovered||{},offerings=reviewOfferings.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,12);const instagram=form.instagram.trim()?(form.instagram.includes('://')||form.instagram.includes('instagram.com')?form.instagram:`https://instagram.com/${form.instagram.replace(/^@/,'')}`):'';const metadata={
     identity:{businessName:reviewName||form.businessName,cnpj:form.cnpj||null,hasCnpj:Boolean(form.cnpj),legalName:d.legalName||null,tradeName:d.tradeName||null},
@@ -80,6 +107,26 @@ export default function ProductDiscovery(){
   function launch(id:string){const business=reviewName||form.businessName||'meu negócio',offerings=reviewOfferings.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,4).join(', '),goal=singleLabel(choiceData.goal,answers.goal);setOpen(false);sessionStorage.removeItem('nexoffice.quickAction');if(id==='bot'||id==='bot-crm'||id==='campaign'){
     const role=id==='bot'?'secretary':id==='bot-crm'?'crm':'growth';const prompt=id==='bot'?`Quero criar um Bot para ${business}. Você já conhece o perfil do meu negócio${offerings?`, incluindo: ${offerings}`:''}. Meu objetivo principal é ${goal||'melhorar o atendimento'}. Use o que já sabe e me pergunte apenas o que faltar para colocar o Bot no ar.`:id==='bot-crm'?`Quero colocar Bot + CRM no ar para ${business}. Use o perfil do negócio, nossos canais, oferta e objetivo já cadastrados e estruture captação, qualificação, CRM e follow-up.`:`Quero preparar marketing para ${business}. Use o perfil, ofertas, público, canais e objetivo já confirmados no onboarding para sugerir a primeira campanha e conteúdos.`;sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id,label:id==='bot'?'Criar meu Bot':id==='bot-crm'?'Bot + CRM':'Preparar marketing',role,prompt,createdAt:new Date().toISOString()}));navigate('Assistentes IA');return}
     if(id==='charge'){sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id:'charge',label:'Criar cobrança',target:'Financeiro',createdAt:new Date().toISOString()}));navigate('Financeiro');return}if(id==='fiscal'){sessionStorage.setItem('nexoffice.quickAction',JSON.stringify({id:'invoice',label:'Emitir nota fiscal',target:'Financeiro',createdAt:new Date().toISOString()}));navigate('Financeiro');return}if(id==='day'){navigate('Operação');return}navigate('Hoje')}
+  const tiles=useMemo<Tile[]>(()=>{
+    const metrics=readiness?.metrics;
+    const graphReady=(provider:string)=>Boolean(graph?.capabilities.some(item=>item.provider===provider&&item.usableNow));
+    const docwallet=graphReady('docwallet'),taxagent=graphReady('taxagent'),modo=graphReady('modo'),backupActive=Boolean(backup?.profiles?.some(item=>item.status==='active'));
+    return[
+      {id:'command',icon:'⌁',title:'Central de Comando',description:'Prioridades, riscos, decisões e operação num lugar só.',state:'active',detail:'Nativo do NexOffice'},
+      {id:'team',icon:'✦',title:'Equipe Digital',description:'Especialistas por função trabalhando sobre o mesmo contexto.',state:'active',detail:'Sofia, Clara, Theo, Dora e Maya'},
+      {id:'crm',icon:'◎',title:'CRM & Operação',description:'Clientes, oportunidades, tarefas e continuidade comercial.',state:(metrics?.contacts||0)>0?'active':'available',detail:(metrics?.contacts||0)>0?`${metrics?.contacts} contato(s) na base`:'Pronto para usar'},
+      {id:'finance',icon:'◫',title:'Financeiro & Cobranças',description:'Recebíveis, despesas, conciliação e inteligência financeira.',state:(metrics?.ledgerEntries||0)>0?'active':'available',detail:(metrics?.ledgerEntries||0)>0?'Já recebendo dados':'Pronto para usar'},
+      {id:'knowledge',icon:'?',title:'Pergunte à empresa',description:'Memória operacional com evidências e limites de confiança.',state:'active',detail:'Contexto executivo rastreável'},
+      {id:'documents',icon:'▤',title:'DocWallet',description:'Contratos, assinaturas, inteligência e processos documentais.',state:docwallet?'active':'connect',detail:docwallet?'Bridge disponível':'Conectar DocWallet'},
+      {id:'investments',icon:'↗',title:'Investimentos & Mercados',description:'Radar, macro, notícias e calculadoras via F-Insight.',state:investment?.configured?'active':'connect',detail:investment?.configured?'F-Insight conectado':'Conectar bridge F-Insight'},
+      {id:'fiscal',icon:'#',title:'Fiscal',description:'Readiness, emissão e lineage fiscal via TaxAgent.',state:taxagent?'active':'connect',detail:taxagent?'TaxAgent disponível':'Conectar TaxAgent'},
+      {id:'marketing',icon:'⚡',title:'Marketing & Growth',description:'Conteúdo, inteligência de mercado e prospecção via MODO.',state:modo?'active':'connect',detail:modo?'MODO disponível':'Conectar MODO'},
+      {id:'network',icon:'◇',title:'Rede de Profissionais',description:'Encontrar, contratar e acompanhar trabalho especializado.',state:'available',detail:'Network NexOffice'},
+      {id:'backup',icon:'⛨',title:'Backup Empresarial',description:'Backup com storage do próprio cliente e verificação.',state:backupActive?'active':'available',detail:backupActive?'Backup ativo':'Configuração opcional'},
+      {id:'compliance',icon:'✓',title:'Compliance & Segurança',description:'Permissões, governança, trilhas e fronteiras de dados.',state:'active',detail:'Nativo do workspace'}
+    ] as Tile[]
+  },[readiness,graph,backup,investment]);
+  const currentTour=tour[tourStep];
   if(!authenticated)return null;
   const d=enrichment?.discovered||{},offerings=reviewOfferings.split('\n').filter(Boolean),hasDigital=Boolean(form.website||form.instagram||d.socialLinks?.length||enrichment?.sources?.some(s=>s.status==='ok'&&(s.kind==='public_search'||s.kind==='website'||s.kind==='social')));
   const prepared=[
@@ -91,7 +138,7 @@ export default function ProductDiscovery(){
     {id:'day',title:'Organizar sua rotina',text:'Agenda, tarefas e prioridades com o mesmo contexto.'}
   ].filter(Boolean) as Array<{id:string;title:string;text:string}>;
   return <>
-    <button className="productDiscoveryFab" onClick={()=>{setStep(completed?3:0);setOpen(true)}}><span>✦</span> Perfil do Negócio</button>
+    <button className="productDiscoveryFab" onClick={()=>{if(!completed){setStep(0);setOpen(true);return}setTourMode('map');setTourOpen(true);void loadCapabilities()}}><span>✨</span> Descobrir o NexOffice</button>
     {open&&<div className="productDiscoveryOverlay" onMouseDown={e=>{if(e.target===e.currentTarget&&completed)setOpen(false)}}><section className="businessOnboarding">
       <header className="businessOnboardingHeader"><div><small>NEXOFFICE · SEU NEGÓCIO</small><h2>{step===0?'Vamos conhecer seu negócio.':step===1?'Olha o que encontrei.':step===2?'Só falta o que ninguém consegue adivinhar.':'Seu NexOffice já pode começar ajudando.'}</h2><p>{step===0?'Você dá algumas pistas. Eu pesquiso o que for público e depois peço só o que faltar.':step===1?'Nada inferido vira verdade sem sua confirmação. Corrija o que precisar.':step===2?'Respostas rápidas para adaptar financeiro, CRM, Bot, fiscal, marketing e sua equipe de IA.':'Com esse contexto, seus assistentes e áreas já começam sabendo como seu negócio funciona.'}</p></div>{completed&&<button className="close" onClick={()=>setOpen(false)}>×</button>}</header>
       <div className="businessProgress">{[0,1,2,3].map(i=><i key={i} className={i<=step?'active':''}/>)}</div>
@@ -115,8 +162,17 @@ export default function ProductDiscovery(){
   <div className="businessDiagnosisMetrics"><span><b>{diagnosis.context.knowledgePct==null?'Aprendendo':`${Math.round(diagnosis.context.knowledgePct)}%`}</b><small>conhecimento</small></span><span><b>{diagnosis.context.businessGraph.nodes}</b><small>entidades no contexto</small></span><span><b>{diagnosis.context.businessGraph.edges}</b><small>relações encontradas</small></span></div>
   {diagnosis.connections.recommended.length>0&&<div className="businessConnectNext"><div><small>O QUE CONECTAR AGORA</small><h4>A Nex não quer substituir tudo. Quer entender melhor o que você já usa.</h4></div>{diagnosis.connections.recommended.slice(0,4).map(item=><article key={item.key}><div><b>{item.label}</b>{item.providerHint&&<span>{item.providerHint}</span>}</div><p>{item.reason}</p><small>Destrava: {item.unlocks.slice(0,4).join(' · ')}</small></article>)}</div>}
   <div className="businessDiagnosisTrust"><span>✓ Sem migração obrigatória</span><span>✓ Diagnóstico read-only</span><span>✓ Correlação não vira causalidade</span></div>
-</div>}<div className="preparedGrid">{prepared.map(card=><button key={card.id} onClick={()=>launch(card.id)}><span>→</span><b>{card.title}</b><small>{card.text}</small></button>)}</div><div className="knownSummary"><b>O NexOffice já sabe</b><span>{offerings.length?`${offerings.length} oferta(s) principal(is)`:'sua proposta básica'}</span><span>{answers.audienceType?`quem compra: ${singleLabel(choiceData.audienceType,answers.audienceType)}`:'seu público será refinado com o uso'}</span><span>{answers.paymentMethods.length?`como recebe: ${labels(choiceData.paymentMethods,answers.paymentMethods).join(', ')}`:'formas de recebimento a completar'}</span><span>{answers.goal?`objetivo: ${singleLabel(choiceData.goal,answers.goal)}`:'objetivo a completar'}</span></div><footer><button className="secondary" onClick={()=>setStep(0)}>Revisar perfil</button><button className="primary" onClick={()=>{setOpen(false);navigate('Hoje')}}>Ir para meu NexOffice →</button></footer></div>}
+</div>}<div className="preparedGrid">{prepared.map(card=><button key={card.id} onClick={()=>launch(card.id)}><span>→</span><b>{card.title}</b><small>{card.text}</small></button>)}</div><div className="knownSummary"><b>O NexOffice já sabe</b><span>{offerings.length?`${offerings.length} oferta(s) principal(is)`:'sua proposta básica'}</span><span>{answers.audienceType?`quem compra: ${singleLabel(choiceData.audienceType,answers.audienceType)}`:'seu público será refinado com o uso'}</span><span>{answers.paymentMethods.length?`como recebe: ${labels(choiceData.paymentMethods,answers.paymentMethods).join(', ')}`:'formas de recebimento a completar'}</span><span>{answers.goal?`objetivo: ${singleLabel(choiceData.goal,answers.goal)}`:'objetivo a completar'}</span></div><footer><button className="secondary" onClick={()=>setStep(0)}>Revisar perfil</button><button className="primary" onClick={()=>{setOpen(false);if(!tourCompleted){setTourMode('tour');setTourStep(0);setTourOpen(true);return}navigate('Hoje')}}>{tourCompleted?'Ir para meu NexOffice →':'Conhecer meu NexOffice →'}</button></footer></div>}
       {error&&<div className="businessError">{error}</div>}
+    </section></div>}
+    {tourOpen&&<div className="productDiscoveryOverlay" onMouseDown={e=>{if(e.target===e.currentTarget&&tourCompleted)setTourOpen(false)}}><section className="productDiscoveryShell">
+      <header><div><small>NEXOFFICE · DESCOBERTA</small><h2>{tourMode==='tour'?'Conheça seu NexOffice':'Mapa de Capacidades'}</h2><p>{readiness?.workspace?.name||reviewName||form.businessName||'Seu workspace'} · {capBusy?'atualizando…':tourMode==='tour'?`${tourStep+1} de ${tour.length}`:`${tiles.filter(t=>t.state==='active').length} capacidades ativas`}</p></div>{tourCompleted&&<button onClick={()=>setTourOpen(false)}>×</button>}</header>
+      {tourMode==='tour'?<div className="productTour"><div className="productTourProgress">{tour.map((item,index)=><i key={item.k} className={index<=tourStep?'active':''}/>)}</div><div className="productTourCard"><p>{currentTour.eyebrow}</p><h3>{currentTour.title}</h3><span>{currentTour.text}</span><div>{currentTour.chips.map(item=><b key={item}>{item}</b>)}</div></div><footer><button className="secondary" disabled={tourStep===0} onClick={()=>setTourStep(v=>Math.max(0,v-1))}>← Voltar</button><button className="secondary" onClick={()=>{setTourMode('map');void loadCapabilities()}}>Ver mapa completo</button>{tourStep<tour.length-1?<button className="primary" onClick={()=>setTourStep(v=>v+1)}>Continuar →</button>:<button className="primary" onClick={finishTour}>Agora vamos configurar →</button>}</footer></div>:<div className="productCapabilityMap">
+        <div className="productMapIntro"><div><p>SEU NEXOFFICE</p><h3>Você não precisa ativar tudo de uma vez.</h3><span>O núcleo já funciona sozinho. As capacidades especializadas aparecem conforme fazem sentido para sua empresa.</span></div><div className="productMapStats"><b>{tiles.filter(t=>t.state==='active').length}</b><span>ativas agora</span><b>{tiles.filter(t=>t.state==='available').length}</b><span>prontas para usar</span></div></div>
+        <div className="productMapGrid">{tiles.map(tile=><article key={tile.id} className={tile.state}><div><i>{tile.icon}</i><em>{stateLabel(tile.state)}</em></div><h4>{tile.title}</h4><p>{tile.description}</p><small>{tile.detail}</small></article>)}</div>
+        <div className="productMapLegend"><span><i className="active"/>Ativo</span><span><i className="available"/>Disponível</span><span><i className="connect"/>Precisa conectar</span><span><i className="planned"/>Em evolução</span></div>
+        <footer>{!tourCompleted&&<button className="secondary" onClick={()=>setTourMode('tour')}>← Voltar ao tour</button>}<button className="primary" onClick={()=>tourCompleted?setTourOpen(false):finishTour()}>{tourCompleted?'Fechar mapa':'Configurar meu NexOffice →'}</button></footer>
+      </div>}
     </section></div>}
   </>
 }
