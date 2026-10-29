@@ -62,13 +62,14 @@ export function evaluateCorporateReadConsent(
   ctx:FinanceSourceContext,
   evidence:CorporateFinanceConsent|null,
   serverVerifiedCorporateAuthority:boolean,
+  expectedProviderId:string,
   now:Date=new Date(),
 ):'allow_read'|'deny'{
   if(!serverVerifiedCorporateAuthority||!evidence||evidence.status!=='active')return 'deny';
   if(!ctx.workspaceId||!ctx.representativeUserId||!ctx.verifiedCorporateIdentityRef||!ctx.consentRef)return 'deny';
   if(evidence.workspaceId!==ctx.workspaceId||evidence.representativeUserId!==ctx.representativeUserId||
     evidence.verifiedCorporateIdentityRef!==ctx.verifiedCorporateIdentityRef||
-    evidence.consentRef!==ctx.consentRef||!evidence.providerId)return 'deny';
+    evidence.consentRef!==ctx.consentRef||!expectedProviderId||evidence.providerId!==expectedProviderId)return 'deny';
   const expiry=Date.parse(evidence.expiresAt);
   if(!Number.isFinite(expiry)||expiry<=now.getTime())return 'deny';
   // This adapter must never authorize write, payment or transfer scopes, even if a provider record claims them.
