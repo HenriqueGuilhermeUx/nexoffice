@@ -17,6 +17,48 @@ jobs:
       - name: Audit dependencies for high severity vulnerabilities
         run: npm audit --audit-level=high
       - run: npm run build
+      - name: Security test Nex Personal PostgreSQL certificate and hostname validation
+        run: node --experimental-strip-types scripts/smoke-nex-personal-db-tls.mjs
+      - name: Smoke test bank and on-chain transaction ETL
+        run: node scripts/smoke-nex-personal-etl.mjs
+      - name: Smoke test private recurring spending signals
+        run: node scripts/smoke-nex-personal-recurring.mjs
+      - name: Smoke test personal session continuity and isolation
+        run: node scripts/smoke-nex-personal-session-resilience.mjs
+      - name: Smoke test Personal marketplace independence and privacy
+        run: node --experimental-strip-types scripts/smoke-nex-personal-marketplace.mjs
+      - name: Smoke test Nex Personal F-Insight isolated market research
+        run: node --experimental-strip-types scripts/smoke-nex-personal-finsight.mjs
+      - name: Smoke test Nex Personal future brokerage safety gates
+        run: node scripts/smoke-nex-personal-brokerage.mjs
+      - name: Smoke test Nex Personal CSV and OFX parser
+        run: node --experimental-strip-types scripts/smoke-nex-personal-parser.mjs
+      - name: Smoke test personal bill reminders and Brazil-local due dates
+        run: node --experimental-strip-types scripts/smoke-nex-personal-bill-window.mjs
+      - name: Smoke test Nex Personal FGC and bank-fee draft
+        run: node --experimental-strip-types scripts/smoke-nex-personal-financial-review.mjs
+      - name: Smoke test private civic, debt and legal tools
+        run: node --experimental-strip-types scripts/smoke-nex-personal-citizen-local.mjs
+      - name: Check Nex Personal specialist names and card descriptions
+        run: node scripts/smoke-nex-personal-names.mjs
+      - name: Check unified Nexa brand and isolated crypto Wallet handoff
+        run: node scripts/smoke-nexa-brand-crypto.mjs
+      - name: Verify premium PF command center financial provenance and privacy
+        run: node --experimental-strip-types --test scripts/smoke-nexa-pf-premium-command.mjs
+      - name: Check PF portfolio consent, wallet scope and multi-currency safety
+        run: node --experimental-strip-types --test scripts/smoke-nexa-pf-premium-bridge.mjs
+      - name: Verify Belvo sandbox credentials and environment isolation offline
+        run: node --test scripts/smoke-nexa-belvo-sandbox.mjs
+      - name: Verify Belvo sandbox probe cannot escape preview or expose secrets
+        run: node --test scripts/smoke-nexa-belvo-preview-boot.mjs
+      - name: Verify Belvo mockbank widget and aggregation event safety contracts
+        run: node --test scripts/smoke-nexa-pf-belvo-sandbox-widget.mjs
+      - name: Verify mockbank link ownership and active consent against read-only Belvo API
+        run: node --test scripts/smoke-nexa-belvo-consent-verification.mjs
+      - name: Check consent revocation notices, null external ID and freshness
+        run: node --test scripts/smoke-nexa-belvo-consent-reconciliation.mjs
+      - name: Verify sandbox-only accounts and transactions read model stays segregated
+        run: node --test scripts/smoke-nexa-belvo-sandbox-read-model.mjs
       - name: Smoke test PowerPoint export dependency
         run: node scripts/smoke-pptxgen.mjs
       - name: Smoke test Business Catalog V1
@@ -122,6 +164,10 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/043_recurrence_intelligence.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/044_erp_value_pack.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/045_smart_playbooks.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/046_nex_personal_foundation.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/047_nex_personal_planning.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/048_nex_personal_life_os.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/049_nex_personal_transaction_enrichment.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -132,6 +178,10 @@ jobs:
           done
           cat /tmp/nexoffice-api.log
           exit 1
+      - name: Smoke test Nex Personal isolation and read-only API
+        run: node scripts/smoke-nex-personal.mjs
+      - name: Smoke test Nex Personal manual finance and planning
+        run: node scripts/smoke-nex-personal-studio.mjs
       - name: Smoke test operational flow
         run: node scripts/smoke.mjs
       - name: Smoke test Recurrence Intelligence API
@@ -194,6 +244,61 @@ jobs:
         run: node scripts/smoke-usage-costs.mjs
       - name: Smoke test shared-workspace operational insights
         run: node scripts/smoke-operational-insights.mjs
+      - name: Stop integrated NexOffices API
+        run: |
+          kill "$(cat /tmp/nexoffice-api.pid)" || true
+          for i in {1..20}; do
+            if ! curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+      - name: Build Vite frontend for isolated same-origin preview
+        env:
+          VITE_PERSONAL_STAGING: "true"
+          VITE_PERSONAL_SINGLE_ORIGIN: "true"
+        run: npm run build -w @nexoffice/web
+      - name: Refuse preview schema on any existing NexOffices business DB
+        run: |
+          node --input-type=module -e "import {runPersonalPreviewMigrations} from './apps/api/dist/personal-preview-migrations.js'; try{await runPersonalPreviewMigrations(); process.exitCode=1;}catch(e){if(!String(e.message).includes('REFUSING preview migration')){console.error(e.message);process.exitCode=1;}else{console.log('Existing business DB rejected safely.');}}"
+      - name: Create disposable Nex Personal database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nex_personal_preview_ci'
+      - name: Start isolated Nex Personal preview API
+        env:
+          NEX_PERSONAL_PREVIEW: "true"
+          NEX_PERSONAL_PREVIEW_CI: "true"
+          NEXOFFICE_DATABASE_SCOPE: nex-personal-preview
+          NEXOFFICE_EXTERNAL_ACTIONS: "false"
+          NEXOFFICE_INTELLIGENCE_DAILY_ENGINE: "false"
+          NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS: nex-personal-ci@example.test
+          NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
+          ALLOWED_ORIGINS: https://nex-personal-ci.example.test
+          NEX_PERSONAL_PREVIEW_SELF_ORIGIN: https://nex-personal-preview-api.onrender.com
+          NODE_ENV: production
+          AUTO_MIGRATE: "true"
+          DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
+        run: |
+          export NEX_PERSONAL_PREVIEW_INVITE_SHA256="$(node -e "console.log(require('crypto').createHash('sha256').update(process.env.NEX_PERSONAL_PREVIEW_TEST_INVITE).digest('hex'))")"
+          node apps/api/dist/server-personal.js > /tmp/nex-personal-preview-api.log 2>&1 &
+          echo $! > /tmp/nex-personal-preview-api.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nex-personal-preview-api.log
+          exit 1
+      - name: Smoke test Nex Personal isolated preview safety
+        env:
+          NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS: nex-personal-ci@example.test
+          NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
+          DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
+        run: node scripts/smoke-nex-personal-preview.mjs
+      - name: Smoke test personal privacy export permissions
+        env:
+          NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS: nex-personal-ci@example.test
+          NEX_PERSONAL_PREVIEW_TEST_INVITE: ci-local-personal-invite-not-secret
+          DATABASE_URL: postgresql://nexoffice:nexoffice@127.0.0.1:5432/nex_personal_preview_ci
+        run: node scripts/smoke-nex-personal-privacy.mjs
       - name: API logs on failure
         if: failure()
-        run: cat /tmp/nexoffice-api.log || true
+        run: |
+          cat /tmp/nexoffice-api.log || true
+          cat /tmp/nex-personal-preview-api.log || true

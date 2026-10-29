@@ -10,6 +10,11 @@ import {runDailyIntelligenceEngine} from './business-intelligence-daily-engine.j
 import {reconcileWooviBillingSubscriptions} from './billing-reconciliation.js';
 import {reconcileSmartBotsAddonEntitlements} from './smartbots-addon-reconciliation.js';
 import {registerAuthRoutes} from './routes-auth.js';
+import {registerNexPersonalRoutes} from './routes-nex-personal.js';
+import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
+import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
+import {registerNexPersonalLifeRoutes} from './routes-nex-personal-life.js';
+import {registerNexPersonalPrivacyRoutes} from './routes-nex-personal-privacy.js';
 import {registerCrmRoutes} from './routes-crm.js';
 import {registerOpsRoutes} from './routes-ops.js';
 import {registerFinanceRoutes} from './routes-finance.js';
@@ -87,6 +92,11 @@ app.options('*',async(_req,reply)=>reply.code(204).send());
 app.get('/health',async()=>({status:'ok',service:'nexoffice-api',version:'0.44.0',database:Boolean(db),autoMigrate:String(process.env.AUTO_MIGRATE||'false').toLowerCase()==='true'}));
 
 await registerAuthRoutes(app);
+await registerNexPersonalRoutes(app);
+await registerNexPersonalStudioRoutes(app);
+await registerNexPersonalAgentsRoutes(app);
+await registerNexPersonalLifeRoutes(app);
+await registerNexPersonalPrivacyRoutes(app);
 await registerCrmRoutes(app);
 await registerOpsRoutes(app);
 await registerFinanceRoutes(app);

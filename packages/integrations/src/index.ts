@@ -218,3 +218,5 @@ export class NexOfficePlatformBridgeClient {
     return payload as T;
   }
 }
+
+export * from './nex-finance-core.js';

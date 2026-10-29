@@ -1,0 +1,64 @@
+/*
+ * Nexa life operating system visual identity.
+ * Scoped to the PF application, without affecting NexOffice PJ or Nexa Wallet.
+ * Existing light work surfaces preserve readability; navigation inherits the
+ * Nexa palette (#06111F navy, #218BFF blue, #31D7FF cyan).
+ */
+.np-root{
+ --np-ink:#0b263c;
+ --np-muted:#61778a;
+ --np-blue:#218bff;
+ --np-border:#d5e4ef;
+ background:radial-gradient(circle at 84% -15%,rgba(49,215,255,.12),transparent 34%),#edf5f9;
+}
+.np-brand{font-size:20px;letter-spacing:-.65px;font-weight:800}
+.np-brand strong{color:#31d7ff}
+.np-mark{background:linear-gradient(140deg,#234bff,#31d7ff);box-shadow:0 5px 18px #31d7ff21}
+.np-sidebar{background:#06111f;border-color:#203b59;color:#f4f8fc}
+.np-sidebar .np-nav-label{color:#7e9bb6}
+.np-sidebar .np-nav{color:#a9bcd0}
+.np-sidebar .np-nav:hover,.np-sidebar .np-nav.np-active{
+ color:#31d7ff;background:#102a42
+}
+.np-sidebar-bottom{border-color:#203b59;color:#a9bcd0}
+.np-sidebar .np-text-button{color:#31d7ff}
+.np-primary{background:linear-gradient(115deg,#234bff,#218bff 52%,#00afd4);border-color:#218bff;color:#fff;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.np-primary:hover{filter:brightness(1.08)}
+.np-kicker,.np-auth-kicker{color:#087da6}
+.np-auth{background:#06111f}
+.np-auth-card{border-color:#203b59;background:#0e2138;color:#f4f8fc;box-shadow:0 22px 70px #0006}
+.np-auth .np-auth-kicker,.np-auth .np-kicker{color:#31d7ff}
+.np-auth p{color:#a9bcd0}
+.np-auth-card input{background:#0a192b;color:#f4f8fc;border-color:#36536b}
+.np-auth-card small{color:#a9bcd0}
+.np-auth .np-text-button{color:#31d7ff}
+.np-top{padding-bottom:18px;border-bottom:1px solid #ccdfea}
+.np-top .np-kicker{color:#007a9b}
+.np-pill{background:#dceef8;color:#105175}
+.np-stat,.np-panel{border-color:#d4e4ef;box-shadow:0 5px 24px #082a4709}
+.np-maya{background:linear-gradient(115deg,#e9f5ff,#fff);border-color:#bfe5f6}
+.np-maya-avatar{background:linear-gradient(145deg,#234bff,#31d7ff)}
+.np-nexa-crypto-actions{display:flex;flex-wrap:wrap;gap:12px;margin:23px 0}
+.np-nexa-crypto-actions>a{padding:13px 18px;border-radius:12px;font-weight:750}
+.np-nexa-crypto-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:18px 0}
+.np-nexa-crypto-item{padding:18px;background:#f4f9fc;border:1px solid #d4e4ef;border-radius:14px}
+.np-nexa-crypto-item h3{margin:0 0 10px;font-size:16px}
+.np-nexa-crypto-item span{display:inline-block;border-radius:100px;background:#e4f5fb;color:#096889;padding:5px 9px;font-size:11px;font-weight:750}
+.np-nexa-crypto-item p{font-size:13px;line-height:1.6;margin-top:12px}
+@media(max-width:880px){
+ .np-sidebar{background:#06111f}
+ .np-sidebar .np-brand{color:#f4f8fc}
+ .np-nexa-crypto-actions>a{width:100%}
+}
+
+/* Preview-only identity boundary: life OS credentials are not Wallet credentials. */
+.np-preview-auth-notice{margin:17px 0;padding:15px 17px;border-radius:13px;border:1px solid #315d7d;background:#102e48;text-align:left}
+.np-preview-auth-notice strong{font-size:13px;color:#62e4ff}
+.np-preview-auth-notice p{margin:9px 0;color:#c5d9e8;font-size:12px;line-height:1.6}
+.np-preview-auth-notice a{font-size:12px;color:#62e4ff;font-weight:700;text-underline-offset:3px}
+
+/* Shared official Nexa brand mark; PJ NexOffices branding remains untouched. */
+.np-root .np-nexa-logo{
+ width:35px;height:35px;flex:none;display:block;margin-right:5px;
+ border-radius:10px;object-fit:contain;box-shadow:0 5px 18px rgba(49,215,255,.15)
+}

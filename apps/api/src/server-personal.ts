@@ -1,0 +1,154 @@
+// Independent Nex Personal preview API. No business routing, integrations, billing or jobs.
+// Only enable for an isolated staging database, never an existing business/production DB.
+import 'dotenv/config';
+import {createHash,timingSafeEqual} from 'node:crypto';
+import {spawn} from 'node:child_process';
+import Fastify from 'fastify';
+import {z} from 'zod';
+import {query} from './db.js';
+import {ApiError,issueSession,revokeSession,verifyPassword} from './auth.js';
+import {runPersonalPreviewMigrations} from './personal-preview-migrations.js';
+import {registerNexPersonalRoutes} from './routes-nex-personal.js';
+import {registerNexPersonalStudioRoutes} from './routes-nex-personal-studio.js';
+import {registerNexPersonalAgentsRoutes} from './routes-nex-personal-agents.js';
+import {registerNexPersonalLifeRoutes} from './routes-nex-personal-life.js';
+import {registerNexPersonalPrivacyRoutes} from './routes-nex-personal-privacy.js';
+import {registerNexPersonalFInsightRoutes} from './routes-nex-personal-finsight.js';
+import {registerNexPersonalBrokerageRoutes} from './routes-nex-personal-brokerage.js';
+import {registerBelvoSandboxPreviewRoutes} from './routes-belvo-sandbox-preview.js';
+import {registerPersonalPreviewStatic} from './personal-preview-static.js';
+
+if(process.env.NEX_PERSONAL_PREVIEW!=='true')throw new Error('NEX_PERSONAL_PREVIEW=true required for isolated preview');
+if(process.env.NEXOFFICE_EXTERNAL_ACTIONS!=='false')throw new Error('External actions must be disabled');
+if(process.env.NEXOFFICE_INTELLIGENCE_DAILY_ENGINE!=='false')throw new Error('Business intelligence jobs must be disabled');
+const inviteHash=String(process.env.NEX_PERSONAL_PREVIEW_INVITE_SHA256||'').trim().toLowerCase();
+if(!/^[0-9a-f]{64}$/.test(inviteHash))throw new Error('NEX_PERSONAL_PREVIEW_INVITE_SHA256 must be a valid SHA256 hex digest.');
+const allowedEmails=String(process.env.NEX_PERSONAL_PREVIEW_ALLOWED_EMAILS||'').split(',')
+  .map(v=>v.trim().toLowerCase()).filter(Boolean);
+if(!allowedEmails.length)throw new Error('A non-empty preview email allowlist is required.');
+if(allowedEmails.some(e=>!z.email().safeParse(e).success))throw new Error('Preview email allowlist must contain valid addresses.');
+const origin=String(process.env.ALLOWED_ORIGINS||'').trim();
+const selfOrigin=String(process.env.NEX_PERSONAL_PREVIEW_SELF_ORIGIN||'').trim();
+if(selfOrigin&&!/^https:\/\/[^,\s/]+(?::\d+)?$/.test(selfOrigin))throw new Error('Invalid same-origin preview URL.');
+if(!/^https:\/\/[^,\s/]+(?::\d+)?$/.test(origin))throw new Error('Single exact HTTPS ALLOWED_ORIGINS value required.');
+const databaseUrl=String(process.env.DATABASE_URL||'');
+if(!/^postgres(?:ql)?:\/\//.test(databaseUrl))throw new Error('Dedicated preview PostgreSQL URL required.');
+const isolatedCi=process.env.CI==='true'&&process.env.NEX_PERSONAL_PREVIEW_CI==='true';
+if(!isolatedCi&&!/nex[-_]?personal/i.test(databaseUrl))throw new Error('Preview database URL must identify Nex Personal, not NexOffices/Nexa.');
+if(process.env.NEXOFFICE_DATABASE_SCOPE!=='nex-personal-preview')throw new Error('NEXOFFICE_DATABASE_SCOPE must be nex-personal-preview');
+if(process.env.NODE_ENV!=='production')throw new Error('NODE_ENV=production required for public-facing staging');
+if(process.env.AUTO_MIGRATE!=='true'&&!isolatedCi)throw new Error('AUTO_MIGRATE=true required for isolated preview bootstrapping.');
+
+if(process.env.AUTO_MIGRATE==='true'){
+ // No connection details or personal data in startup logs.
+ console.info('personal_preview_migration_check_start');
+ await runPersonalPreviewMigrations();
+ console.info('personal_preview_migration_check_complete');
+}
+const app=Fastify({logger:{level:'warn'},bodyLimit:512*1024});
+const rate=new Map<string,{start:number;count:number}>();
+function checkRate(key:string,limit:number,windowMs:number){
+ const now=Date.now();const previous=rate.get(key);
+ const info=previous&&now-previous.start<windowMs?previous:{start:now,count:0};
+ info.count++;
+ rate.set(key,info);
+ if(rate.size>5000)for(const [k,v] of rate)if(now-v.start>windowMs)rate.delete(k);
+ if(info.count>limit)throw new ApiError(429,'too_many_requests','Muitas tentativas. Aguarde e tente novamente.');
+}
+const emailSchema=z.string().trim().email().transform(v=>v.toLowerCase());
+app.addHook('onRequest',async(req,reply)=>{
+ reply.header('x-content-type-options','nosniff');
+ reply.header('x-frame-options','DENY');
+ reply.header('referrer-policy','no-referrer');
+ reply.header('cache-control','no-store');
+ reply.header('strict-transport-security','max-age=31536000');
+ reply.header('permissions-policy','camera=(), microphone=(), geolocation=(), payment=()');
+ reply.header('content-security-policy',"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
+ const requestOrigin=String(req.headers.origin||'');
+ if(requestOrigin&&(requestOrigin===origin||requestOrigin===selfOrigin))reply.header('access-control-allow-origin',requestOrigin);
+ reply.header('vary','Origin');
+ reply.header('access-control-allow-headers','authorization,content-type');
+ reply.header('access-control-allow-methods','GET,POST,PUT,PATCH,DELETE,OPTIONS');
+ // Browser CORS is not authentication; tokens remain required on sensitive reads.
+ if(requestOrigin&&requestOrigin!==origin&&requestOrigin!==selfOrigin)throw new ApiError(403,'origin_denied','Origem não autorizada.');
+});
+app.options('*',async(_req,reply)=>reply.code(204).send());
+app.addHook('preHandler',async req=>{
+ // CORS OPTIONS requests never have auth JSON bodies; validate POST login/signup only.
+ if(req.method==='POST'&&(req.url==='/v1/auth/login'||req.url==='/v1/personal/auth/register')){
+   checkRate('auth:'+req.ip,12,15*60*1000);
+   const email=emailSchema.parse((req.body as Record<string,unknown>)?.email);
+   if(!allowedEmails.includes(email))throw new ApiError(403,'preview_invitation_required','Esta homologação está disponível apenas para testadores autorizados.');
+   if(req.url==='/v1/personal/auth/register'){
+     const code=String((req.body as Record<string,unknown>)?.previewInviteCode||'');
+     const provided=createHash('sha256').update(code).digest();
+     const expected=Buffer.from(inviteHash,'hex');
+     if(!code||!timingSafeEqual(provided,expected))
+       throw new ApiError(403,'preview_invitation_required','Código de convite inválido.');
+   }
+ }
+});
+app.get('/health',async()=>({status:'ok',service:'nex-personal-preview',externalFinancialActions:false,realBankConnections:false}));
+
+app.post('/v1/auth/login',async req=>{
+ const input=z.object({email:emailSchema,password:z.string().min(1).max(256)}).strict().parse(req.body);
+ const rows=await query<{id:string;name:string;email:string;password_hash:string;status:string}>(
+  'select id,name,email,password_hash,status from public.users where lower(email)=$1 limit 1',[input.email]);
+ if(!rows.length||rows[0].status!=='active'||!(await verifyPassword(input.password,rows[0].password_hash)))
+   throw new ApiError(401,'invalid_credentials','E-mail ou senha incorretos.');
+ const session=await issueSession(rows[0].id);
+ return {token:session.token,expiresAt:session.expiresAt,user:{id:rows[0].id,name:rows[0].name,email:rows[0].email}};
+});
+app.post('/v1/auth/logout',async req=>{await revokeSession(req);return {ok:true}});
+await registerNexPersonalRoutes(app);
+await registerNexPersonalStudioRoutes(app);
+await registerNexPersonalAgentsRoutes(app);
+await registerNexPersonalLifeRoutes(app);
+await registerNexPersonalPrivacyRoutes(app);
+await registerNexPersonalFInsightRoutes(app);
+await registerNexPersonalBrokerageRoutes(app);
+await registerBelvoSandboxPreviewRoutes(app);
+await registerPersonalPreviewStatic(app);
+
+app.setErrorHandler((error,req,reply)=>{
+ const status=Number((error as any).statusCode||((error as any).issues?400:500));
+ // Do not leak raw SQL or PII in public error responses.
+ if(status>=500){
+  req.log.error({code:(error as any).code||'server_error',name:error instanceof Error?error.name:'UnknownError'},'Preview request failed');
+  return reply.code(500).send({error:'server_error',message:'Não foi possível concluir a operação.'});
+ }
+ return reply.code(status).send({error:(error as any).code||'invalid_request',message:error instanceof Error?error.message:'Requisição inválida.'});
+});
+await app.listen({host:'0.0.0.0',port:Number(process.env.PORT||4000)});
+
+// Belvo connectivity SELF-DIAGNOSTIC. Only the invitation-only personal
+// Render preview can perform one read-only sandbox GET per successful startup.
+// Never mounts an HTTP endpoint, persists credentials, prints provider
+// responses, connects a user, creates a Link or initiates any payments.
+// The app stays available if the external sandbox is offline or refuses auth.
+if(process.env.NEX_PERSONAL_PREVIEW==='true'
+   &&process.env.BELVO_ENV==='sandbox'
+   &&process.env.BELVO_SANDBOX_ENABLED==='true'){
+  const probe=spawn(process.execPath,['scripts/check-nexa-belvo-sandbox.mjs'],{
+    cwd:process.cwd(),env:process.env,stdio:['ignore','ignore','pipe'],
+    shell:false
+  });
+  let detail='';
+  probe.stderr?.on('data',(chunk:Buffer)=>{
+    // Internal buffer only; NEVER log untrusted response, headers or secrets.
+    if(detail.length<160)detail+=String(chunk).slice(0,160-detail.length);
+  });
+  probe.on('error',()=>{
+    console.warn('belvo_sandbox_probe_process_error');
+  });
+  probe.on('close',(code)=>{
+    // Only fixed, whitelisted diagnostic codes may reach logs.
+    const match=/^(SANDBOX_GUARD|KEYS_MISSING|UNAUTHORIZED|UNEXPECTED_STATUS|INVALID_RESPONSE|NETWORK_ERROR|INVALID_CHECK|CHECK_FAILED):/.exec(detail);
+    const safeCode=match?.[1]||'CHECK_FAILED';
+    console.info(code===0?'belvo_sandbox_probe_authenticated'
+      :'belvo_sandbox_probe_'+safeCode.toLowerCase());
+  });
+}else{
+  console.info('belvo_sandbox_probe_disabled');
+}
+
