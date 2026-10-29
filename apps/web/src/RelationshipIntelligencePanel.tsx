@@ -23,13 +23,13 @@ type Payload={
   relationships:Relationship[];bestOptions:Option[];
   rules:Record<string,string>;
   safety:{externalCommunication:false;automaticProposalSend:false;automaticDiscount:false;automaticRenewal:false};
-  sources?:{docWalletExpirationsAvailable:boolean;docWalletAlertsUsed:number;externalContextEventsObserved?:number;googleWorkspaceEventsObserved?:number;microsoft365EventsObserved?:number;manualWorkspaceContextEventsObserved?:number;googleWorkspaceEmailsObserved?:number};
+  sources?:{docWalletExpirationsAvailable:boolean;docWalletAlertsUsed:number;externalContextEventsObserved?:number;googleWorkspaceEventsObserved?:number;microsoft365EventsObserved?:number;manualWorkspaceContextEventsObserved?:number;externalCrmActivitiesObserved?:number;googleWorkspaceEmailsObserved?:number};
 };
 
 const money=(minor:unknown=0)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
 const date=(value?:string|null)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short'}).format(new Date(value)):'—';
 const statusLabel:Record<string,string>={risk:'Em risco',renewal:'Renovação próxima',attention:'Atenção',expansion:'Expansão possível',healthy:'Saudável'};
-const externalSourceLabel=(source:string)=>source==='external.google.gmail'?'Gmail':source==='external.google.calendar'?'Google Calendar':source==='external.microsoft.mail'?'Outlook':source==='external.microsoft.calendar'?'Microsoft Calendar':source==='external.email'?'E-mail importado':source==='external.calendar'?'Calendário importado':'Externo';
+const externalSourceLabel=(source:string)=>source==='external.google.gmail'?'Gmail':source==='external.google.calendar'?'Google Calendar':source==='external.microsoft.mail'?'Outlook':source==='external.microsoft.calendar'?'Microsoft Calendar':source==='external.crm'?'CRM externo':source==='external.email'?'E-mail importado':source==='external.calendar'?'Calendário importado':'Externo';
 
 export default function RelationshipIntelligencePanel(){
   const[workspaceKey,setWorkspaceKey]=useState(()=>session.workspace());
