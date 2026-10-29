@@ -35,7 +35,8 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
       (select count(*) from tasks where workspace_id=$1)::int tasks,
       (select count(*) from business_events where workspace_id=$1 and source='external.spreadsheet')::int spreadsheet_records,
       (select count(*) from business_events where workspace_id=$1 and source in ('external.email','external.google.gmail'))::int email_records,
-      (select count(*) from business_events where workspace_id=$1 and source in ('external.calendar','external.google.calendar'))::int calendar_records`,[workspaceId])
+      (select count(*) from business_events where workspace_id=$1 and source in ('external.calendar','external.google.calendar','external.microsoft.calendar'))::int calendar_records,
+      (select count(*) from business_events where workspace_id=$1 and source='external.erp')::int erp_records`,[workspaceId])
   ]);
 
   const metadata=asObject(profile.metadata);
@@ -90,7 +91,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
     'high',
     'Se o cliente já opera em outro ERP, a Nex deve entender esses registros sem exigir migração imediata.',
     ['pedidos e faturamento','custos','estoque','fornecedores','contas a pagar/receber'],
-    [...connected].some(provider=>provider.includes('erp'))?'connected':'planned'
+    (n(c.erp_records)>0||[...connected].some(provider=>provider.includes('erp')))?'connected':'planned'
   ));
 
   if(currentTools.includes('crm'))add(recommendation(
