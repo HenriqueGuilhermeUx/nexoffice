@@ -121,7 +121,7 @@ export async function registerWorkspaceContextRoutes(app:FastifyInstance){
           `insert into business_events(id,workspace_id,type,source,subject_type,subject_id,payload,correlation_id,occurred_at)
            values($1,$2,'external_calendar.observed','external.calendar','external_calendar_event',$3,$4,$5,$6)`,
           [
-            randomUUID(),ctx.workspaceId,item.externalRef,
+            randomUUID(),ctx.workspaceId,datasetId,
             JSON.stringify({
               datasetId,datasetName:input.datasetName,filename:input.filename,
               uidHash:item.uidHash,summary:item.summary,startAt:item.startAt,endAt:item.endAt,
