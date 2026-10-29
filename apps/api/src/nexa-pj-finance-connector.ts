@@ -100,3 +100,31 @@ export function evaluateVerifiedCorporateReadConsent(
      now.getTime()-checkTime>5*60_000)return 'deny';
   return evaluateCorporateReadConsent(ctx,verified.consent,serverVerifiedCorporateAuthority,expectedProviderId,now);
 }
+
+/**
+ * Provider verification is a server-side capability, not a browser assertion.
+ * This default verifier never manufactures consent evidence.
+ */
+export interface CorporateConsentVerifier {
+  verify(ctx:FinanceSourceContext,providerId:string):Promise<VerifiedProviderConsentEvidence|null>;
+}
+export class DisabledCorporateConsentVerifier implements CorporateConsentVerifier {
+  async verify(_ctx:FinanceSourceContext,_providerId:string):Promise<null> {
+    return null;
+  }
+}
+export async function authorizeCorporateRead(
+  verifier:CorporateConsentVerifier,
+  ctx:FinanceSourceContext,
+  providerId:string,
+  corporateAuthorityVerified:boolean,
+  now:Date=new Date(),
+):Promise<'allow_read'|'deny'> {
+  if(!providerId||!corporateAuthorityVerified||ctx.requestedScopes.length===0)return 'deny';
+  try {
+    const proof=await verifier.verify(ctx,providerId);
+    return evaluateVerifiedCorporateReadConsent(ctx,proof,corporateAuthorityVerified,providerId,now);
+  }catch {
+    return 'deny'; // Provider error, timeout, or missing evidence must never allow access.
+  }
+}
