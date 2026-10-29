@@ -8,6 +8,8 @@ import {bindUSPrivyWalletFromServerDID}
  from '../apps/api/dist/personal-us-privy-did-wallet-binding.js';
 import {attestUSReadOnlyPostgresSession}
  from '../apps/api/dist/personal-us-runtime-db-attestation.js';
+import {assessUSReadOnlyRuntimeCandidate}
+ from '../apps/api/dist/personal-us-runtime-readiness.js';
 import {assessVerifiedPrivyUSNativeUSDCRead,
  authorizeVerifiedPrivyUSAgenticWalletRead,revokeVerifiedPrivyUSAgenticWalletRead,
  listVerifiedPrivyUSMayaReadConsents}
@@ -76,6 +78,35 @@ try{
    },release:()=>client.release()
   };
  }};
+ // Internal US runtime candidate check composes OFFLINE configuration and
+ // REAL DB session attestation. It must reject unsafe configuration before
+ // acquiring even a fake PG connection, then validate and roll back a safe
+ // restricted-role transaction without publishing any HTTP route.
+ const candidateConfig={
+  dedicatedDatabaseUrl:'postgresql://nex_personal_us_api:CI_FAKE_NEVER_CONNECT@ep-ci-us.aws.neon.tech/'+db+'?sslmode=require',
+  dedicatedUSPrivyAppId:'privy_us_preview_ci',
+  allowedFrontendOrigin:'https://nex-personal-usa.netlify.app',
+  assertedDeploymentRegion:'us-east-2',
+  financialExecutionEnabled:false,agentSigningEnabled:false
+ };
+ let deniedPoolConnects=0;
+ await assert.rejects(assessUSReadOnlyRuntimeCandidate({
+  configuration:{...candidateConfig,
+   dedicatedDatabaseUrl:candidateConfig.dedicatedDatabaseUrl.replace(db,'nexoffice')},
+  pool:{connect:async()=>{deniedPoolConnects++;throw Error('NEVER_CONNECT')}}
+ }),/US_RUNTIME_DATABASE_URL_INVALID/);
+ assert.equal(deniedPoolConnects,0,'Unsafe USA config must deny before opening PG');
+ const candidateProof=await assessUSReadOnlyRuntimeCandidate({
+  configuration:candidateConfig,pool:scopedPool
+ });
+ assert.deepEqual(candidateProof,{
+  configurationValidated:true,isolatedDatabaseSessionValidated:true,
+  verifiedTables:6,frontendOrigin:candidateConfig.allowedFrontendOrigin,
+  databaseName:db,regionIndependentlyVerified:false,
+  privyIdentityLiveVerified:false,externalAccessEnabled:false,
+  financialExecutionAllowed:false,agentSigningAllowed:false,
+  operationalActivationApproved:false
+ });
  // A preflight URL/name check alone cannot authenticate physical database
  // privileges. Attest the actual disposable PG role and FORCE-RLS catalogs
  // under the SAME transaction-scoped restricted service role.
