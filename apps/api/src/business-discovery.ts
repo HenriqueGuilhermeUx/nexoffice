@@ -69,7 +69,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
     ['sales','service'].includes(bottleneck)?'high':'normal',
     'Conversas comerciais e decisões importantes costumam ficar fora do CRM.',
     ['histórico de relacionamento','compromissos assumidos','follow-ups esquecidos','memória de decisões'],
-    [...connected].some(provider=>provider.includes('gmail')||provider.includes('microsoft'))?'connected':'planned',
+    [...connected].some(provider=>provider.includes('gmail')||provider.includes('microsoft')||provider.includes('google_workspace'))?'connected':'planned',
     'Google / Microsoft'
   ));
 
@@ -79,7 +79,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
     bottleneck==='agenda'?'high':'normal',
     'Agenda conectada permite relacionar reuniões, clientes, oportunidades e atrasos operacionais.',
     ['reuniões ligadas a clientes','follow-up pós-reunião','capacidade da agenda','sinais de no-show e atraso'],
-    [...connected].some(provider=>provider.includes('calendar'))?'connected':'planned',
+    [...connected].some(provider=>provider.includes('calendar')||provider.includes('google_workspace')||provider.includes('microsoft'))?'connected':'planned',
     'Google Calendar / Microsoft 365'
   ));
 
