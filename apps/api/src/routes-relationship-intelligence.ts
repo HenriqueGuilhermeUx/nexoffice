@@ -28,7 +28,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
   app.get('/v1/crm/relationship-intelligence',async req=>{
     const ctx=await workspaceContext(req,'crm.read');
     const includeDocWallet=String((req.query as any)?.includeDocWallet??'true').toLowerCase()!=='false';
-    const [contacts,activities,ledger,recurring,deals,operations,appointments,catalog,documents,docUpcoming]=await Promise.all([
+    const [contacts,activities,ledger,recurring,deals,operations,appointments,catalog,documents,externalRelationshipEvents,docUpcoming]=await Promise.all([
       query<any>('select id,name,email,phone,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 500',[ctx.workspaceId]),
       query<any>("select contact_id,max(occurred_at) last_activity_at,count(*) filter(where occurred_at>=now()-interval '90 days')::int interactions_90 from crm_activities where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
       query<any>("select contact_id,count(*) filter(where direction='income')::int income_count,count(*) filter(where direction='income' and status='paid')::int paid_count,max(paid_at) filter(where direction='income' and status='paid') last_paid_at,count(*) filter(where direction='income' and status in ('open','overdue') and due_at<now())::int overdue_count,coalesce(sum(amount_minor) filter(where direction='income' and status in ('open','overdue') and due_at<now()),0)::bigint overdue_minor from ledger_entries where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
@@ -38,11 +38,35 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
       query<any>("select contact_id,max(starts_at) filter(where status='completed') last_completed_appointment_at,count(*) filter(where status='no_show' and starts_at>=now()-interval '180 days')::int no_show_180 from appointments where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
       query<any>("select id,name,kind,price_minor,cost_minor,billing_cycle from business_catalog_items where workspace_id=$1 and active=true and price_minor>0 order by case when cost_minor is not null and price_minor>0 then (price_minor-cost_minor)::numeric/price_minor else -1 end desc,price_minor desc,name",[ctx.workspaceId]),
       query<any>("select contact_id,external_ref,title from document_refs where workspace_id=$1 and provider='docwallet' and contact_id is not null",[ctx.workspaceId]),
+      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[ctx.workspaceId]),
       includeDocWallet?readDocWalletUpcomingExpirations(ctx.workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any)):Promise.resolve({ok:false,error:'docwallet_skipped'} as any)
     ]);
 
     const map=(rows:any[])=>new Map(rows.map(row=>[String(row.contact_id),row]));
     const activityBy=map(activities),ledgerBy=map(ledger),recurringBy=map(recurring),dealBy=map(deals),operationBy=map(operations),appointmentBy=map(appointments);
+    const normalizeEmail=(value:unknown)=>String(value||'').trim().toLowerCase();
+    const emailsFrom=(value:unknown)=>{
+      const text=Array.isArray(value)?value.join(' '):String(value||'');
+      return [...new Set((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).map(normalizeEmail).filter(Boolean))];
+    };
+    const externalByEmail=new Map<string,{last_activity_at:string;interactions_90:number;sources:Set<string>}>();
+    for(const event of externalRelationshipEvents){
+      const payload=event.payload&&typeof event.payload==='object'?event.payload:{};
+      const emails=event.source==='external.google.gmail'
+        ?[...emailsFrom(payload.from),...emailsFrom(payload.to),...emailsFrom(payload.cc)]
+        :[...emailsFrom(payload.organizerEmail),...emailsFrom(payload.attendeeEmails)];
+      for(const email of new Set(emails)){
+        const current=externalByEmail.get(email);
+        const occurredAt=String(event.occurred_at);
+        const within90=new Date(occurredAt).getTime()>=Date.now()-90*MS_DAY;
+        if(!current)externalByEmail.set(email,{last_activity_at:occurredAt,interactions_90:within90?1:0,sources:new Set([String(event.source)])});
+        else{
+          if(new Date(occurredAt).getTime()>new Date(current.last_activity_at).getTime())current.last_activity_at=occurredAt;
+          if(within90)current.interactions_90++;
+          current.sources.add(String(event.source));
+        }
+      }
+    }
     const documentByExternal=new Map(documents.map((row:any)=>[String(row.external_ref),row]));
     const documentRenewalByContact=new Map<string,{dueDate:string;title:string}>();
     const alerts=Array.isArray((docUpcoming as any)?.payload?.alerts)?(docUpcoming as any).payload.alerts:[];
@@ -56,13 +80,14 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
 
     for(const contact of contacts){
       const id=String(contact.id),a=activityBy.get(id)||{},l=ledgerBy.get(id)||{},r=recurringBy.get(id)||{},d=dealBy.get(id)||{},o=operationBy.get(id)||{},ap=appointmentBy.get(id)||{};
+      const external=externalByEmail.get(normalizeEmail(contact.email))||null;
       const activeRules=Number(r.active_rules||0),incomeCount=Number(l.income_count||0),paidCount=Number(l.paid_count||0),wonDeals=Number(d.won_deals||0),operationCount=Number(o.operation_count||0);
       const isCustomer=activeRules>0||incomeCount>0||paidCount>0||wonDeals>0||operationCount>0;
       if(!isCustomer)continue;
 
       const purchasedIds=new Set((o.catalog_item_ids||[]).map(String));
       const expansion=catalog.find((item:any)=>!purchasedIds.has(String(item.id)))||null;
-      const lastTouchAt=newest([a.last_activity_at,ap.last_completed_appointment_at,o.last_operation_at,l.last_paid_at,d.last_won_at,contact.created_at]);
+      const lastTouchAt=newest([a.last_activity_at,external?.last_activity_at,ap.last_completed_appointment_at,o.last_operation_at,l.last_paid_at,d.last_won_at,contact.created_at]);
       const staleDays=daysSince(lastTouchAt)??0;
       const overdueCount=Number(l.overdue_count||0),overdueMinor=Number(l.overdue_minor||0),lost90=Number(d.lost_90||0),noShow180=Number(ap.no_show_180||0);
       const documentRenewal=documentRenewalByContact.get(id)||null;
@@ -116,7 +141,11 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
 
       relationships.push({
         contactId:id,name:contact.name,email:contact.email||null,phone:contact.phone||null,companyName:contact.company_name||null,status,reasons,
-        lastTouchAt,daysSinceTouch:staleDays,activeRules,nextCycleAt:r.next_cycle_at||null,renewalAt,documentRenewalAt:documentRenewal?.dueDate||null,documentRenewalTitle:documentRenewal?.title||null,overdueCount,overdueMinor,incomeCount,paidCount,lastPaidAt:l.last_paid_at||null,
+        lastTouchAt,daysSinceTouch:staleDays,
+        externalLastTouchAt:external?.last_activity_at||null,
+        externalInteractions90:Number(external?.interactions_90||0),
+        externalSources:external?[...external.sources].sort():[],
+        activeRules,nextCycleAt:r.next_cycle_at||null,renewalAt,documentRenewalAt:documentRenewal?.dueDate||null,documentRenewalTitle:documentRenewal?.title||null,overdueCount,overdueMinor,incomeCount,paidCount,lastPaidAt:l.last_paid_at||null,
         openDeals:Number(d.open_deals||0),openPipelineMinor:Number(d.open_pipeline_minor||0),wonDeals,lost90,noShow180,operationCount,
         expansionCandidate:expansion?{id:String(expansion.id),name:expansion.name,kind:expansion.kind,priceMinor:Number(expansion.price_minor||0),billingCycle:expansion.billing_cycle}:null,
         bestOptions:options
@@ -140,7 +169,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
       relationships,bestOptions,
       rules:{risk:'2+ recebimentos vencidos, ou atraso combinado com 45+ dias sem interação',renewal:'término de recorrência ou ciclo anual nos próximos 60 dias',attention:'1 atraso, 45+ dias sem interação, 2+ faltas ou oportunidade perdida recente',expansion:'cliente em dia com oferta ativa ainda não utilizada'},
       safety:{externalCommunication:false,automaticProposalSend:false,automaticDiscount:false,automaticRenewal:false},
-      sources:{docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),docWalletAlertsUsed:alerts.length}
+      sources:{docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),docWalletAlertsUsed:alerts.length,googleWorkspaceEventsObserved:externalRelationshipEvents.length,googleWorkspaceContactsMatched:externalByEmail.size}
     };
   });
 }
