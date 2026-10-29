@@ -154,7 +154,7 @@ assert(diagnosis.principles?.migrationNotRequired===true,'diagnosis does not req
 assert(diagnosis.principles?.readOnlyDiagnosis===true,'diagnosis is read-only');
 assert(Array.isArray(diagnosis.connections?.recommended)&&diagnosis.connections.recommended.length>=2,'diagnosis recommends missing context sources');
 assert(diagnosis.connections.recommended.some(item=>item.key==='open_finance'),'cash goal prioritizes Open Finance context');
-assert(diagnosis.connections.recommended.some(item=>item.key==='email'),'existing email use becomes a connection recommendation');
+assert(diagnosis.connections.connected.some(item=>item.key==='email'),'observed email context becomes a connected source');
 assert(Array.isArray(diagnosis.profile?.currentTools)&&diagnosis.profile.currentTools.includes('spreadsheets'),'existing tools are preserved in the profile');
 assert(diagnosis.connections.connected.some(item=>item.key==='spreadsheets'),'spreadsheet recommendation becomes connected after import');
 assert(diagnosis.firstDiagnosis?.title,'diagnosis produces a first finding or learning state');
