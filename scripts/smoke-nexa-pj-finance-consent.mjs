@@ -24,6 +24,21 @@ assert.equal(await authorizeCorporateRead({verify:async()=>{throw Error('provide
 assert.equal(await authorizeCorporateRead({verify:async()=>proof},ctx,'provider-A',true,now),'allow_read');
 assert.equal(await authorizeCorporateRead({verify:async()=>proof},ctx,'provider-B',true,now),'deny');
 assert.equal(await authorizeCorporateRead({verify:async()=>proof},ctx,'provider-A',false,now),'deny');
+let verifierCalls=0;
+const countingVerifier={verify:async()=>{verifierCalls++;return proof}};
+for(const invalid of [
+  {...ctx,requestedScopes:['payments.write']},
+  {...ctx,requestedScopes:['balances.read','transfers.write']},
+  {...ctx,requestedScopes:[]},
+  {...ctx,workspaceId:''},
+  {...ctx,representativeUserId:''},
+  {...ctx,consentRef:''},
+  {...ctx,verifiedCorporateIdentityRef:''},
+]){
+  assert.equal(await authorizeCorporateRead(countingVerifier,invalid,'provider-A',true,now),'deny');
+}
+assert.equal(await authorizeCorporateRead(countingVerifier,ctx,'provider-A',false,now),'deny');
+assert.equal(verifierCalls,0,'invalid read authorization must not contact provider');
 const disabled=new DisabledOpenFinanceConnector();
 assert.equal(await disabled.getConnectionStatus(ctx),'not_connected');
 await assert.rejects(()=>disabled.listBalances(ctx),/NOT_AUTHORIZED/);
