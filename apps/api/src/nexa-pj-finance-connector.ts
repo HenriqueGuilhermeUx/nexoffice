@@ -120,7 +120,11 @@ export async function authorizeCorporateRead(
   corporateAuthorityVerified:boolean,
   now:Date=new Date(),
 ):Promise<'allow_read'|'deny'> {
-  if(!providerId||!corporateAuthorityVerified||ctx.requestedScopes.length===0)return 'deny';
+  // Reject invalid or write scopes BEFORE reaching a third-party verifier.
+  const permitted=new Set(['accounts.read','balances.read','transactions.read','investments.read','liabilities.read']);
+  if(!providerId||!corporateAuthorityVerified||!ctx.workspaceId||!ctx.representativeUserId||
+    !ctx.verifiedCorporateIdentityRef||!ctx.consentRef||ctx.requestedScopes.length===0||
+    ctx.requestedScopes.some(scope=>!permitted.has(scope)))return 'deny';
   try {
     const proof=await verifier.verify(ctx,providerId);
     return evaluateVerifiedCorporateReadConsent(ctx,proof,corporateAuthorityVerified,providerId,now);
