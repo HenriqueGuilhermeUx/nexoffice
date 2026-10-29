@@ -35,6 +35,19 @@ type SessionRow={
  can_create_role:boolean;can_replicate:boolean
 };
 type TableRow={table_name:string;rls_enabled:boolean;rls_forced:boolean};
+type PrivilegeRow={
+ can_create_database:boolean;
+ can_create_us_schema:boolean;
+ can_create_public_schema:boolean;
+ can_insert_identity_links:boolean;
+ can_delete_identity_links:boolean;
+ can_revoke_identity_links:boolean;
+ can_delete_wallet_bindings:boolean;
+ can_truncate_wallet_bindings:boolean;
+ can_delete_agentic_consents:boolean;
+ can_truncate_agentic_consents:boolean;
+ can_change_profile_status:boolean;
+};
 export async function attestUSReadOnlyPostgresSession(input:{
  client:USWalletClient;
  expectedDatabaseName:string;
@@ -74,6 +87,26 @@ export async function attestUSReadOnlyPostgresSession(input:{
     tables.rows.some(t=>!REQUIRED_TABLES.includes(t.table_name as typeof REQUIRED_TABLES[number])||
       t.rls_enabled!==true||t.rls_forced!==true))
   throw Error('US_RUNTIME_DB_FORCED_RLS_REQUIRED');
+ // Check EFFECTIVE privileges, including PUBLIC/inherited grants and grants
+ // accidentally made after the service role was created. Role flags and
+ // FORCE RLS alone do not prove that a role cannot perform dangerous DDL
+ // or rewrite identities. No write/probe operations are performed here.
+ const privileges=await input.client.query<PrivilegeRow>(`
+  SELECT
+   has_database_privilege(current_user,current_database(),'CREATE') AS can_create_database,
+   has_schema_privilege(current_user,'nex_personal_us','CREATE') AS can_create_us_schema,
+   has_schema_privilege(current_user,'public','CREATE') AS can_create_public_schema,
+   has_table_privilege(current_user,'nex_personal_us.privy_identity_links','INSERT') AS can_insert_identity_links,
+   has_table_privilege(current_user,'nex_personal_us.privy_identity_links','DELETE') AS can_delete_identity_links,
+   has_column_privilege(current_user,'nex_personal_us.privy_identity_links','revoked_at','UPDATE') AS can_revoke_identity_links,
+   has_table_privilege(current_user,'nex_personal_us.wallet_bindings','DELETE') AS can_delete_wallet_bindings,
+   has_table_privilege(current_user,'nex_personal_us.wallet_bindings','TRUNCATE') AS can_truncate_wallet_bindings,
+   has_table_privilege(current_user,'nex_personal_us.wallet_agentic_read_consents','DELETE') AS can_delete_agentic_consents,
+   has_table_privilege(current_user,'nex_personal_us.wallet_agentic_read_consents','TRUNCATE') AS can_truncate_agentic_consents,
+   has_column_privilege(current_user,'nex_personal_us.profiles','status','UPDATE') AS can_change_profile_status`);
+ const rights=privileges.rows.length===1?privileges.rows[0]:undefined;
+ if(!rights||Object.values(rights).some(value=>value!==false))
+  throw Error('US_RUNTIME_DB_EXCESS_PRIVILEGES');
  return {
   databaseVerified:true,restrictedSessionRoleVerified:true,
   forcedRLSVerified:true,verifiedTables:REQUIRED_TABLES.length,
