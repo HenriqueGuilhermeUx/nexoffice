@@ -141,6 +141,22 @@ async function readFinanceHub(token,tenant){
   });
   return {status:response.status,data:await response.json()};
 }
+async function readWalletReadiness(token,tenant){
+ const response=await fetch(base+'/v1/platform/nexa-pj/wallet/readiness',{
+  headers:{...(token?{'authorization':'Bearer '+token}:{}),'x-workspace-id':tenant},
+ });
+ return {status:response.status,data:await response.json()};
+}
+assert.equal((await readWalletReadiness('',workspaceId)).status,401,'wallet readiness requires auth');
+const walletReadiness=await readWalletReadiness(browserToken,workspaceId);
+assert.equal(walletReadiness.status,200);
+assert.equal(walletReadiness.data.workspaceId,workspaceId);
+assert.equal(walletReadiness.data.corporateWalletVerified,false);
+assert.equal(walletReadiness.data.balancesVisible,false);
+assert.equal(walletReadiness.data.transactionsVisible,false);
+assert.equal(walletReadiness.data.transfersEnabled,false);
+assert.equal(walletReadiness.data.balanceUsdc,null);
+assert.equal(walletReadiness.data.walletAddress,null);
 assert.equal((await readFinanceHub('',workspaceId)).status,401,'finance hub anonymous access');
 const financeHub=await readFinanceHub(browserToken,workspaceId);
 assert.equal(financeHub.status,200,'authenticated finance hub readiness');
