@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 type Status={
  environment:'sandbox';provider:'belvo';institution:'ofmockbank_br_retail';
  credentialsConfigured?:boolean;widgetAvailable:boolean;simulatedData:true;
+ missingSetup?:string[];
  consentReview?:{status:'not_verified'|'verified_recent'|'review_required'|'verification_stale';verifiedAt:string|null}
 };
 type SandboxDemo={
@@ -11,7 +12,7 @@ type SandboxDemo={
  transactions:Array<{id:string;kind:string;accountId:string;bookedAt:string|null;currency:'BRL'|null;amountMinor:string|null}>;
 };
 function displayMockMinor(minor:string|null,currency:'BRL'|null):string{
- if(!currency||minor===null||!/^[-]?\\d{1,16}$/.test(minor))return 'Valor não disponível';
+ if(!currency||minor===null||!/^[-]?\d{1,16}$/.test(minor))return 'Valor não disponível';
  const amount=Number(minor)/100;
  if(!Number.isSafeInteger(Number(minor)))return 'Valor não disponível';
  return new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(amount);
@@ -109,6 +110,9 @@ export default function NexaBelvoSandboxPanel({token}:{token:string}){
   <div><strong>Belvo Open Finance · banco fictício</strong>
    <small>Teste com dados simulados. Nenhuma instituição real ou pagamento é conectado aqui.</small></div>
   <span className="npx-status npx-status-pending">{status?.widgetAvailable?'Teste liberado':'Preparando conexão segura'}</span>
+  {status?.missingSetup&&status.missingSetup.length>0&&<small role="status">
+   Homologação pendente: {status.missingSetup.map(key=>key.replace(/^BELVO_SANDBOX_/,'').replace(/^NEX_PERSONAL_PREVIEW_/,'PREVIEW_')).join(', ')}. Nenhum valor de configuração é exibido.
+  </small>}
   {status?.consentReview&&<small role="status">{
    status.consentReview.status==='verified_recent'
     ?'Banco fictício: consentimento verificado recentemente na Belvo (sem saldo importado).'
