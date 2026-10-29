@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {api} from './api';
+import {api,post} from './api';
 
 type Integration={id:string;provider:string;status:string;capabilities:string[]};
 type NativeSource={source:string;kind:string;records:number;connected:boolean};
@@ -8,6 +8,7 @@ type Registry={
   native:NativeSource[];
   integrations:Array<{provider:string;status:string;capabilities:string[];connectedAt?:string|null;lastHealthStatus?:string|null;updatedAt?:string|null}>;
   alternativeVentures:Array<{sourceProduct:string;signals:number;lastSignalAt?:string|null;privacy:string}>;
+  external:Array<{source:string;records:number;datasets:number;lastObservedAt?:string|null}>;
   connectorContract:{version:string;normalizesTo:string;supports:string[]};
   safety:{workspaceScoped:boolean;secretsReturned:boolean;externalEffects:boolean};
 };
@@ -47,6 +48,7 @@ const stateLabel=(value:string)=>value==='connected'?'Conectado':value==='availa
 
 export default function NexConnectCenter({workspaceId,current}:{workspaceId:string;current:Integration[]}){
   const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const[filePreview,setFilePreview]=useState<any>(null),[fileContent,setFileContent]=useState(''),[datasetName,setDatasetName]=useState(''),[importBusy,setImportBusy]=useState(false),[importMessage,setImportMessage]=useState('');
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -62,6 +64,26 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
   },[workspaceId]);
 
   useEffect(()=>{void load()},[load]);
+
+  async function previewSpreadsheet(file:File){
+    setImportMessage('');setFilePreview(null);setFileContent('');
+    if(file.size>1_000_000){setImportMessage('Arquivo acima de 1 MB. Reduza o CSV para esta primeira versão.');return}
+    const content=await file.text();
+    setFileContent(content);setDatasetName(file.name.replace(/.[^.]+$/,'').slice(0,120));
+    try{const preview=await post<any>('/v1/connect/spreadsheet/preview',{filename:file.name,content});setFilePreview({...preview,filename:file.name})}
+    catch(e:any){setImportMessage(e?.message||'Não consegui ler a planilha.')}
+  }
+  async function importSpreadsheet(){
+    if(!filePreview||!fileContent||!datasetName.trim())return;
+    setImportBusy(true);setImportMessage('');
+    try{
+      const result=await post<any>('/v1/connect/spreadsheet/import',{filename:filePreview.filename,content:fileContent,datasetName:datasetName.trim(),humanConfirmed:true});
+      setImportMessage(`${result.imported} linha(s) adicionadas ao contexto. ${result.duplicates||0} duplicada(s) ignoradas.`);
+      setFilePreview(null);setFileContent('');setDatasetName('');
+      await load();
+    }catch(e:any){setImportMessage(e?.message||'Não consegui importar a planilha.')}
+    finally{setImportBusy(false)}
+  }
 
   const avSources=useMemo(()=>{
     const bySignal=new Map((registry?.alternativeVentures||[]).map(item=>[String(item.sourceProduct).toLowerCase(),item]));
@@ -79,7 +101,7 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
     ...(diagnosis?.profile.namedTools||[])
   ].filter((value,index,all)=>all.indexOf(value)===index);
 
-  const connectedCount=(registry?.integrations||[]).filter(item=>item.status==='connected').length+(registry?.alternativeVentures||[]).filter(item=>Number(item.signals)>0).length;
+  const connectedCount=(registry?.integrations||[]).filter(item=>item.status==='connected').length+(registry?.alternativeVentures||[]).filter(item=>Number(item.signals)>0).length+(registry?.external||[]).length;
   const recommended=(diagnosis?.connections.recommended||[]).slice(0,6);
 
   if(loading&&!registry)return <section className="connectCenter"><div className="connectLoading">Nex está mapeando as fontes que alimentam sua inteligência…</div></section>;
@@ -128,6 +150,21 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       <div className="connectSectionHead"><div><p className="eyebrow">O CLIENTE JÁ USA</p><h3>Não vamos pedir para começar de novo</h3></div><span>Informado no Business Discovery</span></div>
       <div className="connectToolCloud">{declaredTools.map(tool=><span key={tool}>{tool}</span>)}</div>
     </div>}
+
+    <div className="connectSection connectSpreadsheet">
+      <div className="connectSectionHead"><div><p className="eyebrow">PRIMEIRO CONECTOR EXTERNO REAL</p><h3>Planilhas / CSV</h3><p>Traga controles que já existem fora da NexOffices. Primeiro fazemos preview; só depois da sua confirmação os registros entram no Business Graph.</p></div><span>{(registry.external||[]).find(item=>item.source==='external.spreadsheet')?.records||0} registro(s) conectados</span></div>
+      <div className="connectSpreadsheetBody">
+        <label className="connectUpload"><input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={e=>{const file=e.target.files?.[0];if(file)void previewSpreadsheet(file);e.currentTarget.value=''}}/><span>Selecionar CSV/TXT</span><small>Máx. 1 MB · até 1.000 linhas · arquivo bruto não é armazenado</small></label>
+        {filePreview&&<div className="connectPreview">
+          <div className="connectPreviewTop"><div><small>PREVIEW</small><b>{filePreview.filename}</b><span>{filePreview.rows} linha(s) · {filePreview.headers.length} coluna(s)</span></div><label><span>Nome do conjunto</span><input value={datasetName} onChange={e=>setDatasetName(e.target.value)} maxLength={120}/></label></div>
+          <div className="connectDetected">{filePreview.inferred.slice(0,8).map((item:any)=><span key={item.normalized}><b>{item.header}</b><small>{item.semantic} · {Math.round(Number(item.confidence||0)*100)}%</small></span>)}</div>
+          {filePreview.sample?.length>0&&<div className="connectSample"><div className="connectSampleRow head">{filePreview.headers.slice(0,5).map((header:string)=><b key={header}>{header}</b>)}</div>{filePreview.sample.slice(0,3).map((row:any,index:number)=><div className="connectSampleRow" key={index}>{filePreview.headers.slice(0,5).map((header:string)=><span key={header}>{String(row[header]??'').slice(0,80)||'—'}</span>)}</div>)}</div>}
+          <div className="connectPreviewActions"><button onClick={()=>{setFilePreview(null);setFileContent('');setDatasetName('')}}>Cancelar</button><button className="primary" onClick={()=>void importSpreadsheet()} disabled={importBusy||!datasetName.trim()}>{importBusy?'Importando…':'Confirmar e adicionar ao contexto'}</button></div>
+        </div>}
+        {importMessage&&<div className="connectImportMessage">{importMessage}</div>}
+        {(registry.external||[]).length>0&&<div className="connectExternalSources">{registry.external.map(item=><article key={item.source}><div className="connectSourceIcon">⇄</div><div><b>{item.source.replace('external.','')}</b><small>{item.datasets} dataset(s) · {item.records} registro(s)</small></div><span>Conectado</span></article>)}</div>}
+      </div>
+    </div>
 
     <div className="connectSection connectRecommendations">
       <div className="connectSectionHead"><div><p className="eyebrow">PRÓXIMAS CONEXÕES</p><h3>Onde mais contexto gera mais inteligência agora</h3></div><span>{recommended.length} recomendação(ões)</span></div>
