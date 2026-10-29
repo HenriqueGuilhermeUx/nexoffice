@@ -157,3 +157,21 @@ test('status diagnostics report only missing sandbox setup key names, never secr
  assert.ok(server.includes('missingSetup:sandboxWidgetMissingPrerequisites(env)'));
  assert.ok(contract.includes("checks.filter(([,ok])=>!ok).map(([name])=>name)"));
 });
+
+test('readiness checklist excludes secret values and fails closed for absent fixture',async()=>{
+ const {sandboxWidgetMissingPrerequisites,widgetReady}=await import('../apps/api/dist/belvo-sandbox-contract.js');
+ const missing=sandboxWidgetMissingPrerequisites({...fixture,
+  BELVO_SANDBOX_WIDGET_ENABLED:'false',
+  BELVO_SANDBOX_MOCK_CPF:undefined,
+  BELVO_SANDBOX_WEBHOOK_BEARER:undefined});
+ assert.deepEqual(missing,[
+  'BELVO_SANDBOX_WIDGET_ENABLED',
+  'BELVO_SANDBOX_MOCK_CPF',
+  'BELVO_SANDBOX_WEBHOOK_BEARER'
+ ]);
+ assert.equal(widgetReady({...fixture,BELVO_SANDBOX_WIDGET_ENABLED:'false'}),false);
+ assert.deepEqual(sandboxWidgetMissingPrerequisites(fixture),[]);
+ const output=JSON.stringify(missing);
+ assert.ok(!output.includes(fixture.BELVO_SANDBOX_SECRET_PASSWORD));
+ assert.ok(!output.includes(fixture.BELVO_SANDBOX_MOCK_NAME));
+});
