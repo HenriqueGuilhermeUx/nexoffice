@@ -35,7 +35,7 @@ export async function buildRelationshipIntelligence(workspaceId:string,includeDo
       query<any>("select contact_id,max(starts_at) filter(where status='completed') last_completed_appointment_at,count(*) filter(where status='no_show' and starts_at>=now()-interval '180 days')::int no_show_180 from appointments where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
       query<any>("select id,name,kind,price_minor,cost_minor,billing_cycle from business_catalog_items where workspace_id=$1 and active=true and price_minor>0 order by case when cost_minor is not null and price_minor>0 then (price_minor-cost_minor)::numeric/price_minor else -1 end desc,price_minor desc,name",[workspaceId]),
       query<any>("select contact_id,external_ref,title from document_refs where workspace_id=$1 and provider='docwallet' and contact_id is not null",[workspaceId]),
-      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[workspaceId]),
+      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar','external.email','external.calendar') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[workspaceId]),
       includeDocWallet?readDocWalletUpcomingExpirations(workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any)):Promise.resolve({ok:false,error:'docwallet_skipped'} as any)
     ]);
 
@@ -49,9 +49,10 @@ export async function buildRelationshipIntelligence(workspaceId:string,includeDo
     const externalByEmail=new Map<string,{last_activity_at:string;interactions_90:number;sources:Set<string>}>();
     for(const event of externalRelationshipEvents){
       const payload=event.payload&&typeof event.payload==='object'?event.payload:{};
-      const emails=event.source==='external.google.gmail'
+      const isEmail=event.source==='external.google.gmail'||event.source==='external.email';
+      const emails=isEmail
         ?[...emailsFrom(payload.from),...emailsFrom(payload.to),...emailsFrom(payload.cc)]
-        :[...emailsFrom(payload.organizerEmail),...emailsFrom(payload.attendeeEmails)];
+        :[...emailsFrom(payload.organizer),...emailsFrom(payload.organizerEmail),...emailsFrom(payload.attendees),...emailsFrom(payload.attendeeEmails)];
       for(const email of new Set(emails)){
         const current=externalByEmail.get(email);
         const occurredAt=String(event.occurred_at);
@@ -166,7 +167,14 @@ export async function buildRelationshipIntelligence(workspaceId:string,includeDo
       relationships,bestOptions,
       rules:{risk:'2+ recebimentos vencidos, ou atraso combinado com 45+ dias sem interação',renewal:'término de recorrência ou ciclo anual nos próximos 60 dias',attention:'1 atraso, 45+ dias sem interação, 2+ faltas ou oportunidade perdida recente',expansion:'cliente em dia com oferta ativa ainda não utilizada'},
       safety:{externalCommunication:false,automaticProposalSend:false,automaticDiscount:false,automaticRenewal:false},
-      sources:{docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),docWalletAlertsUsed:alerts.length,googleWorkspaceEventsObserved:externalRelationshipEvents.length,googleWorkspaceEmailsObserved:externalByEmail.size}
+      sources:{
+        docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),
+        docWalletAlertsUsed:alerts.length,
+        externalContextEventsObserved:externalRelationshipEvents.length,
+        googleWorkspaceEventsObserved:externalRelationshipEvents.filter((event:any)=>String(event.source).startsWith('external.google.')).length,
+        manualWorkspaceContextEventsObserved:externalRelationshipEvents.filter((event:any)=>event.source==='external.email'||event.source==='external.calendar').length,
+        googleWorkspaceEmailsObserved:externalRelationshipEvents.filter((event:any)=>event.source==='external.google.gmail').length
+      }
     };
 }
 
