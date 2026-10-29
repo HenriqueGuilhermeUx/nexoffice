@@ -2,6 +2,7 @@ import {buildBusinessGraph} from './business-graph.js';
 import {readBusinessIntelligence} from './business-intelligence.js';
 import {financeSummary} from './events.js';
 import {query} from './db.js';
+import {buildRelationshipIntelligence} from './routes-relationship-intelligence.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -42,6 +43,10 @@ export interface ExecutiveContext {
     projectedCash30Minor:number|null;
     businessHealthScore:number|null;
     businessKnowledgePct:number|null;
+    relationshipAtRisk:number;
+    relationshipRenewalSoon:number;
+    relationshipAttention:number;
+    externalRelationshipEvents:number;
   };
   evidencePolicy:{
     causalClaimsRequireEvidence:true;
@@ -54,7 +59,7 @@ export interface ExecutiveContext {
 const n=(value:unknown)=>Number(value||0);
 
 export async function buildExecutiveContext(workspaceId:string,workspaceName:string):Promise<ExecutiveContext>{
-  const [graph,finance,business,crm,overdueByContact]=await Promise.all([
+  const [graph,finance,business,crm,overdueByContact,relationship]=await Promise.all([
     buildBusinessGraph(workspaceId,workspaceName,90),
     financeSummary(workspaceId),
     readBusinessIntelligence(workspaceId).catch(()=>null),
@@ -78,7 +83,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         and l.due_at<now()
       group by coalesce(c.name,l.description)
       order by amount_minor desc
-      limit 5`,[workspaceId])
+      limit 5`,[workspaceId]),
+    buildRelationshipIntelligence(workspaceId,false).catch(()=>null)
   ]);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
@@ -148,6 +154,40 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
     });
   }
 
+  const relationshipSummary=(relationship as any)?.summary||{};
+  const relationshipRows=Array.isArray((relationship as any)?.relationships)?(relationship as any).relationships:[];
+  const atRiskRelationships=relationshipRows.filter((row:any)=>row.status==='risk');
+  const renewalRelationships=relationshipRows.filter((row:any)=>row.status==='renewal');
+  if(atRiskRelationships.length){
+    const top=atRiskRelationships.slice(0,3);
+    priorities.push({
+      code:'relationship_at_risk',
+      level:atRiskRelationships.length>=3?'critical':'attention',
+      title:'Clientes com relacionamento em risco',
+      detail:`${atRiskRelationships.length} cliente(s) combinam sinais que merecem recuperação prioritária.`,
+      hypothesis:'A classificação usa regras visíveis de atraso e recência de relacionamento; não é uma previsão automática de churn.',
+      recommendedNextStep:'Revisar os clientes em risco, confirmar o contexto financeiro e criar follow-ups internos antes de qualquer contato externo.',
+      evidence:[
+        {source:'nex.relationship_intelligence',label:'atRiskCount',value:atRiskRelationships.length},
+        {source:'nex.relationship_intelligence',label:'topContacts',value:top.map((row:any)=>({name:row.name,reasons:row.reasons,daysSinceTouch:row.daysSinceTouch,externalSources:row.externalSources||[]}))}
+      ]
+    });
+  }
+  if(renewalRelationships.length){
+    const top=renewalRelationships.slice(0,3);
+    priorities.push({
+      code:'relationship_renewal_soon',
+      level:'attention',
+      title:'Renovações pedem preparação',
+      detail:`${renewalRelationships.length} cliente(s) estão em janela de renovação ou término de recorrência.`,
+      recommendedNextStep:'Preparar contexto, oferta e tarefa de renovação; nada deve ser enviado automaticamente.',
+      evidence:[
+        {source:'nex.relationship_intelligence',label:'renewalSoonCount',value:renewalRelationships.length},
+        {source:'nex.relationship_intelligence',label:'topRenewals',value:top.map((row:any)=>({name:row.name,renewalAt:row.renewalAt,reasons:row.reasons,externalSources:row.externalSources||[]}))}
+      ]
+    });
+  }
+
   const projectedCash30=metrics.projected_cash_30_minor??metrics.projectedCash30Minor??null;
   if(projectedCash30!==null&&Number(projectedCash30)<0&&!priorities.some(item=>item.code==='projected_cash_negative')){
     priorities.push({
@@ -195,7 +235,11 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       payableMinor:n((finance as any).payable_minor),
       projectedCash30Minor:projectedCash30===null?null:Number(projectedCash30),
       businessHealthScore:snapshot?.overall_score===null||snapshot?.overall_score===undefined?null:Number(snapshot.overall_score),
-      businessKnowledgePct:snapshot?.knowledge_pct===null||snapshot?.knowledge_pct===undefined?null:Number(snapshot.knowledge_pct)
+      businessKnowledgePct:snapshot?.knowledge_pct===null||snapshot?.knowledge_pct===undefined?null:Number(snapshot.knowledge_pct),
+      relationshipAtRisk:n(relationshipSummary.atRisk),
+      relationshipRenewalSoon:n(relationshipSummary.renewalSoon),
+      relationshipAttention:n(relationshipSummary.attention),
+      externalRelationshipEvents:n((relationship as any)?.sources?.googleWorkspaceEventsObserved)
     },
     evidencePolicy:{
       causalClaimsRequireEvidence:true,
