@@ -94,6 +94,23 @@ export async function registerPlatformRoutes(app:FastifyInstance){
     };
   });
 
+  /** Nexa PJ Wallet integration is not federated yet. Deny by default. */
+  app.get('/v1/platform/nexa-pj/wallet/readiness',async req=>{
+    const ctx=await workspaceContext(req,'workspace.read');
+    return {
+      schemaVersion:1,workspaceScoped:true,
+      workspaceId:ctx.workspaceId,
+      status:'requires_corporate_verification' as const,
+      corporateWalletVerified:false,
+      balancesVisible:false,
+      transactionsVisible:false,
+      transfersEnabled:false,
+      walletAddress:null,
+      balanceUsdc:null,
+      source:'nexa_wallet_pending_authenticated_bridge' as const,
+    };
+  });
+
   /**
    * Future finance hub contract: no institution credentials, no inferred
    * balances, no account provisioning and no side effects.
