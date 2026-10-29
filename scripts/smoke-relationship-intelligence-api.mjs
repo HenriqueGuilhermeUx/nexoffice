@@ -25,6 +25,13 @@ await call('/v1/events',{method:'POST',body:{
   subjectId:null,
   payload:{summary:'Revisão de renovação',organizerEmail:'equipe@nexoffice.test',attendeeEmails:['renovacao@nexoffice.test'],privacy:'calendar_readonly'}
 }});
+await call('/v1/events',{method:'POST',body:{
+  type:'external_calendar.observed',
+  source:'external.calendar',
+  subjectType:null,
+  subjectId:null,
+  payload:{summary:'Reunião importada de renovação',organizer:['equipe@nexoffice.test'],attendees:['renovacao@nexoffice.test'],privacy:'manual_readonly'}
+}});
 
 // 2) Risk: real customer with won deal plus repeated overdue receivables.
 const riskContact=await call('/v1/crm/contacts',{method:'POST',body:{kind:'company',name:'Cliente Risco',email:'risco@nexoffice.test',phone:'5513999991002',source:'smoke',tags:['cliente']}});
@@ -38,6 +45,13 @@ await call('/v1/events',{method:'POST',body:{
   subjectId:null,
   payload:{subject:'Negociação de pendência',from:['risco@nexoffice.test'],to:['financeiro@nexoffice.test'],cc:[],privacy:'metadata_only'}
 }});
+await call('/v1/events',{method:'POST',body:{
+  type:'external_email.observed',
+  source:'external.email',
+  subjectType:null,
+  subjectId:null,
+  payload:{subject:'E-mail importado de pendência',from:['risco@nexoffice.test'],to:['financeiro@nexoffice.test'],cc:[],privacy:'manual_readonly'}
+}});
 
 // 3) Expansion: customer has bought one offer; another active offer exists and relationship is current.
 const expansionContact=await call('/v1/crm/contacts',{method:'POST',body:{kind:'company',name:'Cliente Expansão',email:'expansao@nexoffice.test',phone:'5513999991003',source:'smoke',tags:['cliente']}});
@@ -50,20 +64,24 @@ const intel=await call('/v1/crm/relationship-intelligence');
 assert(intel.summary.customers>=3,'three customer relationships should be analyzed');
 assert(intel.sources?.docWalletExpirationsAvailable===false,'CI without DocWallet must degrade gracefully');
 assert(Number(intel.sources?.googleWorkspaceEventsObserved)>=2,'Google read-only activity must be observed as relationship context');
+assert(Number(intel.sources?.manualWorkspaceContextEventsObserved)>=2,'manual EML/ICS activity must be observed as relationship context');
+assert(Number(intel.sources?.externalContextEventsObserved)>=4,'all external context events must remain auditable');
 
 const renewal=intel.relationships.find(x=>x.contactId===renewalContact.id);
 assert(renewal?.status==='renewal','ending recurrence must be classified as renewal');
 assert(renewal.bestOptions.some(x=>x.action==='create_renewal_proposal'),'renewal proposal option must be ready');
-assert(Number(renewal.externalInteractions90)>=1,'Calendar activity must count as recent external interaction');
-assert(renewal.externalSources.includes('external.google.calendar'),'Calendar source must be exposed for auditability');
+assert(Number(renewal.externalInteractions90)>=2,'Google and manual calendar activity must count as recent external interaction');
+assert(renewal.externalSources.includes('external.google.calendar'),'Google Calendar source must be exposed for auditability');
+assert(renewal.externalSources.includes('external.calendar'),'manual ICS source must be exposed for auditability');
 
 const risk=intel.relationships.find(x=>x.contactId===riskContact.id);
 assert(risk?.status==='risk','repeated overdue receivables must create risk');
 assert(Number(risk.overdueCount)>=2,'risk relationship must expose overdue count');
 assert(risk.bestOptions.some(x=>x.action==='review_finance'),'risk relationship must offer finance review');
 assert(risk.bestOptions.some(x=>x.action==='create_followup_task'),'risk relationship must offer internal follow-up');
-assert(Number(risk.externalInteractions90)>=1,'Gmail metadata must count as recent external interaction');
+assert(Number(risk.externalInteractions90)>=2,'Google and manual email activity must count as recent external interaction');
 assert(risk.externalSources.includes('external.google.gmail'),'Gmail source must be exposed for auditability');
+assert(risk.externalSources.includes('external.email'),'manual EML source must be exposed for auditability');
 
 const expansion=intel.relationships.find(x=>x.contactId===expansionContact.id);
 assert(expansion?.status==='expansion','healthy customer with unused catalog offer must expose expansion');
