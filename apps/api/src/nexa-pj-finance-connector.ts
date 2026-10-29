@@ -132,3 +132,29 @@ export async function authorizeCorporateRead(
     return 'deny'; // Provider error, timeout, or missing evidence must never allow access.
   }
 }
+
+/**
+ * Defensive provider-call bound. The caller supplies a server-owned verifier;
+ * an unresolved verification must never stall a request indefinitely.
+ */
+export async function authorizeCorporateReadWithinDeadline(
+  verifier:CorporateConsentVerifier,
+  ctx:FinanceSourceContext,
+  providerId:string,
+  corporateAuthorityVerified:boolean,
+  deadlineMs=3000,
+  now:Date=new Date(),
+):Promise<'allow_read'|'deny'>{
+  if(!Number.isSafeInteger(deadlineMs)||deadlineMs<1||deadlineMs>10000)return 'deny';
+  const permitted=new Set(['accounts.read','balances.read','transactions.read','investments.read','liabilities.read']);
+  if(!providerId||!corporateAuthorityVerified||!ctx.workspaceId||!ctx.representativeUserId||
+    !ctx.verifiedCorporateIdentityRef||!ctx.consentRef||ctx.requestedScopes.length===0||
+    ctx.requestedScopes.some(s=>!permitted.has(s)))return 'deny';
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{
+    const timeout=new Promise<null>(resolve=>{timer=setTimeout(()=>resolve(null),deadlineMs)});
+    const proof=await Promise.race([verifier.verify(ctx,providerId),timeout]);
+    return evaluateVerifiedCorporateReadConsent(ctx,proof,corporateAuthorityVerified,providerId,now);
+  }catch{return 'deny'}
+  finally{if(timer)clearTimeout(timer)}
+}
