@@ -12,7 +12,7 @@ const querySchema=z.object({
 export async function registerBusinessGraphRoutes(app:FastifyInstance){
   app.get('/v1/business-graph/sources',async req=>{
     const ctx=await workspaceContext(req,'command.read');
-    const [integrations,signals,counts]=await Promise.all([
+    const [integrations,signals,counts,externalSources]=await Promise.all([
       query<any>(`select provider,status,capabilities,connected_at,last_health_status,updated_at from integrations where workspace_id=$1 order by provider`,[ctx.workspaceId]),
       query<any>(`select source_product,count(*)::int signals,max(period_end) last_signal_at from workspace_operational_signals where workspace_id=$1 group by source_product order by source_product`,[ctx.workspaceId]),
       query<any>(`select
@@ -22,7 +22,8 @@ export async function registerBusinessGraphRoutes(app:FastifyInstance){
         (select count(*) from tasks where workspace_id=$1)::int tasks,
         (select count(*) from appointments where workspace_id=$1)::int appointments,
         (select count(*) from document_refs where workspace_id=$1)::int documents,
-        (select count(*) from business_events where workspace_id=$1)::int events`,[ctx.workspaceId])
+        (select count(*) from business_events where workspace_id=$1)::int events`,[ctx.workspaceId]),
+      query<any>(`select source,count(*)::int records,count(distinct subject_id)::int datasets,max(occurred_at) last_observed_at from business_events where workspace_id=$1 and source like 'external.%' group by source order by source`,[ctx.workspaceId])
     ]);
     const native=counts[0]||{};
     return{
@@ -37,6 +38,7 @@ export async function registerBusinessGraphRoutes(app:FastifyInstance){
       ],
       integrations:integrations.map(row=>({provider:row.provider,status:row.status,capabilities:Array.isArray(row.capabilities)?row.capabilities:[],connectedAt:row.connected_at||null,lastHealthStatus:row.last_health_status||null,updatedAt:row.updated_at||null})),
       alternativeVentures:signals.map(row=>({sourceProduct:row.source_product,signals:Number(row.signals||0),lastSignalAt:row.last_signal_at||null,privacy:'aggregate_only'})),
+      external:externalSources.map(row=>({source:row.source,records:Number(row.records||0),datasets:Number(row.datasets||0),lastObservedAt:row.last_observed_at||null})),
       connectorContract:{version:'nex-connect-v1',normalizesTo:'Nex Business Graph',supports:['open_finance','erp','crm','email','calendar','documents','spreadsheet','messaging','commerce','custom']},
       safety:{workspaceScoped:true,secretsReturned:false,externalEffects:false}
     };
