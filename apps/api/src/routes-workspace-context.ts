@@ -185,7 +185,7 @@ function parseIcs(filename:string,content:string,preview:boolean){
   const events:any[]=[];
   for(const block of blocks.slice(0,preview?60:MAX_CALENDAR_EVENTS+1)){
     const lines=block.replace(/\r\n/g,'\n').split('\n').filter(Boolean);
-    const fields:Record<string,string[]]={};
+    const fields: Record<string, string[]> = {};
     for(const line of lines){
       const idx=line.indexOf(':');if(idx<0)continue;
       const rawKey=line.slice(0,idx);const key=rawKey.split(';')[0].toUpperCase();
