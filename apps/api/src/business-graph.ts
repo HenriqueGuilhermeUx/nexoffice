@@ -58,12 +58,12 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   for(const row of documents)addNode({id:key('document',row.id),sourceId:row.id,kind:'document',label:String(row.title||'Documento'),source:`nexoffice.documents.${row.provider||'internal'}`,status:String(row.status||''),occurredAt:row.updated_at,attributes:{documentType:row.document_type||null,provider:row.provider||null,externalRef:row.external_ref||null}});
   for(const row of events){
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
-    if((row.source==='external.email'||row.source==='external.google.gmail')&&(row.type==='external_email.observed'||row.type==='external.google.gmail.observed')){
+    if((row.source==='external.email'||row.source==='external.google.gmail')&&(row.type==='external_email.observed'||row.type==='email.metadata.observed'||row.type==='external.google.gmail.observed')){
       addNode({id:key('email_message',row.id),sourceId:row.id,kind:'email_message',label:String(payload.subject||'E-mail observado').slice(0,500),source:String(row.source),occurredAt:payload.occurredAt||row.occurred_at,attributes:{from:payload.from||[],to:payload.to||[],cc:payload.cc||[],excerpt:payload.excerpt||null,datasetId:payload.datasetId||null,eventType:row.type}});
       continue;
     }
-    if((row.source==='external.calendar'||row.source==='external.google.calendar')&&(row.type==='external_calendar.observed'||row.type==='external.google.calendar.observed')){
-      addNode({id:key('calendar_event',row.id),sourceId:row.id,kind:'calendar_event',label:String(payload.summary||'Compromisso observado').slice(0,500),source:String(row.source),occurredAt:payload.startAt||row.occurred_at,attributes:{startAt:payload.startAt||row.occurred_at,endAt:payload.endAt||null,organizer:payload.organizer||payload.organizerEmail||[],attendees:payload.attendees||payload.attendeeEmails||[],location:payload.location||null,descriptionExcerpt:payload.descriptionExcerpt||null,datasetId:payload.datasetId||null,eventType:row.type}});
+    if((row.source==='external.calendar'||row.source==='external.google.calendar')&&(row.type==='external_calendar.observed'||row.type==='calendar.event.observed'||row.type==='external.google.calendar.observed')){
+      addNode({id:key('calendar_event',row.id),sourceId:row.id,kind:'calendar_event',label:String(payload.summary||'Compromisso observado').slice(0,500),source:String(row.source),occurredAt:payload.startAt||payload.start?.dateTime||payload.start?.date||row.occurred_at,attributes:{startAt:payload.startAt||payload.start?.dateTime||payload.start?.date||row.occurred_at,endAt:payload.endAt||payload.end?.dateTime||payload.end?.date||null,organizer:payload.organizer||payload.organizerEmail||[],attendees:payload.attendees||payload.attendeeEmails||[],location:payload.location||null,descriptionExcerpt:payload.descriptionExcerpt||null,datasetId:payload.datasetId||null,eventType:row.type}});
       continue;
     }
     const label=row.source==='external.spreadsheet'&&payload.datasetName?`Planilha · ${payload.datasetName}`:String(row.type||'Evento');
