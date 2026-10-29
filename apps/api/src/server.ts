@@ -33,6 +33,7 @@ import {registerConnectSpreadsheetRoutes} from './routes-connect-spreadsheet.js'
 import {registerWorkspaceContextRoutes} from './routes-workspace-context.js';
 import {registerGoogleConnectRoutes} from './routes-connect-google.js';
 import {registerMicrosoftConnectRoutes} from './routes-connect-microsoft.js';
+import {registerErpConnectRoutes} from './routes-connect-erp.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
@@ -140,6 +141,7 @@ await registerConnectSpreadsheetRoutes(app);
 await registerWorkspaceContextRoutes(app);
 await registerGoogleConnectRoutes(app);
 await registerMicrosoftConnectRoutes(app);
+await registerErpConnectRoutes(app);
 await registerStandaloneRoutes(app);
 await registerBillingRoutes(app);
 
