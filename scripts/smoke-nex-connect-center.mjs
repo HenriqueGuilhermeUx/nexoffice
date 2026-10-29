@@ -27,7 +27,7 @@ assert.ok(component.includes("post<any>('/v1/connect/spreadsheet/preview'"),'spr
 assert.ok(component.includes("post<any>('/v1/connect/spreadsheet/import'"),'spreadsheet import must be explicit');
 assert.ok(component.includes('humanConfirmed:true'),'spreadsheet import must require explicit human confirmation');
 const postTargets=[...component.matchAll(/post<any>\('([^']+)'/g)].map(match=>match[1]);
-assert.deepEqual([...new Set(postTargets)].sort(),['/v1/connect/erp/import','/v1/connect/erp/preview','/v1/connect/google/disconnect','/v1/connect/google/start','/v1/connect/google/sync','/v1/connect/microsoft/disconnect','/v1/connect/microsoft/start','/v1/connect/microsoft/sync','/v1/connect/spreadsheet/import','/v1/connect/spreadsheet/preview'],'Nex Connect Center write calls must stay inside explicit connector actions');
+assert.deepEqual([...new Set(postTargets)].sort(),['/v1/connect/crm/import','/v1/connect/crm/preview','/v1/connect/erp/import','/v1/connect/erp/preview','/v1/connect/google/disconnect','/v1/connect/google/start','/v1/connect/google/sync','/v1/connect/microsoft/disconnect','/v1/connect/microsoft/start','/v1/connect/microsoft/sync','/v1/connect/spreadsheet/import','/v1/connect/spreadsheet/preview'],'Nex Connect Center write calls must stay inside explicit connector actions');
 assert.ok(app.includes("['integrations','Nex Connect','⇄']"),'navigation must expose Nex Connect');
 assert.ok(app.includes("<NexConnectCenter workspaceId={activeWorkspace?.id||''} current={integrations}/>"),'Nex Connect Center must replace legacy integration view');
 assert.ok(css.includes('.connectCenter'),'Nex Connect Center styles missing');
@@ -47,6 +47,12 @@ assert.ok(component.includes("post<any>('/v1/connect/erp/import'"),'ERP import m
 assert.ok(component.includes('Arquivo e linha bruta não armazenados'),'ERP minimization must be disclosed');
 assert.ok(component.includes('Sem ação financeira externa'),'ERP import must disclose no financial external action');
 assert.ok(css.includes('.connectErpControls'),'ERP connector styles missing');
+assert.ok(component.includes('CRM EXTERNO UNIVERSAL'),'external CRM universal import must be visible');
+assert.ok(component.includes("post<any>('/v1/connect/crm/preview'"),'CRM import must preview before persistence');
+assert.ok(component.includes("post<any>('/v1/connect/crm/import'"),'CRM import must require explicit import action');
+assert.ok(component.includes('Sem migração automática'),'CRM UX must disclose no automatic migration');
+assert.ok(component.includes('Relação por e-mail exato'),'CRM UX must disclose deterministic matching');
+assert.ok(component.includes('Sem mensagens ou alterações no CRM externo'),'CRM UX must disclose no external mutations');
 
 assert.ok(component.includes('IMPORTAÇÃO MANUAL · E-MAIL + AGENDA'),'manual Workspace Context section must be visible');
 assert.ok(component.includes("previewWorkspaceContext(file,'email')"),'manual email import must preview EML before persistence');
