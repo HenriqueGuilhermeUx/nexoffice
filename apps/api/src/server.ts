@@ -35,6 +35,7 @@ import {registerGoogleConnectRoutes} from './routes-connect-google.js';
 import {registerMicrosoftConnectRoutes} from './routes-connect-microsoft.js';
 import {registerErpConnectRoutes} from './routes-connect-erp.js';
 import {registerCrmConnectRoutes} from './routes-connect-crm.js';
+import {registerCrossSystemIntelligenceRoutes} from './routes-cross-system-intelligence.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
@@ -144,6 +145,7 @@ await registerGoogleConnectRoutes(app);
 await registerMicrosoftConnectRoutes(app);
 await registerErpConnectRoutes(app);
 await registerCrmConnectRoutes(app);
+await registerCrossSystemIntelligenceRoutes(app);
 await registerStandaloneRoutes(app);
 await registerBillingRoutes(app);
 
