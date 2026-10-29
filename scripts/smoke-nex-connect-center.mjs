@@ -39,8 +39,8 @@ assert.ok(component.includes('Tokens criptografados'),'Google connector must dis
 assert.ok(component.includes('IMPORTAÇÃO MANUAL · E-MAIL + AGENDA'),'manual Workspace Context section must be visible');
 assert.ok(component.includes("previewWorkspaceContext(file,'email')"),'manual email import must preview EML before persistence');
 assert.ok(component.includes("previewWorkspaceContext(file,'calendar')"),'manual calendar import must preview ICS before persistence');
-assert.ok(component.includes(`/v1/connect/${kind}/preview`),'manual context must call preview endpoint first');
-assert.ok(component.includes(`/v1/connect/${contextKind}/import`),'manual context import must be explicit');
+assert.ok(component.includes('`/v1/connect/${kind}/preview`'),'manual context must call preview endpoint first');
+assert.ok(component.includes('`/v1/connect/${contextKind}/import`'),'manual context import must be explicit');
 assert.ok(component.includes('humanConfirmed:true'),'all manual context imports must require explicit confirmation');
 assert.ok(component.includes('Arquivo bruto não armazenado'),'manual context UX must disclose raw-file minimization');
 assert.ok(component.includes('Sem efeito externo'),'manual context UX must disclose no external effects');
