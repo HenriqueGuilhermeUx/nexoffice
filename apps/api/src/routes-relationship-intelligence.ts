@@ -24,22 +24,19 @@ const earliest=(values:(string|null|undefined)[])=>{
   return valid[0]||null;
 };
 
-export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance){
-  app.get('/v1/crm/relationship-intelligence',async req=>{
-    const ctx=await workspaceContext(req,'crm.read');
-    const includeDocWallet=String((req.query as any)?.includeDocWallet??'true').toLowerCase()!=='false';
+export async function buildRelationshipIntelligence(workspaceId:string,includeDocWallet=true){
     const [contacts,activities,ledger,recurring,deals,operations,appointments,catalog,documents,externalRelationshipEvents,docUpcoming]=await Promise.all([
-      query<any>('select id,name,email,phone,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 500',[ctx.workspaceId]),
-      query<any>("select contact_id,max(occurred_at) last_activity_at,count(*) filter(where occurred_at>=now()-interval '90 days')::int interactions_90 from crm_activities where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
-      query<any>("select contact_id,count(*) filter(where direction='income')::int income_count,count(*) filter(where direction='income' and status='paid')::int paid_count,max(paid_at) filter(where direction='income' and status='paid') last_paid_at,count(*) filter(where direction='income' and status in ('open','overdue') and due_at<now())::int overdue_count,coalesce(sum(amount_minor) filter(where direction='income' and status in ('open','overdue') and due_at<now()),0)::bigint overdue_minor from ledger_entries where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
-      query<any>("select contact_id,count(*) filter(where active and direction='income')::int active_rules,min(next_run_at) filter(where active and direction='income') next_cycle_at,min(ends_at) filter(where active and direction='income' and ends_at is not null and ends_at>=now()) recurrence_ends_at,min(next_run_at) filter(where active and direction='income' and frequency='yearly' and next_run_at>=now()) yearly_renewal_at from recurring_rules where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
-      query<any>("select contact_id,count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint open_pipeline_minor,count(*) filter(where stage='won')::int won_deals,count(*) filter(where stage='lost' and updated_at>=now()-interval '90 days')::int lost_90,max(updated_at) filter(where stage='won') last_won_at from crm_deals where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
-      query<any>("select contact_id,count(*)::int operation_count,max(created_at) last_operation_at,array_remove(array_agg(distinct catalog_item_id),null) catalog_item_ids from business_operations where workspace_id=$1 and contact_id is not null and status<>'cancelled' group by contact_id",[ctx.workspaceId]),
-      query<any>("select contact_id,max(starts_at) filter(where status='completed') last_completed_appointment_at,count(*) filter(where status='no_show' and starts_at>=now()-interval '180 days')::int no_show_180 from appointments where workspace_id=$1 and contact_id is not null group by contact_id",[ctx.workspaceId]),
-      query<any>("select id,name,kind,price_minor,cost_minor,billing_cycle from business_catalog_items where workspace_id=$1 and active=true and price_minor>0 order by case when cost_minor is not null and price_minor>0 then (price_minor-cost_minor)::numeric/price_minor else -1 end desc,price_minor desc,name",[ctx.workspaceId]),
-      query<any>("select contact_id,external_ref,title from document_refs where workspace_id=$1 and provider='docwallet' and contact_id is not null",[ctx.workspaceId]),
-      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[ctx.workspaceId]),
-      includeDocWallet?readDocWalletUpcomingExpirations(ctx.workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any)):Promise.resolve({ok:false,error:'docwallet_skipped'} as any)
+      query<any>('select id,name,email,phone,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 500',[workspaceId]),
+      query<any>("select contact_id,max(occurred_at) last_activity_at,count(*) filter(where occurred_at>=now()-interval '90 days')::int interactions_90 from crm_activities where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
+      query<any>("select contact_id,count(*) filter(where direction='income')::int income_count,count(*) filter(where direction='income' and status='paid')::int paid_count,max(paid_at) filter(where direction='income' and status='paid') last_paid_at,count(*) filter(where direction='income' and status in ('open','overdue') and due_at<now())::int overdue_count,coalesce(sum(amount_minor) filter(where direction='income' and status in ('open','overdue') and due_at<now()),0)::bigint overdue_minor from ledger_entries where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
+      query<any>("select contact_id,count(*) filter(where active and direction='income')::int active_rules,min(next_run_at) filter(where active and direction='income') next_cycle_at,min(ends_at) filter(where active and direction='income' and ends_at is not null and ends_at>=now()) recurrence_ends_at,min(next_run_at) filter(where active and direction='income' and frequency='yearly' and next_run_at>=now()) yearly_renewal_at from recurring_rules where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
+      query<any>("select contact_id,count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint open_pipeline_minor,count(*) filter(where stage='won')::int won_deals,count(*) filter(where stage='lost' and updated_at>=now()-interval '90 days')::int lost_90,max(updated_at) filter(where stage='won') last_won_at from crm_deals where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
+      query<any>("select contact_id,count(*)::int operation_count,max(created_at) last_operation_at,array_remove(array_agg(distinct catalog_item_id),null) catalog_item_ids from business_operations where workspace_id=$1 and contact_id is not null and status<>'cancelled' group by contact_id",[workspaceId]),
+      query<any>("select contact_id,max(starts_at) filter(where status='completed') last_completed_appointment_at,count(*) filter(where status='no_show' and starts_at>=now()-interval '180 days')::int no_show_180 from appointments where workspace_id=$1 and contact_id is not null group by contact_id",[workspaceId]),
+      query<any>("select id,name,kind,price_minor,cost_minor,billing_cycle from business_catalog_items where workspace_id=$1 and active=true and price_minor>0 order by case when cost_minor is not null and price_minor>0 then (price_minor-cost_minor)::numeric/price_minor else -1 end desc,price_minor desc,name",[workspaceId]),
+      query<any>("select contact_id,external_ref,title from document_refs where workspace_id=$1 and provider='docwallet' and contact_id is not null",[workspaceId]),
+      query<any>("select source,occurred_at,payload from business_events where workspace_id=$1 and source in ('external.google.gmail','external.google.calendar') and occurred_at>=now()-interval '180 days' order by occurred_at desc limit 2000",[workspaceId]),
+      includeDocWallet?readDocWalletUpcomingExpirations(workspaceId,60).catch(()=>({ok:false,error:'docwallet_unavailable'} as any)):Promise.resolve({ok:false,error:'docwallet_skipped'} as any)
     ]);
 
     const map=(rows:any[])=>new Map(rows.map(row=>[String(row.contact_id),row]));
@@ -171,5 +168,12 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
       safety:{externalCommunication:false,automaticProposalSend:false,automaticDiscount:false,automaticRenewal:false},
       sources:{docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),docWalletAlertsUsed:alerts.length,googleWorkspaceEventsObserved:externalRelationshipEvents.length,googleWorkspaceEmailsObserved:externalByEmail.size}
     };
+}
+
+export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance){
+  app.get('/v1/crm/relationship-intelligence',async req=>{
+    const ctx=await workspaceContext(req,'crm.read');
+    const includeDocWallet=String((req.query as any)?.includeDocWallet??'true').toLowerCase()!=='false';
+    return buildRelationshipIntelligence(ctx.workspaceId,includeDocWallet);
   });
 }
