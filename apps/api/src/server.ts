@@ -32,6 +32,7 @@ import {registerStatementImportRoutes} from './routes-statement-import.js';
 import {registerConnectSpreadsheetRoutes} from './routes-connect-spreadsheet.js';
 import {registerWorkspaceContextRoutes} from './routes-workspace-context.js';
 import {registerGoogleConnectRoutes} from './routes-connect-google.js';
+import {registerMicrosoftConnectRoutes} from './routes-connect-microsoft.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
@@ -138,6 +139,7 @@ await registerStatementImportRoutes(app);
 await registerConnectSpreadsheetRoutes(app);
 await registerWorkspaceContextRoutes(app);
 await registerGoogleConnectRoutes(app);
+await registerMicrosoftConnectRoutes(app);
 await registerStandaloneRoutes(app);
 await registerBillingRoutes(app);
 
