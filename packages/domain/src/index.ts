@@ -243,3 +243,4 @@ export function moneyFromMinor(valueMinor: number, currency = 'BRL'): string {
 export const NEXOFFICE_MODULES = [
   'crm', 'agenda', 'tasks', 'erp', 'collections', 'documents', 'service', 'command-center', 'agents', 'growth', 'usage', 'flexible-modules'
 ] as const;
+export * from './business-graph.js';
