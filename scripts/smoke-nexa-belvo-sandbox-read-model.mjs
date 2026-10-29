@@ -131,4 +131,10 @@ test('route and premium screen do not touch verified real account ledgers',()=>{
  assert.ok(frontend.includes('fora do seu patrimônio'));
 });
 
-test('refuses BRL values when declared account and balance currencies conflict',async()=>{\n const p=provider({accounts:{count:1,next:null,results:[{...account,currency:'USD',balance:{currency:'BRL',current:100,available:90}}]}});\n const result=await readBelvoSandboxDemo(fixture,input,p.fetcher,now);\n assert.equal(result.accounts[0].currency,null);\n assert.equal(result.accounts[0].currentMinor,null);\n assert.equal(result.accounts[0].availableMinor,null);\n});\n
+test('refuses BRL values when declared account and balance currencies conflict',async()=>{
+ const p=provider({accounts:{count:1,next:null,results:[{...account,currency:'USD',balance:{currency:'BRL',current:100,available:90}}]}});
+ const result=await readBelvoSandboxDemo(fixture,input,p.fetcher,now);
+ assert.equal(result.accounts[0].currency,null);
+ assert.equal(result.accounts[0].currentMinor,null);
+ assert.equal(result.accounts[0].availableMinor,null);
+});
