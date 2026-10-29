@@ -53,6 +53,7 @@ const stateLabel=(value:string)=>value==='connected'?'Conectado':value==='availa
 export default function NexConnectCenter({workspaceId,current}:{workspaceId:string;current:Integration[]}){
   const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[google,setGoogle]=useState<GoogleStatus|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const[filePreview,setFilePreview]=useState<any>(null),[fileContent,setFileContent]=useState(''),[datasetName,setDatasetName]=useState(''),[importBusy,setImportBusy]=useState(false),[importMessage,setImportMessage]=useState('');
+  const[contextPreview,setContextPreview]=useState<any>(null),[contextContent,setContextContent]=useState(''),[contextDatasetName,setContextDatasetName]=useState(''),[contextKind,setContextKind]=useState<'email'|'calendar'|null>(null),[contextBusy,setContextBusy]=useState(false),[contextMessage,setContextMessage]=useState('');
   const[googleBusy,setGoogleBusy]=useState(false),[googleMessage,setGoogleMessage]=useState('');
 
   const load=useCallback(async()=>{
@@ -94,6 +95,38 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
     try{await post<any>('/v1/connect/google/disconnect',{});setGoogleMessage('Google Workspace desconectado e tokens removidos.');await load()}
     catch(e:any){setGoogleMessage(e?.message||'Não foi possível desconectar o Google Workspace.')}
     finally{setGoogleBusy(false)}
+  }
+
+  async function previewWorkspaceContext(file:File,kind:'email'|'calendar'){
+    setContextMessage('');setContextPreview(null);setContextContent('');setContextKind(kind);
+    const limit=kind==='email'?700_000:1_000_000;
+    if(file.size>limit){setContextMessage(kind==='email'?'EML acima de 700 KB.':'ICS acima de 1 MB.');return}
+    const content=await file.text();
+    setContextContent(content);setContextDatasetName(file.name.replace(/\.[^.]+$/,'').slice(0,120));
+    try{
+      const preview=await post<any>(`/v1/connect/${kind}/preview`,{filename:file.name,content});
+      setContextPreview({...preview,filename:file.name,kind});
+    }catch(e:any){setContextMessage(e?.message||'Não consegui ler o arquivo.')}
+  }
+  async function importWorkspaceContext(){
+    if(!contextPreview||!contextContent||!contextKind||!contextDatasetName.trim())return;
+    setContextBusy(true);setContextMessage('');
+    try{
+      const result=await post<any>(`/v1/connect/${contextKind}/import`,{
+        filename:contextPreview.filename,
+        content:contextContent,
+        datasetName:contextDatasetName.trim(),
+        humanConfirmed:true
+      });
+      const amount=contextKind==='email'?Number(result.imported||0):Number(result.imported||0);
+      setContextMessage(`${amount} registro(s) adicionados ao contexto. ${Number(result.duplicates||0)} duplicado(s) ignorados.`);
+      setContextPreview(null);setContextContent('');setContextDatasetName('');setContextKind(null);
+      await load();
+    }catch(e:any){setContextMessage(e?.message||'Não consegui importar este contexto.')}
+    finally{setContextBusy(false)}
+  }
+  function clearWorkspaceContextPreview(){
+    setContextPreview(null);setContextContent('');setContextDatasetName('');setContextKind(null);
   }
 
   async function previewSpreadsheet(file:File){
@@ -201,6 +234,23 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       </div>
       {googleMessage&&<div className="connectImportMessage">{googleMessage}</div>}
       <div className="connectTrust"><span>✓ OAuth assinado</span><span>✓ Tokens criptografados</span><span>✓ Gmail sem corpo/anexos</span><span>✓ Agenda sem escrita</span></div>
+    </div>
+
+    <div className="connectSection connectManualContext">
+      <div className="connectSectionHead"><div><p className="eyebrow">IMPORTAÇÃO MANUAL · E-MAIL + AGENDA</p><h3>Sem Google? Traga o contexto por arquivo.</h3><p>EML e ICS alimentam as mesmas entidades do Business Graph. A Nex faz preview primeiro; só após sua confirmação registra o contexto.</p></div><span>{(registry.external||[]).filter(item=>item.source==='external.email'||item.source==='external.calendar').reduce((sum,item)=>sum+Number(item.records||0),0)} registro(s) importados</span></div>
+      <div className="connectManualGrid">
+        <label className="connectManualCard"><input type="file" accept=".eml,message/rfc822" onChange={e=>{const file=e.target.files?.[0];if(file)void previewWorkspaceContext(file,'email');e.currentTarget.value=''}}/><div className="connectSourceIcon">✉</div><div><b>Importar e-mail .EML</b><p>Assunto, participantes, data e trecho limitado. Sem anexos e sem armazenar o arquivo bruto.</p><small>Máx. 700 KB</small></div></label>
+        <label className="connectManualCard"><input type="file" accept=".ics,text/calendar" onChange={e=>{const file=e.target.files?.[0];if(file)void previewWorkspaceContext(file,'calendar');e.currentTarget.value=''}}/><div className="connectSourceIcon">◷</div><div><b>Importar calendário .ICS</b><p>Eventos, horários, organizador, participantes e local. Sem criar ou alterar agenda externa.</p><small>Máx. 1 MB · até 500 eventos</small></div></label>
+      </div>
+      {contextPreview&&<div className="connectContextPreview">
+        <div className="connectPreviewTop"><div><small>PREVIEW · {contextPreview.kind==='email'?'E-MAIL':'CALENDÁRIO'}</small><b>{contextPreview.filename}</b><span>{contextPreview.kind==='email'?'1 mensagem':`${contextPreview.count||0} evento(s)`}</span></div><label><span>Nome do conjunto</span><input value={contextDatasetName} onChange={e=>setContextDatasetName(e.target.value)} maxLength={120}/></label></div>
+        {contextPreview.kind==='email'&&contextPreview.message&&<div className="connectEmailPreview"><h4>{contextPreview.message.subject||'(sem assunto)'}</h4><p><b>De:</b> {(contextPreview.message.from||[]).join(', ')||'—'}</p><p><b>Para:</b> {(contextPreview.message.to||[]).join(', ')||'—'}</p><small>{contextPreview.message.excerpt||'Sem trecho disponível.'}</small></div>}
+        {contextPreview.kind==='calendar'&&<div className="connectCalendarPreview">{(contextPreview.events||[]).slice(0,5).map((item:any,index:number)=><article key={index}><b>{item.summary||'Compromisso'}</b><span>{item.startAt?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.startAt)):'Data não identificada'}</span><small>{[...(item.organizer||[]),...(item.attendees||[])].slice(0,4).join(' · ')||'Sem participantes identificados'}</small></article>)}</div>}
+        {Array.isArray(contextPreview.warnings)&&contextPreview.warnings.length>0&&<div className="connectWarnings">{contextPreview.warnings.slice(0,5).map((warning:string)=><span key={warning}>⚠ {warning}</span>)}</div>}
+        <div className="connectPreviewActions"><button onClick={clearWorkspaceContextPreview}>Cancelar</button><button className="primary" disabled={contextBusy||!contextDatasetName.trim()} onClick={()=>void importWorkspaceContext()}>{contextBusy?'Importando…':'Confirmar e adicionar ao contexto'}</button></div>
+      </div>}
+      {contextMessage&&<div className="connectImportMessage">{contextMessage}</div>}
+      <div className="connectTrust"><span>✓ Preview sem persistência</span><span>✓ Confirmação humana</span><span>✓ Arquivo bruto não armazenado</span><span>✓ Sem efeito externo</span></div>
     </div>
 
     <div className="connectSection connectSpreadsheet">
