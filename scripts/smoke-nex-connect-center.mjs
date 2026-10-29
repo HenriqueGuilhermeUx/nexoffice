@@ -27,17 +27,22 @@ assert.ok(component.includes("post<any>('/v1/connect/spreadsheet/preview'"),'spr
 assert.ok(component.includes("post<any>('/v1/connect/spreadsheet/import'"),'spreadsheet import must be explicit');
 assert.ok(component.includes('humanConfirmed:true'),'spreadsheet import must require explicit human confirmation');
 const postTargets=[...component.matchAll(/post<any>\('([^']+)'/g)].map(match=>match[1]);
-assert.deepEqual([...new Set(postTargets)].sort(),['/v1/connect/spreadsheet/import','/v1/connect/spreadsheet/preview'],'Nex Connect Center must not introduce other write calls');
+assert.deepEqual([...new Set(postTargets)].sort(),['/v1/connect/google/disconnect','/v1/connect/google/start','/v1/connect/google/sync','/v1/connect/spreadsheet/import','/v1/connect/spreadsheet/preview'],'Nex Connect Center write calls must stay inside explicit connector actions');
 assert.ok(app.includes("['integrations','Nex Connect','⇄']"),'navigation must expose Nex Connect');
 assert.ok(app.includes("<NexConnectCenter workspaceId={activeWorkspace?.id||''} current={integrations}/>"),'Nex Connect Center must replace legacy integration view');
 assert.ok(css.includes('.connectCenter'),'Nex Connect Center styles missing');
 assert.ok(css.includes('.connectRecommendationGrid'),'recommended connection styles missing');
+assert.ok(component.includes("api<GoogleStatus>('/v1/connect/google/status')"),'Google connector status must be read from backend');
+assert.ok(component.includes('Gmail sem corpo/anexos'),'Google Gmail UX must disclose metadata-only mode');
+assert.ok(component.includes('Agenda sem escrita'),'Google Calendar UX must disclose read-only mode');
+assert.ok(component.includes('Tokens criptografados'),'Google connector must disclose encrypted token handling');
 
 console.log(JSON.stringify({
   ok:true,
   module:'Nex Connect Center V1',
   sourceRegistry:true,
   businessDiscoveryDiagnosis:true,
+  googleWorkspaceReadOnly:true,
   previewReadOnly:true,
   importHumanConfirmed:true,
   externalEffects:false,
