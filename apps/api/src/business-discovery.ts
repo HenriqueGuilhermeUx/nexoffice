@@ -34,7 +34,7 @@ export async function buildBusinessDiscoveryDiagnosis(workspaceId:string,workspa
       (select count(*) from appointments where workspace_id=$1)::int appointments,
       (select count(*) from tasks where workspace_id=$1)::int tasks,
       (select count(*) from business_events where workspace_id=$1 and source='external.spreadsheet')::int spreadsheet_records,
-      (select count(*) from business_events where workspace_id=$1 and source in ('external.email','external.google.gmail'))::int email_records,
+      (select count(*) from business_events where workspace_id=$1 and source in ('external.email','external.google.gmail','external.microsoft.mail'))::int email_records,
       (select count(*) from business_events where workspace_id=$1 and source in ('external.calendar','external.google.calendar','external.microsoft.calendar'))::int calendar_records,
       (select count(*) from business_events where workspace_id=$1 and source='external.erp')::int erp_records`,[workspaceId])
   ]);
