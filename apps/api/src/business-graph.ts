@@ -58,6 +58,19 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   for(const row of documents)addNode({id:key('document',row.id),sourceId:row.id,kind:'document',label:String(row.title||'Documento'),source:`nexoffice.documents.${row.provider||'internal'}`,status:String(row.status||''),occurredAt:row.updated_at,attributes:{documentType:row.document_type||null,provider:row.provider||null,externalRef:row.external_ref||null}});
   for(const row of events){
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    if(row.source==='external.crm'&&String(row.type||'').startsWith('crm.')){
+      const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+      const resourceKind=String(payload.resourceKind||normalized.resourceKind||'');
+      const nodeKind=resourceKind==='company'?'external_organization':resourceKind==='contact'||resourceKind==='lead'?'person':resourceKind==='deal'?'deal':'event';
+      const label=String(normalized.name||normalized.subject||payload.datasetName||resourceKind||'Registro CRM').slice(0,500);
+      addNode({
+        id:key(nodeKind,row.id),sourceId:row.id,kind:nodeKind as any,label,source:'external.crm',
+        status:String(normalized.stage||normalized.status||'')||null,
+        occurredAt:normalized.occurredAt||normalized.updatedAt||normalized.createdAt||row.occurred_at,
+        attributes:{...normalized,resourceKind,sourceSystem:payload.sourceSystem||null,datasetId:payload.datasetId||null,eventType:row.type}
+      });
+      continue;
+    }
     if(row.source==='external.erp'&&String(row.type||'').startsWith('erp.')){
       const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
       const resourceKind=String(payload.resourceKind||normalized.resourceKind||'');
@@ -137,6 +150,22 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
     const matched=new Set<string>();
 
+    if(row.source==='external.crm'){
+      const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+      const resourceKind=String(payload.resourceKind||normalized.resourceKind||'');
+      const nodeKind=resourceKind==='company'?'external_organization':resourceKind==='contact'||resourceKind==='lead'?'person':resourceKind==='deal'?'deal':'event';
+      const crmNode=key(nodeKind,row.id);
+      addEdge({id:edgeId('contains',organizationId,crmNode),from:organizationId,to:crmNode,kind:'contains',source:'external.crm',attributes:{resourceKind}});
+      for(const email of [...emailsFrom(normalized.email),...emailsFrom(normalized.partyEmail)]){
+        const contact=contactByEmail.get(email);if(contact)matched.add(contact);
+      }
+      for(const contact of matched){
+        if(resourceKind==='deal')addEdge({id:edgeId('has_deal',contact,crmNode),from:contact,to:crmNode,kind:'has_deal',source:'external.crm',attributes:{match:'email',relation:'external_crm_deal',stage:normalized.stage||null}});
+        else addEdge({id:edgeId('related_to',contact,crmNode),from:contact,to:crmNode,kind:'related_to',source:'external.crm',attributes:{match:'email',relation:`external_crm_${resourceKind||'record'}`}});
+        externallyMatchedRelations++;
+      }
+      continue;
+    }
     if(row.source==='external.erp'){
       const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
       const resourceKind=String(payload.resourceKind||normalized.resourceKind||'');
@@ -219,6 +248,15 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   const overdueTasks=tasks.filter(row=>!['done','cancelled'].includes(String(row.status))&&row.due_at&&new Date(row.due_at).getTime()<Date.now());
   const openDeals=deals.filter(row=>!['won','lost'].includes(String(row.stage)));
   const stalledDeals=openDeals.filter(row=>row.expected_close_at&&new Date(row.expected_close_at).getTime()<Date.now());
+  const externalStalledDeals=events.filter(row=>{
+    if(row.source!=='external.crm')return false;
+    const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+    if(String(payload.resourceKind||normalized.resourceKind)!=='deal')return false;
+    const stage=String(normalized.stage||normalized.status||'').toLowerCase();
+    const closeAt=normalized.expectedCloseAt?new Date(String(normalized.expectedCloseAt)).getTime():NaN;
+    return Number.isFinite(closeAt)&&closeAt<Date.now()&&!['won','lost','ganho','perdido','closed','fechado'].includes(stage);
+  });
   const executiveSignals:BusinessGraphSnapshot['executiveSignals']=[];
 
   if(overdueReceivables.length)executiveSignals.push({
@@ -240,6 +278,15 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     code:'deals_past_expected_close',level:'attention',title:'Oportunidades além da data esperada',
     detail:`${stalledDeals.length} oportunidade(s) seguem abertas após a data esperada de fechamento.`,
     evidence:{count:stalledDeals.length,valueMinor:stalledDeals.reduce((sum,row)=>sum+number(row.value_minor),0)}
+  });
+  if(externalStalledDeals.length)executiveSignals.push({
+    code:'external_deals_past_expected_close',level:'attention',title:'Oportunidades atrasadas no CRM externo',
+    detail:`${externalStalledDeals.length} oportunidade(s) do CRM externo seguem abertas após a data esperada de fechamento.`,
+    evidence:{
+      count:externalStalledDeals.length,
+      valueMinor:externalStalledDeals.reduce((sum,row)=>sum+number((row.payload as any)?.normalized?.amountMinor),0),
+      source:'external.crm'
+    }
   });
   if(externallyMatchedRelations>0)executiveSignals.push({
     code:'external_context_linked',level:'info',title:'Contexto externo relacionado ao CRM',
