@@ -34,6 +34,7 @@ import {registerWorkspaceContextRoutes} from './routes-workspace-context.js';
 import {registerGoogleConnectRoutes} from './routes-connect-google.js';
 import {registerMicrosoftConnectRoutes} from './routes-connect-microsoft.js';
 import {registerErpConnectRoutes} from './routes-connect-erp.js';
+import {registerCrmConnectRoutes} from './routes-connect-crm.js';
 import {registerStaffRoutes} from './routes-staff.js';
 import {registerSmartBotsRoutes} from './routes-smartbots.js';
 import {registerFiscalRoutes} from './routes-fiscal.js';
@@ -142,6 +143,7 @@ await registerWorkspaceContextRoutes(app);
 await registerGoogleConnectRoutes(app);
 await registerMicrosoftConnectRoutes(app);
 await registerErpConnectRoutes(app);
+await registerCrmConnectRoutes(app);
 await registerStandaloneRoutes(app);
 await registerBillingRoutes(app);
 
