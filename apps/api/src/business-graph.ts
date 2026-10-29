@@ -58,6 +58,14 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   for(const row of documents)addNode({id:key('document',row.id),sourceId:row.id,kind:'document',label:String(row.title||'Documento'),source:`nexoffice.documents.${row.provider||'internal'}`,status:String(row.status||''),occurredAt:row.updated_at,attributes:{documentType:row.document_type||null,provider:row.provider||null,externalRef:row.external_ref||null}});
   for(const row of events){
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    if(row.source==='external.erp'&&String(row.type||'').startsWith('erp.')){
+      const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+      const resourceKind=String(payload.resourceKind||normalized.resourceKind||'');
+      const nodeKind=resourceKind==='customer'||resourceKind==='supplier'?'external_organization':resourceKind==='product'?'product_service':resourceKind==='sale'?'sale':resourceKind==='receivable'||resourceKind==='payable'?'financial_entry':'event';
+      const label=String(normalized.name||normalized.partyName||normalized.description||payload.datasetName||resourceKind||'Registro ERP').slice(0,500);
+      addNode({id:key(nodeKind,row.id),sourceId:row.id,kind:nodeKind as any,label,source:'external.erp',status:normalized.status?String(normalized.status):null,occurredAt:normalized.occurredAt||normalized.dueAt||row.occurred_at,attributes:{...normalized,resourceKind,sourceSystem:payload.sourceSystem||null,datasetId:payload.datasetId||null,eventType:row.type}});
+      continue;
+    }
     if((row.source==='external.email'||row.source==='external.google.gmail'||row.source==='external.microsoft.mail')&&(row.type==='external_email.observed'||row.type==='email.metadata.observed'||row.type==='external.google.gmail.observed')){
       addNode({id:key('email_message',row.id),sourceId:row.id,kind:'email_message',label:String(payload.subject||'E-mail observado').slice(0,500),source:String(row.source),occurredAt:payload.occurredAt||row.occurred_at,attributes:{from:payload.from||[],to:payload.to||[],cc:payload.cc||[],excerpt:payload.excerpt||null,datasetId:payload.datasetId||null,eventType:row.type}});
       continue;
@@ -129,6 +137,24 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
     const matched=new Set<string>();
 
+    if(row.source==='external.erp'){
+      const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+      const resourceKind=String(payload.resourceKind||normalized.resourceKind||'');
+      const nodeKind=resourceKind==='customer'||resourceKind==='supplier'?'external_organization':resourceKind==='product'?'product_service':resourceKind==='sale'?'sale':resourceKind==='receivable'||resourceKind==='payable'?'financial_entry':'event';
+      const erpNode=key(nodeKind,row.id);
+      addEdge({id:edgeId('contains',organizationId,erpNode),from:organizationId,to:erpNode,kind:'contains',source:'external.erp',attributes:{resourceKind}});
+      if(resourceKind==='customer')addEdge({id:edgeId('customer_of',erpNode,organizationId),from:erpNode,to:organizationId,kind:'customer_of',source:'external.erp',attributes:{sourceSystem:payload.sourceSystem||null}});
+      if(resourceKind==='supplier')addEdge({id:edgeId('supplier_of',erpNode,organizationId),from:erpNode,to:organizationId,kind:'supplier_of',source:'external.erp',attributes:{sourceSystem:payload.sourceSystem||null}});
+      for(const email of [...emailsFrom(normalized.email),...emailsFrom(normalized.partyEmail)]){
+        const contact=contactByEmail.get(email);if(contact)matched.add(contact);
+      }
+      for(const contact of matched){
+        if(resourceKind==='receivable'||resourceKind==='payable')addEdge({id:edgeId('financial_activity',contact,erpNode),from:contact,to:erpNode,kind:'financial_activity',source:'external.erp',attributes:{match:'email',relation:`erp_${resourceKind}`}});
+        else addEdge({id:edgeId('related_to',contact,erpNode),from:contact,to:erpNode,kind:'related_to',source:'external.erp',attributes:{match:'email',relation:`erp_${resourceKind}`}});
+        externallyMatchedRelations++;
+      }
+      continue;
+    }
     if(row.source==='external.email'||row.source==='external.google.gmail'||row.source==='external.microsoft.mail'){
       const message=key('email_message',row.id);
       addEdge({id:edgeId('contains',organizationId,message),from:organizationId,to:message,kind:'contains',source:String(row.source),attributes:{}});
@@ -181,6 +207,15 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   }
 
   const overdueReceivables=ledger.filter(row=>row.direction==='income'&&['open','overdue'].includes(String(row.status))&&row.due_at&&new Date(row.due_at).getTime()<Date.now());
+  const erpOverdueReceivables=events.filter(row=>{
+    if(row.source!=='external.erp')return false;
+    const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+    if(String(payload.resourceKind||normalized.resourceKind)!=='receivable')return false;
+    const dueAt=normalized.dueAt?new Date(String(normalized.dueAt)).getTime():NaN;
+    const status=String(normalized.status||'').trim().toLowerCase();
+    return Number.isFinite(dueAt)&&dueAt<Date.now()&&!['paid','pago','recebido','settled','closed','quitado','liquidado'].includes(status);
+  });
   const overdueTasks=tasks.filter(row=>!['done','cancelled'].includes(String(row.status))&&row.due_at&&new Date(row.due_at).getTime()<Date.now());
   const openDeals=deals.filter(row=>!['won','lost'].includes(String(row.stage)));
   const stalledDeals=openDeals.filter(row=>row.expected_close_at&&new Date(row.expected_close_at).getTime()<Date.now());
@@ -190,6 +225,11 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     code:'receivables_overdue',level:'critical',title:'Recebíveis vencidos',
     detail:`${overdueReceivables.length} recebível(is) vencido(s) somam ${overdueReceivables.reduce((sum,row)=>sum+number(row.amount_minor),0)} centavos.`,
     evidence:{count:overdueReceivables.length,amountMinor:overdueReceivables.reduce((sum,row)=>sum+number(row.amount_minor),0)}
+  });
+  if(erpOverdueReceivables.length)executiveSignals.push({
+    code:'external_receivables_overdue',level:'critical',title:'Recebíveis vencidos no ERP',
+    detail:`${erpOverdueReceivables.length} título(s) vencido(s) importados do ERP somam ${erpOverdueReceivables.reduce((sum,row)=>sum+number((row.payload as any)?.normalized?.amountMinor),0)} centavos.`,
+    evidence:{count:erpOverdueReceivables.length,amountMinor:erpOverdueReceivables.reduce((sum,row)=>sum+number((row.payload as any)?.normalized?.amountMinor),0),source:'external.erp'}
   });
   if(overdueTasks.length)executiveSignals.push({
     code:'tasks_overdue',level:'attention',title:'Pendências operacionais atrasadas',
