@@ -30,6 +30,7 @@ type MicrosoftStatus={
   scopes:{mail:string;calendar:string};safety:{sendEmail:boolean;modifyMailbox:boolean;createCalendarEvent:boolean;modifyCalendarEvent:boolean;readOnly:boolean}
 };
 type ErpResourceKind='customer'|'supplier'|'product'|'sale'|'receivable'|'payable';
+type CrmResourceKind='contact'|'company'|'lead'|'deal'|'activity';
 type Diagnosis={
   profile:{currentTools:string[];namedTools:string[];primaryGoal?:string|null;biggestBottleneck?:string|null};
   firstDiagnosis:{state:string;title:string;detail:string;nextStep:string};
@@ -53,6 +54,7 @@ const toolLabels:Record<string,string>={
   whatsapp:'WhatsApp',spreadsheets:'Planilhas',google_drive:'Google Drive',microsoft365:'Microsoft 365'
 };
 const erpKinds:Array<[ErpResourceKind,string]>=[['customer','Clientes'],['supplier','Fornecedores'],['product','Produtos / serviços'],['sale','Vendas'],['receivable','Contas a receber'],['payable','Contas a pagar']];
+const crmKinds:Array<[CrmResourceKind,string]>=[['contact','Contatos'],['company','Empresas'],['lead','Leads'],['deal','Oportunidades'],['activity','Atividades / histórico']];
 const priorityLabel=(value:string)=>value==='high'?'Prioridade alta':value==='normal'?'Recomendado':'Depois';
 const stateLabel=(value:string)=>value==='connected'?'Conectado':value==='available'?'Disponível':'Planejado';
 const moneyMinor=(minor:unknown)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
@@ -64,6 +66,7 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
   const[googleBusy,setGoogleBusy]=useState(false),[googleMessage,setGoogleMessage]=useState('');
   const[microsoftBusy,setMicrosoftBusy]=useState(false),[microsoftMessage,setMicrosoftMessage]=useState('');
   const[erpKind,setErpKind]=useState<ErpResourceKind>('customer'),[erpSourceSystem,setErpSourceSystem]=useState('ERP / Contábil'),[erpPreview,setErpPreview]=useState<any>(null),[erpContent,setErpContent]=useState(''),[erpDatasetName,setErpDatasetName]=useState(''),[erpBusy,setErpBusy]=useState(false),[erpMessage,setErpMessage]=useState('');
+  const[crmKind,setCrmKind]=useState<CrmResourceKind>('contact'),[crmSourceSystem,setCrmSourceSystem]=useState('CRM externo'),[crmPreview,setCrmPreview]=useState<any>(null),[crmContent,setCrmContent]=useState(''),[crmDatasetName,setCrmDatasetName]=useState(''),[crmBusy,setCrmBusy]=useState(false),[crmMessage,setCrmMessage]=useState('');
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -191,6 +194,35 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       await load();
     }catch(e:any){setErpMessage(e?.message||'Não consegui importar os dados do ERP.')}
     finally{setErpBusy(false)}
+  }
+
+  async function previewCrm(file:File){
+    setCrmMessage('');setCrmPreview(null);setCrmContent('');
+    if(file.size>1_000_000){setCrmMessage('Arquivo acima de 1 MB. Reduza o CSV para esta primeira versão.');return}
+    const content=await file.text();
+    setCrmContent(content);setCrmDatasetName(file.name.replace(/\.[^.]+$/,'').slice(0,120));
+    try{
+      const preview=await post<any>('/v1/connect/crm/preview',{filename:file.name,content,resourceKind:crmKind,sourceSystem:crmSourceSystem.trim()||'CRM externo'});
+      setCrmPreview({...preview,filename:file.name});
+    }catch(e:any){setCrmMessage(e?.message||'Não consegui interpretar o export do CRM.')}
+  }
+  async function importCrm(){
+    if(!crmPreview||!crmContent||!crmDatasetName.trim())return;
+    setCrmBusy(true);setCrmMessage('');
+    try{
+      const result=await post<any>('/v1/connect/crm/import',{
+        filename:crmPreview.filename,
+        content:crmContent,
+        resourceKind:crmKind,
+        sourceSystem:crmSourceSystem.trim()||'CRM externo',
+        datasetName:crmDatasetName.trim(),
+        humanConfirmed:true
+      });
+      setCrmMessage(`${result.imported} registro(s) de CRM adicionados ao contexto. ${result.duplicates||0} duplicado(s) ignorados.`);
+      setCrmPreview(null);setCrmContent('');setCrmDatasetName('');
+      await load();
+    }catch(e:any){setCrmMessage(e?.message||'Não consegui importar os dados do CRM.')}
+    finally{setCrmBusy(false)}
   }
 
   async function previewSpreadsheet(file:File){
@@ -353,6 +385,23 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       </div>}
       {erpMessage&&<div className="connectImportMessage">{erpMessage}</div>}
       <div className="connectTrust"><span>✓ Sem migração obrigatória</span><span>✓ Normalização semântica</span><span>✓ Arquivo e linha bruta não armazenados</span><span>✓ Sem ação financeira externa</span></div>
+    </div>
+
+    <div className="connectSection connectErp connectCrm">
+      <div className="connectSectionHead"><div><p className="eyebrow">CRM EXTERNO UNIVERSAL</p><h3>Conecte o histórico comercial sem começar do zero.</h3><p>Exporte CSV do HubSpot, Pipedrive, RD Station, Salesforce ou outro CRM. A Nex normaliza contatos, empresas, leads, oportunidades e atividades sem migrar ou alterar o sistema de origem.</p></div><span>{(registry.external||[]).find(item=>item.source==='external.crm')?.records||0} registro(s) conectados</span></div>
+      <div className="connectErpControls">
+        <label><span>CRM de origem</span><input value={crmSourceSystem} onChange={e=>setCrmSourceSystem(e.target.value)} maxLength={120} placeholder="Ex.: HubSpot, Pipedrive, RD Station, Salesforce…"/></label>
+        <label><span>O que este arquivo contém?</span><select value={crmKind} onChange={e=>{setCrmKind(e.target.value as CrmResourceKind);setCrmPreview(null);setCrmContent('');setCrmMessage('')}}>{crmKinds.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="connectUpload"><input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={e=>{const file=e.target.files?.[0];if(file)void previewCrm(file);e.currentTarget.value=''}}/><span>Selecionar export CSV</span><small>Máx. 1 MB · até 1.000 linhas · arquivo e linha bruta não são armazenados</small></label>
+      </div>
+      {crmPreview&&<div className="connectPreview">
+        <div className="connectPreviewTop"><div><small>PREVIEW SEMÂNTICO · {crmKinds.find(([value])=>value===crmKind)?.[1]}</small><b>{crmPreview.filename}</b><span>{crmPreview.rows} linha(s) · origem: {crmPreview.sourceSystem}</span></div><label><span>Nome do conjunto</span><input value={crmDatasetName} onChange={e=>setCrmDatasetName(e.target.value)} maxLength={120}/></label></div>
+        <div className="connectErpMapping">{Object.entries(crmPreview.mapping||{}).map(([field,header])=><span key={field}><b>{field}</b><small>{header?String(header):'não identificado'}</small></span>)}</div>
+        {crmPreview.normalizedSample?.length>0&&<div className="connectErpSample">{crmPreview.normalizedSample.slice(0,3).map((row:any,index:number)=><article key={index}><b>{row.name||row.subject||row.externalId}</b><span>{row.stage||row.status||row.email||row.partyEmail||row.activityType||'—'}</span><small>{row.amountMinor!=null?moneyMinor(row.amountMinor):row.expectedCloseAt?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short'}).format(new Date(row.expectedCloseAt)):row.companyName||row.owner||'Registro normalizado'}</small></article>)}</div>}
+        <div className="connectPreviewActions"><button onClick={()=>{setCrmPreview(null);setCrmContent('');setCrmDatasetName('')}}>Cancelar</button><button className="primary" disabled={crmBusy||!crmDatasetName.trim()} onClick={()=>void importCrm()}>{crmBusy?'Importando…':'Confirmar e adicionar ao contexto'}</button></div>
+      </div>}
+      {crmMessage&&<div className="connectImportMessage">{crmMessage}</div>}
+      <div className="connectTrust"><span>✓ Sem migração automática</span><span>✓ Relação por e-mail exato</span><span>✓ Arquivo e linha bruta não armazenados</span><span>✓ Sem mensagens ou alterações no CRM externo</span></div>
     </div>
 
     <div className="connectSection connectSpreadsheet">
