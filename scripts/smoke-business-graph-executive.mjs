@@ -63,6 +63,22 @@ await call('/v1/events',{method:'POST',body:{
   payload:{reason:'expected close date exceeded'}
 }});
 
+await call('/v1/onboarding/business/confirm',{method:'PUT',body:{
+  sector:'services',
+  revenueModel:'mixed',
+  sellsServices:true,
+  usesAgenda:true,
+  usesContracts:true,
+  mainDependency:'finance',
+  metadata:{
+    commercial:{primaryGoal:'cash'},
+    operations:{biggestBottleneck:'finance'},
+    systems:{currentTools:['bank','email','calendar','spreadsheets'],namedTools:['Planilha Caixa Smoke']},
+    onboarding:{version:'business-v2',primaryGoal:'cash'}
+  },
+  complete:true
+}});
+
 const sources=await call('/v1/business-graph/sources');
 assert(sources.workspace.id===workspace,'source registry is workspace scoped');
 assert(sources.connectorContract?.version==='nex-connect-v1','Nex Connect contract is exposed');
@@ -86,6 +102,17 @@ assert(graph.executiveSignals.some(signal=>signal.code==='receivables_overdue'),
 assert(graph.executiveSignals.some(signal=>signal.code==='tasks_overdue'),'overdue task becomes executive signal');
 assert(graph.executiveSignals.some(signal=>signal.code==='deals_past_expected_close'),'stalled deal becomes executive signal');
 
+const diagnosis=await call('/v1/onboarding/business/diagnosis');
+assert(diagnosis.workspace.id===workspace,'diagnosis is workspace scoped');
+assert(diagnosis.principles?.connectWhatExists===true,'diagnosis follows connect-what-exists principle');
+assert(diagnosis.principles?.migrationNotRequired===true,'diagnosis does not require migration');
+assert(diagnosis.principles?.readOnlyDiagnosis===true,'diagnosis is read-only');
+assert(Array.isArray(diagnosis.connections?.recommended)&&diagnosis.connections.recommended.length>=2,'diagnosis recommends missing context sources');
+assert(diagnosis.connections.recommended.some(item=>item.key==='open_finance'),'cash goal prioritizes Open Finance context');
+assert(diagnosis.connections.recommended.some(item=>item.key==='email'),'existing email use becomes a connection recommendation');
+assert(Array.isArray(diagnosis.profile?.currentTools)&&diagnosis.profile.currentTools.includes('spreadsheets'),'existing tools are preserved in the profile');
+assert(diagnosis.firstDiagnosis?.title,'diagnosis produces a first finding or learning state');
+
 const executive=await call('/v1/assistant/executive-context');
 assert(executive.workspace.id===workspace,'executive context is workspace scoped');
 assert(executive.evidencePolicy?.causalClaimsRequireEvidence===true,'causal claims are evidence gated');
@@ -106,6 +133,7 @@ console.log(JSON.stringify({
   workspace,
   graph:{nodes:graph.coverage.nodes,edges:graph.coverage.edges,sources:graph.coverage.sources},
   sourceRegistry:{native:sources.native.length,integrations:sources.integrations.length,alternativeVentures:sources.alternativeVentures.length},
+  diagnosis:{state:diagnosis.firstDiagnosis.state,recommendedConnections:diagnosis.connections.recommended.map(item=>item.key)},
   signals:graph.executiveSignals.map(signal=>signal.code),
   priorities:executive.priorities.map(item=>({code:item.code,level:item.level})),
   maya:{agentRole:chat.agentRole,text:chat.message.content}
