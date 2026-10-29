@@ -144,6 +144,8 @@ jobs:
         run: node scripts/smoke-erp-connect.mjs
       - name: Smoke test external CRM universal import
         run: node scripts/smoke-crm-connect.mjs
+      - name: Smoke test Cross-System Intelligence
+        run: node scripts/smoke-cross-system-intelligence.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Microsoft 365 connector security contract
