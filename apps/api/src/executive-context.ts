@@ -106,8 +106,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         ?'Revisar os maiores recebíveis vencidos e confirmar cobrança, conciliação ou renegociação.'
         :signal.code==='tasks_overdue'
           ?'Priorizar tarefas atrasadas ligadas a clientes, vendas ou entregas relevantes.'
-          :signal.code==='deals_past_expected_close'
-            ?'Revisar oportunidades fora do prazo e definir próximo passo ou encerramento.'
+          :signal.code==='deals_past_expected_close'||signal.code==='external_deals_past_expected_close'
+            ?'Revisar oportunidades fora do prazo e definir próximo passo, atualização de estágio ou encerramento.'
             :null,
       evidence
     });
