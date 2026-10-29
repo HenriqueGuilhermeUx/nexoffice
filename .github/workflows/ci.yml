@@ -134,6 +134,8 @@ jobs:
           exit 1
       - name: Smoke test operational flow
         run: node scripts/smoke.mjs
+      - name: Smoke test Nex Business Graph and Maya Executive Context
+        run: node scripts/smoke-business-graph-executive.mjs
       - name: Smoke test Recurrence Intelligence API
         run: node scripts/smoke-recurrence-intelligence-api.mjs
       - name: Smoke test Relationship Intelligence API
