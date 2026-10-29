@@ -161,6 +161,20 @@ export default function ContaNexa({
         <em>Dados do workspace selecionado</em>
       </div>
     </div>
+    <section className="pj-wallet-launch" aria-label="Acesso à Wallet Nexa para empresas">
+      <div>
+        <small className="eyebrow">WALLET NEXA + NEXOFFICES</small>
+        <h3>Gestão empresarial aqui. Wallet Nexa no portal seguro.</h3>
+        <p>Use CRM, cobranças, operações, documentos e financeiro neste painel. Para acessar os recursos já disponíveis da Nexa Wallet, entre no portal financeiro com a autenticação própria da Nexa. A associação de uma carteira à empresa e a exibição de saldos nesta tela ainda exigem validação PJ.</p>
+        <div className="pj-connect-actions">
+          <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Abrir portal Nexa em nova aba com login independente">Abrir Wallet / portal Nexa ↗</a>
+          <button type="button" onClick={()=>navigateErp('finance')}>Ver financeiro ERP →</button>
+          <button type="button" onClick={()=>navigateErp('documents')}>Documentos da empresa →</button>
+          <button type="button" onClick={()=>navigateErp('crm')}>Clientes e CRM →</button>
+        </div>
+      </div>
+      <div className="pj-wallet-launch-status"><strong>Conexão PJ ainda não autorizada</strong><span>Não exibimos saldos de carteiras pessoais nem iniciamos transferências neste painel.</span></div>
+    </section>
     <section className="pj-premium-connectors" aria-label="Ecossistema financeiro Nexa PJ">
       <div className="pj-bank-workspace-heading"><div><small className="eyebrow">VISÃO FINANCEIRA GLOBAL DA EMPRESA</small><h3>Seu patrimônio e suas obrigações em uma só visão</h3><p>Arquitetura preparada para conectar instituições financeiras, investimentos e carteiras; acesso a dados reais somente com autorização e identidade PJ verificadas.</p></div><span className="pj-bank-readiness">{financeHub?`${financeHub.sources.length} fontes aguardando habilitação`:"Conexões em preparação"}</span></div>
       <div className="pj-premium-grid">
