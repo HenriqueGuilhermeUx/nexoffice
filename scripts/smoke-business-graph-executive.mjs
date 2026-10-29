@@ -118,6 +118,20 @@ await call('/v1/events',{method:'POST',body:{
   subjectId:null,
   payload:{summary:'Reunião com Atlas',organizerEmail:'equipe@nexoffice.test',attendeeEmails:['atlas@nexoffice.test'],privacy:'calendar_readonly'}
 }});
+await call('/v1/events',{method:'POST',body:{
+  type:'email.metadata.observed',
+  source:'external.microsoft.mail',
+  subjectType:null,
+  subjectId:null,
+  payload:{subject:'Outlook Atlas',from:['atlas@nexoffice.test'],to:['equipe@nexoffice.test'],cc:[],privacy:'mail_read_basic'}
+}});
+await call('/v1/events',{method:'POST',body:{
+  type:'calendar.event.observed',
+  source:'external.microsoft.calendar',
+  subjectType:null,
+  subjectId:null,
+  payload:{summary:'Microsoft Calendar Atlas',organizerEmail:'equipe@nexoffice.test',attendeeEmails:['atlas@nexoffice.test'],privacy:'calendar_read_basic'}
+}});
 
 const graph=await call('/v1/business-graph/overview?days=90&includeGraph=true');
 assert(graph.workspace.id===workspace,'graph is workspace scoped');
@@ -133,8 +147,12 @@ const atlasNode=graph.graph.nodes.find(node=>node.label==='Cliente Atlas'&&(node
 assert(atlasNode,'Atlas contact node exists');
 const gmailEvent=graph.graph.nodes.find(node=>node.source==='external.google.gmail'&&node.label==='Renovação Atlas');
 const calendarEvent=graph.graph.nodes.find(node=>node.source==='external.google.calendar'&&node.label==='Reunião com Atlas');
+const microsoftMail=graph.graph.nodes.find(node=>node.source==='external.microsoft.mail'&&node.label==='Outlook Atlas');
+const microsoftCalendar=graph.graph.nodes.find(node=>node.source==='external.microsoft.calendar'&&node.label==='Microsoft Calendar Atlas');
 const sheetEvents=graph.graph.nodes.filter(node=>node.source==='external.spreadsheet'&&String(node.label).includes('Clientes externos'));
-assert(gmailEvent&&calendarEvent&&sheetEvents.length===3,'external context nodes have semantic labels');
+assert(gmailEvent&&calendarEvent&&microsoftMail&&microsoftCalendar&&sheetEvents.length===3,'external context nodes have semantic labels');
+assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===microsoftMail.id&&edge.kind==='related_to'&&edge.attributes?.match==='email'),'Microsoft mail links to CRM contact by exact email');
+assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===microsoftCalendar.id&&edge.kind==='scheduled_with'&&edge.attributes?.match==='email'),'Microsoft calendar links to CRM contact by exact email');
 assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===gmailEvent.id&&edge.kind==='related_to'&&edge.attributes?.match==='email'),'Gmail metadata links to CRM contact by exact email');
 assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&edge.to===calendarEvent.id&&edge.kind==='scheduled_with'&&edge.attributes?.match==='email'),'Calendar event links to CRM contact by exact email');
 assert(graph.graph.edges.some(edge=>edge.from===atlasNode.id&&sheetEvents.some(node=>node.id===edge.to)&&edge.kind==='related_to'&&edge.attributes?.match==='email'),'Spreadsheet row links to CRM contact by exact email');
