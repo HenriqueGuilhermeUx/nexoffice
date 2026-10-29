@@ -138,3 +138,14 @@ test('refuses BRL values when declared account and balance currencies conflict',
  assert.equal(result.accounts[0].currentMinor,null);
  assert.equal(result.accounts[0].availableMinor,null);
 });
+
+test('rejects duplicate account IDs rather than showing ambiguous demo balances',async()=>{
+ const p=provider({accounts:{count:2,next:null,results:[account,{...account}]}});
+ await assert.rejects(readBelvoSandboxDemo(fixture,input,p.fetcher,now),
+  e=>e instanceof SandboxReadError&&e.code==='malformed_data');
+});
+test('rejects duplicate transaction IDs rather than duplicating demo activity',async()=>{
+ const p=provider({transactions:{count:2,next:null,results:[transaction,{...transaction}]}});
+ await assert.rejects(readBelvoSandboxDemo(fixture,input,p.fetcher,now),
+  e=>e instanceof SandboxReadError&&e.code==='malformed_data');
+});
