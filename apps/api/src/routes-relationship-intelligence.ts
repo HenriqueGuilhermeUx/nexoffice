@@ -169,7 +169,7 @@ export async function registerRelationshipIntelligenceRoutes(app:FastifyInstance
       relationships,bestOptions,
       rules:{risk:'2+ recebimentos vencidos, ou atraso combinado com 45+ dias sem interação',renewal:'término de recorrência ou ciclo anual nos próximos 60 dias',attention:'1 atraso, 45+ dias sem interação, 2+ faltas ou oportunidade perdida recente',expansion:'cliente em dia com oferta ativa ainda não utilizada'},
       safety:{externalCommunication:false,automaticProposalSend:false,automaticDiscount:false,automaticRenewal:false},
-      sources:{docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),docWalletAlertsUsed:alerts.length,googleWorkspaceEventsObserved:externalRelationshipEvents.length,googleWorkspaceContactsMatched:externalByEmail.size}
+      sources:{docWalletExpirationsAvailable:Boolean((docUpcoming as any)?.ok),docWalletAlertsUsed:alerts.length,googleWorkspaceEventsObserved:externalRelationshipEvents.length,googleWorkspaceEmailsObserved:externalByEmail.size}
     };
   });
 }
