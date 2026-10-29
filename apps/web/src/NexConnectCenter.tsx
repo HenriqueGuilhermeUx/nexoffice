@@ -29,6 +29,7 @@ type MicrosoftStatus={
   provider:string;configured:boolean;status:string;accountEmail?:string|null;capabilities:string[];lastSyncAt?:string|null;lastSync?:any;
   scopes:{mail:string;calendar:string};safety:{sendEmail:boolean;modifyMailbox:boolean;createCalendarEvent:boolean;modifyCalendarEvent:boolean;readOnly:boolean}
 };
+type ErpResourceKind='customer'|'supplier'|'product'|'sale'|'receivable'|'payable';
 type Diagnosis={
   profile:{currentTools:string[];namedTools:string[];primaryGoal?:string|null;biggestBottleneck?:string|null};
   firstDiagnosis:{state:string;title:string;detail:string;nextStep:string};
@@ -51,8 +52,10 @@ const toolLabels:Record<string,string>={
   bank:'Banco / internet banking',email:'E-mail',calendar:'Calendário',erp:'ERP / gestão',accounting:'Sistema contábil',crm:'CRM',
   whatsapp:'WhatsApp',spreadsheets:'Planilhas',google_drive:'Google Drive',microsoft365:'Microsoft 365'
 };
+const erpKinds:Array<[ErpResourceKind,string]>=[['customer','Clientes'],['supplier','Fornecedores'],['product','Produtos / serviços'],['sale','Vendas'],['receivable','Contas a receber'],['payable','Contas a pagar']];
 const priorityLabel=(value:string)=>value==='high'?'Prioridade alta':value==='normal'?'Recomendado':'Depois';
 const stateLabel=(value:string)=>value==='connected'?'Conectado':value==='available'?'Disponível':'Planejado';
+const moneyMinor=(minor:unknown)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
 
 export default function NexConnectCenter({workspaceId,current}:{workspaceId:string;current:Integration[]}){
   const[registry,setRegistry]=useState<Registry|null>(null),[diagnosis,setDiagnosis]=useState<Diagnosis|null>(null),[google,setGoogle]=useState<GoogleStatus|null>(null),[microsoft,setMicrosoft]=useState<MicrosoftStatus|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
@@ -60,6 +63,7 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
   const[contextPreview,setContextPreview]=useState<any>(null),[contextContent,setContextContent]=useState(''),[contextDatasetName,setContextDatasetName]=useState(''),[contextKind,setContextKind]=useState<'email'|'calendar'|null>(null),[contextBusy,setContextBusy]=useState(false),[contextMessage,setContextMessage]=useState('');
   const[googleBusy,setGoogleBusy]=useState(false),[googleMessage,setGoogleMessage]=useState('');
   const[microsoftBusy,setMicrosoftBusy]=useState(false),[microsoftMessage,setMicrosoftMessage]=useState('');
+  const[erpKind,setErpKind]=useState<ErpResourceKind>('customer'),[erpSourceSystem,setErpSourceSystem]=useState('ERP / Contábil'),[erpPreview,setErpPreview]=useState<any>(null),[erpContent,setErpContent]=useState(''),[erpDatasetName,setErpDatasetName]=useState(''),[erpBusy,setErpBusy]=useState(false),[erpMessage,setErpMessage]=useState('');
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -158,6 +162,35 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
   }
   function clearWorkspaceContextPreview(){
     setContextPreview(null);setContextContent('');setContextDatasetName('');setContextKind(null);
+  }
+
+  async function previewErp(file:File){
+    setErpMessage('');setErpPreview(null);setErpContent('');
+    if(file.size>1_000_000){setErpMessage('Arquivo acima de 1 MB. Reduza o CSV para esta primeira versão.');return}
+    const content=await file.text();
+    setErpContent(content);setErpDatasetName(file.name.replace(/\.[^.]+$/,'').slice(0,120));
+    try{
+      const preview=await post<any>('/v1/connect/erp/preview',{filename:file.name,content,resourceKind:erpKind,sourceSystem:erpSourceSystem.trim()||'ERP / Contábil'});
+      setErpPreview({...preview,filename:file.name});
+    }catch(e:any){setErpMessage(e?.message||'Não consegui interpretar o export do ERP.')}
+  }
+  async function importErp(){
+    if(!erpPreview||!erpContent||!erpDatasetName.trim())return;
+    setErpBusy(true);setErpMessage('');
+    try{
+      const result=await post<any>('/v1/connect/erp/import',{
+        filename:erpPreview.filename,
+        content:erpContent,
+        resourceKind:erpKind,
+        sourceSystem:erpSourceSystem.trim()||'ERP / Contábil',
+        datasetName:erpDatasetName.trim(),
+        humanConfirmed:true
+      });
+      setErpMessage(`${result.imported} registro(s) semânticos adicionados ao contexto. ${result.duplicates||0} duplicado(s) ignorados.`);
+      setErpPreview(null);setErpContent('');setErpDatasetName('');
+      await load();
+    }catch(e:any){setErpMessage(e?.message||'Não consegui importar os dados do ERP.')}
+    finally{setErpBusy(false)}
   }
 
   async function previewSpreadsheet(file:File){
@@ -303,6 +336,23 @@ export default function NexConnectCenter({workspaceId,current}:{workspaceId:stri
       </div>}
       {contextMessage&&<div className="connectImportMessage">{contextMessage}</div>}
       <div className="connectTrust"><span>✓ Preview sem persistência</span><span>✓ Confirmação humana</span><span>✓ Arquivo bruto não armazenado</span><span>✓ Sem efeito externo</span></div>
+    </div>
+
+    <div className="connectSection connectErp">
+      <div className="connectSectionHead"><div><p className="eyebrow">ERP / CONTÁBIL UNIVERSAL</p><h3>Importe o que já existe sem migrar de sistema.</h3><p>Exporte CSV do ERP ou sistema contábil atual. A Nex normaliza clientes, fornecedores, produtos, vendas e títulos financeiros para a mesma linguagem do Business Graph.</p></div><span>{(registry.external||[]).find(item=>item.source==='external.erp')?.records||0} registro(s) normalizados</span></div>
+      <div className="connectErpControls">
+        <label><span>Sistema de origem</span><input value={erpSourceSystem} onChange={e=>setErpSourceSystem(e.target.value)} maxLength={120} placeholder="Ex.: Omie, Conta Azul, Bling, TOTVS…"/></label>
+        <label><span>O que este arquivo contém?</span><select value={erpKind} onChange={e=>{setErpKind(e.target.value as ErpResourceKind);setErpPreview(null);setErpContent('');setErpMessage('')}}>{erpKinds.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="connectUpload"><input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={e=>{const file=e.target.files?.[0];if(file)void previewErp(file);e.currentTarget.value=''}}/><span>Selecionar export CSV</span><small>Máx. 1 MB · até 1.000 linhas · arquivo bruto e linha bruta não são armazenados</small></label>
+      </div>
+      {erpPreview&&<div className="connectPreview">
+        <div className="connectPreviewTop"><div><small>PREVIEW SEMÂNTICO · {erpKinds.find(([value])=>value===erpKind)?.[1]}</small><b>{erpPreview.filename}</b><span>{erpPreview.rows} linha(s) · origem: {erpPreview.sourceSystem}</span></div><label><span>Nome do conjunto</span><input value={erpDatasetName} onChange={e=>setErpDatasetName(e.target.value)} maxLength={120}/></label></div>
+        <div className="connectErpMapping">{Object.entries(erpPreview.mapping||{}).map(([field,header])=><span key={field}><b>{field}</b><small>{header?String(header):'não identificado'}</small></span>)}</div>
+        {erpPreview.normalizedSample?.length>0&&<div className="connectErpSample">{erpPreview.normalizedSample.slice(0,3).map((row:any,index:number)=><article key={index}><b>{row.name||row.partyName||row.externalId}</b><span>{row.status||row.email||row.partyEmail||row.sku||'—'}</span><small>{row.amountMinor!=null?moneyMinor(row.amountMinor):row.dueAt?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short'}).format(new Date(row.dueAt)):row.document||row.partyDocument||'Registro normalizado'}</small></article>)}</div>}
+        <div className="connectPreviewActions"><button onClick={()=>{setErpPreview(null);setErpContent('');setErpDatasetName('')}}>Cancelar</button><button className="primary" disabled={erpBusy||!erpDatasetName.trim()} onClick={()=>void importErp()}>{erpBusy?'Importando…':'Confirmar e adicionar ao contexto'}</button></div>
+      </div>}
+      {erpMessage&&<div className="connectImportMessage">{erpMessage}</div>}
+      <div className="connectTrust"><span>✓ Sem migração obrigatória</span><span>✓ Normalização semântica</span><span>✓ Arquivo e linha bruta não armazenados</span><span>✓ Sem ação financeira externa</span></div>
     </div>
 
     <div className="connectSection connectSpreadsheet">
