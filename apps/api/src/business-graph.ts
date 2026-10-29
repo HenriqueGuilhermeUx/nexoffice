@@ -9,7 +9,7 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   const days=Math.min(365,Math.max(7,Math.trunc(windowDays||90)));
   const [workspaces,contacts,deals,accounts,ledger,tasks,appointments,documents,events,operationalSignals]=await Promise.all([
     query<any>(`select id,name,vertical,currency from workspaces where id=$1 limit 1`,[workspaceId]),
-    query<any>(`select id,kind,name,company_name,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 150`,[workspaceId]),
+    query<any>(`select id,kind,name,company_name,email,tags,created_at,updated_at from crm_contacts where workspace_id=$1 order by updated_at desc limit 150`,[workspaceId]),
     query<any>(`select id,contact_id,title,stage,value_minor,currency,next_action,expected_close_at,created_at,updated_at from crm_deals where workspace_id=$1 order by updated_at desc limit 150`,[workspaceId]),
     query<any>(`select id,name,kind,currency,opening_balance_minor,active from finance_accounts where workspace_id=$1 order by active desc,name limit 50`,[workspaceId]),
     query<any>(`select id,contact_id,account_id,direction,category,description,amount_minor,currency,status,due_at,paid_at,created_at,updated_at from ledger_entries where workspace_id=$1 and coalesce(paid_at,due_at,created_at)>=now()-($2::text||' days')::interval order by coalesce(paid_at,due_at,created_at) desc limit 300`,[workspaceId,String(days)]),
@@ -21,6 +21,11 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   ]);
 
   const workspace=workspaces[0]||{id:workspaceId,name:workspaceName,vertical:'general',currency:'BRL'};
+  const normalizeEmail=(value:unknown)=>String(value||'').trim().toLowerCase();
+  const emailsFrom=(value:unknown)=>{
+    const text=Array.isArray(value)?value.join(' '):String(value||'');
+    return [...new Set((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).map(normalizeEmail).filter(Boolean))];
+  };
   const nodes:BusinessGraphNode[]=[];
   const edges:BusinessGraphEdge[]=[];
   const seenNodes=new Set<string>();
@@ -51,13 +56,28 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
   for(const row of tasks)addNode({id:key('task',row.id),sourceId:row.id,kind:'task',label:String(row.title||'Tarefa'),source:'nexoffice.tasks',status:String(row.status||''),occurredAt:row.updated_at,attributes:{priority:row.priority,dueAt:row.due_at||null,assignedTo:row.assigned_to||null}});
   for(const row of appointments)addNode({id:key('appointment',row.id),sourceId:row.id,kind:'appointment',label:String(row.title||'Compromisso'),source:'nexoffice.agenda',status:String(row.status||''),occurredAt:row.starts_at,attributes:{startsAt:row.starts_at,endsAt:row.ends_at||null,assignedTo:row.assigned_to||null}});
   for(const row of documents)addNode({id:key('document',row.id),sourceId:row.id,kind:'document',label:String(row.title||'Documento'),source:`nexoffice.documents.${row.provider||'internal'}`,status:String(row.status||''),occurredAt:row.updated_at,attributes:{documentType:row.document_type||null,provider:row.provider||null,externalRef:row.external_ref||null}});
-  for(const row of events)addNode({id:key('event',row.id),sourceId:row.id,kind:'event',label:String(row.type||'Evento'),source:String(row.source||'nexoffice.events'),occurredAt:row.occurred_at,attributes:{eventType:row.type,payload:row.payload&&typeof row.payload==='object'?row.payload:{}}});
+  for(const row of events){
+    const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    const label=row.source==='external.google.gmail'
+      ?String(payload.subject||'E-mail observado')
+      :row.source==='external.google.calendar'
+        ?String(payload.summary||'Compromisso observado')
+        :row.source==='external.spreadsheet'
+          ?String(payload.datasetName?`Planilha · ${payload.datasetName}`:'Registro de planilha')
+          :String(row.type||'Evento');
+    addNode({id:key('event',row.id),sourceId:row.id,kind:'event',label:label.slice(0,500),source:String(row.source||'nexoffice.events'),occurredAt:row.occurred_at,attributes:{eventType:row.type,payload}});
+  }
   for(const row of operationalSignals)addNode({id:key('event',`external:${row.id}`),sourceId:row.id,kind:'event',label:String(row.signal_type||'Sinal operacional'),source:`alternative_ventures.${String(row.source_product||'unknown')}`,occurredAt:row.period_end||row.created_at,attributes:{eventType:row.signal_type,sourceProduct:row.source_product,periodStart:row.period_start,periodEnd:row.period_end,metrics:row.metrics&&typeof row.metrics==='object'?row.metrics:{},dimensions:row.dimensions&&typeof row.dimensions==='object'?row.dimensions:{},privacy:'aggregate_only'}});
 
   const contactNode=(id:string|null|undefined)=>{
     if(!id)return null;
     return seenNodes.has(key('person',id))?key('person',id):seenNodes.has(key('external_organization',id))?key('external_organization',id):null;
   };
+  const contactByEmail=new Map<string,string>();
+  for(const row of contacts){
+    const email=normalizeEmail(row.email),node=contactNode(row.id);
+    if(email&&node&&!contactByEmail.has(email))contactByEmail.set(email,node);
+  }
 
   for(const row of contacts){
     const node=contactNode(row.id);if(node)addEdge({id:edgeId('contains',organizationId,node),from:organizationId,to:node,kind:'contains',source:'nexoffice.crm',attributes:{}});
@@ -102,10 +122,44 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     }
     const id=key(kind,subjectId);return seenNodes.has(id)?id:null;
   };
+  let externallyMatchedRelations=0;
   for(const row of events){
     const event=key('event',row.id),subject=subjectKey(row.subject_type,row.subject_id);
     addEdge({id:edgeId('contains',organizationId,event),from:organizationId,to:event,kind:'contains',source:'nexoffice.events',attributes:{}});
     if(subject)addEdge({id:edgeId('generated',subject,event),from:subject,to:event,kind:'generated',source:String(row.source||'nexoffice.events'),attributes:{eventType:row.type}});
+
+    const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    const matched=new Set<string>();
+    if(row.source==='external.google.gmail'){
+      for(const email of [...emailsFrom(payload.from),...emailsFrom(payload.to),...emailsFrom(payload.cc)]){
+        const contact=contactByEmail.get(email);if(contact)matched.add(contact);
+      }
+      for(const contact of matched){
+        addEdge({id:edgeId('related_to',contact,event),from:contact,to:event,kind:'related_to',source:'external.google.gmail',attributes:{match:'email',relation:'message_participant'}});
+        externallyMatchedRelations++;
+      }
+    }else if(row.source==='external.google.calendar'){
+      for(const email of [...emailsFrom(payload.organizerEmail),...emailsFrom(payload.attendeeEmails)]){
+        const contact=contactByEmail.get(email);if(contact)matched.add(contact);
+      }
+      for(const contact of matched){
+        addEdge({id:edgeId('scheduled_with',contact,event),from:contact,to:event,kind:'scheduled_with',source:'external.google.calendar',attributes:{match:'email',relation:'calendar_participant'}});
+        externallyMatchedRelations++;
+      }
+    }else if(row.source==='external.spreadsheet'){
+      const inferred=Array.isArray(payload.inferred)?payload.inferred:[];
+      const record=payload.record&&typeof payload.record==='object'?payload.record:{};
+      const emailFields=inferred.filter((item:any)=>item?.semantic==='email').map((item:any)=>String(item?.normalized||'')).filter(Boolean);
+      for(const field of emailFields){
+        for(const email of emailsFrom((record as any)[field])){
+          const contact=contactByEmail.get(email);if(contact)matched.add(contact);
+        }
+      }
+      for(const contact of matched){
+        addEdge({id:edgeId('related_to',contact,event),from:contact,to:event,kind:'related_to',source:'external.spreadsheet',attributes:{match:'email',relation:'dataset_record'}});
+        externallyMatchedRelations++;
+      }
+    }
   }
   for(const row of operationalSignals){
     const event=key('event',`external:${row.id}`);
@@ -132,6 +186,11 @@ export async function buildBusinessGraph(workspaceId:string,workspaceName:string
     code:'deals_past_expected_close',level:'attention',title:'Oportunidades além da data esperada',
     detail:`${stalledDeals.length} oportunidade(s) seguem abertas após a data esperada de fechamento.`,
     evidence:{count:stalledDeals.length,valueMinor:stalledDeals.reduce((sum,row)=>sum+number(row.value_minor),0)}
+  });
+  if(externallyMatchedRelations>0)executiveSignals.push({
+    code:'external_context_linked',level:'info',title:'Contexto externo relacionado ao CRM',
+    detail:`${externallyMatchedRelations} relação(ões) foram ligadas deterministicamente por e-mail entre fontes externas e contatos do CRM.`,
+    evidence:{relations:externallyMatchedRelations,matchMethod:'exact_email'}
   });
   if(nodes.length<10)executiveSignals.push({
     code:'graph_learning',level:'info',title:'Contexto ainda em aprendizado',
