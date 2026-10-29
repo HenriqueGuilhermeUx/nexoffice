@@ -70,9 +70,20 @@ assert(expansion?.status==='expansion','healthy customer with unused catalog off
 assert(expansion.expansionCandidate?.id===offerB.id,'expansion candidate must exclude already purchased offer');
 assert(expansion.bestOptions.some(x=>x.action==='create_expansion_proposal'&&x.catalogItemId===offerB.id),'expansion proposal must carry candidate offer');
 
+const executive=await call('/v1/assistant/executive-context');
+assert(Number(executive.indicators?.relationshipAtRisk)>=1,'Executive Context must reuse relationship risk classification');
+assert(Number(executive.indicators?.relationshipRenewalSoon)>=1,'Executive Context must reuse renewal classification');
+const riskPriority=executive.priorities.find(x=>x.code==='relationship_at_risk');
+const renewalPriority=executive.priorities.find(x=>x.code==='relationship_renewal_soon');
+assert(riskPriority,'Maya Executive Context must surface relationship risk');
+assert(renewalPriority,'Maya Executive Context must surface renewal preparation');
+assert(riskPriority.evidence?.some(x=>x.source==='nex.relationship_intelligence'),'relationship risk priority must carry shared intelligence evidence');
+assert(renewalPriority.evidence?.some(x=>x.source==='nex.relationship_intelligence'),'renewal priority must carry shared intelligence evidence');
+assert(executive.evidencePolicy?.externalEffects===false,'Maya relationship priorities must remain read-only');
+
 const task=await call('/v1/tasks',{method:'POST',body:{contactId:riskContact.id,title:'Recuperar relacionamento · Cliente Risco',description:risk.reasons.join(' · '),priority:'high',dueAt:new Date(now+86400000).toISOString(),metadata:{source:'relationship_intelligence_v1',relationshipStatus:risk.status}}});
 assert(task.id,'explicit internal follow-up task must be creatable');
 const tasks=await call('/v1/tasks');
 assert(tasks.some(x=>x.id===task.id&&x.contact_id===riskContact.id),'follow-up task must retain client linkage');
 
-console.log(JSON.stringify({ok:true,workspace,summary:intel.summary,renewal:{status:renewal.status,external:renewal.externalSources},risk:{status:risk.status,external:risk.externalSources},expansion:expansion.status,task:task.id},null,2));
+console.log(JSON.stringify({ok:true,workspace,summary:intel.summary,renewal:{status:renewal.status,external:renewal.externalSources},risk:{status:risk.status,external:risk.externalSources},expansion:expansion.status,executive:{atRisk:executive.indicators.relationshipAtRisk,renewalSoon:executive.indicators.relationshipRenewalSoon,priorities:executive.priorities.map(x=>x.code)},task:task.id},null,2));
