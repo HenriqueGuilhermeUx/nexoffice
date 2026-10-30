@@ -27,8 +27,11 @@ type ExecutiveContext={
     businessHealthScore:number|null;
     businessKnowledgePct:number|null;
     crossSystemInsights:number;
+    decisionPatterns:number;
+    decisionsAnalyzed:number;
   };
   crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
+  decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
 type SourceRegistry={
@@ -93,6 +96,16 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
+    {context.decisionLearning?.topPatterns?.length>0&&<div className="executiveDecisionPatterns">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · PADRÕES DE DECISÃO</p><h4>O que costuma ser observado depois de decisões semelhantes</h4><p>Padrões descritivos do histórico da empresa. Amostra e cobertura ficam visíveis; nada aqui altera autonomia ou prova causalidade.</p></div><span>{context.decisionLearning.patterns} padrão(ões)</span></div>
+      <div className="executiveDecisionPatternGrid">{context.decisionLearning.topPatterns.map(pattern=><article key={pattern.actionType+'|'+pattern.decision}>
+        <div><b>{pattern.actionType}</b><span>{pattern.decision}</span></div>
+        <p>{pattern.interpretation}</p>
+        <div className="executivePatternStats"><span><b>{pattern.sampleSize}</b> decisões</span><span><b>{pattern.outcomeCoveragePct}%</b> com resultado observado</span><span><b>{pattern.positiveDecisionPct}%</b> com ao menos um resultado positivo</span><span><b>{pattern.negativeDecisionPct}%</b> com ao menos um resultado negativo</span></div>
+        <small>Evidência: {pattern.evidenceLevel} · {pattern.recommendedUse}</small>
+      </article>)}</div>
+    </div>}
+
     <div className="executiveContextFooter">
       <div><span>Contexto</span><b>{context.businessGraph.nodes} nós · {context.businessGraph.edges} relações</b></div>
       <div><span>Fontes do grafo</span><b>{context.businessGraph.sources.length}</b></div>
@@ -102,10 +115,12 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div><span>Conhecimento do negócio</span><b>{context.indicators.businessKnowledgePct==null?'Aprendendo':`${Math.round(context.indicators.businessKnowledgePct)}%`}</b></div>
       <div><span>Cruzamentos multi-sistema</span><b>{context.crossSystem?.insights||0}</b></div>
       <div><span>Clientes correlacionados</span><b>{context.crossSystem?.customers||0}</b></div>
+      <div><span>Padrões de decisão</span><b>{context.decisionLearning?.patterns||0}</b></div>
+      <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
     </div>
 
     <div className="executiveContextTrust">
-      <span>✓ Workspace isolado</span><span>✓ Somente leitura</span><span>✓ Evidências rastreáveis</span><span>✓ Mín. 2 fontes por correlação</span><span>✓ Sem efeito externo</span>
+      <span>✓ Workspace isolado</span><span>✓ Somente leitura</span><span>✓ Evidências rastreáveis</span><span>✓ Mín. 2 fontes por correlação</span><span>✓ Padrão ≠ causalidade</span><span>✓ Sem efeito externo</span>
     </div>
   </section>;
 }
