@@ -161,6 +161,8 @@ jobs:
         run: node scripts/smoke-case-based-executive-intelligence.mjs
       - name: Smoke test Executive Recommendation Stack V1
         run: node scripts/smoke-executive-recommendation-stack.mjs
+      - name: Smoke test Executive Decision Workspace V1
+        run: node scripts/smoke-executive-decision-workspace.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Microsoft 365 connector security contract
