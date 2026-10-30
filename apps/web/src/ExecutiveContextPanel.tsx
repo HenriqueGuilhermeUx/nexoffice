@@ -45,6 +45,7 @@ type ExecutiveContext={
   crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
   decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
   contextualDecisionLearning:{patterns:number;decisionsAnalyzed:number;topPatterns:Array<{actionType:string;decision:string;context:{contactKind:string;financialState:string;engagementState:string};sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
+  recommendationStack:{prioritiesCovered:number;pathsGenerated:number;prioritiesWithComparableCases:number;items:Array<{priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};paths:Array<{id:string;label:string;posture:'conservative'|'balanced'|'active';description:string;why:string;tradeoffs:string[];risks:string[];suggestedActionFamily:string|null;confidence:'low'|'medium'|'high';comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;humanReviewRequired:true;externalEffects:false}>;recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false}}>} ;
   caseBasedLearning:{currentCases:number;casesWithComparableHistory:number;strongMatches:number;topCases:Array<{contactId:string;name:string;relationshipStatus:string;currentContext:{contactKind:string;financialState:string;engagementState:string};reasons:string[];bestMatch:{similarityScore:number;matchedDimensions:string[];actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string}|null;interpretation:string}>};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
@@ -115,6 +116,21 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
+    {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CAMINHOS DE DECISÃO</p><h4>Três formas de responder à prioridade atual</h4><p>A Maya organiza alternativas com evidências, riscos, trade-offs e precedentes comparáveis. Nenhum caminho é escolhido ou executado automaticamente.</p></div><span>{context.recommendationStack.pathsGenerated} caminho(s)</span></div>
+      {context.recommendationStack.items.slice(0,3).map(item=><section className="executiveRecommendationItem" key={'rec|'+item.priority.code}>
+        <div className="executiveRecommendationPriority"><span>{item.priority.level}</span><div><h5>{item.priority.title}</h5><p>{item.priority.detail}</p></div></div>
+        <div className="executiveRecommendationGrid">{item.paths.map(path=><article className={'executiveRecommendationPath '+path.posture} key={path.id}>
+          <div className="executiveRecommendationPathHead"><div><b>{path.label}</b><span>{path.posture}</span></div><em>{path.confidence} confiança</em></div>
+          <p>{path.description}</p>
+          <small>{path.why}</small>
+          <div className="executiveRecommendationLists"><div><strong>Trade-offs</strong><ul>{path.tradeoffs.map(x=><li key={x}>{x}</li>)}</ul></div><div><strong>Riscos</strong><ul>{path.risks.map(x=><li key={x}>{x}</li>)}</ul></div></div>
+          {path.comparableCases?.length>0&&<div className="executiveRecommendationCases"><span>Precedentes comparáveis</span>{path.comparableCases.slice(0,2).map((c,i)=><small key={String(c.contactId||i)}>{c.name||'Caso histórico'} · {c.similarityScore}% similar · {c.sampleSize} decisões · {c.outcomeCoveragePct}% com resultado observado</small>)}</div>}
+          <footer><span>{path.suggestedActionFamily||'revisão'}</span><b>Escolha humana obrigatória</b></footer>
+        </article>)}</div>
+      </section>)}
+    </div>}
+
     {context.caseBasedLearning?.topCases?.length>0&&<div className="executiveDecisionPatterns">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CASOS COMPARÁVEIS</p><h4>O que aconteceu em situações parecidas com as de agora</h4><p>A Maya compara o contexto atual com padrões históricos reconstruídos na data das decisões. Similaridade organiza evidências; não recomenda repetir uma ação automaticamente.</p></div><span>{context.caseBasedLearning.casesWithComparableHistory} caso(s) com histórico</span></div>
       <div className="executiveDecisionPatternGrid">{context.caseBasedLearning.topCases.map(item=><article key={'case|'+item.contactId}>
@@ -163,6 +179,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div><span>Padrões de decisão</span><b>{context.decisionLearning?.patterns||0}</b></div>
       <div><span>Padrões contextuais</span><b>{context.contextualDecisionLearning?.patterns||0}</b></div>
       <div><span>Casos com histórico</span><b>{context.caseBasedLearning?.casesWithComparableHistory||0}</b></div>
+      <div><span>Caminhos estruturados</span><b>{context.recommendationStack?.pathsGenerated||0}</b></div>
       <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
     </div>
 
