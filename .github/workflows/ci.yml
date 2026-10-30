@@ -154,6 +154,8 @@ jobs:
         run: node scripts/smoke-outcome-learning.mjs
       - name: Smoke test Maya Recommendation Learning V1
         run: node scripts/smoke-recommendation-learning.mjs
+      - name: Smoke test Contextual Decision Intelligence V1
+        run: node scripts/smoke-contextual-decision-intelligence.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Microsoft 365 connector security contract
