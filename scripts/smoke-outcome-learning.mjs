@@ -10,6 +10,7 @@ async function call(path,{method='GET',body,auth=true}={}){
   return payload;
 }
 const assert=(value,message)=>{if(!value)throw new Error('ASSERT: '+message)};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 const reg=await call('/v1/auth/register',{method:'POST',auth:false,body:{
   name:'Outcome Learning Smoke',
@@ -40,6 +41,7 @@ await call('/v1/command/actions/'+decisionEvent.action.id+'/decision',{method:'P
   decision:'approved',
   reason:'Cliente demonstrou interesse e pediu continuidade da conversa.'
 }});
+await sleep(25);
 
 const deal=await call('/v1/crm/deals',{method:'POST',body:{
   contactId:contact.id,
@@ -59,6 +61,7 @@ await call('/v1/crm/activities',{method:'POST',body:{
   metadata:{source:'smoke'}
 }});
 await call('/v1/crm/deals/'+deal.id,{method:'PATCH',body:{stage:'won'}});
+await sleep(25);
 
 const secondEvent=await call('/v1/events',{method:'POST',body:{
   type:'lead.followup_due',
@@ -80,7 +83,7 @@ assert(learning.safety?.readOnly===true&&learning.safety?.externalEffects===fals
 assert(learning.safety?.automaticPolicyChange===false&&learning.safety?.automaticDecisionChange===false,'Outcome Learning must not change policy or decisions');
 
 assert(Number(learning.summary?.decisions)===2,'two decisions must be analyzed');
-assert(Number(learning.summary?.decisionsWithObservedOutcome)===1,'only first decision should have observed outcomes');
+assert(Number(learning.summary?.decisionsWithObservedOutcome)===1,'only first decision should have observed outcomes: '+JSON.stringify(learning.summary));
 assert(Number(learning.summary?.coveragePct)===50,'coverage should reflect one of two decisions with outcomes');
 
 const firstOutcomes=learning.observations.filter(x=>x.actionId===decisionEvent.action.id);
