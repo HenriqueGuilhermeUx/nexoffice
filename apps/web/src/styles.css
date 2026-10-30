@@ -71,3 +71,8 @@
 .executiveRecommendationCases>span{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .executiveRecommendationPath footer{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
 @media(max-width:900px){.executiveRecommendationGrid{grid-template-columns:1fr}}
+
+
+.executiveDecisionButton{width:100%;margin-top:10px;border:1px solid #2d5269;background:#0d2232;color:#d8e6f3;border-radius:9px;padding:9px 10px;cursor:pointer;font-weight:800;font-size:11px}
+.executiveDecisionButton:hover{border-color:#55d6be;color:#55d6be}
+.executiveDecisionStatus{display:block;margin-top:6px;color:#7fa294;font-size:9px;line-height:1.35}
