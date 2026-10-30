@@ -3,11 +3,12 @@ import {query} from './db.js';
 import {buildRelationshipIntelligence} from './routes-relationship-intelligence.js';
 import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
 import {buildDecisionMemory} from './decision-memory.js';
+import {buildOutcomeLearning} from './outcome-learning.js';
 
 type TimelineItem={
   id:string;
   at:string;
-  kind:'crm'|'communication'|'calendar'|'finance'|'bank'|'document'|'task'|'external_crm'|'erp'|'decision';
+  kind:'crm'|'communication'|'calendar'|'finance'|'bank'|'document'|'task'|'external_crm'|'erp'|'decision'|'outcome';
   source:string;
   title:string;
   detail?:string|null;
@@ -41,7 +42,7 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
   ))[0];
   if(!contact)return null;
 
-  const [activities,deals,tasks,appointments,documents,ledger,bankRows,events,relationship,cross,decisionMemory]=await Promise.all([
+  const [activities,deals,tasks,appointments,documents,ledger,bankRows,events,relationship,cross,decisionMemory,outcomeLearning]=await Promise.all([
     query<any>(`select id,type,direction,subject,body,occurred_at,metadata from crm_activities where workspace_id=$1 and contact_id=$2 order by occurred_at desc limit 200`,[workspaceId,contactId]),
     query<any>(`select id,title,stage,value_minor,currency,next_action,expected_close_at,created_at,updated_at from crm_deals where workspace_id=$1 and contact_id=$2 order by updated_at desc limit 100`,[workspaceId,contactId]),
     query<any>(`select id,title,status,priority,due_at,created_at,updated_at from tasks where workspace_id=$1 and contact_id=$2 order by coalesce(due_at,updated_at) desc limit 100`,[workspaceId,contactId]),
@@ -61,7 +62,8 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
       order by occurred_at desc limit 4000`,[workspaceId]),
     buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
     buildCrossSystemIntelligence(workspaceId).catch(()=>null),
-    buildDecisionMemory(workspaceId,contactId).catch(()=>null)
+    buildDecisionMemory(workspaceId,contactId).catch(()=>null),
+    buildOutcomeLearning(workspaceId,contactId).catch(()=>null)
   ]);
 
   const mail=lower(contact.email);
@@ -100,6 +102,21 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
     id:'bank:'+row.id,at:String(row.occurred_at),kind:'bank',source:'bank:'+String(row.provider||'unknown'),
     title:cleanText(row.counterparty||row.description||'Movimentação bancária'),detail:cleanText(row.description,240),status:String(row.status||''),
     amountMinor:n(row.amount_minor),direction:row.direction,evidence:{matchType:row.match_type||null,confidence:Number(row.confidence||0)}
+  });
+
+  for(const observation of (outcomeLearning as any)?.observations||[])timeline.push({
+    id:String(observation.id),at:String(observation.outcome?.observedAt||observation.decidedAt),kind:'outcome',source:'nexoffice.outcome_learning',
+    title:String(observation.outcome?.label||'Resultado observado'),
+    detail:String(observation.relationship?.interpretation||'Resultado observado depois da decisão; não implica causalidade.'),
+    status:String(observation.outcome?.polarity||'unknown'),
+    evidence:{
+      decisionId:observation.decisionId||null,
+      actionType:observation.actionType||null,
+      decision:observation.decision||null,
+      daysAfterDecision:observation.outcome?.daysAfterDecision??null,
+      eventId:observation.outcome?.eventId||null,
+      causalClaim:false
+    }
   });
 
   for(const decision of (decisionMemory as any)?.decisions||[])timeline.push({
@@ -248,6 +265,7 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
     crossSystemInsights:crossInsights,
     decisions,
     decisionSummary:(decisionMemory as any)?.summary||{total:0,approved:0,rejected:0,dismissed:0,withRationale:0,withObservedExecution:0,latestDecisionAt:null},
+    outcomeLearning:outcomeLearning||{observations:[],patterns:[],summary:{decisions:0,decisionsWithObservedOutcome:0,approvedDecisions:0,approvedWithObservedOutcome:0,positiveObservations:0,negativeObservations:0,neutralObservations:0,coveragePct:0},methodology:{causalClaims:false},safety:{readOnly:true,externalEffects:false}},
     timeline:timeline.slice(0,300),
     memory:{
       events:timeline.length,
@@ -256,7 +274,8 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
       oldestEventAt:timeline.at(-1)?.at||null,
       factsOnly:true,
       decisionsIncluded:true,
-      decisionMemoryStatus:'operational_from_audit_and_approval_trail'
+      decisionMemoryStatus:'operational_from_audit_and_approval_trail',
+      outcomeLearningStatus:'operational_temporal_observation_v1'
     },
     safety:{
       readOnly:true,
