@@ -146,6 +146,8 @@ jobs:
         run: node scripts/smoke-crm-connect.mjs
       - name: Smoke test Cross-System Intelligence
         run: node scripts/smoke-cross-system-intelligence.mjs
+      - name: Smoke test Business Memory Customer 360
+        run: node scripts/smoke-customer-360.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Microsoft 365 connector security contract
