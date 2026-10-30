@@ -26,10 +26,15 @@ const actionFamiliesFor=(status:string)=>{
 };
 const evidenceRank=(value:string)=>value==='substantial'?4:value==='established'?3:value==='developing'?2:1;
 
-export async function buildCaseBasedExecutiveIntelligence(workspaceId:string,windowDays=180,minSample=3){
+export async function buildCaseBasedExecutiveIntelligence(
+  workspaceId:string,
+  windowDays=180,
+  minSample=3,
+  precomputed?:{relationship?:any;contextual?:any}
+){
   const [relationship,contextual,contactRows]=await Promise.all([
-    buildRelationshipIntelligence(workspaceId,false),
-    buildContextualDecisionIntelligence(workspaceId,windowDays,minSample),
+    precomputed?.relationship?Promise.resolve(precomputed.relationship):buildRelationshipIntelligence(workspaceId,false),
+    precomputed?.contextual?Promise.resolve(precomputed.contextual):buildContextualDecisionIntelligence(workspaceId,windowDays,minSample),
     query<any>('select id,kind from crm_contacts where workspace_id=$1',[workspaceId])
   ]);
 
