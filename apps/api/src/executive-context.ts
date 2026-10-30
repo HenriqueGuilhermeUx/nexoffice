@@ -21,6 +21,18 @@ export interface ExecutivePriority {
   detail:string;
   hypothesis?:string|null;
   recommendedNextStep?:string|null;
+  learningContext?:{
+    actionType:string;
+    decision:string;
+    sampleSize:number;
+    outcomeCoveragePct:number;
+    positiveDecisionPct:number;
+    negativeDecisionPct:number;
+    evidenceLevel:string;
+    interpretation:string;
+    causalClaim:false;
+    advisoryOnly:true;
+  }|null;
   evidence:ExecutiveEvidence[];
 }
 
@@ -241,6 +253,43 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
     });
   }
 
+  const patternRows=Array.isArray((decisionPatterns as any)?.patterns)?(decisionPatterns as any).patterns:[];
+  const actionHints:Record<string,string[]>={
+    receivables_overdue:['payment.','message.','task.'],
+    external_receivables_overdue:['payment.','message.','task.'],
+    relationship_at_risk:['message.','task.','deal.'],
+    relationship_renewal_soon:['deal.','document.','message.','task.'],
+    deals_past_expected_close:['deal.','message.','task.'],
+    external_deals_past_expected_close:['deal.','message.','task.'],
+    tasks_overdue:['task.'],
+    projected_cash_negative:['payment.']
+  };
+  const patternRank=(value:string)=>value==='substantial'?4:value==='established'?3:value==='developing'?2:1;
+  for(const priority of priorities){
+    const hints=actionHints[priority.code]||[];
+    if(!hints.length)continue;
+    const candidates=patternRows
+      .filter((item:any)=>String(item.decision)==='approved')
+      .filter((item:any)=>hints.some(prefix=>String(item.actionType||'').startsWith(prefix)))
+      .filter((item:any)=>Number(item.sampleSize||0)>=3)
+      .sort((a:any,b:any)=>patternRank(String(b.evidenceLevel))-patternRank(String(a.evidenceLevel))||Number(b.sampleSize||0)-Number(a.sampleSize||0)||Number(b.outcomeCoveragePct||0)-Number(a.outcomeCoveragePct||0));
+    const learned=candidates[0];
+    if(!learned)continue;
+    priority.learningContext={
+      actionType:String(learned.actionType||''),
+      decision:String(learned.decision||''),
+      sampleSize:n(learned.sampleSize),
+      outcomeCoveragePct:n(learned.outcomeCoveragePct),
+      positiveDecisionPct:n(learned.positiveDecisionPct),
+      negativeDecisionPct:n(learned.negativeDecisionPct),
+      evidenceLevel:String(learned.evidenceLevel||'early'),
+      interpretation:String(learned.interpretation||''),
+      causalClaim:false,
+      advisoryOnly:true
+    };
+    priority.evidence.push({source:'nex.decision_patterns',label:'historicalDecisionPattern',value:priority.learningContext});
+  }
+
   const rank=(level:ExecutivePriorityLevel)=>level==='critical'?0:level==='attention'?1:2;
   priorities.sort((a,b)=>rank(a.level)-rank(b.level));
   const selected=priorities.slice(0,8);
@@ -314,8 +363,12 @@ export function executiveNarrative(context:ExecutiveContext){
     ?context.priorities.slice(0,4).map((item,index)=>`${index+1}. ${item.title}: ${item.detail}`).join(' ')
     :'Ainda não encontrei um sinal executivo forte.';
   const topPattern=context.decisionLearning?.topPatterns?.[0];
+  const learnedPriority=context.priorities.find(item=>item.learningContext)?.learningContext;
+  const learnedText=learnedPriority
+    ?` Para uma prioridade atual, existe histórico comparável: ${learnedPriority.sampleSize} decisões aprovadas de ${learnedPriority.actionType}, com ${learnedPriority.outcomeCoveragePct}% tendo algum resultado posterior observado. Isso serve apenas como contexto de revisão humana e não prova causalidade.`
+    :'';
   const patternText=topPattern
     ?` Padrão descritivo: em ${topPattern.sampleSize} decisões ${topPattern.decision} de ${topPattern.actionType}, ${topPattern.outcomeCoveragePct}% tiveram algum resultado posterior observado e ${topPattern.positiveDecisionPct}% tiveram ao menos um resultado positivo. Associação temporal; não implica causalidade.`
     :'';
-  return `${context.headline} ${priorityText}${patternText}`;
+  return `${context.headline} ${priorityText}${learnedText}${patternText}`;
 }
