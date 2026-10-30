@@ -6,6 +6,7 @@ import {buildRelationshipIntelligence} from './routes-relationship-intelligence.
 import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
 import {buildDecisionPatterns} from './decision-patterns.js';
 import {buildContextualDecisionIntelligence} from './contextual-decision-intelligence.js';
+import {buildCaseBasedExecutiveIntelligence} from './case-based-executive-intelligence.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -96,6 +97,30 @@ export interface ExecutiveContext {
       recommendedUse:string;
     }>;
   };
+  caseBasedLearning:{
+    currentCases:number;
+    casesWithComparableHistory:number;
+    strongMatches:number;
+    topCases:Array<{
+      contactId:string;
+      name:string;
+      relationshipStatus:string;
+      currentContext:{contactKind:string;financialState:string;engagementState:string};
+      reasons:string[];
+      bestMatch:{
+        similarityScore:number;
+        matchedDimensions:string[];
+        actionType:string;
+        sampleSize:number;
+        outcomeCoveragePct:number;
+        positiveDecisionPct:number;
+        negativeDecisionPct:number;
+        evidenceLevel:string;
+        interpretation:string;
+      }|null;
+      interpretation:string;
+    }>;
+  };
   evidencePolicy:{
     causalClaimsRequireEvidence:true;
     correlationsAreHypotheses:true;
@@ -107,7 +132,7 @@ export interface ExecutiveContext {
 const n=(value:unknown)=>Number(value||0);
 
 export async function buildExecutiveContext(workspaceId:string,workspaceName:string):Promise<ExecutiveContext>{
-  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns,contextualPatterns]=await Promise.all([
+  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns,contextualPatterns,caseBased]=await Promise.all([
     buildBusinessGraph(workspaceId,workspaceName,90),
     financeSummary(workspaceId),
     readBusinessIntelligence(workspaceId).catch(()=>null),
@@ -135,7 +160,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
     buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
     buildCrossSystemIntelligence(workspaceId).catch(()=>null),
     buildDecisionPatterns(workspaceId,180,3).catch(()=>null),
-    buildContextualDecisionIntelligence(workspaceId,180,3).catch(()=>null)
+    buildContextualDecisionIntelligence(workspaceId,180,3).catch(()=>null),
+    buildCaseBasedExecutiveIntelligence(workspaceId,180,3).catch(()=>null)
   ]);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
@@ -385,6 +411,34 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         evidenceLevel:String(item.evidenceLevel||'early'),
         interpretation:String(item.interpretation||''),
         recommendedUse:String(item.recommendedUse||'')
+      })):[]
+    },
+    caseBasedLearning:{
+      currentCases:n((caseBased as any)?.summary?.currentCases),
+      casesWithComparableHistory:n((caseBased as any)?.summary?.casesWithComparableHistory),
+      strongMatches:n((caseBased as any)?.summary?.strongMatches),
+      topCases:Array.isArray((caseBased as any)?.cases)?(caseBased as any).cases.filter((item:any)=>item.bestMatch).slice(0,5).map((item:any)=>({
+        contactId:String(item.contactId||''),
+        name:String(item.name||'Cliente'),
+        relationshipStatus:String(item.relationshipStatus||'unknown'),
+        currentContext:{
+          contactKind:String(item.currentContext?.contactKind||'unknown'),
+          financialState:String(item.currentContext?.financialState||'unknown'),
+          engagementState:String(item.currentContext?.engagementState||'unknown')
+        },
+        reasons:Array.isArray(item.reasons)?item.reasons.map(String):[],
+        bestMatch:item.bestMatch?{
+          similarityScore:n(item.bestMatch.similarityScore),
+          matchedDimensions:Array.isArray(item.bestMatch.matchedDimensions)?item.bestMatch.matchedDimensions.map(String):[],
+          actionType:String(item.bestMatch.actionType||''),
+          sampleSize:n(item.bestMatch.sampleSize),
+          outcomeCoveragePct:n(item.bestMatch.outcomeCoveragePct),
+          positiveDecisionPct:n(item.bestMatch.positiveDecisionPct),
+          negativeDecisionPct:n(item.bestMatch.negativeDecisionPct),
+          evidenceLevel:String(item.bestMatch.evidenceLevel||'early'),
+          interpretation:String(item.bestMatch.interpretation||'')
+        }:null,
+        interpretation:String(item.interpretation||'')
       })):[]
     },
     evidencePolicy:{
