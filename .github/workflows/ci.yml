@@ -150,6 +150,8 @@ jobs:
         run: node scripts/smoke-customer-360.mjs
       - name: Smoke test Decision Memory V1
         run: node scripts/smoke-decision-memory.mjs
+      - name: Smoke test Outcome Learning V1
+        run: node scripts/smoke-outcome-learning.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Microsoft 365 connector security contract
