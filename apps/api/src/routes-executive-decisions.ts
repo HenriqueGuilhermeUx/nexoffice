@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {auditLog} from './events.js';
+import {buildExecutiveDecisionFollowup} from './executive-decision-followup.js';
 
 const chooseSchema=z.object({
   priority:z.object({
@@ -55,6 +56,11 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
       decisions:rows,
       safety:{readOnly:true,externalEffects:false,automaticExecution:false}
     };
+  });
+
+  app.get('/v1/executive-decisions/followup',async req=>{
+    const ctx=await workspaceContext(req,'command.read');
+    return buildExecutiveDecisionFollowup(ctx.workspaceId,90);
   });
 
   app.post('/v1/executive-decisions',async req=>{
