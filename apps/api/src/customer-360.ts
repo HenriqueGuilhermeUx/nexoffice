@@ -2,6 +2,7 @@
 import {query} from './db.js';
 import {buildRelationshipIntelligence} from './routes-relationship-intelligence.js';
 import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
+import {buildDecisionMemory} from './decision-memory.js';
 
 type TimelineItem={
   id:string;
@@ -40,7 +41,7 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
   ))[0];
   if(!contact)return null;
 
-  const [activities,deals,tasks,appointments,documents,ledger,bankRows,events,relationship,cross]=await Promise.all([
+  const [activities,deals,tasks,appointments,documents,ledger,bankRows,events,relationship,cross,decisionMemory]=await Promise.all([
     query<any>(`select id,type,direction,subject,body,occurred_at,metadata from crm_activities where workspace_id=$1 and contact_id=$2 order by occurred_at desc limit 200`,[workspaceId,contactId]),
     query<any>(`select id,title,stage,value_minor,currency,next_action,expected_close_at,created_at,updated_at from crm_deals where workspace_id=$1 and contact_id=$2 order by updated_at desc limit 100`,[workspaceId,contactId]),
     query<any>(`select id,title,status,priority,due_at,created_at,updated_at from tasks where workspace_id=$1 and contact_id=$2 order by coalesce(due_at,updated_at) desc limit 100`,[workspaceId,contactId]),
@@ -59,7 +60,8 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
         and occurred_at>=now()-interval '365 days'
       order by occurred_at desc limit 4000`,[workspaceId]),
     buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
-    buildCrossSystemIntelligence(workspaceId).catch(()=>null)
+    buildCrossSystemIntelligence(workspaceId).catch(()=>null),
+    buildDecisionMemory(workspaceId,contactId).catch(()=>null)
   ]);
 
   const mail=lower(contact.email);
@@ -98,6 +100,20 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
     id:'bank:'+row.id,at:String(row.occurred_at),kind:'bank',source:'bank:'+String(row.provider||'unknown'),
     title:cleanText(row.counterparty||row.description||'Movimentação bancária'),detail:cleanText(row.description,240),status:String(row.status||''),
     amountMinor:n(row.amount_minor),direction:row.direction,evidence:{matchType:row.match_type||null,confidence:Number(row.confidence||0)}
+  });
+
+  for(const decision of (decisionMemory as any)?.decisions||[])timeline.push({
+    id:String(decision.id),at:String(decision.decidedAt),kind:'decision',source:'nexoffice.decision_memory',
+    title:String(decision.title||decision.actionType||'Decisão'),
+    detail:decision.rationale?String(decision.rationale):decision.context?String(decision.context):null,
+    status:String(decision.decision||''),
+    evidence:{
+      actionType:decision.actionType||null,
+      decidedBy:decision.decidedBy||null,
+      rationaleStatus:decision.rationaleStatus||'not_recorded',
+      observedOutcome:decision.observedOutcome||null,
+      subject:decision.subject||null
+    }
   });
 
   for(const row of externalEvents){
@@ -175,8 +191,11 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
   const sourceSystems=[...new Set(timeline.map(item=>item.source))].sort();
 
   const topCross=crossInsights[0]||null;
+  const decisions=Array.isArray((decisionMemory as any)?.decisions)?(decisionMemory as any).decisions:[];
+  const latestDecision=decisions[0]||null;
   const relationshipOption=Array.isArray(relationshipRow?.bestOptions)?relationshipRow.bestOptions[0]||null:null;
   const recommendedNextStep=topCross?.recommendedNextStep
+    ||(latestDecision?.observedOutcome?.status==='approved_waiting_execution'?'Acompanhar a execução da decisão aprovada: '+String(latestDecision.title||latestDecision.actionType):null)
     ||(relationshipOption?.label?String(relationshipOption.label)+(relationshipOption.reason?' — '+String(relationshipOption.reason):''):null)
     ||(openTasks[0]?.title?'Revisar tarefa aberta: '+String(openTasks[0].title):null)
     ||'Revisar o histórico recente e registrar um próximo passo interno.';
@@ -192,6 +211,7 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
           :'A memória atual não mostra sinal crítico para este cliente.';
 
   const summaryParts:string[]=[];
+  if(latestDecision)summaryParts.push('última decisão: '+String(latestDecision.decision)+' em '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short'}).format(new Date(String(latestDecision.decidedAt))));
   if(openDealsCount)summaryParts.push(openDealsCount+' oportunidade(s) aberta(s), total de '+openPipelineMinor+' centavos');
   if(overdueReceivablesCount)summaryParts.push(overdueReceivablesCount+' recebível(is) vencido(s), total de '+overdueMinor+' centavos');
   if(relationshipRow?.externalInteractions90)summaryParts.push(Number(relationshipRow.externalInteractions90)+' interação(ões) externas nos últimos 90 dias');
@@ -226,6 +246,8 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
       hypothesis:topCross?.hypothesis||null
     },
     crossSystemInsights:crossInsights,
+    decisions,
+    decisionSummary:(decisionMemory as any)?.summary||{total:0,approved:0,rejected:0,dismissed:0,withRationale:0,withObservedExecution:0,latestDecisionAt:null},
     timeline:timeline.slice(0,300),
     memory:{
       events:timeline.length,
@@ -233,8 +255,8 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
       latestEventAt:timeline[0]?.at||null,
       oldestEventAt:timeline.at(-1)?.at||null,
       factsOnly:true,
-      decisionsIncluded:false,
-      decisionMemoryStatus:'planned_after_audit_and_approval_trail'
+      decisionsIncluded:true,
+      decisionMemoryStatus:'operational_from_audit_and_approval_trail'
     },
     safety:{
       readOnly:true,
