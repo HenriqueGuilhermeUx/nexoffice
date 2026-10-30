@@ -45,6 +45,7 @@ type ExecutiveContext={
   crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
   decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
   contextualDecisionLearning:{patterns:number;decisionsAnalyzed:number;topPatterns:Array<{actionType:string;decision:string;context:{contactKind:string;financialState:string;engagementState:string};sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
+  decisionFollowup:{decisionsTracked:number;withObservedEvents:number;monitoring:number;positiveObservations:number;negativeObservations:number;topFollowups:Array<{decisionId:string;priorityTitle:string;selectedLabel:string;selectedPosture:string;rationale:string;chosenAt:string;daysSinceDecision:number;observationStatus:string;summary:{totalObserved:number;positive:number;negative:number;neutral:number;latestObservedAt:string|null};observedEvents:Array<{eventId:string;eventType:string;source:string;observedAt:string;daysAfterDecision:number;code:string;label:string;polarity:string;detail:string|null}>;interpretation:string;relationship:{temporal:true;sameWorkspace:true;causalClaim:false}}>} ;
   recommendationStack:{prioritiesCovered:number;pathsGenerated:number;prioritiesWithComparableCases:number;items:Array<{priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};paths:Array<{id:string;label:string;posture:'conservative'|'balanced'|'active';description:string;why:string;tradeoffs:string[];risks:string[];suggestedActionFamily:string|null;confidence:'low'|'medium'|'high';evidence:Evidence[];comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;humanReviewRequired:true;externalEffects:false}>;recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false}}>} ;
   caseBasedLearning:{currentCases:number;casesWithComparableHistory:number;strongMatches:number;topCases:Array<{contactId:string;name:string;relationshipStatus:string;currentContext:{contactKind:string;financialState:string;engagementState:string};reasons:string[];bestMatch:{similarityScore:number;matchedDimensions:string[];actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string}|null;interpretation:string}>};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
@@ -146,6 +147,17 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
+    {context.decisionFollowup?.topFollowups?.length>0&&<div className="executiveDecisionFollowup">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · ACOMPANHAMENTO DE DECISÕES</p><h4>O que aconteceu depois das escolhas registradas</h4><p>Eventos posteriores são observados no mesmo workspace e relacionados por contexto. Sequência temporal não significa causalidade.</p></div><span>{context.decisionFollowup.withObservedEvents}/{context.decisionFollowup.decisionsTracked} com observações</span></div>
+      <div className="executiveDecisionFollowupGrid">{context.decisionFollowup.topFollowups.map(item=><article key={'followup|'+item.decisionId}>
+        <div className="executiveDecisionFollowupHead"><div><b>{item.priorityTitle}</b><span>{item.selectedLabel} · {item.selectedPosture}</span></div><em>{item.daysSinceDecision} dia(s)</em></div>
+        <p><strong>Por que foi escolhido:</strong> {item.rationale}</p>
+        <div className="executivePatternStats"><span><b>{item.summary.totalObserved}</b> eventos observados</span><span><b>{item.summary.positive}</b> positivos</span><span><b>{item.summary.negative}</b> negativos</span><span><b>{item.summary.neutral}</b> neutros</span></div>
+        {item.observedEvents?.length>0&&<div className="executiveObservedEvents">{item.observedEvents.slice(0,4).map(event=><div key={event.eventId}><span>{event.label}</span><small>{event.daysAfterDecision} dia(s) depois · {event.source}</small>{event.detail&&<p>{event.detail}</p>}</div>)}</div>}
+        <small className="executiveCausalCaveat">{item.interpretation}</small>
+      </article>)}</div>
+    </div>}
+
     {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CAMINHOS DE DECISÃO</p><h4>Três formas de responder à prioridade atual</h4><p>A Maya organiza alternativas com evidências, riscos, trade-offs e precedentes comparáveis. Nenhum caminho é escolhido ou executado automaticamente.</p></div><span>{context.recommendationStack.pathsGenerated} caminho(s)</span></div>
       {context.recommendationStack.items.slice(0,3).map(item=><section className="executiveRecommendationItem" key={'rec|'+item.priority.code}>
@@ -212,6 +224,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div><span>Padrões contextuais</span><b>{context.contextualDecisionLearning?.patterns||0}</b></div>
       <div><span>Casos com histórico</span><b>{context.caseBasedLearning?.casesWithComparableHistory||0}</b></div>
       <div><span>Caminhos estruturados</span><b>{context.recommendationStack?.pathsGenerated||0}</b></div>
+      <div><span>Decisões acompanhadas</span><b>{context.decisionFollowup?.decisionsTracked||0}</b></div>
       <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
     </div>
 
