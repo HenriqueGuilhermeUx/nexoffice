@@ -44,6 +44,7 @@ type ExecutiveContext={
   };
   crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
   decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
+  contextualDecisionLearning:{patterns:number;decisionsAnalyzed:number;topPatterns:Array<{actionType:string;decision:string;context:{contactKind:string;financialState:string;engagementState:string};sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
 type SourceRegistry={
@@ -113,6 +114,17 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
+    {context.contextualDecisionLearning?.topPatterns?.length>0&&<div className="executiveDecisionPatterns">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · INTELIGÊNCIA CONTEXTUAL</p><h4>Decisões em situações realmente comparáveis</h4><p>O contexto é reconstruído na data da decisão: tipo de cliente, atrasos existentes naquele momento e recência de interação. Isso reduz comparações enganosas e continua sem provar causalidade.</p></div><span>{context.contextualDecisionLearning.patterns} padrão(ões)</span></div>
+      <div className="executiveDecisionPatternGrid">{context.contextualDecisionLearning.topPatterns.map(pattern=><article key={'ctx|'+pattern.actionType+'|'+pattern.decision+'|'+pattern.context.contactKind+'|'+pattern.context.financialState+'|'+pattern.context.engagementState}>
+        <div><b>{pattern.actionType}</b><span>{pattern.decision}</span></div>
+        <div className="executiveContextTags"><span>{pattern.context.contactKind}</span><span>{pattern.context.financialState}</span><span>{pattern.context.engagementState}</span></div>
+        <p>{pattern.interpretation}</p>
+        <div className="executivePatternStats"><span><b>{pattern.sampleSize}</b> decisões comparáveis</span><span><b>{pattern.outcomeCoveragePct}%</b> com resultado observado</span><span><b>{pattern.positiveDecisionPct}%</b> com positivo</span><span><b>{pattern.negativeDecisionPct}%</b> com negativo</span></div>
+        <small>Evidência: {pattern.evidenceLevel} · {pattern.recommendedUse}</small>
+      </article>)}</div>
+    </div>}
+
     {context.decisionLearning?.topPatterns?.length>0&&<div className="executiveDecisionPatterns">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · PADRÕES DE DECISÃO</p><h4>O que costuma ser observado depois de decisões semelhantes</h4><p>Padrões descritivos do histórico da empresa. Amostra e cobertura ficam visíveis; nada aqui altera autonomia ou prova causalidade.</p></div><span>{context.decisionLearning.patterns} padrão(ões)</span></div>
       <div className="executiveDecisionPatternGrid">{context.decisionLearning.topPatterns.map(pattern=><article key={pattern.actionType+'|'+pattern.decision}>
@@ -133,6 +145,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div><span>Cruzamentos multi-sistema</span><b>{context.crossSystem?.insights||0}</b></div>
       <div><span>Clientes correlacionados</span><b>{context.crossSystem?.customers||0}</b></div>
       <div><span>Padrões de decisão</span><b>{context.decisionLearning?.patterns||0}</b></div>
+      <div><span>Padrões contextuais</span><b>{context.contextualDecisionLearning?.patterns||0}</b></div>
       <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
     </div>
 
