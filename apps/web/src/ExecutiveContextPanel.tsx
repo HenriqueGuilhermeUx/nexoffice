@@ -9,6 +9,18 @@ type Priority={
   detail:string;
   hypothesis?:string|null;
   recommendedNextStep?:string|null;
+  learningContext?:{
+    actionType:string;
+    decision:string;
+    sampleSize:number;
+    outcomeCoveragePct:number;
+    positiveDecisionPct:number;
+    negativeDecisionPct:number;
+    evidenceLevel:string;
+    interpretation:string;
+    causalClaim:false;
+    advisoryOnly:true;
+  }|null;
   evidence:Evidence[];
 };
 type ExecutiveContext={
@@ -92,6 +104,11 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <p>{item.detail}</p>
         {item.hypothesis&&<small><strong>Leitura:</strong> {item.hypothesis}</small>}
         {item.recommendedNextStep&&<div className="executiveNext"><span>PRÓXIMO PASSO</span>{item.recommendedNextStep}</div>}
+        {item.learningContext&&<div className="executiveLearningContext">
+          <span>HISTÓRICO COMPARÁVEL · CONTEXTO, NÃO CAUSALIDADE</span>
+          <p>Em {item.learningContext.sampleSize} decisões aprovadas de <b>{item.learningContext.actionType}</b>, {item.learningContext.outcomeCoveragePct}% tiveram algum resultado posterior observado; {item.learningContext.positiveDecisionPct}% tiveram ao menos um resultado positivo e {item.learningContext.negativeDecisionPct}% ao menos um negativo.</p>
+          <small>Evidência {item.learningContext.evidenceLevel}. Uso apenas consultivo; a recomendação continua sujeita à revisão humana.</small>
+        </div>}
         {item.evidence?.length>0&&<details><summary>Ver evidências</summary><div className="executiveEvidence">{item.evidence.slice(0,6).map((e,i)=><code key={`${item.code}-${i}`}><span>{e.label}</span>{typeof e.value==='object'?JSON.stringify(e.value):String(e.value)}</code>)}</div></details>}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
