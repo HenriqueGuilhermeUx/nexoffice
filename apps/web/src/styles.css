@@ -42,3 +42,8 @@
 
 .executiveContextTags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px}
 .executiveContextTags span{font-size:10px;font-weight:800;letter-spacing:.04em;padding:5px 8px;border:1px solid rgba(120,120,140,.24);border-radius:999px;background:rgba(120,120,140,.06);text-transform:uppercase}
+
+
+.executiveCaseScore{display:flex;align-items:baseline;gap:8px;margin:10px 0 6px}
+.executiveCaseScore strong{font-size:22px;line-height:1}
+.executiveCaseScore span{font-size:11px;font-weight:700;opacity:.68;text-transform:uppercase;letter-spacing:.05em}
