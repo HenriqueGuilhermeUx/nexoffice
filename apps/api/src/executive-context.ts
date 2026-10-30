@@ -7,6 +7,7 @@ import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
 import {buildDecisionPatterns} from './decision-patterns.js';
 import {buildContextualDecisionIntelligence} from './contextual-decision-intelligence.js';
 import {buildCaseBasedExecutiveIntelligence} from './case-based-executive-intelligence.js';
+import {buildExecutiveRecommendationStack} from './executive-recommendation-stack.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -95,6 +96,29 @@ export interface ExecutiveContext {
       evidenceLevel:string;
       interpretation:string;
       recommendedUse:string;
+    }>;
+  };
+  recommendationStack:{
+    prioritiesCovered:number;
+    pathsGenerated:number;
+    prioritiesWithComparableCases:number;
+    items:Array<{
+      priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};
+      paths:Array<{
+        id:string;
+        label:string;
+        posture:'conservative'|'balanced'|'active';
+        description:string;
+        why:string;
+        tradeoffs:string[];
+        risks:string[];
+        suggestedActionFamily:string|null;
+        confidence:'low'|'medium'|'high';
+        comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;
+        humanReviewRequired:true;
+        externalEffects:false;
+      }>;
+      recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false};
     }>;
   };
   caseBasedLearning:{
@@ -337,6 +361,7 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
   const rank=(level:ExecutivePriorityLevel)=>level==='critical'?0:level==='attention'?1:2;
   priorities.sort((a,b)=>rank(a.level)-rank(b.level));
   const selected=priorities.slice(0,8);
+  const recommendationStack=buildExecutiveRecommendationStack(selected,caseBased);
 
   const critical=selected.filter(item=>item.level==='critical').length;
   const attention=selected.filter(item=>item.level==='attention').length;
@@ -412,6 +437,12 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         interpretation:String(item.interpretation||''),
         recommendedUse:String(item.recommendedUse||'')
       })):[]
+    },
+    recommendationStack:{
+      prioritiesCovered:n((recommendationStack as any)?.summary?.prioritiesCovered),
+      pathsGenerated:n((recommendationStack as any)?.summary?.pathsGenerated),
+      prioritiesWithComparableCases:n((recommendationStack as any)?.summary?.prioritiesWithComparableCases),
+      items:Array.isArray((recommendationStack as any)?.items)?(recommendationStack as any).items:[]
     },
     caseBasedLearning:{
       currentCases:n((caseBased as any)?.summary?.currentCases),
