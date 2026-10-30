@@ -12,7 +12,7 @@ type Customer360={
     relationshipStatus:string;relationshipReasons:string[];lastTouchAt?:string|null;daysSinceTouch?:number|null;externalInteractions90:number;
     openDeals:number;openPipelineMinor:number;overdueReceivables:number;overdueMinor:number;bankIncome90Minor:number;openTasks:number;upcomingAppointments:number;nextRenewalAt?:string|null;
   };
-  maya:{headline:string;summary:string;recommendedNextStep:string;confidence:string;hypothesis?:string|null};
+  maya:{headline:string;summary:string;recommendedNextStep:string;confidence:string;hypothesis?:string|null;outcomeLearningNote?:string|null};
   crossSystemInsights:Array<{code:string;level:string;confidence:string;title:string;detail:string;hypothesis:string;sourceSystems:string[];recommendedNextStep:string}>;
   decisions:Array<{id:string;actionId?:string|null;approvalId?:string|null;actionType:string;title:string;context?:string|null;decision:string;decidedAt:string;decidedBy:{id:string|null;name:string|null;email:string|null;actorType:string};rationale?:string|null;rationaleStatus:'recorded'|'not_recorded';observedOutcome:{status:string;observedAt?:string|null;executionObserved:boolean;successObserved:boolean|null};subject:{type:string|null;id:string|null};source:string}>;
   decisionSummary:{total:number;approved:number;rejected:number;dismissed:number;withRationale:number;withObservedExecution:number;latestDecisionAt?:string|null};
@@ -74,7 +74,7 @@ export default function Customer360Panel({contactId,onClose}:{contactId:string;o
       </div>
 
       <div className="customer360Maya">
-        <div><small>MAYA · LEITURA ATUAL</small><h4>{data.maya.headline}</h4><p>{data.maya.summary}</p>{data.maya.hypothesis&&<em>{data.maya.hypothesis}</em>}</div>
+        <div><small>MAYA · LEITURA ATUAL</small><h4>{data.maya.headline}</h4><p>{data.maya.summary}</p>{data.maya.hypothesis&&<em>{data.maya.hypothesis}</em>}{data.maya.outcomeLearningNote&&<strong className="customer360LearningNote">{data.maya.outcomeLearningNote}</strong>}</div>
         <aside><span>PRÓXIMO MOVIMENTO</span><b>{data.maya.recommendedNextStep}</b><small>Confiança: {data.maya.confidence}. Nenhuma ação é executada daqui.</small></aside>
       </div>
 
