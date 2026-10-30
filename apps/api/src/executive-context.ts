@@ -313,5 +313,9 @@ export function executiveNarrative(context:ExecutiveContext){
   const priorityText=context.priorities.length
     ?context.priorities.slice(0,4).map((item,index)=>`${index+1}. ${item.title}: ${item.detail}`).join(' ')
     :'Ainda não encontrei um sinal executivo forte.';
-  return `${context.headline} ${priorityText}`;
+  const topPattern=context.decisionLearning?.topPatterns?.[0];
+  const patternText=topPattern
+    ?` Padrão descritivo: em ${topPattern.sampleSize} decisões ${topPattern.decision} de ${topPattern.actionType}, ${topPattern.outcomeCoveragePct}% tiveram algum resultado posterior observado e ${topPattern.positiveDecisionPct}% tiveram ao menos um resultado positivo. Associação temporal; não implica causalidade.`
+    :'';
+  return `${context.headline} ${priorityText}${patternText}`;
 }
