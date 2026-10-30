@@ -146,10 +146,29 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
     ?(cross as any).insights.filter((row:any)=>String(row.contactId)===String(contactId))
     :[];
 
-  const openDeals=deals.filter((row:any)=>!['won','lost'].includes(String(row.stage)));
-  const openPipelineMinor=openDeals.reduce((sum:number,row:any)=>sum+n(row.value_minor),0);
+  const nativeOpenDeals=deals.filter((row:any)=>!['won','lost'].includes(String(row.stage)));
+  const externalOpenDeals=externalEvents.filter((row:any)=>{
+    if(row.source!=='external.crm')return false;
+    const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+    const kind=String(payload.resourceKind||normalized.resourceKind||'');
+    const stage=String(normalized.stage||normalized.status||'').toLowerCase();
+    return kind==='deal'&&!['won','lost','ganho','perdido','closed','fechado','cancelled','cancelado'].includes(stage);
+  });
+  const openDealsCount=nativeOpenDeals.length+externalOpenDeals.length;
+  const openPipelineMinor=nativeOpenDeals.reduce((sum:number,row:any)=>sum+n(row.value_minor),0)+externalOpenDeals.reduce((sum:number,row:any)=>sum+n((row.payload as any)?.normalized?.amountMinor),0);
   const overdueLedger=ledger.filter((row:any)=>row.direction==='income'&&['open','overdue'].includes(String(row.status))&&row.due_at&&new Date(row.due_at).getTime()<Date.now());
-  const overdueMinor=overdueLedger.reduce((sum:number,row:any)=>sum+n(row.amount_minor),0);
+  const externalOverdue=externalEvents.filter((row:any)=>{
+    if(row.source!=='external.erp')return false;
+    const payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+    const normalized=payload.normalized&&typeof payload.normalized==='object'?payload.normalized:{};
+    const kind=String(payload.resourceKind||normalized.resourceKind||'');
+    const dueAt=normalized.dueAt?new Date(String(normalized.dueAt)).getTime():NaN;
+    const status=String(normalized.status||'').toLowerCase();
+    return kind==='receivable'&&Number.isFinite(dueAt)&&dueAt<Date.now()&&!['paid','pago','recebido','settled','closed','quitado','liquidado'].includes(status);
+  });
+  const overdueReceivablesCount=overdueLedger.length+externalOverdue.length;
+  const overdueMinor=overdueLedger.reduce((sum:number,row:any)=>sum+n(row.amount_minor),0)+externalOverdue.reduce((sum:number,row:any)=>sum+n((row.payload as any)?.normalized?.amountMinor),0);
   const paidMinor90=bankRows.filter((row:any)=>row.direction==='income'&&new Date(row.occurred_at).getTime()>=Date.now()-90*86400000).reduce((sum:number,row:any)=>sum+n(row.amount_minor),0);
   const openTasks=tasks.filter((row:any)=>!['done','cancelled'].includes(String(row.status)));
   const upcomingAppointments=appointments.filter((row:any)=>!['cancelled','completed'].includes(String(row.status))&&new Date(row.starts_at).getTime()>=Date.now());
@@ -166,15 +185,15 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
     ?String(topCross.title)
     :relationshipRow?.status==='risk'
       ?'Relacionamento exige atenção antes do próximo movimento.'
-      :openDeals.length
+      :openDealsCount
         ?'Há oportunidade comercial ativa neste relacionamento.'
         :overdueLedger.length
           ?'Há pendência financeira que merece acompanhamento.'
           :'A memória atual não mostra sinal crítico para este cliente.';
 
   const summaryParts:string[]=[];
-  if(openDeals.length)summaryParts.push(openDeals.length+' oportunidade(s) aberta(s), total de '+openPipelineMinor+' centavos');
-  if(overdueLedger.length)summaryParts.push(overdueLedger.length+' recebível(is) vencido(s), total de '+overdueMinor+' centavos');
+  if(openDealsCount)summaryParts.push(openDealsCount+' oportunidade(s) aberta(s), total de '+openPipelineMinor+' centavos');
+  if(overdueReceivablesCount)summaryParts.push(overdueReceivablesCount+' recebível(is) vencido(s), total de '+overdueMinor+' centavos');
   if(relationshipRow?.externalInteractions90)summaryParts.push(Number(relationshipRow.externalInteractions90)+' interação(ões) externas nos últimos 90 dias');
   if(paidMinor90)summaryParts.push(paidMinor90+' centavos em entradas bancárias conciliadas nos últimos 90 dias');
   if(!summaryParts.length)summaryParts.push(timeline.length+' evento(s) disponíveis na memória do relacionamento');
@@ -190,9 +209,9 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
       lastTouchAt:relationshipRow?.lastTouchAt||timeline[0]?.at||null,
       daysSinceTouch:relationshipRow?.daysSinceTouch??null,
       externalInteractions90:n(relationshipRow?.externalInteractions90),
-      openDeals:openDeals.length,
+      openDeals:openDealsCount,
       openPipelineMinor,
-      overdueReceivables:overdueLedger.length,
+      overdueReceivables:overdueReceivablesCount,
       overdueMinor,
       bankIncome90Minor:paidMinor90,
       openTasks:openTasks.length,
