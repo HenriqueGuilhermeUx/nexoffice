@@ -60,7 +60,7 @@ assert(Number(view.currentState?.externalInteractions90)>=3,'external CRM and em
 const sources=new Set(view.timeline.map(x=>x.source));
 for(const source of ['nexoffice.crm','nexoffice.agenda','external.crm','external.erp','external.email'])assert(sources.has(source),'timeline must include '+source);
 assert(view.memory?.sourceSystems.length>=5,'memory must expose multi-source coverage');
-assert(view.memory?.factsOnly===true&&view.memory?.decisionsIncluded===false,'V1 memory must distinguish facts from future decision memory');
+assert(view.memory?.factsOnly===true&&view.memory?.decisionsIncluded===true&&view.memory?.decisionMemoryStatus==='operational_from_audit_and_approval_trail','Customer 360 must include operational Decision Memory without inventing facts');
 
 assert(view.crossSystemInsights.some(x=>x.code==='opportunity_vs_payment_risk'),'Customer 360 must include cross-system payment-risk insight');
 assert(view.crossSystemInsights.some(x=>x.code==='engagement_without_progress'),'Customer 360 must include engagement-without-progress insight');
