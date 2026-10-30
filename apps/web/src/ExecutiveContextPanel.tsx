@@ -1,0 +1,235 @@
+import {useCallback,useEffect,useState} from 'react';
+import {api} from './api';
+
+type Evidence={source:string;label:string;value:unknown};
+type Priority={
+  code:string;
+  level:'info'|'attention'|'critical';
+  title:string;
+  detail:string;
+  hypothesis?:string|null;
+  recommendedNextStep?:string|null;
+  learningContext?:{
+    actionType:string;
+    decision:string;
+    sampleSize:number;
+    outcomeCoveragePct:number;
+    positiveDecisionPct:number;
+    negativeDecisionPct:number;
+    evidenceLevel:string;
+    interpretation:string;
+    causalClaim:false;
+    advisoryOnly:true;
+  }|null;
+  evidence:Evidence[];
+};
+type ExecutiveContext={
+  generatedAt:string;
+  headline:string;
+  priorities:Priority[];
+  businessGraph:{nodes:number;edges:number;sources:string[];relationships:Record<string,number>};
+  indicators:{
+    pipelineMinor:number;
+    openDeals:number;
+    receivableMinor:number;
+    overdueCount:number;
+    overdueReceivableMinor:number;
+    payableMinor:number;
+    projectedCash30Minor:number|null;
+    businessHealthScore:number|null;
+    businessKnowledgePct:number|null;
+    crossSystemInsights:number;
+    decisionPatterns:number;
+    decisionsAnalyzed:number;
+  };
+  crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
+  decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
+  contextualDecisionLearning:{patterns:number;decisionsAnalyzed:number;topPatterns:Array<{actionType:string;decision:string;context:{contactKind:string;financialState:string;engagementState:string};sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
+  decisionFollowup:{decisionsTracked:number;withObservedEvents:number;monitoring:number;positiveObservations:number;negativeObservations:number;topFollowups:Array<{decisionId:string;priorityTitle:string;selectedLabel:string;selectedPosture:string;rationale:string;chosenAt:string;daysSinceDecision:number;observationStatus:string;summary:{totalObserved:number;positive:number;negative:number;neutral:number;latestObservedAt:string|null};observedEvents:Array<{eventId:string;eventType:string;source:string;observedAt:string;daysAfterDecision:number;code:string;label:string;polarity:string;detail:string|null}>;interpretation:string;relationship:{temporal:true;sameWorkspace:true;causalClaim:false}}>} ;
+  recommendationStack:{prioritiesCovered:number;pathsGenerated:number;prioritiesWithComparableCases:number;items:Array<{priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};paths:Array<{id:string;label:string;posture:'conservative'|'balanced'|'active';description:string;why:string;tradeoffs:string[];risks:string[];suggestedActionFamily:string|null;confidence:'low'|'medium'|'high';evidence:Evidence[];comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;humanReviewRequired:true;externalEffects:false}>;recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false}}>} ;
+  caseBasedLearning:{currentCases:number;casesWithComparableHistory:number;strongMatches:number;topCases:Array<{contactId:string;name:string;relationshipStatus:string;currentContext:{contactKind:string;financialState:string;engagementState:string};reasons:string[];bestMatch:{similarityScore:number;matchedDimensions:string[];actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string}|null;interpretation:string}>};
+  evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
+};
+type SourceRegistry={
+  native:Array<{source:string;kind:string;records:number;connected:boolean}>;
+  integrations:Array<{provider:string;status:string;capabilities:string[]}>;
+  alternativeVentures:Array<{sourceProduct:string;signals:number;lastSignalAt?:string|null;privacy:string}>;
+  connectorContract:{version:string;normalizesTo:string;supports:string[]};
+  safety:{workspaceScoped:boolean;secretsReturned:boolean;externalEffects:boolean};
+};
+
+const money=(minor:number|null|undefined)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
+const levelLabel:Record<string,string>={critical:'Crítico',attention:'Atenção',info:'Observação'};
+
+export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}){
+  const [context,setContext]=useState<ExecutiveContext|null>(null);
+  const [sources,setSources]=useState<SourceRegistry|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
+
+  const load=useCallback(async()=>{
+    if(!workspaceId)return;
+    setLoading(true);setError('');
+    try{
+      const [ctx,registry]=await Promise.all([
+        api<ExecutiveContext>('/v1/assistant/executive-context'),
+        api<SourceRegistry>('/v1/business-graph/sources')
+      ]);
+      setContext(ctx);setSources(registry);
+    }catch(e:any){
+      setError(e?.message||'Não foi possível montar a visão executiva.');
+    }finally{setLoading(false)}
+  },[workspaceId]);
+
+  useEffect(()=>{void load()},[load]);
+
+  const recordDecision=useCallback(async(item:ExecutiveContext['recommendationStack']['items'][number],path:ExecutiveContext['recommendationStack']['items'][number]['paths'][number])=>{
+    const rationale=window.prompt('Por que você escolheu este caminho? A justificativa ficará registrada na memória executiva.');
+    if(!rationale||rationale.trim().length<8)return;
+    setDecisionStatus(current=>({...current,[path.id]:'Salvando…'}));
+    try{
+      await api('/v1/executive-decisions',{
+        method:'POST',
+        body:JSON.stringify({
+          priority:item.priority,
+          path:{
+            id:path.id,
+            posture:path.posture,
+            label:path.label,
+            suggestedActionFamily:path.suggestedActionFamily,
+            confidence:path.confidence,
+            tradeoffs:path.tradeoffs,
+            risks:path.risks,
+            evidence:(path as any).evidence||[],
+            comparableCases:path.comparableCases||[]
+          },
+          rationale:rationale.trim()
+        })
+      });
+      setDecisionStatus(current=>({...current,[path.id]:'Decisão registrada · nenhuma ação executada'}));
+    }catch(e:any){
+      setDecisionStatus(current=>({...current,[path.id]:e?.message||'Não foi possível registrar a decisão'}));
+    }
+  },[]);
+
+  if(loading&&!context)return <section className="executiveContextPanel"><div className="executiveContextLoading">Maya está cruzando o contexto do negócio…</div></section>;
+  if(error&&!context)return <section className="executiveContextPanel"><div className="executiveContextError">{error}<button onClick={()=>void load()}>Tentar novamente</button></div></section>;
+  if(!context)return null;
+
+  const priority=context.priorities.slice(0,3);
+  const connectedIntegrations=sources?.integrations.filter(item=>item.status==='connected').length||0;
+  const avSignals=sources?.alternativeVentures.reduce((sum,item)=>sum+Number(item.signals||0),0)||0;
+
+  return <section className="executiveContextPanel">
+    <div className="executiveContextHead">
+      <div>
+        <p className="eyebrow">MAYA · VISÃO EXECUTIVA</p>
+        <h3>{context.headline}</h3>
+        <p>Leitura cruzada de vendas, financeiro, operação, agenda, documentos e fontes externas. Correlações multi-sistema aparecem como hipóteses explicáveis; nenhuma ação é executada daqui.</p>
+      </div>
+      <button onClick={()=>void load()} disabled={loading}>{loading?'Analisando…':'Atualizar leitura'}</button>
+    </div>
+
+    <div className="executivePriorityGrid">
+      {priority.length?priority.map((item,index)=><article className={`executivePriority ${item.level}`} key={item.code}>
+        <div className="executivePriorityTop"><span>{String(index+1).padStart(2,'0')}</span><b>{levelLabel[item.level]||item.level}</b></div>
+        <h4>{item.title}</h4>
+        <p>{item.detail}</p>
+        {item.hypothesis&&<small><strong>Leitura:</strong> {item.hypothesis}</small>}
+        {item.recommendedNextStep&&<div className="executiveNext"><span>PRÓXIMO PASSO</span>{item.recommendedNextStep}</div>}
+        {item.learningContext&&<div className="executiveLearningContext">
+          <span>HISTÓRICO COMPARÁVEL · CONTEXTO, NÃO CAUSALIDADE</span>
+          <p>Em {item.learningContext.sampleSize} decisões aprovadas de <b>{item.learningContext.actionType}</b>, {item.learningContext.outcomeCoveragePct}% tiveram algum resultado posterior observado; {item.learningContext.positiveDecisionPct}% tiveram ao menos um resultado positivo e {item.learningContext.negativeDecisionPct}% ao menos um negativo.</p>
+          <small>Evidência {item.learningContext.evidenceLevel}. Uso apenas consultivo; a recomendação continua sujeita à revisão humana.</small>
+        </div>}
+        {item.evidence?.length>0&&<details><summary>Ver evidências</summary><div className="executiveEvidence">{item.evidence.slice(0,6).map((e,i)=><code key={`${item.code}-${i}`}><span>{e.label}</span>{typeof e.value==='object'?JSON.stringify(e.value):String(e.value)}</code>)}</div></details>}
+      </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
+    </div>
+
+    {context.decisionFollowup?.topFollowups?.length>0&&<div className="executiveDecisionFollowup">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · ACOMPANHAMENTO DE DECISÕES</p><h4>O que aconteceu depois das escolhas registradas</h4><p>Eventos posteriores são observados no mesmo workspace e relacionados por contexto. Sequência temporal não significa causalidade.</p></div><span>{context.decisionFollowup.withObservedEvents}/{context.decisionFollowup.decisionsTracked} com observações</span></div>
+      <div className="executiveDecisionFollowupGrid">{context.decisionFollowup.topFollowups.map(item=><article key={'followup|'+item.decisionId}>
+        <div className="executiveDecisionFollowupHead"><div><b>{item.priorityTitle}</b><span>{item.selectedLabel} · {item.selectedPosture}</span></div><em>{item.daysSinceDecision} dia(s)</em></div>
+        <p><strong>Por que foi escolhido:</strong> {item.rationale}</p>
+        <div className="executivePatternStats"><span><b>{item.summary.totalObserved}</b> eventos observados</span><span><b>{item.summary.positive}</b> positivos</span><span><b>{item.summary.negative}</b> negativos</span><span><b>{item.summary.neutral}</b> neutros</span></div>
+        {item.observedEvents?.length>0&&<div className="executiveObservedEvents">{item.observedEvents.slice(0,4).map(event=><div key={event.eventId}><span>{event.label}</span><small>{event.daysAfterDecision} dia(s) depois · {event.source}</small>{event.detail&&<p>{event.detail}</p>}</div>)}</div>}
+        <small className="executiveCausalCaveat">{item.interpretation}</small>
+      </article>)}</div>
+    </div>}
+
+    {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CAMINHOS DE DECISÃO</p><h4>Três formas de responder à prioridade atual</h4><p>A Maya organiza alternativas com evidências, riscos, trade-offs e precedentes comparáveis. Nenhum caminho é escolhido ou executado automaticamente.</p></div><span>{context.recommendationStack.pathsGenerated} caminho(s)</span></div>
+      {context.recommendationStack.items.slice(0,3).map(item=><section className="executiveRecommendationItem" key={'rec|'+item.priority.code}>
+        <div className="executiveRecommendationPriority"><span>{item.priority.level}</span><div><h5>{item.priority.title}</h5><p>{item.priority.detail}</p></div></div>
+        <div className="executiveRecommendationGrid">{item.paths.map(path=><article className={'executiveRecommendationPath '+path.posture} key={path.id}>
+          <div className="executiveRecommendationPathHead"><div><b>{path.label}</b><span>{path.posture}</span></div><em>{path.confidence} confiança</em></div>
+          <p>{path.description}</p>
+          <small>{path.why}</small>
+          <div className="executiveRecommendationLists"><div><strong>Trade-offs</strong><ul>{path.tradeoffs.map(x=><li key={x}>{x}</li>)}</ul></div><div><strong>Riscos</strong><ul>{path.risks.map(x=><li key={x}>{x}</li>)}</ul></div></div>
+          {path.comparableCases?.length>0&&<div className="executiveRecommendationCases"><span>Precedentes comparáveis</span>{path.comparableCases.slice(0,2).map((c,i)=><small key={String(c.contactId||i)}>{c.name||'Caso histórico'} · {c.similarityScore}% similar · {c.sampleSize} decisões · {c.outcomeCoveragePct}% com resultado observado</small>)}</div>}
+          <footer><span>{path.suggestedActionFamily||'revisão'}</span><b>Escolha humana obrigatória</b></footer>
+          <button className="executiveDecisionButton" onClick={()=>void recordDecision(item,path)}>Registrar esta decisão</button>
+          {decisionStatus[path.id]&&<small className="executiveDecisionStatus">{decisionStatus[path.id]}</small>}
+        </article>)}</div>
+      </section>)}
+    </div>}
+
+    {context.caseBasedLearning?.topCases?.length>0&&<div className="executiveDecisionPatterns">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CASOS COMPARÁVEIS</p><h4>O que aconteceu em situações parecidas com as de agora</h4><p>A Maya compara o contexto atual com padrões históricos reconstruídos na data das decisões. Similaridade organiza evidências; não recomenda repetir uma ação automaticamente.</p></div><span>{context.caseBasedLearning.casesWithComparableHistory} caso(s) com histórico</span></div>
+      <div className="executiveDecisionPatternGrid">{context.caseBasedLearning.topCases.map(item=><article key={'case|'+item.contactId}>
+        <div><b>{item.name}</b><span>{item.relationshipStatus}</span></div>
+        <div className="executiveContextTags"><span>{item.currentContext.contactKind}</span><span>{item.currentContext.financialState}</span><span>{item.currentContext.engagementState}</span></div>
+        {item.reasons?.length>0&&<p>{item.reasons.join(' · ')}</p>}
+        {item.bestMatch&&<>
+          <div className="executiveCaseScore"><strong>{item.bestMatch.similarityScore}%</strong><span>similaridade contextual</span></div>
+          <p>{item.bestMatch.interpretation}</p>
+          <div className="executivePatternStats"><span><b>{item.bestMatch.sampleSize}</b> decisões históricas</span><span><b>{item.bestMatch.outcomeCoveragePct}%</b> com resultado observado</span><span><b>{item.bestMatch.positiveDecisionPct}%</b> com positivo</span><span><b>{item.bestMatch.negativeDecisionPct}%</b> com negativo</span></div>
+          <small>Dimensões coincidentes: {item.bestMatch.matchedDimensions.join(', ')} · Evidência {item.bestMatch.evidenceLevel}. Apenas apoio à revisão humana.</small>
+        </>}
+      </article>)}</div>
+    </div>}
+
+    {context.contextualDecisionLearning?.topPatterns?.length>0&&<div className="executiveDecisionPatterns">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · INTELIGÊNCIA CONTEXTUAL</p><h4>Decisões em situações realmente comparáveis</h4><p>O contexto é reconstruído na data da decisão: tipo de cliente, atrasos existentes naquele momento e recência de interação. Isso reduz comparações enganosas e continua sem provar causalidade.</p></div><span>{context.contextualDecisionLearning.patterns} padrão(ões)</span></div>
+      <div className="executiveDecisionPatternGrid">{context.contextualDecisionLearning.topPatterns.map(pattern=><article key={'ctx|'+pattern.actionType+'|'+pattern.decision+'|'+pattern.context.contactKind+'|'+pattern.context.financialState+'|'+pattern.context.engagementState}>
+        <div><b>{pattern.actionType}</b><span>{pattern.decision}</span></div>
+        <div className="executiveContextTags"><span>{pattern.context.contactKind}</span><span>{pattern.context.financialState}</span><span>{pattern.context.engagementState}</span></div>
+        <p>{pattern.interpretation}</p>
+        <div className="executivePatternStats"><span><b>{pattern.sampleSize}</b> decisões comparáveis</span><span><b>{pattern.outcomeCoveragePct}%</b> com resultado observado</span><span><b>{pattern.positiveDecisionPct}%</b> com positivo</span><span><b>{pattern.negativeDecisionPct}%</b> com negativo</span></div>
+        <small>Evidência: {pattern.evidenceLevel} · {pattern.recommendedUse}</small>
+      </article>)}</div>
+    </div>}
+
+    {context.decisionLearning?.topPatterns?.length>0&&<div className="executiveDecisionPatterns">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · PADRÕES DE DECISÃO</p><h4>O que costuma ser observado depois de decisões semelhantes</h4><p>Padrões descritivos do histórico da empresa. Amostra e cobertura ficam visíveis; nada aqui altera autonomia ou prova causalidade.</p></div><span>{context.decisionLearning.patterns} padrão(ões)</span></div>
+      <div className="executiveDecisionPatternGrid">{context.decisionLearning.topPatterns.map(pattern=><article key={pattern.actionType+'|'+pattern.decision}>
+        <div><b>{pattern.actionType}</b><span>{pattern.decision}</span></div>
+        <p>{pattern.interpretation}</p>
+        <div className="executivePatternStats"><span><b>{pattern.sampleSize}</b> decisões</span><span><b>{pattern.outcomeCoveragePct}%</b> com resultado observado</span><span><b>{pattern.positiveDecisionPct}%</b> com ao menos um resultado positivo</span><span><b>{pattern.negativeDecisionPct}%</b> com ao menos um resultado negativo</span></div>
+        <small>Evidência: {pattern.evidenceLevel} · {pattern.recommendedUse}</small>
+      </article>)}</div>
+    </div>}
+
+    <div className="executiveContextFooter">
+      <div><span>Contexto</span><b>{context.businessGraph.nodes} nós · {context.businessGraph.edges} relações</b></div>
+      <div><span>Fontes do grafo</span><b>{context.businessGraph.sources.length}</b></div>
+      <div><span>Integrações conectadas</span><b>{connectedIntegrations}</b></div>
+      <div><span>Sinais Alternative Ventures</span><b>{avSignals}</b></div>
+      <div><span>Pipeline</span><b>{money(context.indicators.pipelineMinor)}</b></div>
+      <div><span>Conhecimento do negócio</span><b>{context.indicators.businessKnowledgePct==null?'Aprendendo':`${Math.round(context.indicators.businessKnowledgePct)}%`}</b></div>
+      <div><span>Cruzamentos multi-sistema</span><b>{context.crossSystem?.insights||0}</b></div>
+      <div><span>Clientes correlacionados</span><b>{context.crossSystem?.customers||0}</b></div>
+      <div><span>Padrões de decisão</span><b>{context.decisionLearning?.patterns||0}</b></div>
+      <div><span>Padrões contextuais</span><b>{context.contextualDecisionLearning?.patterns||0}</b></div>
+      <div><span>Casos com histórico</span><b>{context.caseBasedLearning?.casesWithComparableHistory||0}</b></div>
+      <div><span>Caminhos estruturados</span><b>{context.recommendationStack?.pathsGenerated||0}</b></div>
+      <div><span>Decisões acompanhadas</span><b>{context.decisionFollowup?.decisionsTracked||0}</b></div>
+      <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
+    </div>
+
+    <div className="executiveContextTrust">
+      <span>✓ Workspace isolado</span><span>✓ Somente leitura</span><span>✓ Evidências rastreáveis</span><span>✓ Mín. 2 fontes por correlação</span><span>✓ Padrão ≠ causalidade</span><span>✓ Sem efeito externo</span>
+    </div>
+  </section>;
+}

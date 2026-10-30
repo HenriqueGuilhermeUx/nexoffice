@@ -122,6 +122,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/043_recurrence_intelligence.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/044_erp_value_pack.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/045_smart_playbooks.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/046_executive_decision_workspace.sql
       - name: Start API
         run: |
           node apps/api/dist/server.js > /tmp/nexoffice-api.log 2>&1 &
@@ -134,6 +135,40 @@ jobs:
           exit 1
       - name: Smoke test operational flow
         run: node scripts/smoke.mjs
+      - name: Smoke test Nex Business Graph and Maya Executive Context
+        run: node scripts/smoke-business-graph-executive.mjs
+      - name: Smoke test Nex Connect Center
+        run: node scripts/smoke-nex-connect-center.mjs
+      - name: Smoke test Workspace Context email and calendar
+        run: node scripts/smoke-workspace-context.mjs
+      - name: Smoke test ERP universal import
+        run: node scripts/smoke-erp-connect.mjs
+      - name: Smoke test external CRM universal import
+        run: node scripts/smoke-crm-connect.mjs
+      - name: Smoke test Cross-System Intelligence
+        run: node scripts/smoke-cross-system-intelligence.mjs
+      - name: Smoke test Business Memory Customer 360
+        run: node scripts/smoke-customer-360.mjs
+      - name: Smoke test Decision Memory V1
+        run: node scripts/smoke-decision-memory.mjs
+      - name: Smoke test Outcome Learning V1
+        run: node scripts/smoke-outcome-learning.mjs
+      - name: Smoke test Maya Recommendation Learning V1
+        run: node scripts/smoke-recommendation-learning.mjs
+      - name: Smoke test Contextual Decision Intelligence V1
+        run: node scripts/smoke-contextual-decision-intelligence.mjs
+      - name: Smoke test Case-Based Executive Intelligence V1
+        run: node scripts/smoke-case-based-executive-intelligence.mjs
+      - name: Smoke test Executive Recommendation Stack V1
+        run: node scripts/smoke-executive-recommendation-stack.mjs
+      - name: Smoke test Executive Decision Workspace V1
+        run: node scripts/smoke-executive-decision-workspace.mjs
+      - name: Smoke test Executive Decision Follow-up V1
+        run: node scripts/smoke-executive-decision-followup.mjs
+      - name: Smoke test Google Workspace connector security contract
+        run: node scripts/smoke-google-connect-contract.mjs
+      - name: Smoke test Microsoft 365 connector security contract
+        run: node scripts/smoke-microsoft-connect-contract.mjs
       - name: Smoke test Recurrence Intelligence API
         run: node scripts/smoke-recurrence-intelligence-api.mjs
       - name: Smoke test Relationship Intelligence API
