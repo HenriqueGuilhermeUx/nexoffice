@@ -5,6 +5,7 @@ import {query} from './db.js';
 import {buildRelationshipIntelligence} from './routes-relationship-intelligence.js';
 import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
 import {buildDecisionPatterns} from './decision-patterns.js';
+import {buildContextualDecisionIntelligence} from './contextual-decision-intelligence.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -79,6 +80,22 @@ export interface ExecutiveContext {
     outcomeCoveragePct:number;
     topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>;
   };
+  contextualDecisionLearning:{
+    patterns:number;
+    decisionsAnalyzed:number;
+    topPatterns:Array<{
+      actionType:string;
+      decision:string;
+      context:{contactKind:string;financialState:string;engagementState:string};
+      sampleSize:number;
+      outcomeCoveragePct:number;
+      positiveDecisionPct:number;
+      negativeDecisionPct:number;
+      evidenceLevel:string;
+      interpretation:string;
+      recommendedUse:string;
+    }>;
+  };
   evidencePolicy:{
     causalClaimsRequireEvidence:true;
     correlationsAreHypotheses:true;
@@ -90,7 +107,7 @@ export interface ExecutiveContext {
 const n=(value:unknown)=>Number(value||0);
 
 export async function buildExecutiveContext(workspaceId:string,workspaceName:string):Promise<ExecutiveContext>{
-  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns]=await Promise.all([
+  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns,contextualPatterns]=await Promise.all([
     buildBusinessGraph(workspaceId,workspaceName,90),
     financeSummary(workspaceId),
     readBusinessIntelligence(workspaceId).catch(()=>null),
@@ -117,7 +134,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       limit 5`,[workspaceId]),
     buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
     buildCrossSystemIntelligence(workspaceId).catch(()=>null),
-    buildDecisionPatterns(workspaceId,180,3).catch(()=>null)
+    buildDecisionPatterns(workspaceId,180,3).catch(()=>null),
+    buildContextualDecisionIntelligence(workspaceId,180,3).catch(()=>null)
   ]);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
@@ -347,6 +365,26 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       outcomeCoveragePct:n((decisionPatterns as any)?.summary?.outcomeCoveragePct),
       topPatterns:Array.isArray((decisionPatterns as any)?.patterns)?(decisionPatterns as any).patterns.slice(0,3).map((item:any)=>({
         actionType:String(item.actionType||''),decision:String(item.decision||''),sampleSize:n(item.sampleSize),outcomeCoveragePct:n(item.outcomeCoveragePct),positiveDecisionPct:n(item.positiveDecisionPct),negativeDecisionPct:n(item.negativeDecisionPct),evidenceLevel:String(item.evidenceLevel||'early'),interpretation:String(item.interpretation||''),recommendedUse:String(item.recommendedUse||'')
+      })):[]
+    },
+    contextualDecisionLearning:{
+      patterns:n((contextualPatterns as any)?.summary?.contextualPatterns),
+      decisionsAnalyzed:n((contextualPatterns as any)?.summary?.decisionsAnalyzed),
+      topPatterns:Array.isArray((contextualPatterns as any)?.contextualPatterns)?(contextualPatterns as any).contextualPatterns.slice(0,5).map((item:any)=>({
+        actionType:String(item.actionType||''),
+        decision:String(item.decision||''),
+        context:{
+          contactKind:String(item.context?.contactKind||'unknown'),
+          financialState:String(item.context?.financialState||'unknown'),
+          engagementState:String(item.context?.engagementState||'unknown')
+        },
+        sampleSize:n(item.sampleSize),
+        outcomeCoveragePct:n(item.outcomeCoveragePct),
+        positiveDecisionPct:n(item.positiveDecisionPct),
+        negativeDecisionPct:n(item.negativeDecisionPct),
+        evidenceLevel:String(item.evidenceLevel||'early'),
+        interpretation:String(item.interpretation||''),
+        recommendedUse:String(item.recommendedUse||'')
       })):[]
     },
     evidencePolicy:{
