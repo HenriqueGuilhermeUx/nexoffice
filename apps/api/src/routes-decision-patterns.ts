@@ -2,6 +2,7 @@ import type {FastifyInstance} from 'fastify';
 import {z} from 'zod';
 import {workspaceContext} from './auth.js';
 import {buildDecisionPatterns} from './decision-patterns.js';
+import {buildContextualDecisionIntelligence} from './contextual-decision-intelligence.js';
 
 const querySchema=z.object({
   days:z.coerce.number().int().min(30).max(365).default(180),
@@ -13,5 +14,10 @@ export async function registerDecisionPatternRoutes(app:FastifyInstance){
     const ctx=await workspaceContext(req,'command.read');
     const input=querySchema.parse(req.query||{});
     return buildDecisionPatterns(ctx.workspaceId,input.days,input.minSample);
+  });
+  app.get('/v1/intelligence/contextual-decision-patterns',async req=>{
+    const ctx=await workspaceContext(req,'command.read');
+    const input=querySchema.parse(req.query||{});
+    return buildContextualDecisionIntelligence(ctx.workspaceId,input.days,input.minSample);
   });
 }
