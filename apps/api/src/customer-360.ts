@@ -7,7 +7,7 @@ import {buildDecisionMemory} from './decision-memory.js';
 type TimelineItem={
   id:string;
   at:string;
-  kind:'crm'|'communication'|'calendar'|'finance'|'bank'|'document'|'task'|'external_crm'|'erp';
+  kind:'crm'|'communication'|'calendar'|'finance'|'bank'|'document'|'task'|'external_crm'|'erp'|'decision';
   source:string;
   title:string;
   detail?:string|null;
