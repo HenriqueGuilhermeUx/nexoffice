@@ -227,7 +227,12 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
           ?'Há pendência financeira que merece acompanhamento.'
           :'A memória atual não mostra sinal crítico para este cliente.';
 
+  const outcomeSummary=(outcomeLearning as any)?.summary||{};
+  const outcomeObservations=Array.isArray((outcomeLearning as any)?.observations)?(outcomeLearning as any).observations:[];
+  const latestOutcome=outcomeObservations[0]||null;
   const summaryParts:string[]=[];
+  if(n(outcomeSummary.decisionsWithObservedOutcome)>0)summaryParts.push(n(outcomeSummary.decisionsWithObservedOutcome)+' decisão(ões) têm resultado posterior observado em janela de até 90 dias');
+
   if(latestDecision)summaryParts.push('última decisão: '+String(latestDecision.decision)+' em '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short'}).format(new Date(String(latestDecision.decidedAt))));
   if(openDealsCount)summaryParts.push(openDealsCount+' oportunidade(s) aberta(s), total de '+openPipelineMinor+' centavos');
   if(overdueReceivablesCount)summaryParts.push(overdueReceivablesCount+' recebível(is) vencido(s), total de '+overdueMinor+' centavos');
@@ -260,7 +265,10 @@ export async function buildCustomer360(workspaceId:string,contactId:string){
       summary:summaryParts.join(' · ')+'.',
       recommendedNextStep,
       confidence:topCross?.confidence||'contextual',
-      hypothesis:topCross?.hypothesis||null
+      hypothesis:topCross?.hypothesis||null,
+      outcomeLearningNote:latestOutcome
+        ?'Resultado observado após decisão: '+String(latestOutcome.outcome?.label||'evento posterior')+'. Associação temporal; não implica causalidade.'
+        :null
     },
     crossSystemInsights:crossInsights,
     decisions,
