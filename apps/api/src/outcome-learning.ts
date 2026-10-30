@@ -75,9 +75,9 @@ export async function buildOutcomeLearning(workspaceId:string,contactId:string){
     const candidates=events
       .filter((event:any)=>new Date(event.occurred_at).getTime()>decidedAt)
       .filter((event:any)=>new Date(event.occurred_at).getTime()<=decidedAt+90*MS_DAY)
-      .filter((event:any)=>eventRelevantToDecision(event,decision,contactId));
+      .filter((event:any)=>outcomeEventRelevant(event,String(decision.actionType),decision.subject?.id||null,contactId));
     for(const event of candidates.slice(0,12)){
-      const mapped=mapOutcome(event);
+      const mapped=mapOutcomeEvent(event);
       if(!mapped)continue;
       const observedAt=iso(event.occurred_at);
       const daysAfterDecision=Math.max(0,Math.floor((new Date(observedAt).getTime()-decidedAt)/MS_DAY));
@@ -145,14 +145,13 @@ export async function buildOutcomeLearning(workspaceId:string,contactId:string){
   };
 }
 
-function eventRelevantToDecision(event:any,decision:DecisionMemoryItem,contactId:string){
+export function outcomeEventRelevant(event:any,actionType:string,decisionSubjectId:string|null,contactId:string){
   const payload=obj(event.payload);
   const subjectId=String(event.subject_id||'');
-  const decisionSubjectId=String(decision.subject?.id||'');
-  if(decisionSubjectId&&subjectId===decisionSubjectId)return true;
+  const subjectRef=String(decisionSubjectId||'');
+  if(subjectRef&&subjectId===subjectRef)return true;
   if(String(payload.contactId||'')===contactId)return true;
   const eventType=String(event.type||'');
-  const actionType=String(decision.actionType||'');
   if(actionType.startsWith('payment.')&&eventType.startsWith('payment.'))return true;
   if((actionType.startsWith('lead.')||actionType.startsWith('deal.'))&&(eventType.startsWith('deal.')||eventType==='customer.interaction_logged'))return true;
   if(actionType.startsWith('document.')&&eventType.startsWith('document.'))return true;
@@ -160,7 +159,7 @@ function eventRelevantToDecision(event:any,decision:DecisionMemoryItem,contactId
   return false;
 }
 
-function mapOutcome(event:any):{code:string;label:string;polarity:OutcomePolarity;detail:string|null}|null{
+export function mapOutcomeEvent(event:any):{code:string;label:string;polarity:OutcomePolarity;detail:string|null}|null{
   const type=String(event.type||'');
   const payload=obj(event.payload);
   if(type==='deal.won')return{code:'deal_won',label:'Oportunidade ganha',polarity:'positive',detail:detail(payload)};
