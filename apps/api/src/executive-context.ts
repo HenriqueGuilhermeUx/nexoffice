@@ -132,7 +132,7 @@ export interface ExecutiveContext {
 const n=(value:unknown)=>Number(value||0);
 
 export async function buildExecutiveContext(workspaceId:string,workspaceName:string):Promise<ExecutiveContext>{
-  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns,contextualPatterns,caseBased]=await Promise.all([
+  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns,contextualPatterns]=await Promise.all([
     buildBusinessGraph(workspaceId,workspaceName,90),
     financeSummary(workspaceId),
     readBusinessIntelligence(workspaceId).catch(()=>null),
@@ -160,9 +160,9 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
     buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
     buildCrossSystemIntelligence(workspaceId).catch(()=>null),
     buildDecisionPatterns(workspaceId,180,3).catch(()=>null),
-    buildContextualDecisionIntelligence(workspaceId,180,3).catch(()=>null),
-    buildCaseBasedExecutiveIntelligence(workspaceId,180,3).catch(()=>null)
+    buildContextualDecisionIntelligence(workspaceId,180,3).catch(()=>null)
   ]);
+  const caseBased=await buildCaseBasedExecutiveIntelligence(workspaceId,180,3,{relationship,contextual:contextualPatterns}).catch(()=>null);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
     acc[edge.kind]=(acc[edge.kind]||0)+1;
