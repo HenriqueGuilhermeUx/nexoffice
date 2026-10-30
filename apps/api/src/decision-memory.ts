@@ -97,7 +97,7 @@ export async function buildDecisionMemory(workspaceId:string,contactId:string){
     const actorId=String(approval?.decided_by||decisionAudit?.actor_ref||'')||null;
     const actor=actorId?userById.get(actorId):null;
     const decision=String(meta.decision||approval?.status||decisionStatusFromAction(status));
-    const decidedAt=String(approval?.decided_at||decisionAudit?.occurred_at||action.updated_at||action.created_at);
+    const decidedAt=iso(approval?.decided_at||decisionAudit?.occurred_at||action.updated_at||action.created_at);
     decisions.push({
       id:'decision:'+String(action.id),
       actionId:String(action.id),
@@ -144,11 +144,11 @@ export async function buildDecisionMemory(workspaceId:string,contactId:string){
       title:String(approval.title||'Aprovação'),
       context:String(approval.description||'').trim()||null,
       decision:status,
-      decidedAt:String(approval.decided_at||audit?.occurred_at||approval.created_at),
+      decidedAt:iso(approval.decided_at||audit?.occurred_at||approval.created_at),
       decidedBy:{id:actorId,name:actor?.name?String(actor.name):actorId?'Usuário do workspace':'sistema',email:actor?.email?String(actor.email):null,actorType:actorId?'user':'system'},
       rationale,
       rationaleStatus:rationale?'recorded':'not_recorded',
-      observedOutcome:{status:'approval_'+status,observedAt:String(approval.decided_at||audit?.occurred_at||approval.created_at),executionObserved:false,successObserved:null},
+      observedOutcome:{status:'approval_'+status,observedAt:iso(approval.decided_at||audit?.occurred_at||approval.created_at),executionObserved:false,successObserved:null},
       subject:{type:approval.subject_type||null,id:approval.subject_id||null},
       source:'approval_request',
       evidence:{auditId:audit?.id?String(audit.id):null,currentActionStatus:null,approvalStatus:status}
@@ -177,6 +177,10 @@ export async function buildDecisionMemory(workspaceId:string,contactId:string){
   };
 }
 
+function iso(value:unknown){
+  const d=value instanceof Date?value:new Date(String(value||''));
+  return Number.isNaN(d.getTime())?String(value||''):d.toISOString();
+}
 function cleanReason(value:unknown){
   const text=String(value||'').replace(/\s+/g,' ').trim();
   return text?text.slice(0,1000):null;
@@ -188,10 +192,10 @@ function decisionStatusFromAction(status:string){
   return status;
 }
 function outcomeFromAction(status:string,observedAt:string){
-  if(status==='done')return{status:'done',observedAt:observedAt||null,executionObserved:true,successObserved:true};
-  if(status==='failed')return{status:'failed',observedAt:observedAt||null,executionObserved:true,successObserved:false};
-  if(status==='executing')return{status:'executing',observedAt:observedAt||null,executionObserved:true,successObserved:null};
-  return{status:status==='approved'?'approved_waiting_execution':status,observedAt:observedAt||null,executionObserved:false,successObserved:null};
+  if(status==='done')return{status:'done',observedAt:observedAt?iso(observedAt):null,executionObserved:true,successObserved:true};
+  if(status==='failed')return{status:'failed',observedAt:observedAt?iso(observedAt):null,executionObserved:true,successObserved:false};
+  if(status==='executing')return{status:'executing',observedAt:observedAt?iso(observedAt):null,executionObserved:true,successObserved:null};
+  return{status:status==='approved'?'approved_waiting_execution':status,observedAt:observedAt?iso(observedAt):null,executionObserved:false,successObserved:null};
 }
 function emptyDecisionMemory(){
   return{
