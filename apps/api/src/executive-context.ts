@@ -4,6 +4,7 @@ import {financeSummary} from './events.js';
 import {query} from './db.js';
 import {buildRelationshipIntelligence} from './routes-relationship-intelligence.js';
 import {buildCrossSystemIntelligence} from './cross-system-intelligence.js';
+import {buildDecisionPatterns} from './decision-patterns.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -49,6 +50,8 @@ export interface ExecutiveContext {
     relationshipAttention:number;
     externalRelationshipEvents:number;
     crossSystemInsights:number;
+    decisionPatterns:number;
+    decisionsAnalyzed:number;
   };
   crossSystem:{
     insights:number;
@@ -56,6 +59,13 @@ export interface ExecutiveContext {
     attention:number;
     customers:number;
     sourceSystems:string[];
+  };
+  decisionLearning:{
+    patterns:number;
+    decisionsAnalyzed:number;
+    decisionsWithObservedOutcome:number;
+    outcomeCoveragePct:number;
+    topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>;
   };
   evidencePolicy:{
     causalClaimsRequireEvidence:true;
@@ -68,7 +78,7 @@ export interface ExecutiveContext {
 const n=(value:unknown)=>Number(value||0);
 
 export async function buildExecutiveContext(workspaceId:string,workspaceName:string):Promise<ExecutiveContext>{
-  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem]=await Promise.all([
+  const [graph,finance,business,crm,overdueByContact,relationship,crossSystem,decisionPatterns]=await Promise.all([
     buildBusinessGraph(workspaceId,workspaceName,90),
     financeSummary(workspaceId),
     readBusinessIntelligence(workspaceId).catch(()=>null),
@@ -94,7 +104,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       order by amount_minor desc
       limit 5`,[workspaceId]),
     buildRelationshipIntelligence(workspaceId,false).catch(()=>null),
-    buildCrossSystemIntelligence(workspaceId).catch(()=>null)
+    buildCrossSystemIntelligence(workspaceId).catch(()=>null),
+    buildDecisionPatterns(workspaceId,180,3).catch(()=>null)
   ]);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
@@ -269,7 +280,9 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       relationshipRenewalSoon:n(relationshipSummary.renewalSoon),
       relationshipAttention:n(relationshipSummary.attention),
       externalRelationshipEvents:n((relationship as any)?.sources?.externalContextEventsObserved),
-      crossSystemInsights:n((crossSystem as any)?.summary?.insights)
+      crossSystemInsights:n((crossSystem as any)?.summary?.insights),
+      decisionPatterns:n((decisionPatterns as any)?.summary?.patterns),
+      decisionsAnalyzed:n((decisionPatterns as any)?.summary?.decisionsAnalyzed)
     },
     crossSystem:{
       insights:n((crossSystem as any)?.summary?.insights),
@@ -277,6 +290,15 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
       attention:n((crossSystem as any)?.summary?.attention),
       customers:n((crossSystem as any)?.summary?.customers),
       sourceSystems:Array.isArray((crossSystem as any)?.summary?.sourceSystems)?(crossSystem as any).summary.sourceSystems:[]
+    },
+    decisionLearning:{
+      patterns:n((decisionPatterns as any)?.summary?.patterns),
+      decisionsAnalyzed:n((decisionPatterns as any)?.summary?.decisionsAnalyzed),
+      decisionsWithObservedOutcome:n((decisionPatterns as any)?.summary?.decisionsWithObservedOutcome),
+      outcomeCoveragePct:n((decisionPatterns as any)?.summary?.outcomeCoveragePct),
+      topPatterns:Array.isArray((decisionPatterns as any)?.patterns)?(decisionPatterns as any).patterns.slice(0,3).map((item:any)=>({
+        actionType:String(item.actionType||''),decision:String(item.decision||''),sampleSize:n(item.sampleSize),outcomeCoveragePct:n(item.outcomeCoveragePct),positiveDecisionPct:n(item.positiveDecisionPct),negativeDecisionPct:n(item.negativeDecisionPct),evidenceLevel:String(item.evidenceLevel||'early'),interpretation:String(item.interpretation||''),recommendedUse:String(item.recommendedUse||'')
+      })):[]
     },
     evidencePolicy:{
       causalClaimsRequireEvidence:true,
