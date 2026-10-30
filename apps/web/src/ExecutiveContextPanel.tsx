@@ -45,7 +45,7 @@ type ExecutiveContext={
   crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
   decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
   contextualDecisionLearning:{patterns:number;decisionsAnalyzed:number;topPatterns:Array<{actionType:string;decision:string;context:{contactKind:string;financialState:string;engagementState:string};sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
-  recommendationStack:{prioritiesCovered:number;pathsGenerated:number;prioritiesWithComparableCases:number;items:Array<{priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};paths:Array<{id:string;label:string;posture:'conservative'|'balanced'|'active';description:string;why:string;tradeoffs:string[];risks:string[];suggestedActionFamily:string|null;confidence:'low'|'medium'|'high';comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;humanReviewRequired:true;externalEffects:false}>;recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false}}>} ;
+  recommendationStack:{prioritiesCovered:number;pathsGenerated:number;prioritiesWithComparableCases:number;items:Array<{priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};paths:Array<{id:string;label:string;posture:'conservative'|'balanced'|'active';description:string;why:string;tradeoffs:string[];risks:string[];suggestedActionFamily:string|null;confidence:'low'|'medium'|'high';evidence:Evidence[];comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;humanReviewRequired:true;externalEffects:false}>;recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false}}>} ;
   caseBasedLearning:{currentCases:number;casesWithComparableHistory:number;strongMatches:number;topCases:Array<{contactId:string;name:string;relationshipStatus:string;currentContext:{contactKind:string;financialState:string;engagementState:string};reasons:string[];bestMatch:{similarityScore:number;matchedDimensions:string[];actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string}|null;interpretation:string}>};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
@@ -65,6 +65,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [sources,setSources]=useState<SourceRegistry|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -81,6 +82,35 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   },[workspaceId]);
 
   useEffect(()=>{void load()},[load]);
+
+  const recordDecision=useCallback(async(item:ExecutiveContext['recommendationStack']['items'][number],path:ExecutiveContext['recommendationStack']['items'][number]['paths'][number])=>{
+    const rationale=window.prompt('Por que você escolheu este caminho? A justificativa ficará registrada na memória executiva.');
+    if(!rationale||rationale.trim().length<8)return;
+    setDecisionStatus(current=>({...current,[path.id]:'Salvando…'}));
+    try{
+      await api('/v1/executive-decisions',{
+        method:'POST',
+        body:JSON.stringify({
+          priority:item.priority,
+          path:{
+            id:path.id,
+            posture:path.posture,
+            label:path.label,
+            suggestedActionFamily:path.suggestedActionFamily,
+            confidence:path.confidence,
+            tradeoffs:path.tradeoffs,
+            risks:path.risks,
+            evidence:(path as any).evidence||[],
+            comparableCases:path.comparableCases||[]
+          },
+          rationale:rationale.trim()
+        })
+      });
+      setDecisionStatus(current=>({...current,[path.id]:'Decisão registrada · nenhuma ação executada'}));
+    }catch(e:any){
+      setDecisionStatus(current=>({...current,[path.id]:e?.message||'Não foi possível registrar a decisão'}));
+    }
+  },[]);
 
   if(loading&&!context)return <section className="executiveContextPanel"><div className="executiveContextLoading">Maya está cruzando o contexto do negócio…</div></section>;
   if(error&&!context)return <section className="executiveContextPanel"><div className="executiveContextError">{error}<button onClick={()=>void load()}>Tentar novamente</button></div></section>;
@@ -127,6 +157,8 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
           <div className="executiveRecommendationLists"><div><strong>Trade-offs</strong><ul>{path.tradeoffs.map(x=><li key={x}>{x}</li>)}</ul></div><div><strong>Riscos</strong><ul>{path.risks.map(x=><li key={x}>{x}</li>)}</ul></div></div>
           {path.comparableCases?.length>0&&<div className="executiveRecommendationCases"><span>Precedentes comparáveis</span>{path.comparableCases.slice(0,2).map((c,i)=><small key={String(c.contactId||i)}>{c.name||'Caso histórico'} · {c.similarityScore}% similar · {c.sampleSize} decisões · {c.outcomeCoveragePct}% com resultado observado</small>)}</div>}
           <footer><span>{path.suggestedActionFamily||'revisão'}</span><b>Escolha humana obrigatória</b></footer>
+          <button className="executiveDecisionButton" onClick={()=>void recordDecision(item,path)}>Registrar esta decisão</button>
+          {decisionStatus[path.id]&&<small className="executiveDecisionStatus">{decisionStatus[path.id]}</small>}
         </article>)}</div>
       </section>)}
     </div>}
