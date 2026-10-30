@@ -62,7 +62,7 @@ export async function buildDecisionMemory(workspaceId:string,contactId:string){
 
   const audits=auditSubjectIds.length?await query<any>(
     `select id,actor_type,actor_ref,action,subject_type,subject_id,before_state,after_state,metadata,occurred_at
-     from audit_log where workspace_id=$1 and subject_id=any($2::uuid[])
+     from audit_log where workspace_id=$1 and subject_id=any($2::text[])
      order by occurred_at desc limit 800`,
     [workspaceId,auditSubjectIds]
   ).catch(()=>[]):[];
