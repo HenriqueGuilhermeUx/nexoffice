@@ -76,3 +76,21 @@
 .executiveDecisionButton{width:100%;margin-top:10px;border:1px solid #2d5269;background:#0d2232;color:#d8e6f3;border-radius:9px;padding:9px 10px;cursor:pointer;font-weight:800;font-size:11px}
 .executiveDecisionButton:hover{border-color:#55d6be;color:#55d6be}
 .executiveDecisionStatus{display:block;margin-top:6px;color:#7fa294;font-size:9px;line-height:1.35}
+
+
+.executiveDecisionFollowup{margin-top:18px;border:1px solid #1b3b50;background:#081522;border-radius:14px;padding:14px}
+.executiveDecisionFollowupGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.executiveDecisionFollowupGrid>article{border:1px solid #18334a;background:#0a1927;border-radius:12px;padding:12px}
+.executiveDecisionFollowupHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.executiveDecisionFollowupHead b,.executiveDecisionFollowupHead span{display:block}
+.executiveDecisionFollowupHead span{margin-top:3px;color:#6f879f;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
+.executiveDecisionFollowupHead em{font-style:normal;color:#55d6be;font-size:9px;white-space:nowrap}
+.executiveDecisionFollowupGrid>article>p{color:#8da0b8;font-size:10px;line-height:1.45}
+.executiveObservedEvents{display:grid;gap:6px;margin-top:10px}
+.executiveObservedEvents>div{border-top:1px solid #173047;padding-top:7px}
+.executiveObservedEvents span,.executiveObservedEvents small{display:block}
+.executiveObservedEvents span{font-size:10px;font-weight:800}
+.executiveObservedEvents small{margin-top:2px;color:#6f879f;font-size:8px}
+.executiveObservedEvents p{margin:4px 0 0;color:#8da0b8;font-size:9px;line-height:1.4}
+.executiveCausalCaveat{display:block;margin-top:10px;color:#71879d;font-size:8px;line-height:1.45}
+@media(max-width:900px){.executiveDecisionFollowupGrid{grid-template-columns:1fr}}
