@@ -45,6 +45,7 @@ type ExecutiveContext={
   crossSystem:{insights:number;critical:number;attention:number;customers:number;sourceSystems:string[]};
   decisionLearning:{patterns:number;decisionsAnalyzed:number;decisionsWithObservedOutcome:number;outcomeCoveragePct:number;topPatterns:Array<{actionType:string;decision:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
   contextualDecisionLearning:{patterns:number;decisionsAnalyzed:number;topPatterns:Array<{actionType:string;decision:string;context:{contactKind:string;financialState:string;engagementState:string};sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string;recommendedUse:string}>};
+  caseBasedLearning:{currentCases:number;casesWithComparableHistory:number;strongMatches:number;topCases:Array<{contactId:string;name:string;relationshipStatus:string;currentContext:{contactKind:string;financialState:string;engagementState:string};reasons:string[];bestMatch:{similarityScore:number;matchedDimensions:string[];actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string}|null;interpretation:string}>};
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
 type SourceRegistry={
@@ -114,6 +115,21 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
+    {context.caseBasedLearning?.topCases?.length>0&&<div className="executiveDecisionPatterns">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CASOS COMPARÁVEIS</p><h4>O que aconteceu em situações parecidas com as de agora</h4><p>A Maya compara o contexto atual com padrões históricos reconstruídos na data das decisões. Similaridade organiza evidências; não recomenda repetir uma ação automaticamente.</p></div><span>{context.caseBasedLearning.casesWithComparableHistory} caso(s) com histórico</span></div>
+      <div className="executiveDecisionPatternGrid">{context.caseBasedLearning.topCases.map(item=><article key={'case|'+item.contactId}>
+        <div><b>{item.name}</b><span>{item.relationshipStatus}</span></div>
+        <div className="executiveContextTags"><span>{item.currentContext.contactKind}</span><span>{item.currentContext.financialState}</span><span>{item.currentContext.engagementState}</span></div>
+        {item.reasons?.length>0&&<p>{item.reasons.join(' · ')}</p>}
+        {item.bestMatch&&<>
+          <div className="executiveCaseScore"><strong>{item.bestMatch.similarityScore}%</strong><span>similaridade contextual</span></div>
+          <p>{item.bestMatch.interpretation}</p>
+          <div className="executivePatternStats"><span><b>{item.bestMatch.sampleSize}</b> decisões históricas</span><span><b>{item.bestMatch.outcomeCoveragePct}%</b> com resultado observado</span><span><b>{item.bestMatch.positiveDecisionPct}%</b> com positivo</span><span><b>{item.bestMatch.negativeDecisionPct}%</b> com negativo</span></div>
+          <small>Dimensões coincidentes: {item.bestMatch.matchedDimensions.join(', ')} · Evidência {item.bestMatch.evidenceLevel}. Apenas apoio à revisão humana.</small>
+        </>}
+      </article>)}</div>
+    </div>}
+
     {context.contextualDecisionLearning?.topPatterns?.length>0&&<div className="executiveDecisionPatterns">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · INTELIGÊNCIA CONTEXTUAL</p><h4>Decisões em situações realmente comparáveis</h4><p>O contexto é reconstruído na data da decisão: tipo de cliente, atrasos existentes naquele momento e recência de interação. Isso reduz comparações enganosas e continua sem provar causalidade.</p></div><span>{context.contextualDecisionLearning.patterns} padrão(ões)</span></div>
       <div className="executiveDecisionPatternGrid">{context.contextualDecisionLearning.topPatterns.map(pattern=><article key={'ctx|'+pattern.actionType+'|'+pattern.decision+'|'+pattern.context.contactKind+'|'+pattern.context.financialState+'|'+pattern.context.engagementState}>
@@ -146,6 +162,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       <div><span>Clientes correlacionados</span><b>{context.crossSystem?.customers||0}</b></div>
       <div><span>Padrões de decisão</span><b>{context.decisionLearning?.patterns||0}</b></div>
       <div><span>Padrões contextuais</span><b>{context.contextualDecisionLearning?.patterns||0}</b></div>
+      <div><span>Casos com histórico</span><b>{context.caseBasedLearning?.casesWithComparableHistory||0}</b></div>
       <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
     </div>
 
