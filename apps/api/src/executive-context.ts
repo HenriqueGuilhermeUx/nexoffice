@@ -8,6 +8,7 @@ import {buildDecisionPatterns} from './decision-patterns.js';
 import {buildContextualDecisionIntelligence} from './contextual-decision-intelligence.js';
 import {buildCaseBasedExecutiveIntelligence} from './case-based-executive-intelligence.js';
 import {buildExecutiveRecommendationStack} from './executive-recommendation-stack.js';
+import {buildExecutiveDecisionFollowup} from './executive-decision-followup.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -98,6 +99,27 @@ export interface ExecutiveContext {
       recommendedUse:string;
     }>;
   };
+  decisionFollowup:{
+    decisionsTracked:number;
+    withObservedEvents:number;
+    monitoring:number;
+    positiveObservations:number;
+    negativeObservations:number;
+    topFollowups:Array<{
+      decisionId:string;
+      priorityTitle:string;
+      selectedLabel:string;
+      selectedPosture:string;
+      rationale:string;
+      chosenAt:string;
+      daysSinceDecision:number;
+      observationStatus:string;
+      summary:{totalObserved:number;positive:number;negative:number;neutral:number;latestObservedAt:string|null};
+      observedEvents:Array<{eventId:string;eventType:string;source:string;observedAt:string;daysAfterDecision:number;code:string;label:string;polarity:string;detail:string|null}>;
+      interpretation:string;
+      relationship:{temporal:true;sameWorkspace:true;causalClaim:false};
+    }>;
+  };
   recommendationStack:{
     prioritiesCovered:number;
     pathsGenerated:number;
@@ -186,7 +208,10 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
     buildDecisionPatterns(workspaceId,180,3).catch(()=>null),
     buildContextualDecisionIntelligence(workspaceId,180,3).catch(()=>null)
   ]);
-  const caseBased=await buildCaseBasedExecutiveIntelligence(workspaceId,180,3,{relationship,contextual:contextualPatterns}).catch(()=>null);
+  const [caseBased,decisionFollowup]=await Promise.all([
+    buildCaseBasedExecutiveIntelligence(workspaceId,180,3,{relationship,contextual:contextualPatterns}).catch(()=>null),
+    buildExecutiveDecisionFollowup(workspaceId,90).catch(()=>null)
+  ]);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
     acc[edge.kind]=(acc[edge.kind]||0)+1;
@@ -436,6 +461,43 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         evidenceLevel:String(item.evidenceLevel||'early'),
         interpretation:String(item.interpretation||''),
         recommendedUse:String(item.recommendedUse||'')
+      })):[]
+    },
+    decisionFollowup:{
+      decisionsTracked:n((decisionFollowup as any)?.summary?.decisionsTracked),
+      withObservedEvents:n((decisionFollowup as any)?.summary?.withObservedEvents),
+      monitoring:n((decisionFollowup as any)?.summary?.monitoring),
+      positiveObservations:n((decisionFollowup as any)?.summary?.positiveObservations),
+      negativeObservations:n((decisionFollowup as any)?.summary?.negativeObservations),
+      topFollowups:Array.isArray((decisionFollowup as any)?.followups)?(decisionFollowup as any).followups.slice(0,5).map((item:any)=>({
+        decisionId:String(item.decisionId||''),
+        priorityTitle:String(item.priorityTitle||''),
+        selectedLabel:String(item.selectedLabel||''),
+        selectedPosture:String(item.selectedPosture||''),
+        rationale:String(item.rationale||''),
+        chosenAt:String(item.chosenAt||''),
+        daysSinceDecision:n(item.daysSinceDecision),
+        observationStatus:String(item.observationStatus||'monitoring'),
+        summary:{
+          totalObserved:n(item.summary?.totalObserved),
+          positive:n(item.summary?.positive),
+          negative:n(item.summary?.negative),
+          neutral:n(item.summary?.neutral),
+          latestObservedAt:item.summary?.latestObservedAt?String(item.summary.latestObservedAt):null
+        },
+        observedEvents:Array.isArray(item.observedEvents)?item.observedEvents.slice(0,8).map((event:any)=>({
+          eventId:String(event.eventId||''),
+          eventType:String(event.eventType||''),
+          source:String(event.source||''),
+          observedAt:String(event.observedAt||''),
+          daysAfterDecision:n(event.daysAfterDecision),
+          code:String(event.code||''),
+          label:String(event.label||''),
+          polarity:String(event.polarity||'neutral'),
+          detail:event.detail?String(event.detail):null
+        })):[],
+        interpretation:String(item.interpretation||''),
+        relationship:{temporal:true,sameWorkspace:true,causalClaim:false}
       })):[]
     },
     recommendationStack:{
