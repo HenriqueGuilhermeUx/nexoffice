@@ -79,7 +79,7 @@ export async function buildOutcomeLearning(workspaceId:string,contactId:string){
     for(const event of candidates.slice(0,12)){
       const mapped=mapOutcome(event);
       if(!mapped)continue;
-      const observedAt=String(event.occurred_at);
+      const observedAt=iso(event.occurred_at);
       const daysAfterDecision=Math.max(0,Math.floor((new Date(observedAt).getTime()-decidedAt)/MS_DAY));
       observations.push({
         id:'outcome:'+String(decision.id)+':'+String(event.id),
@@ -179,6 +179,10 @@ function mapOutcome(event:any):{code:string;label:string;polarity:OutcomePolarit
   return null;
 }
 
+function iso(value:unknown){
+  const d=value instanceof Date?value:new Date(String(value||''));
+  return Number.isNaN(d.getTime())?String(value||''):d.toISOString();
+}
 function detail(payload:Record<string,any>){
   const text=String(payload.summary||payload.description||payload.title||'').replace(/\s+/g,' ').trim();
   return text?text.slice(0,500):null;
