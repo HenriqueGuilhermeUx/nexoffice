@@ -64,11 +64,11 @@ export async function buildContextualDecisionIntelligence(workspaceId:string,win
          ca.subject_id,
          coalesce(ca.primary_action->>'type',ar.action_type,'command.action') action_type,
          case
-           when ar.status in ('approved','rejected') then ar.status
-           when ca.status='rejected' then 'rejected'
-           when ca.status='dismissed' then 'dismissed'
-           when ca.status in ('approved','executing','done','failed') then 'approved'
-           else ca.status
+           when ar.status::text in ('approved','rejected') then ar.status::text
+           when ca.status::text='rejected' then 'rejected'
+           when ca.status::text='dismissed' then 'dismissed'
+           when ca.status::text in ('approved','executing','done','failed') then 'approved'
+           else ca.status::text
          end decision,
          coalesce(ar.decided_at,ca.updated_at,ca.created_at) decided_at,
          ca.title
