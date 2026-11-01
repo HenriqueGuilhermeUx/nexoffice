@@ -83,7 +83,64 @@ export default function App(){
   </div>;
 
   function renderView():ReactNode{
-    if(view==='command')return <><div className="mayaHero"><div className="mayaHeroCopy"><p className="eyebrow">MAYA · VISÃO EXECUTIVA</p><h2>{mayaHeadline}</h2><p>{mayaDetail}</p><div className="mayaTrust"><span>Contexto conectado</span><span>Decisão humana</span><span>Ações governadas</span></div></div><div className="mayaHeroActions">{!hasBusinessData?<><button className="primary" onClick={()=>setView('integrations')}>Conectar meus dados</button><button onClick={()=>setModal('contact')}>Começar manualmente</button></>:<><button className="primary" onClick={()=>setView('integrations')}>Conectar mais dados</button><button onClick={()=>refresh()}>Atualizar visão</button></>}</div></div>{!hasBusinessData&&<div className="firstRun"><div><p className="eyebrow">PRIMEIROS 5 MINUTOS</p><h3>Não comece preenchendo um sistema. Comece conectando o que sua empresa já tem.</h3><p>A NexOffices transforma fontes existentes em contexto operacional para a Maya. Você pode conectar uma fonte agora e complementar depois.</p></div><div className="firstRunSteps"><button onClick={()=>setView('integrations')}><b>1</b><span><strong>Conecte uma fonte</strong><small>Banco, planilha, CRM, agenda ou e-mail.</small></span></button><button onClick={()=>setView('integrations')}><b>2</b><span><strong>Deixe a Maya organizar</strong><small>Clientes, finanças, operação e sinais entram na mesma visão.</small></span></button><button onClick={()=>setModal('contact')}><b>3</b><span><strong>Complete só o necessário</strong><small>Adicione manualmente apenas o que ainda não estiver conectado.</small></span></button></div></div>}<div className="executiveSnapshot"><div><span>Prioridades agora</span><b>{executiveAttention}</b><small>itens que merecem leitura</small></div><div><span>Pipeline aberto</span><b>{money(openPipeline)}</b><small>{dashboard.crm?.open_deals||0} oportunidades</small></div><div><span>A receber</span><b>{money(dashboard.finance?.receivable_minor)}</b><small>{overdueCount} vencido(s)</small></div><div><span>Saldo realizado</span><b>{money(balance)}</b><small>receitas − despesas</small></div></div><ExecutiveContextPanel workspaceId={activeWorkspace?.id||''}/><SmartPlaybooksPanel/><div className="twoCol"><Panel eyebrow="DECISÕES & AÇÕES" title="O que precisa de você" badge={actions.length}><div className="actionList">{actions.length?actions.map(a=><ActionCard key={a.id} action={a} onDecision={d=>act(a.id,d)}/>):<Empty text="Nenhuma ação pendente. A Maya continua observando o negócio."/></div></Panel><Panel eyebrow="PULSO DO NEGÓCIO" title="Agora"><Pulse label="Clientes & vendas" value={`${dashboard.crm?.open_deals||0} negócios abertos`} detail={money(openPipeline)}/><Pulse label="Financeiro" value={`${overdueCount} recebíveis vencidos`} detail={money(dashboard.finance?.receivable_minor)}/><Pulse label="Agenda" value={`${dashboard.appointments?.today_appointments||0} compromissos hoje`} detail={`${dueTasks} tarefas próximas`}/><Pulse label="Decisões" value={`${pendingDecisions} aguardando você`} detail="revisão humana preservada"/></Panel></div></>;
+    if(view==='command')return (
+      <>
+        <div className="mayaHero">
+          <div className="mayaHeroCopy">
+            <p className="eyebrow">MAYA · VISÃO EXECUTIVA</p>
+            <h2>{mayaHeadline}</h2>
+            <p>{mayaDetail}</p>
+            <div className="mayaTrust"><span>Contexto conectado</span><span>Decisão humana</span><span>Ações governadas</span></div>
+          </div>
+          <div className="mayaHeroActions">
+            {!hasBusinessData ? (
+              <>
+                <button className="primary" onClick={()=>setView('integrations')}>Conectar meus dados</button>
+                <button onClick={()=>setModal('contact')}>Começar manualmente</button>
+              </>
+            ) : (
+              <>
+                <button className="primary" onClick={()=>setView('integrations')}>Conectar mais dados</button>
+                <button onClick={()=>refresh()}>Atualizar visão</button>
+              </>
+            )}
+          </div>
+        </div>
+        {!hasBusinessData&&(
+          <div className="firstRun">
+            <div>
+              <p className="eyebrow">PRIMEIROS 5 MINUTOS</p>
+              <h3>Não comece preenchendo um sistema. Comece conectando o que sua empresa já tem.</h3>
+              <p>O NexOffices transforma fontes existentes em contexto operacional para a Maya. Você pode conectar uma fonte agora e complementar depois.</p>
+            </div>
+            <div className="firstRunSteps">
+              <button onClick={()=>setView('integrations')}><b>1</b><span><strong>Conecte uma fonte</strong><small>Banco, planilha, CRM, agenda ou e-mail.</small></span></button>
+              <button onClick={()=>setView('integrations')}><b>2</b><span><strong>Deixe a Maya organizar</strong><small>Clientes, finanças, operação e sinais entram na mesma visão.</small></span></button>
+              <button onClick={()=>setModal('contact')}><b>3</b><span><strong>Complete só o necessário</strong><small>Adicione manualmente apenas o que ainda não estiver conectado.</small></span></button>
+            </div>
+          </div>
+        )}
+        <div className="executiveSnapshot">
+          <div><span>Prioridades agora</span><b>{executiveAttention}</b><small>itens que merecem leitura</small></div>
+          <div><span>Pipeline aberto</span><b>{money(openPipeline)}</b><small>{dashboard.crm?.open_deals||0} oportunidades</small></div>
+          <div><span>A receber</span><b>{money(dashboard.finance?.receivable_minor)}</b><small>{overdueCount} vencido(s)</small></div>
+          <div><span>Saldo realizado</span><b>{money(balance)}</b><small>receitas − despesas</small></div>
+        </div>
+        <ExecutiveContextPanel workspaceId={activeWorkspace?.id||''}/>
+        <SmartPlaybooksPanel/>
+        <div className="twoCol">
+          <Panel eyebrow="DECISÕES & AÇÕES" title="O que precisa de você" badge={actions.length}>
+            <div className="actionList">{actions.length?actions.map(a=><ActionCard key={a.id} action={a} onDecision={d=>act(a.id,d)}/>):<Empty text="Nenhuma ação pendente. A Maya continua observando o negócio."/>}</div>
+          </Panel>
+          <Panel eyebrow="PULSO DO NEGÓCIO" title="Agora">
+            <Pulse label="Clientes & vendas" value={`${dashboard.crm?.open_deals||0} negócios abertos`} detail={money(openPipeline)}/>
+            <Pulse label="Financeiro" value={`${overdueCount} recebíveis vencidos`} detail={money(dashboard.finance?.receivable_minor)}/>
+            <Pulse label="Agenda" value={`${dashboard.appointments?.today_appointments||0} compromissos hoje`} detail={`${dueTasks} tarefas próximas`}/>
+            <Pulse label="Decisões" value={`${pendingDecisions} aguardando você`} detail="revisão humana preservada"/>
+          </Panel>
+        </div>
+      </>
+    );
     if(view==='crm')return <CRM contacts={contacts} deals={deals} onNewContact={()=>setModal('contact')} onNewDeal={()=>setModal('deal')} onMove={moveDeal}/>;
     if(view==='finance')return <Finance ledger={ledger} dashboard={dashboard} onNew={()=>setModal('ledger')} onPaid={markPaid}/>;
     if(view==='operations')return <OperationsCenter/>;
