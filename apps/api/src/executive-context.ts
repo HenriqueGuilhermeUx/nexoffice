@@ -9,6 +9,7 @@ import {buildContextualDecisionIntelligence} from './contextual-decision-intelli
 import {buildCaseBasedExecutiveIntelligence} from './case-based-executive-intelligence.js';
 import {buildExecutiveRecommendationStack} from './executive-recommendation-stack.js';
 import {buildExecutiveDecisionFollowup} from './executive-decision-followup.js';
+import {buildDecisionEffectiveness} from './decision-effectiveness.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -97,6 +98,32 @@ export interface ExecutiveContext {
       evidenceLevel:string;
       interpretation:string;
       recommendedUse:string;
+    }>;
+  };
+  decisionEffectiveness:{
+    decisionsAnalyzed:number;
+    posturePatterns:number;
+    contextualPatterns:number;
+    comparablePrioritySets:number;
+    byPosture:Array<{
+      posture:string;
+      sampleSize:number;
+      completedObservationWindows:number;
+      decisionsWithObservedEvents:number;
+      observationCoveragePct:number;
+      decisionsWithPositivePct:number;
+      decisionsWithNegativePct:number;
+      neutralOnlyPct:number;
+      evidenceLevel:string;
+      interpretation:string;
+      recommendedUse:string;
+    }>;
+    comparisons:Array<{
+      priorityCode:string;
+      priorityTitle:string;
+      postures:Array<any>;
+      interpretation:string;
+      safeConclusion:string;
     }>;
   };
   decisionFollowup:{
@@ -212,6 +239,7 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
     buildCaseBasedExecutiveIntelligence(workspaceId,180,3,{relationship,contextual:contextualPatterns}).catch(()=>null),
     buildExecutiveDecisionFollowup(workspaceId,90).catch(()=>null)
   ]);
+  const decisionEffectiveness=buildDecisionEffectiveness(decisionFollowup,3);
 
   const relationships=graph.edges.reduce<Record<string,number>>((acc,edge)=>{
     acc[edge.kind]=(acc[edge.kind]||0)+1;
@@ -462,6 +490,14 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         interpretation:String(item.interpretation||''),
         recommendedUse:String(item.recommendedUse||'')
       })):[]
+    },
+    decisionEffectiveness:{
+      decisionsAnalyzed:n((decisionEffectiveness as any)?.summary?.decisionsAnalyzed),
+      posturePatterns:n((decisionEffectiveness as any)?.summary?.posturePatterns),
+      contextualPatterns:n((decisionEffectiveness as any)?.summary?.contextualPatterns),
+      comparablePrioritySets:n((decisionEffectiveness as any)?.summary?.comparablePrioritySets),
+      byPosture:Array.isArray((decisionEffectiveness as any)?.byPosture)?(decisionEffectiveness as any).byPosture:[],
+      comparisons:Array.isArray((decisionEffectiveness as any)?.comparisons)?(decisionEffectiveness as any).comparisons.slice(0,5):[]
     },
     decisionFollowup:{
       decisionsTracked:n((decisionFollowup as any)?.summary?.decisionsTracked),
