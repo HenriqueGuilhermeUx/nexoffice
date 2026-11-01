@@ -49,6 +49,21 @@ type ExecutiveContext={
   decisionFollowup:{decisionsTracked:number;withObservedEvents:number;monitoring:number;positiveObservations:number;negativeObservations:number;topFollowups:Array<{decisionId:string;priorityTitle:string;selectedLabel:string;selectedPosture:string;rationale:string;chosenAt:string;daysSinceDecision:number;observationStatus:string;summary:{totalObserved:number;positive:number;negative:number;neutral:number;latestObservedAt:string|null};observedEvents:Array<{eventId:string;eventType:string;source:string;observedAt:string;daysAfterDecision:number;code:string;label:string;polarity:string;detail:string|null;matchBasis:'action_family'|'evidence_contact'}>;interpretation:string;relationship:{temporal:true;sameWorkspace:true;causalClaim:false}}>} ;
   recommendationStack:{prioritiesCovered:number;pathsGenerated:number;prioritiesWithComparableCases:number;items:Array<{priority:{code:string;level:string;title:string;detail:string;hypothesis:string|null};paths:Array<{id:string;label:string;posture:'conservative'|'balanced'|'active';description:string;why:string;tradeoffs:string[];risks:string[];suggestedActionFamily:string|null;confidence:'low'|'medium'|'high';evidence:Evidence[];comparableCases:Array<{contactId:string|null;name:string|null;similarityScore:number;actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string}>;humanReviewRequired:true;externalEffects:false}>;recommendationPolicy:{defaultPath:'balanced';defaultIsSuggestionOnly:true;automaticSelection:false;automaticExecution:false;humanChoosesPath:true;causalClaims:false}}>} ;
   caseBasedLearning:{currentCases:number;casesWithComparableHistory:number;strongMatches:number;topCases:Array<{contactId:string;name:string;relationshipStatus:string;currentContext:{contactKind:string;financialState:string;engagementState:string};reasons:string[];bestMatch:{similarityScore:number;matchedDimensions:string[];actionType:string;sampleSize:number;outcomeCoveragePct:number;positiveDecisionPct:number;negativeDecisionPct:number;evidenceLevel:string;interpretation:string}|null;interpretation:string}>};
+  executiveReview:{
+    generatedAt:string;
+    reviewPeriodDays:number;
+    boardStatus:'stable'|'attention'|'critical';
+    agendaSummary:{decideNow:number;watch:number;learned:number;insufficientEvidence:number};
+    decideNow:Array<{code:string;level:string;title:string;detail:string;paths:Array<{id:string;label:string;posture:string;confidence:string}>;humanDecisionRequired:true;automaticSelection:false;automaticExecution:false}>;
+    watchlist:Array<{kind:string;title:string;detail:string;decisionId?:string;code?:string}>;
+    learnedSinceReview:Array<{decisionId:string;title:string;selectedLabel:string;observedEvents:number;positive:number;negative:number;neutral:number;latestObservedAt:string|null;interpretation:string}>;
+    repeatedPatterns:Array<{posture:string;sampleSize:number;observationCoveragePct:number;evidenceLevel:string;interpretation:string}>;
+    insufficientEvidence:string[];
+    openQuestions:string[];
+    evidenceQuality:string;
+    methodology:{summaryOnly:true;sourceProvenancePreserved:true;insufficientEvidenceVisible:true;contradictoryEvidenceVisible:true;temporalAssociationOnly:true;causalClaims:false};
+    safety:{readOnly:true;externalEffects:false;automaticDecision:false;automaticExecution:false;automaticPolicyChange:false;automaticAutonomyChange:false;humanReviewRequired:true};
+  };
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
 type SourceRegistry={
@@ -276,6 +291,46 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         </span>)}</div>
       </details>}
     </div>
+
+    {context.executiveReview&&<div className={'executiveReviewBoard '+context.executiveReview.boardStatus}>
+      <div className="executiveReviewHead">
+        <div>
+          <p className="eyebrow">MAYA · EXECUTIVE REVIEW</p>
+          <h4>Sua reunião executiva, montada com o contexto real da empresa</h4>
+          <p>Uma pauta curta para decidir, acompanhar e reconhecer onde ainda falta evidência. Nenhum item é decidido ou executado automaticamente.</p>
+        </div>
+        <span>Evidência {context.executiveReview.evidenceQuality}</span>
+      </div>
+      <div className="executiveReviewGrid">
+        <article className="decision">
+          <header><span>DECIDIR AGORA</span><b>{context.executiveReview.agendaSummary.decideNow}</b></header>
+          {context.executiveReview.decideNow.length?context.executiveReview.decideNow.slice(0,3).map(item=><button key={'board|decision|'+item.code} onClick={()=>scrollTo('maya-decisions')}>
+            <strong>{item.title}</strong><small>{item.paths.length} caminho(s) · escolha humana</small>
+          </button>):<p>Nenhuma decisão executiva prioritária neste momento.</p>}
+        </article>
+        <article className="watch">
+          <header><span>ACOMPANHAR</span><b>{context.executiveReview.agendaSummary.watch}</b></header>
+          {context.executiveReview.watchlist.length?context.executiveReview.watchlist.slice(0,3).map((item,index)=><button key={'board|watch|'+index} onClick={()=>scrollTo(item.kind==='decision_monitoring'?'maya-analysis':'maya-priorities')}>
+            <strong>{item.title}</strong><small>{item.detail}</small>
+          </button>):<p>Nenhum item relevante em acompanhamento.</p>}
+        </article>
+        <article className="learned">
+          <header><span>APRENDIDO</span><b>{context.executiveReview.agendaSummary.learned}</b></header>
+          {context.executiveReview.learnedSinceReview.length?context.executiveReview.learnedSinceReview.slice(0,2).map(item=><button key={'board|learned|'+item.decisionId} onClick={()=>{setDeepOpen(true);scrollTo('maya-analysis')}}>
+            <strong>{item.title}</strong><small>{item.observedEvents} evento(s) posterior(es) observado(s) · contexto, não causalidade</small>
+          </button>):<p>Ainda não há novos eventos suficientes depois das decisões acompanhadas.</p>}
+        </article>
+        <article className="evidence">
+          <header><span>SEM EVIDÊNCIA SUFICIENTE</span><b>{context.executiveReview.agendaSummary.insufficientEvidence}</b></header>
+          {context.executiveReview.insufficientEvidence.length?context.executiveReview.insufficientEvidence.slice(0,2).map((item,index)=><p key={'board|evidence|'+index}>{item}</p>):<p>Nenhuma lacuna relevante destacada na leitura atual.</p>}
+        </article>
+      </div>
+      <details className="executiveReviewQuestions">
+        <summary>Perguntas para a próxima decisão</summary>
+        <div>{context.executiveReview.openQuestions.map((item,index)=><p key={'board|question|'+index}>{item}</p>)}</div>
+      </details>
+      <footer><span>Somente leitura</span><span>Hipótese ≠ causalidade</span><span>Decisão humana</span><span>Sem efeito externo</span></footer>
+    </div>}
 
     <div className="executivePriorityGrid" id="maya-priorities">
       {priority.length?priority.map((item,index)=><article className={`executivePriority ${item.level}`} key={item.code}>
