@@ -33,7 +33,7 @@ type FinanceHubReadiness={
   walletProvisioningEnabled:false; externalEffectsEnabled:false;
   sources:Array<{id:string;label:string;status:'not_connected';dataAvailable:false}>;
 };
-type WalletPjReadiness={schemaVersion:1;workspaceScoped:true;status:'requires_corporate_verification';corporateWalletVerified:false;balancesVisible:false;transactionsVisible:false;transfersEnabled:false;walletAddress:null;balanceUsdc:null};
+type WalletPjReadiness={schemaVersion:1;workspaceScoped:true;status:'requires_corporate_verification'|'connected';corporateWalletVerified:boolean;balancesVisible:boolean;transactionsVisible:false;transfersEnabled:false;walletAddress:string|null;balanceUsdc:string|null};
 type ErpFinanceOverview={
   receivable_minor?:number|string;
   payable_minor?:number|string;
@@ -116,11 +116,16 @@ export default function ContaNexa({
     if(!workspaceId||!session.token())return()=>{active=false};
     void api<WalletPjReadiness>('/v1/platform/nexa-pj/wallet/readiness').then(result=>{
       if(!active)return;
+      const pending=result.status==='requires_corporate_verification'&&
+        result.corporateWalletVerified===false&&result.balancesVisible===false&&
+        result.walletAddress===null&&result.balanceUsdc===null;
+      const connected=result.status==='connected'&&
+        result.corporateWalletVerified===true&&result.balancesVisible===true&&
+        typeof result.walletAddress==='string'&&/^0x[0-9a-fA-F]{40}$/.test(result.walletAddress)&&
+        typeof result.balanceUsdc==='string'&&/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(result.balanceUsdc);
       if(result.schemaVersion!==1||result.workspaceScoped!==true||
-        result.status!=='requires_corporate_verification'||
-        result.corporateWalletVerified!==false||result.balancesVisible!==false||
         result.transactionsVisible!==false||result.transfersEnabled!==false||
-        result.walletAddress!==null||result.balanceUsdc!==null)
+        (!pending&&!connected))
         throw new Error('Estado da Wallet PJ não homologado');
       setWalletReadiness(result);
     }).catch(()=>{if(active)setWalletReadiness(null)});
@@ -191,7 +196,7 @@ export default function ContaNexa({
           <button type="button" onClick={()=>navigateErp('crm')}>Clientes e CRM →</button>
         </div>
       </div>
-      <div className="pj-wallet-launch-status"><strong>{walletReadiness?'Carteira PJ: verificação empresarial pendente':'Carteira PJ: conexão indisponível'}</strong><span>Não exibimos saldos de carteiras pessoais nem iniciamos transferências neste painel.</span></div>
+      <div className="pj-wallet-launch-status"><strong>{walletReadiness?.status==='connected'?'Carteira PJ: saldo verificado':walletReadiness?'Carteira PJ: verificação empresarial pendente':'Carteira PJ: conexão indisponível'}</strong><span>{walletReadiness?.status==='connected'?'Saldo USDC: '+walletReadiness.balanceUsdc+' · Carteira empresarial '+walletReadiness.walletAddress?.slice(0,8)+'…'+walletReadiness.walletAddress?.slice(-6)+' · Somente leitura':'Não exibimos saldos de carteiras pessoais nem iniciamos transferências neste painel.'}</span></div>
     </section>
     <section className="pj-premium-connectors" aria-label="Ecossistema financeiro Nexa PJ">
       <div className="pj-bank-workspace-heading"><div><small className="eyebrow">VISÃO FINANCEIRA GLOBAL DA EMPRESA</small><h3>Seu patrimônio e suas obrigações em uma só visão</h3><p>Arquitetura preparada para conectar instituições financeiras, investimentos e carteiras; acesso a dados reais somente com autorização e identidade PJ verificadas.</p></div><span className="pj-bank-readiness">{financeHub?`${financeHub.sources.length} fontes aguardando habilitação`:"Conexões em preparação"}</span></div>
