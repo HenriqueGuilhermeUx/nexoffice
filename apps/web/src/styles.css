@@ -154,3 +154,6 @@
 
 
 .executiveBriefingChanges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.executiveBriefingChanges em{font-style:normal;border:1px solid #6a452e;background:#25180f;color:#e2aa7b;border-radius:999px;padding:4px 7px;font-size:8px;line-height:1}
+
+
+.executiveBriefingHistory{margin-top:9px;border-top:1px solid #173149;padding-top:8px}.executiveBriefingHistory summary{cursor:pointer;color:#7f96aa;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.executiveBriefingHistory>div{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.executiveBriefingHistory span{display:flex;align-items:center;gap:5px;border:1px solid #1d3b50;background:#081522;border-radius:999px;padding:5px 7px}.executiveBriefingHistory b{font-size:8px;color:#a8bbcb;text-transform:uppercase}.executiveBriefingHistory small{font-size:8px;color:#61798e}
