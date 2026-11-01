@@ -68,6 +68,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
+  const [deepOpen,setDeepOpen]=useState(false);
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -139,15 +140,40 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <p>{item.detail}</p>
         {item.hypothesis&&<small><strong>Leitura:</strong> {item.hypothesis}</small>}
         {item.recommendedNextStep&&<div className="executiveNext"><span>PRÓXIMO PASSO</span>{item.recommendedNextStep}</div>}
-        {item.learningContext&&<div className="executiveLearningContext">
-          <span>HISTÓRICO COMPARÁVEL · CONTEXTO, NÃO CAUSALIDADE</span>
-          <p>Em {item.learningContext.sampleSize} decisões aprovadas de <b>{item.learningContext.actionType}</b>, {item.learningContext.outcomeCoveragePct}% tiveram algum resultado posterior observado; {item.learningContext.positiveDecisionPct}% tiveram ao menos um resultado positivo e {item.learningContext.negativeDecisionPct}% ao menos um negativo.</p>
-          <small>Evidência {item.learningContext.evidenceLevel}. Uso apenas consultivo; a recomendação continua sujeita à revisão humana.</small>
-        </div>}
+        {item.learningContext&&<button className="executiveHistoryHint" onClick={()=>setDeepOpen(true)}>
+          Histórico comparável disponível · {item.learningContext.sampleSize} decisões · evidência {item.learningContext.evidenceLevel}
+        </button>}
         {item.evidence?.length>0&&<details><summary>Ver evidências</summary><div className="executiveEvidence">{item.evidence.slice(0,6).map((e,i)=><code key={`${item.code}-${i}`}><span>{e.label}</span>{typeof e.value==='object'?JSON.stringify(e.value):String(e.value)}</code>)}</div></details>}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
+    {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack">
+      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CAMINHOS DE DECISÃO</p><h4>Três formas de responder à prioridade atual</h4><p>A Maya organiza alternativas com evidências, riscos, trade-offs e precedentes comparáveis. Nenhum caminho é escolhido ou executado automaticamente.</p></div><span>{context.recommendationStack.pathsGenerated} caminho(s)</span></div>
+      {context.recommendationStack.items.slice(0,3).map(item=><section className="executiveRecommendationItem" key={'rec|'+item.priority.code}>
+        <div className="executiveRecommendationPriority"><span>{item.priority.level}</span><div><h5>{item.priority.title}</h5><p>{item.priority.detail}</p></div></div>
+        <div className="executiveRecommendationGrid">{item.paths.map(path=><article className={'executiveRecommendationPath '+path.posture} key={path.id}>
+          <div className="executiveRecommendationPathHead"><div><b>{path.label}</b><span>{path.posture}</span></div><em>{path.confidence} confiança</em></div>
+          <p>{path.description}</p>
+          <small>{path.why}</small>
+          <div className="executiveRecommendationLists"><div><strong>Trade-offs</strong><ul>{path.tradeoffs.map(x=><li key={x}>{x}</li>)}</ul></div><div><strong>Riscos</strong><ul>{path.risks.map(x=><li key={x}>{x}</li>)}</ul></div></div>
+          {path.comparableCases?.length>0&&<div className="executiveRecommendationCases"><span>Precedentes comparáveis</span>{path.comparableCases.slice(0,2).map((c,i)=><small key={String(c.contactId||i)}>{c.name||'Caso histórico'} · {c.similarityScore}% similar · {c.sampleSize} decisões · {c.outcomeCoveragePct}% com resultado observado</small>)}</div>}
+          <footer><span>{path.suggestedActionFamily||'revisão'}</span><b>Escolha humana obrigatória</b></footer>
+          <button className="executiveDecisionButton" onClick={()=>void recordDecision(item,path)}>Registrar esta decisão</button>
+          {decisionStatus[path.id]&&<small className="executiveDecisionStatus">{decisionStatus[path.id]}</small>}
+        </article>)}</div>
+      </section>)}
+    </div>}
+
+    <div className="executiveExplain">
+      <div>
+        <p className="eyebrow">POR QUE A MAYA CHEGOU NISSO</p>
+        <h4>Histórico, precedentes e aprendizado ficam disponíveis sem poluir a decisão.</h4>
+        <p>Abra quando quiser auditar a leitura: casos comparáveis, acompanhamento de decisões, padrões contextuais e strategy learning.</p>
+      </div>
+      <button onClick={()=>setDeepOpen(open=>!open)}>{deepOpen?'Ocultar análise':'Ver análise completa'}</button>
+    </div>
+
+    {deepOpen&&<div className="executiveDeepAnalysis">
     {context.decisionEffectiveness?.byPosture?.length>0&&<div className="executiveDecisionEffectiveness">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · STRATEGY LEARNING</p><h4>Como as posturas vêm se comportando no histórico observado</h4><p>A comparação é descritiva. Diferenças podem refletir seleção, contexto e fatores não medidos; nenhuma postura é tratada como causalmente superior.</p></div><span>{context.decisionEffectiveness.decisionsAnalyzed} decisão(ões)</span></div>
       <div className="executiveDecisionEffectivenessGrid">{context.decisionEffectiveness.byPosture.map(item=><article key={'strategy|'+item.posture}>
@@ -170,22 +196,6 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>)}</div>
     </div>}
 
-    {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack">
-      <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CAMINHOS DE DECISÃO</p><h4>Três formas de responder à prioridade atual</h4><p>A Maya organiza alternativas com evidências, riscos, trade-offs e precedentes comparáveis. Nenhum caminho é escolhido ou executado automaticamente.</p></div><span>{context.recommendationStack.pathsGenerated} caminho(s)</span></div>
-      {context.recommendationStack.items.slice(0,3).map(item=><section className="executiveRecommendationItem" key={'rec|'+item.priority.code}>
-        <div className="executiveRecommendationPriority"><span>{item.priority.level}</span><div><h5>{item.priority.title}</h5><p>{item.priority.detail}</p></div></div>
-        <div className="executiveRecommendationGrid">{item.paths.map(path=><article className={'executiveRecommendationPath '+path.posture} key={path.id}>
-          <div className="executiveRecommendationPathHead"><div><b>{path.label}</b><span>{path.posture}</span></div><em>{path.confidence} confiança</em></div>
-          <p>{path.description}</p>
-          <small>{path.why}</small>
-          <div className="executiveRecommendationLists"><div><strong>Trade-offs</strong><ul>{path.tradeoffs.map(x=><li key={x}>{x}</li>)}</ul></div><div><strong>Riscos</strong><ul>{path.risks.map(x=><li key={x}>{x}</li>)}</ul></div></div>
-          {path.comparableCases?.length>0&&<div className="executiveRecommendationCases"><span>Precedentes comparáveis</span>{path.comparableCases.slice(0,2).map((c,i)=><small key={String(c.contactId||i)}>{c.name||'Caso histórico'} · {c.similarityScore}% similar · {c.sampleSize} decisões · {c.outcomeCoveragePct}% com resultado observado</small>)}</div>}
-          <footer><span>{path.suggestedActionFamily||'revisão'}</span><b>Escolha humana obrigatória</b></footer>
-          <button className="executiveDecisionButton" onClick={()=>void recordDecision(item,path)}>Registrar esta decisão</button>
-          {decisionStatus[path.id]&&<small className="executiveDecisionStatus">{decisionStatus[path.id]}</small>}
-        </article>)}</div>
-      </section>)}
-    </div>}
 
     {context.caseBasedLearning?.topCases?.length>0&&<div className="executiveDecisionPatterns">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CASOS COMPARÁVEIS</p><h4>O que aconteceu em situações parecidas com as de agora</h4><p>A Maya compara o contexto atual com padrões históricos reconstruídos na data das decisões. Similaridade organiza evidências; não recomenda repetir uma ação automaticamente.</p></div><span>{context.caseBasedLearning.casesWithComparableHistory} caso(s) com histórico</span></div>
@@ -223,22 +233,14 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>)}</div>
     </div>}
 
-    <div className="executiveContextFooter">
-      <div><span>Contexto</span><b>{context.businessGraph.nodes} nós · {context.businessGraph.edges} relações</b></div>
-      <div><span>Fontes do grafo</span><b>{context.businessGraph.sources.length}</b></div>
-      <div><span>Integrações conectadas</span><b>{connectedIntegrations}</b></div>
-      <div><span>Sinais Alternative Ventures</span><b>{avSignals}</b></div>
-      <div><span>Pipeline</span><b>{money(context.indicators.pipelineMinor)}</b></div>
+
+    </div>}
+
+    <div className="executiveContextFooter executiveContextFooterCompact">
       <div><span>Conhecimento do negócio</span><b>{context.indicators.businessKnowledgePct==null?'Aprendendo':`${Math.round(context.indicators.businessKnowledgePct)}%`}</b></div>
-      <div><span>Cruzamentos multi-sistema</span><b>{context.crossSystem?.insights||0}</b></div>
-      <div><span>Clientes correlacionados</span><b>{context.crossSystem?.customers||0}</b></div>
-      <div><span>Padrões de decisão</span><b>{context.decisionLearning?.patterns||0}</b></div>
-      <div><span>Padrões contextuais</span><b>{context.contextualDecisionLearning?.patterns||0}</b></div>
-      <div><span>Casos com histórico</span><b>{context.caseBasedLearning?.casesWithComparableHistory||0}</b></div>
-      <div><span>Caminhos estruturados</span><b>{context.recommendationStack?.pathsGenerated||0}</b></div>
+      <div><span>Fontes conectadas</span><b>{context.businessGraph.sources.length+connectedIntegrations}</b></div>
+      <div><span>Cruzamentos relevantes</span><b>{context.crossSystem?.insights||0}</b></div>
       <div><span>Decisões acompanhadas</span><b>{context.decisionFollowup?.decisionsTracked||0}</b></div>
-      <div><span>Padrões de estratégia</span><b>{context.decisionEffectiveness?.posturePatterns||0}</b></div>
-      <div><span>Decisões analisadas</span><b>{context.decisionLearning?.decisionsAnalyzed||0}</b></div>
     </div>
 
     <div className="executiveContextTrust">
