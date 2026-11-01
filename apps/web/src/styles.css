@@ -151,3 +151,6 @@
 
 .executiveBriefingStatus>b.changed{background:#2a160d;color:#f1a56e;border:1px solid #7a462d}
 .executiveReviewMessage{color:#7fc9e4!important;margin-top:4px!important}
+
+
+.executiveBriefingChanges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.executiveBriefingChanges em{font-style:normal;border:1px solid #6a452e;background:#25180f;color:#e2aa7b;border-radius:999px;padding:4px 7px;font-size:8px;line-height:1}
