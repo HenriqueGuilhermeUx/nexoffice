@@ -1,0 +1,19 @@
+name: Nexa PJ live API read-only smoke
+on:
+  push:
+    branches: [feat/nexa-pj-conta-nexa-panel-20261020]
+    paths:
+      - scripts/smoke-nexa-pj-live.mjs
+      - .github/workflows/nexa-pj-live-smoke.yml
+  workflow_dispatch:
+jobs:
+  api-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate live API without creating accounts
+        run: node scripts/smoke-nexa-pj-live.mjs

@@ -8,6 +8,29 @@ type OnboardingState={profile:any;onboarding:any;completed:boolean;workspace?:{i
 type Enrichment={discovered:Discovered;sources:Source[];needsConfirmation:string[];suggestions:any[];existingProfile:any};
 type Form={businessName:string;cnpj:string;website:string;instagram:string;whatsapp:string;otherLink:string};
 type Answers={businessType:string;audienceType:string;leadSources:string[];salesChannels:string[];revenueBand:string;ticketBand:string;paymentMethods:string[];invoiceUsage:string;teamSize:string;bottleneck:string;goal:string};
+type CapabilityGraph={capabilities?:Array<{id:string;status?:string}>};
+type BackupState={status?:string;configured?:boolean};
+type InvestmentHealth={status?:string;configured?:boolean};
+type TourModule={title:string;description:string;target:string};
+const tourModules:TourModule[]=[
+  {title:'Central de Comando',description:'Painel, prioridades, indicadores e próximas decisões.',target:'Hoje'},
+  {title:'Equipe Digital',description:'Assistentes para atendimento, CRM, operações e crescimento.',target:'Assistentes IA'},
+  {title:'Pergunte à empresa',description:'Explore o conhecimento empresarial e sua memória operacional.',target:'Hoje'},
+  {title:'DocWallet',description:'Contratos, documentos, assinaturas e trilha documental.',target:'Documentos'},
+  {title:'Investimentos & Mercados',description:'Conheça o radar financeiro e disponibilidade de integrações.',target:'Financeiro'},
+  {title:'Fiscal',description:'Notas e rotinas fiscais com revisão humana.',target:'Financeiro'},
+  {title:'Marketing & Growth',description:'Campanhas, conteúdo e aquisição conectados ao contexto.',target:'Crescimento'},
+  {title:'Rede de Profissionais',description:'Parceiros e especialistas de apoio ao negócio.',target:'Hoje'},
+  {title:'Backup Empresarial',description:'Segurança, continuidade e proteção dos dados.',target:'Hoje'},
+  {title:'Compliance & Segurança',description:'Permissões, controles e governança da empresa.',target:'Integrações'},
+];
+const tourSteps=[
+  'Este é o seu negócio agora.',
+  'Você ganhou uma equipe que compartilha contexto.',
+  'Pergunte à sua própria empresa.',
+  'O trabalho deixa de quebrar entre sistemas.',
+  'O NexOffice começa a lembrar junto com você.',
+];
 
 const initialForm:Form={businessName:'',cnpj:'',website:'',instagram:'',whatsapp:'',otherLink:''};
 const initialAnswers:Answers={businessType:'',audienceType:'',leadSources:[],salesChannels:[],revenueBand:'',ticketBand:'',paymentMethods:[],invoiceUsage:'',teamSize:'',bottleneck:'',goal:''};
@@ -37,6 +60,34 @@ export default function ProductDiscovery(){
   const[open,setOpen]=useState(false),[step,setStep]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[completed,setCompleted]=useState(false);
   const[form,setForm]=useState<Form>(initialForm),[enrichment,setEnrichment]=useState<Enrichment|null>(null),[answers,setAnswers]=useState<Answers>(initialAnswers);
   const[reviewName,setReviewName]=useState(''),[reviewDescription,setReviewDescription]=useState(''),[reviewOfferings,setReviewOfferings]=useState('');
+  const[tourOpen,setTourOpen]=useState(false),[tourStep,setTourStep]=useState(0);
+  const[tourSignals,setTourSignals]=useState({capabilities:false,backups:false,investments:false});
+  const tourKey=workspaceId?'nexoffice.discovery.completed.'+workspaceId:'';
+  // The tour only reads feature availability; it never activates a module or
+  // infers that a financial, tenant or provider permission was granted.
+  useEffect(()=>{if(!authenticated||!tourOpen)return;let active=true;
+    void Promise.allSettled([
+      api<CapabilityGraph>('/v1/capabilities'),
+      api<BackupState>('/v1/security/backups'),
+      api<InvestmentHealth>('/v1/investments/health'),
+    ]).then(results=>{if(active)setTourSignals({
+      capabilities:results[0].status==='fulfilled',
+      backups:results[1].status==='fulfilled',
+      investments:results[2].status==='fulfilled',
+    })});
+    return()=>{active=false};
+  },[authenticated,workspaceId,tourOpen]);
+  function openTour(){if(!authenticated||!workspaceId)return;
+    setOpen(false);setTourStep(0);setTourOpen(true);
+    // Prevent concurrent first-run setup drawers while the intro is visible.
+    if(!localStorage.getItem(tourKey))localStorage.setItem('nexoffice.setup.dismissed.'+workspaceId,'1');
+  }
+  function finishTour(){if(!workspaceId)return;
+    localStorage.setItem(tourKey,'1');setTourOpen(false);
+    localStorage.setItem('nexoffice.setup.reopen.'+workspaceId,'1');
+    // Reinitialize existing standalone setup exactly once, preserving data.
+    window.location.reload();
+  }
 
   useEffect(()=>{if(!authenticated)return;void load()},[authenticated,workspaceId]);
   async function load(){try{
@@ -56,6 +107,9 @@ export default function ProductDiscovery(){
     });
     if(state.completed||Object.keys(meta).length)setEnrichment({discovered:{businessName,legalName:String(identity.legalName||'')||undefined,tradeName:String(identity.tradeName||'')||undefined,sector:String(registry.mainActivity||state.profile?.sector||'')||undefined,subsector:String(registry.secondaryActivity||state.profile?.subsector||'')||undefined,city:String(registry.city||'')||undefined,state:String(registry.state||'')||undefined,email:String(contact.email||'')||undefined,phone:String(contact.phone||contact.whatsapp||'')||undefined,description:String(offer.description||'')||undefined,productsOrServices:savedOfferings,socialLinks:savedSocial,registryStatus:String(registry.status||'')||undefined,cnpj:String(identity.cnpj||'')||undefined},sources:Array.isArray(discovery.sources)?discovery.sources:[],needsConfirmation:Array.isArray(discovery.needsConfirmation)?discovery.needsConfirmation:[],suggestions:[],existingProfile:state.profile});
     if(!state.completed)setOpen(true);
+    else if(workspaceId&&!localStorage.getItem('nexoffice.discovery.completed.'+workspaceId)){
+      openTour();
+    }
   }catch{setOpen(true)}}
   async function discover(){setBusy(true);setError('');try{const instagram=form.instagram.trim()?(form.instagram.includes('://')||form.instagram.includes('instagram.com')?form.instagram:`https://instagram.com/${form.instagram.replace(/^@/,'')}`):'';const result=await post<Enrichment>('/v1/onboarding/business/enrich',{businessName:form.businessName,cnpj:form.cnpj,website:form.website||null,instagram:instagram||null,whatsapp:form.whatsapp,socialUrls:form.otherLink?[form.otherLink]:[]});setEnrichment(result);const d=result.discovered;setReviewName(d.businessName||form.businessName);setReviewDescription(d.description||reviewDescription||'');setReviewOfferings((d.productsOrServices?.length?d.productsOrServices:reviewOfferings.split('\n')).slice(0,8).join('\n'));setStep(1)}catch(e:any){setError(e?.message||'Não consegui pesquisar seu negócio agora. Você pode continuar preenchendo manualmente.')}finally{setBusy(false)}}
   function nextFromReview(){setStep(2)}
@@ -106,9 +160,36 @@ export default function ProductDiscovery(){
         <label className="wide"><span>Produtos e serviços que encontrei <em>um por linha</em></span><textarea rows={6} value={reviewOfferings} onChange={e=>setReviewOfferings(e.target.value)} placeholder="Ex.: Consultoria\nPlano mensal\nCurso online"/><small>{offerings.length?`${offerings.length} sinal(is) encontrados. Apague menus ou textos que não sejam uma oferta real.`:'Não encontrei ofertas com segurança. Adicione as principais.'}</small></label>
       </div>{d.socialLinks?.length?<div className="foundLinks"><b>Também encontrei</b>{d.socialLinks.slice(0,6).map(url=><span key={url}>{url.replace(/^https?:\/\/(www\.)?/,'').slice(0,70)}</span>)}</div>:null}<footer><button className="secondary" onClick={()=>setStep(0)}>← Corrigir pistas</button><button className="primary" onClick={nextFromReview}>Está certo. Continuar →</button></footer></div>}
       {step===2&&<div className="businessStep businessQuestions"><Question title="O que você vende?" hint="Isso muda CRM, financeiro, fiscal e o tipo de Bot."><Choice items={choiceData.businessType} value={answers.businessType} onChange={v=>setAnswers({...answers,businessType:v})}/></Question><Question title="Quem normalmente compra de você?"><Choice items={choiceData.audienceType} value={answers.audienceType} onChange={v=>setAnswers({...answers,audienceType:v})}/></Question><Question title="Como novos clientes chegam hoje?" hint="Pode marcar vários."><Choice multi items={choiceData.leadSources} value={answers.leadSources} onChange={v=>setAnswers({...answers,leadSources:v})}/></Question><Question title="Como você vende?" hint="Pode marcar vários."><Choice multi items={choiceData.salesChannels} value={answers.salesChannels} onChange={v=>setAnswers({...answers,salesChannels:v})}/></Question><Question title="Faturamento mensal aproximado" hint="Faixas são suficientes; isso ajuda o financeiro a falar sua língua."><Choice items={choiceData.revenueBand} value={answers.revenueBand} onChange={v=>setAnswers({...answers,revenueBand:v})}/></Question><Question title="Ticket médio aproximado"><Choice items={choiceData.ticketBand} value={answers.ticketBand} onChange={v=>setAnswers({...answers,ticketBand:v})}/></Question><Question title="Como seus clientes pagam?" hint="Pode marcar vários."><Choice multi items={choiceData.paymentMethods} value={answers.paymentMethods} onChange={v=>setAnswers({...answers,paymentMethods:v})}/></Question><Question title="Você costuma emitir nota fiscal?"><Choice items={choiceData.invoiceUsage} value={answers.invoiceUsage} onChange={v=>setAnswers({...answers,invoiceUsage:v})}/></Question><Question title="Quantas pessoas tocam o negócio?"><Choice items={choiceData.teamSize} value={answers.teamSize} onChange={v=>setAnswers({...answers,teamSize:v})}/></Question><Question title="O que mais toma seu tempo hoje?"><Choice items={choiceData.bottleneck} value={answers.bottleneck} onChange={v=>setAnswers({...answers,bottleneck:v})}/></Question><Question title="Se o NexOffice ajudar muito em uma coisa nos próximos 90 dias…"><Choice items={choiceData.goal} value={answers.goal} onChange={v=>setAnswers({...answers,goal:v})}/></Question><footer><button className="secondary" onClick={()=>setStep(1)}>← Voltar</button><button className="primary" disabled={busy||!answers.businessType||!answers.goal} onClick={()=>void finishProfile()}>{busy?'Preparando seu NexOffice…':'Preparar meu NexOffice →'}</button></footer></div>}
-      {step===3&&<div className="businessStep businessReady"><div className="businessReadyHero"><span>✓</span><div><small>PERFIL DO NEGÓCIO PRONTO</small><h3>{reviewName||form.businessName||'Seu negócio'} já tem contexto dentro do NexOffice.</h3><p>Agora Bot, CRM, financeiro, fiscal, marketing e seus assistentes podem partir do que você confirmou — sem ficar perguntando tudo de novo.</p></div></div><div className="preparedGrid">{prepared.map(card=><button key={card.id} onClick={()=>launch(card.id)}><span>→</span><b>{card.title}</b><small>{card.text}</small></button>)}</div><div className="knownSummary"><b>O NexOffice já sabe</b><span>{offerings.length?`${offerings.length} oferta(s) principal(is)`:'sua proposta básica'}</span><span>{answers.audienceType?`quem compra: ${singleLabel(choiceData.audienceType,answers.audienceType)}`:'seu público será refinado com o uso'}</span><span>{answers.paymentMethods.length?`como recebe: ${labels(choiceData.paymentMethods,answers.paymentMethods).join(', ')}`:'formas de recebimento a completar'}</span><span>{answers.goal?`objetivo: ${singleLabel(choiceData.goal,answers.goal)}`:'objetivo a completar'}</span></div><footer><button className="secondary" onClick={()=>setStep(0)}>Revisar perfil</button><button className="primary" onClick={()=>{setOpen(false);navigate('Hoje')}}>Ir para meu NexOffice →</button></footer></div>}
+      {step===3&&<div className="businessStep businessReady"><div className="businessReadyHero"><span>✓</span><div><small>PERFIL DO NEGÓCIO PRONTO</small><h3>{reviewName||form.businessName||'Seu negócio'} já tem contexto dentro do NexOffice.</h3><p>Agora Bot, CRM, financeiro, fiscal, marketing e seus assistentes podem partir do que você confirmou — sem ficar perguntando tudo de novo.</p></div></div><div className="preparedGrid">{prepared.map(card=><button key={card.id} onClick={()=>launch(card.id)}><span>→</span><b>{card.title}</b><small>{card.text}</small></button>)}</div><div className="knownSummary"><b>O NexOffice já sabe</b><span>{offerings.length?`${offerings.length} oferta(s) principal(is)`:'sua proposta básica'}</span><span>{answers.audienceType?`quem compra: ${singleLabel(choiceData.audienceType,answers.audienceType)}`:'seu público será refinado com o uso'}</span><span>{answers.paymentMethods.length?`como recebe: ${labels(choiceData.paymentMethods,answers.paymentMethods).join(', ')}`:'formas de recebimento a completar'}</span><span>{answers.goal?`objetivo: ${singleLabel(choiceData.goal,answers.goal)}`:'objetivo a completar'}</span></div><footer><button className="secondary" onClick={()=>setStep(0)}>Revisar perfil</button><button className="secondary" onClick={openTour}>Conhecer os módulos →</button><button className="primary" onClick={()=>{setOpen(false);navigate('Hoje')}}>Ir para meu NexOffice →</button></footer></div>}
       {error&&<div className="businessError">{error}</div>}
     </section></div>}
+    {completed&&!tourOpen&&<button className="productDiscoveryTourFab" onClick={openTour}>Conhecer recursos</button>}
+    {tourOpen&&<div className="productDiscoveryOverlay" role="presentation">
+      <section className="businessOnboarding productTour" role="dialog" aria-modal="true" aria-label="Conheça o NexOffice">
+        <header className="businessOnboardingHeader">
+          <div><small>CONHEÇA SUAS CAPACIDADES · {tourStep+1}/5</small>
+            <h2>{tourSteps[tourStep]}</h2>
+            <p>Explore o que existe no seu ambiente e acompanhe a disponibilidade de cada área. Não ativamos operações financeiras aqui.</p>
+          </div>
+          <button className="close" onClick={finishTour} aria-label="Concluir apresentação">×</button>
+        </header>
+        <div className="productCapabilityMap">
+          {tourModules.map(module=><article key={module.title}>
+            <b>{module.title}</b><p>{module.description}</p>
+            <button type="button" onClick={()=>{setTourOpen(false);navigate(module.target)}}>Explorar área ↗</button>
+          </article>)}
+        </div>
+        <footer className="productTourFooter">
+          <small>Mapa de capacidades: {tourSignals.capabilities?'consultado':'não confirmado'} · Backups: {tourSignals.backups?'consultados':'não confirmados'} · Radar: {tourSignals.investments?'consultado':'não confirmado'}. Disponibilidade não é autorização de acesso.</small>
+          <div>
+            {tourStep>0&&<button className="secondary" onClick={()=>setTourStep(tourStep-1)}>← Anterior</button>}
+            {tourStep<tourSteps.length-1
+              ?<button className="primary" onClick={()=>setTourStep(tourStep+1)}>Próximo →</button>
+              :<button className="primary" onClick={finishTour}>Concluir e configurar →</button>}
+          </div>
+        </footer>
+      </section>
+    </div>}
   </>
 }
 

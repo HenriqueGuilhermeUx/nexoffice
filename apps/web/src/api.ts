@@ -2,15 +2,18 @@ export type SessionUser={id:string;name:string;email:string};
 export type Workspace={id:string;name:string;slug:string;vertical:string;plan:string;status:string;role:string;permissions:string[]};
 
 const API=(import.meta as any).env?.VITE_API_URL||'http://localhost:4000';
-const TOKEN_KEY='nexoffice.token';
-const WORKSPACE_KEY='nexoffice.workspace';
+const pjBuild=(import.meta as any).env?.VITE_PRODUCT_BRAND==='nexa-pj';
+const TOKEN_KEY=pjBuild?'nexa-pj.token':'nexoffice.token';
+const WORKSPACE_KEY=pjBuild?'nexa-pj.workspace':'nexoffice.workspace';
 
 export const session={
   token:()=>localStorage.getItem(TOKEN_KEY)||'',
   workspace:()=>localStorage.getItem(WORKSPACE_KEY)||'',
   set:(token:string,workspaceId?:string)=>{localStorage.setItem(TOKEN_KEY,token);if(workspaceId)localStorage.setItem(WORKSPACE_KEY,workspaceId)},
   setWorkspace:(id:string)=>localStorage.setItem(WORKSPACE_KEY,id),
-  clear:()=>{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)}
+  clear:()=>{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)},
+  // PJ credentials are discarded on gated builds until a dedicated handoff exists.
+  clearPendingPjAccess:()=>{if(pjBuild){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(WORKSPACE_KEY)}}
 };
 
 async function parseResponse<T>(r:Response):Promise<T>{
