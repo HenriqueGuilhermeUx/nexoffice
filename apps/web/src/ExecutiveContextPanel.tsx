@@ -268,6 +268,13 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
           {(!reviewedAt||changedSinceReview)?<button className="primary" onClick={()=>void markReviewed()}>{changedSinceReview?'Revisar nova versão':'Marcar como revisado'}</button>:<button onClick={()=>void reopenReview()}>Reabrir revisão</button>}
         </div>
       </div>
+      {reviewHistory.length>0&&<details className="executiveBriefingHistory">
+        <summary>Últimas revisões</summary>
+        <div>{reviewHistory.slice(0,7).map(item=><span key={item.review_date}>
+          <b>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date(`${item.review_date}T12:00:00`))}</b>
+          <small>{new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(item.reviewed_at))}</small>
+        </span>)}</div>
+      </details>}
     </div>
 
     <div className="executivePriorityGrid" id="maya-priorities">
