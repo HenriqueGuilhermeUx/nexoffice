@@ -6,6 +6,7 @@ import {financeSummary} from './events.js';
 import {readDocWalletUpcomingExpirations} from './docwallet-intelligence-adapter.js';
 import {modoMarketingConfigured,modoMarketingRequest} from './modo-marketing-adapter.js';
 import {buildOperationalPriorities,operationalSignalNarrative,safeOperationalSignal,type OperationalSignal} from './operational-signals.js';
+import {buildExecutiveContext,executiveNarrative} from './executive-context.js';
 
 const uuid=z.string().uuid();
 const roles=['secretary','service','crm','erp','collections','controller','documents','growth'] as const;
@@ -35,6 +36,11 @@ export async function registerAssistantRoutes(app:FastifyInstance){
     priorities.sort((a,b)=>priorityRank(a.level)-priorityRank(b.level));
     const verticalPrompt=vertical==='legal'?'Como está a operação jurídica no NexJud?':vertical==='health'?'Como está a operação administrativa de saúde?':vertical==='condo'?'Como está a operação dos condomínios no SindCopilot?':vertical==='commerce'?'Como está minha operação de commerce?':null;
     return {workspace:{id:ctx.workspaceId,name:ctx.workspaceName,vertical},pulse,priorities,suggestedPrompts:[verticalPrompt,'Como está meu negócio hoje?','O que tenho para receber?','Quais oportunidades devo priorizar?','Como está minha agenda?','Quais documentos precisam de atenção?','Quero assinar um contrato com certificado digital ICP-Brasil','Como está minha prospecção B2B?','Como está meu radar de mercado?','Quais conteúdos a Maya já preparou?'].filter(Boolean)};
+  });
+
+  app.get('/v1/assistant/executive-context',async req=>{
+    const ctx=await workspaceContext(req,'command.read');
+    return buildExecutiveContext(ctx.workspaceId,ctx.workspaceName);
   });
 
   app.get('/v1/assistant/conversations',async req=>{
@@ -206,10 +212,18 @@ async function answer(workspaceId:string,message:string,forcedRole:string|null){
     }
     return {agentRole:forcedRole||'growth',text:'A Maya está conectada ao contrato de growth do NexOffice e pode usar o MODO quando o runtime estiver configurado. O plano de campanha, Demand e Google Ads ficam separados de qualquer ativação externa: publicar ou alterar orçamento continua sujeito à governança.',facts:{modo:{connected:false}},actions};
   }
-  const [finance,crm,tasks,agenda,actionsOpen,signals]=await Promise.all([financeSummary(workspaceId),query<any>(`select count(*) filter(where stage not in ('won','lost'))::int open_deals,coalesce(sum(value_minor) filter(where stage not in ('won','lost')),0)::bigint pipeline from crm_deals where workspace_id=$1`,[workspaceId]),query<any>(`select count(*)::int due from tasks where workspace_id=$1 and status in ('todo','doing') and (due_at is null or due_at<=now()+interval '24 hours')`,[workspaceId]),query<any>(`select count(*)::int today from appointments where workspace_id=$1 and starts_at>=date_trunc('day',now()) and starts_at<date_trunc('day',now())+interval '1 day' and status<>'cancelled'`,[workspaceId]),query<any>(`select count(*)::int n from command_actions where workspace_id=$1 and status in ('open','approved','executing')`,[workspaceId]),getOperationalSignals(workspaceId)]);
+  const workspace=(await query<any>(`select name from workspaces where id=$1`,[workspaceId]))[0];
+  const [executive,signals]=await Promise.all([
+    buildExecutiveContext(workspaceId,String(workspace?.name||'Workspace')),
+    getOperationalSignals(workspaceId)
+  ]);
   const operational=operationalSignalNarrative(vertical,signals);
   const verticalSuffix=(vertical==='legal'||vertical==='health'||vertical==='condo'||vertical==='commerce')&&signals.length?` ${operational.text}`:'';
-  actions.push({label:'Central de Comando',target:'command'});return {agentRole:forcedRole||'controller',text:`Resumo agora: pipeline de ${money(crm[0].pipeline)} em ${crm[0].open_deals} oportunidade(s); ${money(finance.receivable_minor)} a receber, com ${finance.overdue_count||0} vencido(s); ${agenda[0].today||0} compromisso(s) hoje; ${tasks[0].due||0} tarefa(s) pedindo atenção; e ${actionsOpen[0].n||0} ação(ões) na Central de Comando.${verticalSuffix}`,facts:{finance,crm:crm[0],tasks:tasks[0],agenda:agenda[0],command:actionsOpen[0],operational:operational.facts},actions};
+  const top=executive.priorities[0];
+  actions.push({label:'Central de Comando',target:'command'});
+  if(top?.code.includes('receivable')||top?.code.includes('cash'))actions.push({label:'Abrir financeiro',target:'finance'});
+  if(top?.code.includes('deal')||top?.code.includes('customer'))actions.push({label:'Abrir CRM',target:'crm'});
+  return {agentRole:forcedRole||'controller',text:`${executiveNarrative(executive)}${verticalSuffix}`,facts:{executive,operational:operational.facts},actions};
 }
 
 async function getWorkspaceVertical(workspaceId:string){const rows=await query<any>(`select vertical from workspaces where id=$1`,[workspaceId]);return String(rows[0]?.vertical||'general')}

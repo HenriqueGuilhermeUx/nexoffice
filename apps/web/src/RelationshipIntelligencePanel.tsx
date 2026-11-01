@@ -12,7 +12,7 @@ type Option={
 type Relationship={
   contactId:string;name:string;email?:string|null;phone?:string|null;companyName?:string|null;
   status:'healthy'|'attention'|'risk'|'renewal'|'expansion';reasons:string[];
-  lastTouchAt?:string|null;daysSinceTouch:number;activeRules:number;nextCycleAt?:string|null;renewalAt?:string|null;
+  lastTouchAt?:string|null;daysSinceTouch:number;externalLastTouchAt?:string|null;externalInteractions90:number;externalSources:string[];activeRules:number;nextCycleAt?:string|null;renewalAt?:string|null;
   overdueCount:number;overdueMinor:number;incomeCount:number;paidCount:number;lastPaidAt?:string|null;documentRenewalAt?:string|null;documentRenewalTitle?:string|null;
   openDeals:number;openPipelineMinor:number;wonDeals:number;lost90:number;noShow180:number;operationCount:number;
   expansionCandidate?:{id:string;name:string;kind:string;priceMinor:number;billingCycle:string}|null;
@@ -23,11 +23,13 @@ type Payload={
   relationships:Relationship[];bestOptions:Option[];
   rules:Record<string,string>;
   safety:{externalCommunication:false;automaticProposalSend:false;automaticDiscount:false;automaticRenewal:false};
+  sources?:{docWalletExpirationsAvailable:boolean;docWalletAlertsUsed:number;externalContextEventsObserved?:number;googleWorkspaceEventsObserved?:number;microsoft365EventsObserved?:number;manualWorkspaceContextEventsObserved?:number;externalCrmActivitiesObserved?:number;googleWorkspaceEmailsObserved?:number};
 };
 
 const money=(minor:unknown=0)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
 const date=(value?:string|null)=>value?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short'}).format(new Date(value)):'—';
 const statusLabel:Record<string,string>={risk:'Em risco',renewal:'Renovação próxima',attention:'Atenção',expansion:'Expansão possível',healthy:'Saudável'};
+const externalSourceLabel=(source:string)=>source==='external.google.gmail'?'Gmail':source==='external.google.calendar'?'Google Calendar':source==='external.microsoft.mail'?'Outlook':source==='external.microsoft.calendar'?'Microsoft Calendar':source==='external.crm'?'CRM externo':source==='external.email'?'E-mail importado':source==='external.calendar'?'Calendário importado':'Externo';
 
 export default function RelationshipIntelligencePanel(){
   const[workspaceKey,setWorkspaceKey]=useState(()=>session.workspace());
@@ -75,7 +77,7 @@ export default function RelationshipIntelligencePanel(){
 
   const s=data?.summary;
   return <section className="relationshipPanel">
-    <header className="relationshipHead"><div><small>RELACIONAMENTO & RENOVAÇÃO</small><h3>Cuide do cliente antes do problema aparecer.</h3><p>Sinais explicáveis de risco, renovação e expansão com próximas ações prontas.</p></div><button onClick={()=>void load()}>↻</button></header>
+    <header className="relationshipHead"><div><small>RELACIONAMENTO & RENOVAÇÃO</small><h3>Cuide do cliente antes do problema aparecer.</h3><p>Sinais explicáveis de risco, renovação e expansão com próximas ações prontas.{Number(data?.sources?.externalContextEventsObserved||data?.sources?.googleWorkspaceEventsObserved||0)>0?' A leitura já considera e-mails e reuniões externos vinculados por e-mail exato.':''}</p></div><button onClick={()=>void load()}>↻</button></header>
     {error&&<div className="relationshipError">{error}</div>}
     {notice&&<div className="relationshipNotice">{notice}</div>}
     {s&&<>
@@ -94,7 +96,7 @@ export default function RelationshipIntelligencePanel(){
       <div className="relationshipList">
         {data?.relationships.slice(0,30).map(row=><article key={row.contactId} className={'relationshipRow '+row.status}>
           <div className="relationshipRowMain"><span className={'relationshipStatus '+row.status}>{statusLabel[row.status]}</span><b>{row.name}</b><small>{row.reasons.join(' · ')}</small></div>
-          <div><small>Último contato</small><b>{row.daysSinceTouch}d</b><span>{date(row.lastTouchAt)}</span></div>
+          <div><small>Último contato</small><b>{row.daysSinceTouch}d</b><span>{date(row.lastTouchAt)}</span>{row.externalSources?.length>0&&<div className="relationshipExternalBadges">{row.externalSources.map(source=><em key={source}>{externalSourceLabel(source)}</em>)}</div>}</div>
           <div><small>Em atraso</small><b>{money(row.overdueMinor)}</b><span>{row.overdueCount} recebimento(s)</span></div>
           <div><small>Pipeline</small><b>{money(row.openPipelineMinor)}</b><span>{row.openDeals} oportunidade(s)</span></div>
           <div className="relationshipRowActions">{row.bestOptions.slice(0,3).map(option=><button className={option.action==='create_renewal_proposal'||option.action==='create_expansion_proposal'?'primary':''} key={option.action} disabled={busy==='task:'+row.contactId} onClick={()=>void act(option,row)}>{busy==='task:'+row.contactId&&option.action==='create_followup_task'?'Criando…':option.label}</button>)}</div>
@@ -102,11 +104,12 @@ export default function RelationshipIntelligencePanel(){
             <div><small>SINAIS</small><ul>{row.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul></div>
             <div><small>RECORRÊNCIA & CONTRATO</small><b>{row.activeRules} regra(s) ativa(s)</b><span>Próximo ciclo: {date(row.nextCycleAt)}</span><span>Renovação/término: {date(row.renewalAt)}</span>{row.documentRenewalAt&&<span>DocWallet: {row.documentRenewalTitle||'Contrato'} · {date(row.documentRenewalAt)}</span>}</div>
             <div><small>HISTÓRICO</small><b>{row.wonDeals} negócio(s) ganho(s)</b><span>{row.paidCount} recebimento(s) pago(s)</span><span>{row.lost90} perda(s) em 90 dias · {row.noShow180} falta(s) em 180 dias</span></div>
+            <div><small>CONTEXTO EXTERNO</small>{row.externalSources?.length?<><b>{row.externalInteractions90} interação(ões) em 90 dias</b><span>Última atividade externa: {date(row.externalLastTouchAt)}</span><span>{row.externalSources.map(externalSourceLabel).join(' · ')}</span></>:<span>Nenhuma interação externa vinculada por e-mail exato.</span>}</div>
             <div><small>EXPANSÃO</small>{row.expansionCandidate?<><b>{row.expansionCandidate.name}</b><span>{money(row.expansionCandidate.priceMinor)} · oferta ainda não utilizada</span></>:<span>Nenhuma oferta adicional identificada no catálogo.</span>}</div>
           </div>}
         </article>)}
       </div>
-      <footer>As classificações usam regras visíveis e dados do próprio negócio. O NexOffice não envia mensagens, não renova contratos, não concede desconto e não envia propostas automaticamente.</footer>
+      <footer>As classificações usam regras visíveis e dados do próprio negócio. Quando Google Workspace está conectado, ou quando EML/ICS é importado manualmente, apenas contexto vinculado por e-mail exato complementa a leitura. O NexOffice não envia mensagens, não altera agenda, não renova contratos, não concede desconto e não envia propostas automaticamente.</footer>
     </>}
   </section>;
 }
