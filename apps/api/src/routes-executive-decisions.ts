@@ -4,6 +4,7 @@ import {workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {auditLog} from './events.js';
 import {buildExecutiveDecisionFollowup} from './executive-decision-followup.js';
+import {buildDecisionEffectiveness} from './decision-effectiveness.js';
 
 const chooseSchema=z.object({
   priority:z.object({
@@ -61,6 +62,12 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
   app.get('/v1/executive-decisions/followup',async req=>{
     const ctx=await workspaceContext(req,'command.read');
     return buildExecutiveDecisionFollowup(ctx.workspaceId,90);
+  });
+
+  app.get('/v1/executive-decisions/effectiveness',async req=>{
+    const ctx=await workspaceContext(req,'command.read');
+    const followup=await buildExecutiveDecisionFollowup(ctx.workspaceId,90);
+    return buildDecisionEffectiveness(followup,3);
   });
 
   app.post('/v1/executive-decisions',async req=>{
