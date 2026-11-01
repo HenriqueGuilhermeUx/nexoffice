@@ -5,6 +5,7 @@ import {ApiError,hashOpaqueToken,issueSession,newInviteToken,slugify,workspaceCo
 import {query,transaction} from './db.js';
 import {verticalPack} from './vertical-packs.js';
 import {DisabledOpenFinanceConnector} from './nexa-pj-finance-connector.js';
+import {fetchNexaCorporateWalletBalance} from './nexa-pj-wallet-transport.js';
 
 const Source=z.enum(['nexjud','sindcopilot','mydatamed','health-wallet','smartbots','modo','docwallet','nextgen','taxagent','connexio','mindcompliance','mindsteps','f-insight','ecotracker','nexa','staff']);
 const Vertical=z.enum(['general','legal','health','condo','commerce']);
@@ -97,17 +98,24 @@ export async function registerPlatformRoutes(app:FastifyInstance){
   /** Nexa PJ Wallet integration is not federated yet. Deny by default. */
   app.get('/v1/platform/nexa-pj/wallet/readiness',async req=>{
     const ctx=await workspaceContext(req,'workspace.read');
+    const wallet=await fetchNexaCorporateWalletBalance(
+      {workspaceId:ctx.workspaceId,representativeUserId:ctx.user.id},
+      {
+        enabled:process.env.NEXA_PJ_WALLET_BRIDGE_ENABLED==='true',
+        endpoint:process.env.NEXA_PJ_WALLET_BRIDGE_URL||'',
+        sharedSecret:process.env.NEXA_PJ_WALLET_BRIDGE_SECRET||'',
+      },
+    );
     return {
-      schemaVersion:1,workspaceScoped:true,
-      workspaceId:ctx.workspaceId,
-      status:'requires_corporate_verification' as const,
-      corporateWalletVerified:false,
-      balancesVisible:false,
+      schemaVersion:1,workspaceScoped:true,workspaceId:ctx.workspaceId,
+      status:wallet.status,
+      corporateWalletVerified:wallet.corporateWalletVerified,
+      balancesVisible:wallet.balancesVisible,
       transactionsVisible:false,
       transfersEnabled:false,
-      walletAddress:null,
-      balanceUsdc:null,
-      source:'nexa_wallet_pending_authenticated_bridge' as const,
+      walletAddress:wallet.walletAddress,
+      balanceUsdc:wallet.balanceUsdc,
+      source:wallet.status==='connected'?'nexa_wallet_signed_read_only':'nexa_wallet_pending_authenticated_bridge',
     };
   });
 
