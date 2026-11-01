@@ -175,6 +175,9 @@ export function mapOutcomeEvent(event:any):{code:string;label:string;polarity:Ou
   if(type==='document.signature_required')return{code:'document_signature_required',label:'Documento passou a exigir assinatura',polarity:'neutral',detail:detail(payload)};
   if(type==='appointment.cancelled')return{code:'appointment_cancelled',label:'Compromisso cancelado',polarity:'negative',detail:detail(payload)};
   if(type==='payment.overdue')return{code:'payment_overdue',label:'Pagamento venceu',polarity:'negative',detail:detail(payload)};
+  if(type==='task.created')return{code:'task_created',label:'Tarefa criada',polarity:'neutral',detail:detail(payload)};
+  if(type==='task.completed')return{code:'task_completed',label:'Tarefa concluída',polarity:'neutral',detail:detail(payload)};
+  if(type==='task.status_changed')return{code:'task_status_changed',label:'Tarefa mudou de status',polarity:'neutral',detail:detail(payload)};
   return null;
 }
 
