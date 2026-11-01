@@ -69,6 +69,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [error,setError]=useState('');
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
   const [deepOpen,setDeepOpen]=useState(false);
+  const scrollTo=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -158,31 +159,31 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <section>
           <strong><b>3</b> coisas para saber</strong>
           <div className="executiveBriefingList">
-            {briefingKnow.length?briefingKnow.map((item,index)=><article key={'know|'+index}>
+            {briefingKnow.length?briefingKnow.map((item,index)=><button className="executiveBriefingItem" key={'know|'+index} onClick={()=>scrollTo('maya-priorities')}>
               <span className={'briefingLevel '+item.level}>{String(index+1).padStart(2,'0')}</span>
               <div><b>{item.title}</b><p>{item.detail}</p></div>
-            </article>):<article><span className="briefingLevel info">✓</span><div><b>Nenhuma mudança crítica agora</b><p>A Maya continua cruzando as fontes conectadas.</p></div></article>}
+            </button>):<button className="executiveBriefingItem" onClick={()=>scrollTo('maya-priorities')}><span className="briefingLevel info">✓</span><div><b>Nenhuma mudança crítica agora</b><p>A Maya continua cruzando as fontes conectadas.</p></div></button>}
           </div>
         </section>
         <section>
           <strong><b>2</b> decisões para tomar</strong>
           <div className="executiveBriefingList">
-            {briefingDecisions.length?briefingDecisions.map((item,index)=><article key={'decision|'+item.code}>
+            {briefingDecisions.length?briefingDecisions.map((item,index)=><button className="executiveBriefingItem" key={'decision|'+item.code} onClick={()=>scrollTo('maya-decisions')}>
               <span className="briefingLevel decision">{String(index+1).padStart(2,'0')}</span>
               <div><b>{item.title}</b><p>{item.balanced?.label||'Revisar caminho'} · {item.balanced?.confidence||'baixa'} confiança</p></div>
-            </article>):<article><span className="briefingLevel info">✓</span><div><b>Nenhuma decisão estruturada pendente</b><p>A Maya não encontrou uma escolha executiva prioritária neste momento.</p></div></article>}
+            </button>):<button className="executiveBriefingItem" onClick={()=>scrollTo('maya-decisions')}><span className="briefingLevel info">✓</span><div><b>Nenhuma decisão estruturada pendente</b><p>A Maya não encontrou uma escolha executiva prioritária neste momento.</p></div></button>}
           </div>
         </section>
         <section>
           <strong><b>1</b> risco para acompanhar</strong>
-          <div className="executiveBriefingRisk">
-            {briefingRisk?<><span className={'briefingLevel '+briefingRisk.level}>!</span><div><b>{briefingRisk.title}</b><p>{briefingRisk.detail}</p><small>Monitorar; não implica causalidade nem execução automática.</small></div></>:<><span className="briefingLevel info">✓</span><div><b>Sem risco crítico destacado</b><p>Os sinais atuais não formam um risco executivo prioritário.</p></div></>}
-          </div>
+          <button className="executiveBriefingRisk executiveBriefingRiskButton" onClick={()=>{if(briefingRisk?.learningContext)setDeepOpen(true);scrollTo(briefingRisk?.learningContext?'maya-analysis':'maya-priorities')}}>
+            {briefingRisk?<><span className={'briefingLevel '+briefingRisk.level}>!</span><div><b>{briefingRisk.title}</b><p>{briefingRisk.detail}</p><small>{briefingRisk.learningContext?'Abrir contexto e histórico':'Acompanhar prioridade'} · sem execução automática.</small></div></>:<><span className="briefingLevel info">✓</span><div><b>Sem risco crítico destacado</b><p>Os sinais atuais não formam um risco executivo prioritário.</p></div></>}
+          </button>
         </section>
       </div>
     </div>
 
-    <div className="executivePriorityGrid">
+    <div className="executivePriorityGrid" id="maya-priorities">
       {priority.length?priority.map((item,index)=><article className={`executivePriority ${item.level}`} key={item.code}>
         <div className="executivePriorityTop"><span>{String(index+1).padStart(2,'0')}</span><b>{levelLabel[item.level]||item.level}</b></div>
         <h4>{item.title}</h4>
@@ -196,7 +197,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
     </div>
 
-    {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack">
+    {context.recommendationStack?.items?.length>0&&<div className="executiveRecommendationStack" id="maya-decisions">
       <div className="executiveDecisionPatternsHead"><div><p className="eyebrow">MAYA · CAMINHOS DE DECISÃO</p><h4>Três formas de responder à prioridade atual</h4><p>A Maya organiza alternativas com evidências, riscos, trade-offs e precedentes comparáveis. Nenhum caminho é escolhido ou executado automaticamente.</p></div><span>{context.recommendationStack.pathsGenerated} caminho(s)</span></div>
       {context.recommendationStack.items.slice(0,3).map(item=><section className="executiveRecommendationItem" key={'rec|'+item.priority.code}>
         <div className="executiveRecommendationPriority"><span>{item.priority.level}</span><div><h5>{item.priority.title}</h5><p>{item.priority.detail}</p></div></div>
@@ -213,7 +214,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </section>)}
     </div>}
 
-    <div className="executiveExplain">
+    <div className="executiveExplain" id="maya-analysis">
       <div>
         <p className="eyebrow">POR QUE A MAYA CHEGOU NISSO</p>
         <h4>Histórico, precedentes e aprendizado ficam disponíveis sem poluir a decisão.</h4>
