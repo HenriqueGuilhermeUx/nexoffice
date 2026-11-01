@@ -38,6 +38,21 @@ async function ensureExecutiveDecisionWorkspaceSchema(){
       on executive_decisions(workspace_id,chosen_at desc);
     create index if not exists executive_decisions_priority_idx
       on executive_decisions(workspace_id,priority_code,status,chosen_at desc);
+
+    create table if not exists executive_briefing_reviews (
+      id uuid primary key default gen_random_uuid(),
+      workspace_id uuid not null references workspaces(id) on delete cascade,
+      user_id uuid not null references users(id) on delete cascade,
+      review_date date not null,
+      briefing_hash text not null,
+      reviewed_at timestamptz not null default now(),
+      metadata jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      unique(workspace_id,user_id,review_date)
+    );
+    create index if not exists executive_briefing_reviews_workspace_date_idx
+      on executive_briefing_reviews(workspace_id,review_date desc);
   `);
   schemaReady=true;
 }
@@ -105,6 +120,56 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
     const ctx=await workspaceContext(req,'command.read');
     const followup=await buildExecutiveDecisionFollowup(ctx.workspaceId,90);
     return buildDecisionEffectiveness(followup,3);
+  });
+
+  app.get('/v1/executive-briefing/review',async req=>{
+    const ctx=await workspaceContext(req,'command.read');
+    const q=z.object({date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/)}).parse(req.query||{});
+    const rows=await query<any>(
+      `select review_date::text,briefing_hash,reviewed_at
+       from executive_briefing_reviews
+       where workspace_id=$1 and user_id=$2 and review_date=$3::date
+       limit 1`,
+      [ctx.workspaceId,ctx.user.id,q.date]
+    );
+    return{review:rows[0]||null,safety:{readOnly:true,externalEffects:false}};
+  });
+
+  app.post('/v1/executive-briefing/review',async req=>{
+    const ctx=await workspaceContext(req,'command.decide');
+    const input=z.object({
+      date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      briefingHash:z.string().min(8).max(256)
+    }).parse(req.body||{});
+    const rows=await query<any>(
+      `insert into executive_briefing_reviews(workspace_id,user_id,review_date,briefing_hash,metadata)
+       values($1,$2,$3::date,$4,$5::jsonb)
+       on conflict(workspace_id,user_id,review_date)
+       do update set briefing_hash=excluded.briefing_hash,reviewed_at=now(),updated_at=now(),metadata=excluded.metadata
+       returning review_date::text,briefing_hash,reviewed_at`,
+      [ctx.workspaceId,ctx.user.id,input.date,input.briefingHash,JSON.stringify({
+        source:'maya.executive_briefing',
+        humanReviewed:true,
+        externalEffects:false
+      })]
+    );
+    await auditLog(ctx,'executive.briefing_reviewed','executive_briefing_review',`${ctx.workspaceId}:${ctx.user.id}:${input.date}`,null,rows[0],{
+      reviewDate:input.date,humanReviewed:true,externalEffects:false
+    });
+    return{review:rows[0],safety:{humanReviewed:true,externalEffects:false,automaticExecution:false}};
+  });
+
+  app.delete('/v1/executive-briefing/review',async req=>{
+    const ctx=await workspaceContext(req,'command.decide');
+    const q=z.object({date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/)}).parse(req.query||{});
+    await query(
+      `delete from executive_briefing_reviews where workspace_id=$1 and user_id=$2 and review_date=$3::date`,
+      [ctx.workspaceId,ctx.user.id,q.date]
+    );
+    await auditLog(ctx,'executive.briefing_reopened','executive_briefing_review',`${ctx.workspaceId}:${ctx.user.id}:${q.date}`,null,null,{
+      reviewDate:q.date,humanReviewed:true,externalEffects:false
+    });
+    return{reopened:true,safety:{externalEffects:false,automaticExecution:false}};
   });
 
   app.post('/v1/executive-decisions',async req=>{
