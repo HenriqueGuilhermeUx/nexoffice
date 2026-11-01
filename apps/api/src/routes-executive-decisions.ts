@@ -126,7 +126,7 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
     const ctx=await workspaceContext(req,'command.read');
     const q=z.object({date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/)}).parse(req.query||{});
     const rows=await query<any>(
-      `select review_date::text,briefing_hash,reviewed_at
+      `select review_date::text,briefing_hash,reviewed_at,metadata
        from executive_briefing_reviews
        where workspace_id=$1 and user_id=$2 and review_date=$3::date
        limit 1`,
@@ -139,7 +139,25 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
     const ctx=await workspaceContext(req,'command.decide');
     const input=z.object({
       date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      briefingHash:z.string().min(8).max(256)
+      briefingHash:z.string().min(8).max(256),
+      snapshot:z.object({
+        priorities:z.array(z.object({
+          code:z.string().max(120),
+          level:z.enum(['info','attention','critical']),
+          title:z.string().max(240)
+        })).max(3),
+        decisions:z.array(z.object({
+          code:z.string().max(120),
+          path:z.string().max(180).nullable()
+        })).max(2),
+        risk:z.object({
+          code:z.string().max(120),
+          level:z.enum(['info','attention','critical']),
+          title:z.string().max(240)
+        }).nullable(),
+        overdueCount:z.number().int().min(0),
+        projectedCash30Minor:z.number().nullable()
+      })
     }).parse(req.body||{});
     const rows=await query<any>(
       `insert into executive_briefing_reviews(workspace_id,user_id,review_date,briefing_hash,metadata)
@@ -150,7 +168,8 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
       [ctx.workspaceId,ctx.user.id,input.date,input.briefingHash,JSON.stringify({
         source:'maya.executive_briefing',
         humanReviewed:true,
-        externalEffects:false
+        externalEffects:false,
+        snapshot:input.snapshot
       })]
     );
     await auditLog(ctx,'executive.briefing_reviewed','executive_briefing_review',`${ctx.workspaceId}:${ctx.user.id}:${input.date}`,null,rows[0],{
