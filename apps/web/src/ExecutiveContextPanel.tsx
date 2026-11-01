@@ -69,7 +69,10 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [error,setError]=useState('');
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
   const [deepOpen,setDeepOpen]=useState(false);
+  const reviewKey=`nexoffice:maya-briefing-reviewed:${workspaceId}:${new Date().toISOString().slice(0,10)}`;
+  const [reviewedAt,setReviewedAt]=useState<string|null>(()=>{try{return localStorage.getItem(reviewKey)}catch{return null}});
   const scrollTo=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
+  const markReviewed=()=>{const at=new Date().toISOString();try{localStorage.setItem(reviewKey,at)}catch{}setReviewedAt(at)};
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
@@ -86,6 +89,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   },[workspaceId]);
 
   useEffect(()=>{void load()},[load]);
+  useEffect(()=>{try{setReviewedAt(localStorage.getItem(reviewKey))}catch{setReviewedAt(null)}},[reviewKey]);
 
   const recordDecision=useCallback(async(item:ExecutiveContext['recommendationStack']['items'][number],path:ExecutiveContext['recommendationStack']['items'][number]['paths'][number])=>{
     const rationale=window.prompt('Por que você escolheu este caminho? A justificativa ficará registrada na memória executiva.');
@@ -153,7 +157,10 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     <div className="executiveBriefing">
       <div className="executiveBriefingHead">
         <div><p className="eyebrow">BRIEFING DE HOJE</p><h4>3 coisas para saber · 2 decisões para tomar · 1 risco para acompanhar</h4></div>
-        <span>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date())}</span>
+        <div className="executiveBriefingStatus">
+          <span>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date())}</span>
+          <b className={reviewedAt?'reviewed':'pending'}>{reviewedAt?'Revisado hoje':'Pendente de revisão'}</b>
+        </div>
       </div>
       <div className="executiveBriefingGrid">
         <section>
@@ -180,6 +187,16 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
             {briefingRisk?<><span className={'briefingLevel '+briefingRisk.level}>!</span><div><b>{briefingRisk.title}</b><p>{briefingRisk.detail}</p><small>{briefingRisk.learningContext?'Abrir contexto e histórico':'Acompanhar prioridade'} · sem execução automática.</small></div></>:<><span className="briefingLevel info">✓</span><div><b>Sem risco crítico destacado</b><p>Os sinais atuais não formam um risco executivo prioritário.</p></div></>}
           </button>
         </section>
+      </div>
+      <div className="executiveBriefingReview">
+        <div>
+          <span>{reviewedAt?`Revisado às ${new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(reviewedAt))}`:'Ainda não marcou o briefing de hoje como revisado.'}</span>
+          <small>{briefingDecisions.length} decisão(ões) executiva(s) estruturada(s) para revisar.</small>
+        </div>
+        <div>
+          {briefingDecisions.length>0&&<button onClick={()=>scrollTo('maya-decisions')}>Ver decisões</button>}
+          {!reviewedAt?<button className="primary" onClick={markReviewed}>Marcar como revisado</button>:<button onClick={()=>{try{localStorage.removeItem(reviewKey)}catch{}setReviewedAt(null)}}>Reabrir revisão</button>}
+        </div>
       </div>
     </div>
 
