@@ -167,6 +167,8 @@ jobs:
         run: node scripts/smoke-executive-decision-followup.mjs
       - name: Smoke test Decision Effectiveness Strategy Learning V1
         run: node scripts/smoke-decision-effectiveness.mjs
+      - name: Smoke test Maya Executive Review V1
+        run: node scripts/smoke-executive-review.mjs
       - name: Smoke test Google Workspace connector security contract
         run: node scripts/smoke-google-connect-contract.mjs
       - name: Smoke test Microsoft 365 connector security contract
