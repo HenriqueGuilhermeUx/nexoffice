@@ -143,7 +143,7 @@ export interface ExecutiveContext {
       daysSinceDecision:number;
       observationStatus:string;
       summary:{totalObserved:number;positive:number;negative:number;neutral:number;latestObservedAt:string|null};
-      observedEvents:Array<{eventId:string;eventType:string;source:string;observedAt:string;daysAfterDecision:number;code:string;label:string;polarity:string;detail:string|null}>;
+      observedEvents:Array<{eventId:string;eventType:string;source:string;observedAt:string;daysAfterDecision:number;code:string;label:string;polarity:string;detail:string|null;matchBasis:'action_family'|'evidence_contact'}>;
       interpretation:string;
       relationship:{temporal:true;sameWorkspace:true;causalClaim:false};
     }>;
@@ -532,7 +532,8 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
           code:String(event.code||''),
           label:String(event.label||''),
           polarity:String(event.polarity||'neutral'),
-          detail:event.detail?String(event.detail):null
+          detail:event.detail?String(event.detail):null,
+          matchBasis:event.matchBasis==='evidence_contact'?'evidence_contact':'action_family'
         })):[],
         interpretation:String(item.interpretation||''),
         relationship:{temporal:true,sameWorkspace:true,causalClaim:false}
