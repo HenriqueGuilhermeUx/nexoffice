@@ -61,6 +61,15 @@ type SourceRegistry={
 
 const money=(minor:number|null|undefined)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(minor||0)/100);
 const levelLabel:Record<string,string>={critical:'Crítico',attention:'Atenção',info:'Observação'};
+const localDateKey=()=>{
+  const d=new Date();
+  return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+};
+const hashText=(value:string)=>{
+  let hash=2166136261;
+  for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619)}
+  return 'fnv1a-'+(hash>>>0).toString(16).padStart(8,'0');
+};
 
 export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}){
   const [context,setContext]=useState<ExecutiveContext|null>(null);
@@ -69,27 +78,27 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [error,setError]=useState('');
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
   const [deepOpen,setDeepOpen]=useState(false);
-  const reviewKey=`nexoffice:maya-briefing-reviewed:${workspaceId}:${new Date().toISOString().slice(0,10)}`;
-  const [reviewedAt,setReviewedAt]=useState<string|null>(()=>{try{return localStorage.getItem(reviewKey)}catch{return null}});
+  const [briefingReview,setBriefingReview]=useState<{review_date:string;briefing_hash:string;reviewed_at:string}|null>(null);
+  const [reviewMessage,setReviewMessage]=useState('');
+  const reviewDate=localDateKey();
   const scrollTo=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
-  const markReviewed=()=>{const at=new Date().toISOString();try{localStorage.setItem(reviewKey,at)}catch{}setReviewedAt(at)};
 
   const load=useCallback(async()=>{
     if(!workspaceId)return;
     setLoading(true);setError('');
     try{
-      const [ctx,registry]=await Promise.all([
+      const [ctx,registry,reviewState]=await Promise.all([
         api<ExecutiveContext>('/v1/assistant/executive-context'),
-        api<SourceRegistry>('/v1/business-graph/sources')
+        api<SourceRegistry>('/v1/business-graph/sources'),
+        api<{review:{review_date:string;briefing_hash:string;reviewed_at:string}|null}>(`/v1/executive-briefing/review?date=${reviewDate}`).catch(()=>({review:null}))
       ]);
-      setContext(ctx);setSources(registry);
+      setContext(ctx);setSources(registry);setBriefingReview(reviewState.review||null);
     }catch(e:any){
       setError(e?.message||'Não foi possível montar a visão executiva.');
     }finally{setLoading(false)}
-  },[workspaceId]);
+  },[workspaceId,reviewDate]);
 
   useEffect(()=>{void load()},[load]);
-  useEffect(()=>{try{setReviewedAt(localStorage.getItem(reviewKey))}catch{setReviewedAt(null)}},[reviewKey]);
 
   const recordDecision=useCallback(async(item:ExecutiveContext['recommendationStack']['items'][number],path:ExecutiveContext['recommendationStack']['items'][number]['paths'][number])=>{
     const rationale=window.prompt('Por que você escolheu este caminho? A justificativa ficará registrada na memória executiva.');
@@ -143,6 +152,32 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     ||(context.indicators.projectedCash30Minor!=null&&context.indicators.projectedCash30Minor<0
       ?{code:'projected_cash_negative',level:'critical' as const,title:'Pressão de caixa projetada',detail:`A projeção de caixa para 30 dias está negativa em ${money(Math.abs(context.indicators.projectedCash30Minor))}.`,evidence:[]}
       :null);
+  const briefingHash=hashText(JSON.stringify({
+    priorities:priority.map(item=>({code:item.code,level:item.level,title:item.title,detail:item.detail,next:item.recommendedNextStep||null})),
+    decisions:briefingDecisions.map(item=>({code:item.code,path:item.balanced?.id||null,confidence:item.balanced?.confidence||null})),
+    risk:briefingRisk?{code:briefingRisk.code,level:briefingRisk.level,title:briefingRisk.title,detail:briefingRisk.detail}:null,
+    overdueCount:context.indicators.overdueCount,
+    overdueReceivableMinor:context.indicators.overdueReceivableMinor,
+    projectedCash30Minor:context.indicators.projectedCash30Minor
+  }));
+  const reviewedAt=briefingReview?.reviewed_at||null;
+  const changedSinceReview=Boolean(briefingReview&&briefingReview.briefing_hash!==briefingHash);
+  const markReviewed=async()=>{
+    setReviewMessage('Salvando revisão…');
+    try{
+      const result=await api<{review:{review_date:string;briefing_hash:string;reviewed_at:string}}>('/v1/executive-briefing/review',{
+        method:'POST',body:JSON.stringify({date:reviewDate,briefingHash})
+      });
+      setBriefingReview(result.review);setReviewMessage('Briefing revisado e sincronizado.');
+    }catch(e:any){setReviewMessage(e?.message||'Não foi possível salvar a revisão.')}
+  };
+  const reopenReview=async()=>{
+    setReviewMessage('Reabrindo revisão…');
+    try{
+      await api(`/v1/executive-briefing/review?date=${reviewDate}`,{method:'DELETE'});
+      setBriefingReview(null);setReviewMessage('Revisão reaberta.');
+    }catch(e:any){setReviewMessage(e?.message||'Não foi possível reabrir a revisão.')}
+  };
 
   return <section className="executiveContextPanel">
     <div className="executiveContextHead">
@@ -159,7 +194,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <div><p className="eyebrow">BRIEFING DE HOJE</p><h4>3 coisas para saber · 2 decisões para tomar · 1 risco para acompanhar</h4></div>
         <div className="executiveBriefingStatus">
           <span>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date())}</span>
-          <b className={reviewedAt?'reviewed':'pending'}>{reviewedAt?'Revisado hoje':'Pendente de revisão'}</b>
+          <b className={changedSinceReview?'changed':reviewedAt?'reviewed':'pending'}>{changedSinceReview?'Mudou desde a revisão':reviewedAt?'Revisado hoje':'Pendente de revisão'}</b>
         </div>
       </div>
       <div className="executiveBriefingGrid">
@@ -190,12 +225,13 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </div>
       <div className="executiveBriefingReview">
         <div>
-          <span>{reviewedAt?`Revisado às ${new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(reviewedAt))}`:'Ainda não marcou o briefing de hoje como revisado.'}</span>
-          <small>{briefingDecisions.length} decisão(ões) executiva(s) estruturada(s) para revisar.</small>
+          <span>{changedSinceReview?'O contexto mudou depois da sua última revisão.':reviewedAt?`Revisado às ${new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(reviewedAt))}`:'Ainda não marcou o briefing de hoje como revisado.'}</span>
+          <small>{changedSinceReview?'Revise novamente para confirmar a nova leitura.':`${briefingDecisions.length} decisão(ões) executiva(s) estruturada(s) para revisar.`}</small>
+          {reviewMessage&&<small className="executiveReviewMessage">{reviewMessage}</small>}
         </div>
         <div>
           {briefingDecisions.length>0&&<button onClick={()=>scrollTo('maya-decisions')}>Ver decisões</button>}
-          {!reviewedAt?<button className="primary" onClick={markReviewed}>Marcar como revisado</button>:<button onClick={()=>{try{localStorage.removeItem(reviewKey)}catch{}setReviewedAt(null)}}>Reabrir revisão</button>}
+          {(!reviewedAt||changedSinceReview)?<button className="primary" onClick={()=>void markReviewed()}>{changedSinceReview?'Revisar nova versão':'Marcar como revisado'}</button>:<button onClick={()=>void reopenReview()}>Reabrir revisão</button>}
         </div>
       </div>
     </div>
