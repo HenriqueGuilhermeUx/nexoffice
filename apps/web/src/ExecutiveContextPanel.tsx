@@ -122,6 +122,22 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const priority=context.priorities.slice(0,3);
   const connectedIntegrations=sources?.integrations.filter(item=>item.status==='connected').length||0;
   const avSignals=sources?.alternativeVentures.reduce((sum,item)=>sum+Number(item.signals||0),0)||0;
+  const briefingKnow=[
+    ...priority.map(item=>({title:item.title,detail:item.detail,level:item.level})),
+    ...(context.indicators.projectedCash30Minor!=null&&context.indicators.projectedCash30Minor<0?[{title:'Caixa projetado em atenção',detail:`A projeção de 30 dias está negativa em ${money(Math.abs(context.indicators.projectedCash30Minor))}.`,level:'critical' as const}]:[]),
+    ...(context.indicators.overdueCount>0?[{title:'Recebíveis vencidos',detail:`${context.indicators.overdueCount} item(ns) vencido(s), somando ${money(context.indicators.overdueReceivableMinor)}.`,level:'attention' as const}]:[])
+  ].slice(0,3);
+  const briefingDecisions=(context.recommendationStack?.items||[]).slice(0,2).map(item=>({
+    code:item.priority.code,
+    title:item.priority.title,
+    detail:item.priority.detail,
+    balanced:item.paths.find(path=>path.posture==='balanced')||item.paths[0]
+  }));
+  const briefingRisk=priority.find(item=>item.level==='critical')
+    ||priority.find(item=>item.level==='attention')
+    ||(context.indicators.projectedCash30Minor!=null&&context.indicators.projectedCash30Minor<0
+      ?{code:'projected_cash_negative',level:'critical' as const,title:'Pressão de caixa projetada',detail:`A projeção de caixa para 30 dias está negativa em ${money(Math.abs(context.indicators.projectedCash30Minor))}.`,evidence:[]}
+      :null);
 
   return <section className="executiveContextPanel">
     <div className="executiveContextHead">
@@ -131,6 +147,39 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <p>Leitura cruzada de vendas, financeiro, operação, agenda, documentos e fontes externas. Correlações multi-sistema aparecem como hipóteses explicáveis; nenhuma ação é executada daqui.</p>
       </div>
       <button onClick={()=>void load()} disabled={loading}>{loading?'Analisando…':'Atualizar leitura'}</button>
+    </div>
+
+    <div className="executiveBriefing">
+      <div className="executiveBriefingHead">
+        <div><p className="eyebrow">BRIEFING DE HOJE</p><h4>3 coisas para saber · 2 decisões para tomar · 1 risco para acompanhar</h4></div>
+        <span>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date())}</span>
+      </div>
+      <div className="executiveBriefingGrid">
+        <section>
+          <strong><b>3</b> coisas para saber</strong>
+          <div className="executiveBriefingList">
+            {briefingKnow.length?briefingKnow.map((item,index)=><article key={'know|'+index}>
+              <span className={'briefingLevel '+item.level}>{String(index+1).padStart(2,'0')}</span>
+              <div><b>{item.title}</b><p>{item.detail}</p></div>
+            </article>):<article><span className="briefingLevel info">✓</span><div><b>Nenhuma mudança crítica agora</b><p>A Maya continua cruzando as fontes conectadas.</p></div></article>}
+          </div>
+        </section>
+        <section>
+          <strong><b>2</b> decisões para tomar</strong>
+          <div className="executiveBriefingList">
+            {briefingDecisions.length?briefingDecisions.map((item,index)=><article key={'decision|'+item.code}>
+              <span className="briefingLevel decision">{String(index+1).padStart(2,'0')}</span>
+              <div><b>{item.title}</b><p>{item.balanced?.label||'Revisar caminho'} · {item.balanced?.confidence||'baixa'} confiança</p></div>
+            </article>):<article><span className="briefingLevel info">✓</span><div><b>Nenhuma decisão estruturada pendente</b><p>A Maya não encontrou uma escolha executiva prioritária neste momento.</p></div></article>}
+          </div>
+        </section>
+        <section>
+          <strong><b>1</b> risco para acompanhar</strong>
+          <div className="executiveBriefingRisk">
+            {briefingRisk?<><span className={'briefingLevel '+briefingRisk.level}>!</span><div><b>{briefingRisk.title}</b><p>{briefingRisk.detail}</p><small>Monitorar; não implica causalidade nem execução automática.</small></div></>:<><span className="briefingLevel info">✓</span><div><b>Sem risco crítico destacado</b><p>Os sinais atuais não formam um risco executivo prioritário.</p></div></>}
+          </div>
+        </section>
+      </div>
     </div>
 
     <div className="executivePriorityGrid">
