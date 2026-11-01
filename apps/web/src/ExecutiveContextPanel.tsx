@@ -79,6 +79,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
   const [deepOpen,setDeepOpen]=useState(false);
   const [briefingReview,setBriefingReview]=useState<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}|null>(null);
+  const [reviewHistory,setReviewHistory]=useState<Array<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}>>([]);
   const [reviewMessage,setReviewMessage]=useState('');
   const reviewDate=localDateKey();
   const scrollTo=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -87,12 +88,13 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     if(!workspaceId)return;
     setLoading(true);setError('');
     try{
-      const [ctx,registry,reviewState]=await Promise.all([
+      const [ctx,registry,reviewState,historyState]=await Promise.all([
         api<ExecutiveContext>('/v1/assistant/executive-context'),
         api<SourceRegistry>('/v1/business-graph/sources'),
-        api<{review:{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}|null}>(`/v1/executive-briefing/review?date=${reviewDate}`).catch(()=>({review:null}))
+        api<{review:{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}|null}>(`/v1/executive-briefing/review?date=${reviewDate}`).catch(()=>({review:null})),
+        api<{reviews:Array<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}>}>(`/v1/executive-briefing/history?before=${reviewDate}&limit=7`).catch(()=>({reviews:[]}))
       ]);
-      setContext(ctx);setSources(registry);setBriefingReview(reviewState.review||null);
+      setContext(ctx);setSources(registry);setBriefingReview(reviewState.review||null);setReviewHistory(historyState.reviews||[]);
     }catch(e:any){
       setError(e?.message||'Não foi possível montar a visão executiva.');
     }finally{setLoading(false)}
@@ -166,7 +168,8 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     risk:briefingRisk?{...briefingSnapshot.risk,detail:briefingRisk.detail}:null,
     overdueReceivableMinor:context.indicators.overdueReceivableMinor
   }));
-  const previousSnapshot=briefingReview?.metadata?.snapshot||null;
+  const baselineReview=briefingReview||reviewHistory[0]||null;
+  const previousSnapshot=baselineReview?.metadata?.snapshot||null;
   const briefingChanges:string[]=[];
   if(previousSnapshot){
     const previousPriorityCodes=new Set((previousSnapshot.priorities||[]).map((x:any)=>x.code));
@@ -189,7 +192,9 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     if(previousSnapshot.projectedCash30Minor!==briefingSnapshot.projectedCash30Minor)briefingChanges.push('projeção de caixa atualizada');
   }
   const reviewedAt=briefingReview?.reviewed_at||null;
-  const changedSinceReview=Boolean(briefingReview&&briefingReview.briefing_hash!==briefingHash);
+  const changedSinceReview=Boolean(baselineReview&&baselineReview.briefing_hash!==briefingHash);
+  const comparedFromPreviousDay=Boolean(!briefingReview&&baselineReview);
+  const baselineLabel=baselineReview?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date(`${baselineReview.review_date}T12:00:00`)):null;
   const markReviewed=async()=>{
     setReviewMessage('Salvando revisão…');
     try{
@@ -222,7 +227,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <div><p className="eyebrow">BRIEFING DE HOJE</p><h4>3 coisas para saber · 2 decisões para tomar · 1 risco para acompanhar</h4></div>
         <div className="executiveBriefingStatus">
           <span>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date())}</span>
-          <b className={changedSinceReview?'changed':reviewedAt?'reviewed':'pending'}>{changedSinceReview?'Mudou desde a revisão':reviewedAt?'Revisado hoje':'Pendente de revisão'}</b>
+          <b className={changedSinceReview?'changed':reviewedAt?'reviewed':'pending'}>{changedSinceReview?(comparedFromPreviousDay?'Mudou desde a última revisão':'Mudou desde a revisão'):reviewedAt?'Revisado hoje':'Pendente de revisão'}</b>
         </div>
       </div>
       <div className="executiveBriefingGrid">
@@ -253,8 +258,8 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
       </div>
       <div className="executiveBriefingReview">
         <div>
-          <span>{changedSinceReview?'O contexto mudou depois da sua última revisão.':reviewedAt?`Revisado às ${new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(reviewedAt))}`:'Ainda não marcou o briefing de hoje como revisado.'}</span>
-          <small>{changedSinceReview?'Revise novamente para confirmar a nova leitura.':`${briefingDecisions.length} decisão(ões) executiva(s) estruturada(s) para revisar.`}</small>
+          <span>{changedSinceReview?(comparedFromPreviousDay?`O contexto mudou desde sua revisão de ${baselineLabel}.`:'O contexto mudou depois da sua última revisão.'):reviewedAt?`Revisado às ${new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(reviewedAt))}`:baselineReview?`Última revisão registrada em ${baselineLabel}.`:'Ainda não marcou o briefing de hoje como revisado.'}</span>
+          <small>{changedSinceReview?(comparedFromPreviousDay?'Revise o briefing de hoje para atualizar sua referência executiva.':'Revise novamente para confirmar a nova leitura.'):`${briefingDecisions.length} decisão(ões) executiva(s) estruturada(s) para revisar.`}</small>
           {changedSinceReview&&briefingChanges.length>0&&<div className="executiveBriefingChanges">{briefingChanges.slice(0,4).map(item=><em key={item}>{item}</em>)}</div>}
           {reviewMessage&&<small className="executiveReviewMessage">{reviewMessage}</small>}
         </div>
