@@ -120,3 +120,12 @@
 .agentReady{display:inline-block;margin-top:8px;color:#55d6be;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 @media(max-width:1000px){.mayaHero{align-items:flex-start;flex-direction:column}.mayaHeroActions{justify-content:flex-start}.firstRun{grid-template-columns:1fr}.executiveSnapshot{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.mayaHero{padding:17px}.mayaHeroCopy h2{font-size:27px}.executiveSnapshot{grid-template-columns:1fr}.mayaHeroActions{width:100%}.mayaHeroActions button{flex:1}.firstRun{padding:14px}}
+
+
+.executiveHistoryHint{margin-top:10px;width:100%;text-align:left;border:1px solid #203a50;background:#0a1927;color:#8ea3b8;border-radius:9px;padding:8px 10px;font-size:9px;cursor:pointer}
+.executiveHistoryHint:hover{border-color:#55d6be;color:#bfeee4}
+.executiveExplain{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-top:16px;border:1px solid #1c3a50;background:#081522;border-radius:14px;padding:14px}.executiveExplain h4{margin:3px 0 4px;font-size:14px}.executiveExplain p:not(.eyebrow){margin:0;color:#788ea4;font-size:10px;line-height:1.45;max-width:780px}.executiveExplain button{white-space:nowrap;border:1px solid #2b506c;background:#0c1b2c;color:#c7d7e6;border-radius:9px;padding:9px 11px;cursor:pointer}.executiveExplain button:hover{border-color:#55d6be;color:#55d6be}
+.executiveDeepAnalysis{margin-top:10px;padding-top:2px}
+.executiveContextFooterCompact{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:900px){.executiveExplain{align-items:flex-start;flex-direction:column}.executiveContextFooterCompact{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.executiveContextFooterCompact{grid-template-columns:1fr}}
