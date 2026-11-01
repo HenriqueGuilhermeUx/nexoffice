@@ -12,6 +12,10 @@ const lacks=(text,needle,label)=>{if(text.includes(needle))throw new Error('Forb
 has(engine,"observationWindowDays:90",'90-day observation window');
 has(engine,"source:'business_events'",'business event source');
 has(engine,"relevanceUsesSuggestedActionFamilyAndRecordedEvidence:true",'recorded-context relevance');
+has(engine,"comparableCasesUsedForEventLinking:false",'comparable cases excluded from event linking');
+has(engine,"eventMatchBasisExposed:true",'event match basis disclosure');
+has(engine,"matchBasis",'event match basis output');
+lacks(engine,'JSON.stringify([evidence,comparable])','comparable-case contact linking');
 has(engine,"temporalAssociationOnly:true",'temporal association only');
 has(engine,"noCounterfactualInference:true",'no counterfactual inference');
 has(engine,"causalClaims:false",'causal claim prohibition');
