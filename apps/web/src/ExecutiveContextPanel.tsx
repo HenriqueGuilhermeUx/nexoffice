@@ -285,7 +285,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         {item.hypothesis&&<small><strong>Leitura:</strong> {item.hypothesis}</small>}
         {item.recommendedNextStep&&<div className="executiveNext"><span>PRÓXIMO PASSO</span>{item.recommendedNextStep}</div>}
         {item.learningContext&&<button className="executiveHistoryHint" onClick={()=>setDeepOpen(true)}>
-          Histórico comparável disponível · {item.learningContext.sampleSize} decisões · evidência {item.learningContext.evidenceLevel}
+          Histórico comparável · {item.learningContext.sampleSize} decisões · evidência {item.learningContext.evidenceLevel} · contexto, não causalidade
         </button>}
         {item.evidence?.length>0&&<details><summary>Ver evidências</summary><div className="executiveEvidence">{item.evidence.slice(0,6).map((e,i)=><code key={`${item.code}-${i}`}><span>{e.label}</span>{typeof e.value==='object'?JSON.stringify(e.value):String(e.value)}</code>)}</div></details>}
       </article>):<article className="executivePriority info"><h4>Nenhuma prioridade crítica agora.</h4><p>A Maya continua monitorando mudanças entre as áreas conectadas.</p></article>}
