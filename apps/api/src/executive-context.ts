@@ -10,6 +10,7 @@ import {buildCaseBasedExecutiveIntelligence} from './case-based-executive-intell
 import {buildExecutiveRecommendationStack} from './executive-recommendation-stack.js';
 import {buildExecutiveDecisionFollowup} from './executive-decision-followup.js';
 import {buildDecisionEffectiveness} from './decision-effectiveness.js';
+import {buildExecutiveReview} from './executive-review.js';
 
 export type ExecutivePriorityLevel='info'|'attention'|'critical';
 
@@ -194,6 +195,7 @@ export interface ExecutiveContext {
       interpretation:string;
     }>;
   };
+  executiveReview:ReturnType<typeof buildExecutiveReview>;
   evidencePolicy:{
     causalClaimsRequireEvidence:true;
     correlationsAreHypotheses:true;
@@ -570,6 +572,16 @@ export async function buildExecutiveContext(workspaceId:string,workspaceName:str
         interpretation:String(item.interpretation||'')
       })):[]
     },
+    executiveReview:buildExecutiveReview({
+      priorities:selected,
+      businessKnowledgePct:snapshot?.knowledge_pct===null||snapshot?.knowledge_pct===undefined?null:Number(snapshot.knowledge_pct),
+      sourceCount:graph.coverage.sources.length,
+      crossSystemInsights:n((crossSystem as any)?.summary?.insights),
+      recommendationStack,
+      decisionFollowup,
+      decisionEffectiveness,
+      decisionLearning:decisionPatterns
+    }),
     evidencePolicy:{
       causalClaimsRequireEvidence:true,
       correlationsAreHypotheses:true,
