@@ -135,6 +135,23 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
     return{review:rows[0]||null,safety:{readOnly:true,externalEffects:false}};
   });
 
+  app.get('/v1/executive-briefing/history',async req=>{
+    const ctx=await workspaceContext(req,'command.read');
+    const q=z.object({
+      before:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      limit:z.coerce.number().int().min(1).max(30).default(7)
+    }).parse(req.query||{});
+    const rows=await query<any>(
+      `select review_date::text,briefing_hash,reviewed_at,metadata
+       from executive_briefing_reviews
+       where workspace_id=$1 and user_id=$2 and review_date<$3::date
+       order by review_date desc,reviewed_at desc
+       limit $4`,
+      [ctx.workspaceId,ctx.user.id,q.before,q.limit]
+    );
+    return{reviews:rows,safety:{readOnly:true,externalEffects:false}};
+  });
+
   app.post('/v1/executive-briefing/review',async req=>{
     const ctx=await workspaceContext(req,'command.decide');
     const input=z.object({
@@ -164,7 +181,7 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
        values($1,$2,$3::date,$4,$5::jsonb)
        on conflict(workspace_id,user_id,review_date)
        do update set briefing_hash=excluded.briefing_hash,reviewed_at=now(),updated_at=now(),metadata=excluded.metadata
-       returning review_date::text,briefing_hash,reviewed_at`,
+       returning review_date::text,briefing_hash,reviewed_at,metadata`,
       [ctx.workspaceId,ctx.user.id,input.date,input.briefingHash,JSON.stringify({
         source:'maya.executive_briefing',
         humanReviewed:true,
