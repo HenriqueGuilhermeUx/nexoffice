@@ -1,4 +1,4 @@
-import {createHmac,timingSafeEqual} from 'node:crypto';
+import {createHmac,randomBytes} from 'node:crypto';
 import {deniedPjBalance,validateWalletPjProjection,type PjBalanceProjection} from './nexa-pj-wallet-balance-bridge.js';
 
 /**
@@ -16,7 +16,7 @@ export async function fetchNexaCorporateWalletBalance(
  !/^[0-9a-f-]{36}$/i.test(context.workspaceId)||
  !/^[0-9a-f-]{36}$/i.test(context.representativeUserId))return deniedPjBalance();
  const timestamp=String(now);
- const nonce=createHmac('sha256',config.sharedSecret).update(context.workspaceId+':'+context.representativeUserId+':'+timestamp).digest('hex');
+ const nonce=randomBytes(16).toString('hex');
  const message=[context.workspaceId,context.representativeUserId,timestamp,nonce].join('\n');
  const signature=createHmac('sha256',config.sharedSecret).update(message).digest('hex');
  const abort=new AbortController();
