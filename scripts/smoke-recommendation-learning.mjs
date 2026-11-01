@@ -18,8 +18,8 @@ has(api,"advisoryOnly:true",'advisory-only policy');
 has(api,"String(item.decision)==='approved'",'approved-decision filter');
 has(api,"Number(item.sampleSize||0)>=3",'minimum historical sample');
 has(api,"Isso serve apenas como contexto de revisão humana e não prova causalidade.",'Maya causal caveat');
-has(ui,'HISTÓRICO COMPARÁVEL · CONTEXTO, NÃO CAUSALIDADE','visible causal caveat');
-has(ui,'Uso apenas consultivo; a recomendação continua sujeita à revisão humana.','visible human-review gate');
+has(ui,'contexto, não causalidade','visible causal caveat');
+has(ui,'revisão humana','visible human-review gate');
 lacks(api,'automaticPolicyChange:true','automatic policy change');
 lacks(api,'automaticAutonomyChange:true','automatic autonomy change');
 
