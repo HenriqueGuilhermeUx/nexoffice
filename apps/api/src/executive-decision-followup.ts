@@ -29,18 +29,17 @@ const actionPrefixes:Record<string,string[]>={
   protect_key_accounts:['customer.','deal.'],
   diversify_pipeline:['deal.']
 };
-const eventRelevant=(event:any,decision:any)=>{
+const eventMatchBasis=(event:any,decision:any):'action_family'|'evidence_contact'|null=>{
   const payload=obj(event.payload);
   const family=String(decision.suggested_action_family||'');
   const prefixes=actionPrefixes[family]||[];
   const type=String(event.type||'');
-  if(prefixes.some(prefix=>type.startsWith(prefix)))return true;
+  if(prefixes.some(prefix=>type.startsWith(prefix)))return 'action_family';
   const evidence=Array.isArray(decision.evidence_snapshot)?decision.evidence_snapshot:obj(decision.evidence_snapshot);
-  const comparable=Array.isArray(decision.comparable_cases_snapshot)?decision.comparable_cases_snapshot:obj(decision.comparable_cases_snapshot);
-  const text=JSON.stringify([evidence,comparable]);
+  const evidenceText=JSON.stringify(evidence);
   const contactId=String(payload.contactId||'');
-  if(contactId&&text.includes(contactId))return true;
-  return false;
+  if(contactId&&evidenceText.includes(contactId))return 'evidence_contact';
+  return null;
 };
 
 export async function buildExecutiveDecisionFollowup(workspaceId:string,windowDays=90){
@@ -68,11 +67,11 @@ export async function buildExecutiveDecisionFollowup(workspaceId:string,windowDa
   const followups=decisions.map((decision:any)=>{
     const chosenAt=new Date(decision.chosen_at).getTime();
     const observed=events
-      .filter((event:any)=>{
-        const at=new Date(event.occurred_at).getTime();
-        return at>chosenAt&&at<=chosenAt+90*MS_DAY&&eventRelevant(event,decision);
-      })
       .map((event:any)=>{
+        const at=new Date(event.occurred_at).getTime();
+        if(!(at>chosenAt&&at<=chosenAt+90*MS_DAY))return null;
+        const matchBasis=eventMatchBasis(event,decision);
+        if(!matchBasis)return null;
         const mapped=mapOutcomeEvent(event);
         if(!mapped)return null;
         const observedAt=iso(event.occurred_at);
@@ -86,6 +85,7 @@ export async function buildExecutiveDecisionFollowup(workspaceId:string,windowDa
           label:mapped.label,
           polarity:mapped.polarity,
           detail:mapped.detail,
+          matchBasis,
           subjectType:event.subject_type?String(event.subject_type):null,
           subjectId:event.subject_id?String(event.subject_id):null
         };
@@ -147,6 +147,8 @@ export async function buildExecutiveDecisionFollowup(workspaceId:string,windowDa
       observationWindowDays:90,
       source:'business_events',
       relevanceUsesSuggestedActionFamilyAndRecordedEvidence:true,
+      comparableCasesUsedForEventLinking:false,
+      eventMatchBasisExposed:true,
       temporalAssociationOnly:true,
       noCounterfactualInference:true,
       causalClaims:false
@@ -168,7 +170,7 @@ function empty(windowDays:number){
     windowDays,
     followups:[],
     summary:{decisionsTracked:0,withObservedEvents:0,monitoring:0,windowsComplete:0,positiveObservations:0,negativeObservations:0,neutralObservations:0},
-    methodology:{observationWindowDays:90,source:'business_events',relevanceUsesSuggestedActionFamilyAndRecordedEvidence:true,temporalAssociationOnly:true,noCounterfactualInference:true,causalClaims:false},
+    methodology:{observationWindowDays:90,source:'business_events',relevanceUsesSuggestedActionFamilyAndRecordedEvidence:true,comparableCasesUsedForEventLinking:false,eventMatchBasisExposed:true,temporalAssociationOnly:true,noCounterfactualInference:true,causalClaims:false},
     safety:{readOnly:true,externalEffects:false,automaticExecution:false,automaticPolicyChange:false,automaticAutonomyChange:false,automaticDecisionChange:false}
   };
 }
