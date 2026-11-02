@@ -7,4 +7,3 @@ dist/
 .vscode/
 coverage/
 *.log
-.netlify
