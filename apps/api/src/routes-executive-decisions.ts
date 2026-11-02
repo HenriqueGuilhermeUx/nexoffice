@@ -1,6 +1,6 @@
 import type {FastifyInstance} from 'fastify';
 import {z} from 'zod';
-import {workspaceContext} from './auth.js';
+import {ApiError,workspaceContext} from './auth.js';
 import {query} from './db.js';
 import {auditLog} from './events.js';
 import {buildExecutiveDecisionFollowup} from './executive-decision-followup.js';
@@ -280,18 +280,18 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
        where p.workspace_id=$1 and p.decision_id=$2 limit 1`,
       [ctx.workspaceId,id]
     ))[0];
-    if(!before)return app.httpErrors.notFound('Plano de decisão não encontrado.');
+    if(!before)throw new ApiError(404,'decision_plan_not_found','Plano de decisão não encontrado.');
     const steps=Array.isArray(before.steps)?before.steps.map((step:any)=>({...step})): [];
     const checkpoints=Array.isArray(before.checkpoints)?before.checkpoints.map((check:any)=>({...check})): [];
     if(input.stepPosition!==undefined){
       const step=steps.find((item:any)=>Number(item.position)===input.stepPosition);
-      if(!step)return app.httpErrors.badRequest('Passo do plano não encontrado.');
+      if(!step)throw new ApiError(400,'decision_plan_step_not_found','Passo do plano não encontrado.');
       step.completed=input.completed;
       step.completedAt=input.completed?new Date().toISOString():null;
     }
     if(input.checkpointCode!==undefined){
       const checkpoint=checkpoints.find((item:any)=>String(item.code)===input.checkpointCode);
-      if(!checkpoint)return app.httpErrors.badRequest('Checkpoint do plano não encontrado.');
+      if(!checkpoint)throw new ApiError(400,'decision_plan_checkpoint_not_found','Checkpoint do plano não encontrado.');
       checkpoint.completed=input.completed;
       checkpoint.completedAt=input.completed?new Date().toISOString():null;
     }
