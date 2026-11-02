@@ -66,6 +66,17 @@ type ExecutiveContext={
   };
   evidencePolicy:{causalClaimsRequireEvidence:boolean;correlationsAreHypotheses:boolean;externalEffects:false;readOnly:true};
 };
+type DecisionPlan={
+  id:string;
+  decision_id:string;
+  status:'draft'|'archived';
+  objective:string;
+  steps:Array<{position:number;title:string;detail:string;mode:string;requiresHumanAction:boolean;externalEffect:false}>;
+  checkpoints:Array<{code:string;label:string;required:boolean}>;
+  followup_days:number;
+  metadata:{draftOnly?:boolean;humanReviewRequired?:boolean;externalEffects?:boolean;automaticExecution?:boolean};
+};
+
 type SourceRegistry={
   native:Array<{source:string;kind:string;records:number;connected:boolean}>;
   integrations:Array<{provider:string;status:string;capabilities:string[]}>;
@@ -92,6 +103,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
+  const [decisionPlans,setDecisionPlans]=useState<Record<string,DecisionPlan>>({});
   const [deepOpen,setDeepOpen]=useState(false);
   const [briefingReview,setBriefingReview]=useState<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}|null>(null);
   const [reviewHistory,setReviewHistory]=useState<Array<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}>>([]);
@@ -122,7 +134,7 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     if(!rationale||rationale.trim().length<8)return;
     setDecisionStatus(current=>({...current,[path.id]:'Salvando…'}));
     try{
-      await api('/v1/executive-decisions',{
+      const result=await api<{decision:{id:string};plan:DecisionPlan;next:{message:string}}>('/v1/executive-decisions',{
         method:'POST',
         body:JSON.stringify({
           priority:item.priority,
@@ -140,7 +152,8 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
           rationale:rationale.trim()
         })
       });
-      setDecisionStatus(current=>({...current,[path.id]:'Decisão registrada · nenhuma ação executada'}));
+      if(result.plan)setDecisionPlans(current=>({...current,[path.id]:result.plan}));
+      setDecisionStatus(current=>({...current,[path.id]:result.next?.message||'Decisão registrada · plano em rascunho preparado'}));
     }catch(e:any){
       setDecisionStatus(current=>({...current,[path.id]:e?.message||'Não foi possível registrar a decisão'}));
     }
@@ -359,6 +372,18 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
           <footer><span>{path.suggestedActionFamily||'revisão'}</span><b>Escolha humana obrigatória</b></footer>
           <button className="executiveDecisionButton" onClick={()=>void recordDecision(item,path)}>Registrar esta decisão</button>
           {decisionStatus[path.id]&&<small className="executiveDecisionStatus">{decisionStatus[path.id]}</small>}
+          {decisionPlans[path.id]&&<div className="executiveDecisionPlan">
+            <div className="executiveDecisionPlanHead">
+              <div><span>PLANO EM RASCUNHO</span><b>{decisionPlans[path.id].objective}</b></div>
+              <em>follow-up · {decisionPlans[path.id].followup_days} dia(s)</em>
+            </div>
+            <div className="executiveDecisionPlanSteps">{decisionPlans[path.id].steps.map(step=><div key={step.position}>
+              <span>{String(step.position).padStart(2,'0')}</span>
+              <div><b>{step.title}</b><p>{step.detail}</p></div>
+            </div>)}</div>
+            <div className="executiveDecisionPlanChecks">{decisionPlans[path.id].checkpoints.map(check=><span key={check.code}>✓ {check.label}</span>)}</div>
+            <small>Nenhuma tarefa, mensagem, cobrança ou ação externa foi criada. O plano é apenas um rascunho executivo governado.</small>
+          </div>}
         </article>)}</div>
       </section>)}
     </div>}
