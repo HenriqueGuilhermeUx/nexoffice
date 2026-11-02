@@ -11,7 +11,7 @@ export type BusinessActionDefinition={
 };
 
 export const BUSINESS_ACTIONS:BusinessActionDefinition[]=[
-  {id:'task.followup.create',label:'Criar follow-up',domain:'crm',permission:'crm.write',risk:'low',externalEffect:false,humanApprovalRequired:false,executableByAi:true,description:'Cria uma tarefa interna ligada ao cliente.'},
+  {id:'task.followup.create',label:'Criar follow-up',domain:'crm',permission:'crm.write',risk:'low',externalEffect:false,humanApprovalRequired:false,executableByAi:true,description:'Cria uma tarefa interna, com vínculo opcional a um cliente.'},
   {id:'reconciliation.confirm',label:'Confirmar conciliação',domain:'finance',permission:'finance.write',risk:'medium',externalEffect:false,humanApprovalRequired:true,executableByAi:false,description:'Vincula uma movimentação bancária importada a um lançamento e marca o lançamento como pago.'},
   {id:'inventory.adjust',label:'Ajustar estoque',domain:'inventory',permission:'inventory.write',risk:'medium',externalEffect:false,humanApprovalRequired:true,executableByAi:false,description:'Registra ajuste rastreável de entrada ou saída de estoque.'},
   {id:'purchasing.plan',label:'Planejar compra',domain:'purchasing',permission:'purchasing.write',risk:'low',externalEffect:false,humanApprovalRequired:false,executableByAi:true,description:'Cria um rascunho interno de compra; não envia pedido ao fornecedor.'},
