@@ -7,7 +7,7 @@ import {verticalPack} from './vertical-packs.js';
 import {DisabledOpenFinanceConnector} from './nexa-pj-finance-connector.js';
 import {fetchNexaCorporateWalletBalance} from './nexa-pj-wallet-transport.js';
 
-const Source=z.enum(['nexjud','sindcopilot','mydatamed','health-wallet','smartbots','modo','docwallet','nextgen','taxagent','connexio','mindcompliance','mindsteps','f-insight','ecotracker','nexa','staff']);
+const Source=z.enum(['nexjud','sindcopilot','mydatamed','health-wallet','smartbots','modo','docwallet','nextgen','taxagent','connexio','mindcompliance','mindsteps','f-insight','ecotracker','nexa','nexa-pj','staff']);
 const Vertical=z.enum(['general','legal','health','condo','commerce']);
 const MemberRole=z.enum(['owner','admin','member','viewer']);
 const AccessInput=z.object({sourceProduct:Source,externalWorkspaceRef:z.string().trim().min(1).max(220),externalUserSubject:z.string().trim().min(1).max(220),email:z.string().email()});
