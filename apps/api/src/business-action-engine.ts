@@ -22,10 +22,12 @@ export async function executeLowRiskBusinessAction(ctx:BusinessActionContext,act
   if(!definition.executableByAi)throw new ApiError(409,'business_action_not_ai_executable','Esta ação não pode ser executada pelo motor interno.');
 
   if(actionId==='task.followup.create'){
-    const payload=z.object({contactId:uuid,title:z.string().trim().min(2).max(180),description:z.string().trim().max(1000).optional().nullable(),priority:z.enum(['low','normal','high','critical']).default('normal'),dueAt:z.string().datetime().optional().nullable()}).parse(payloadInput||{});
-    const contact=(await query<any>(`select id from crm_contacts where id=$1 and workspace_id=$2`,[payload.contactId,ctx.workspaceId]))[0];
-    if(!contact)throw new ApiError(404,'contact_not_found','Cliente não encontrado.');
-    const row=(await query<any>(`insert into tasks(workspace_id,contact_id,title,description,priority,due_at,metadata) values($1,$2,$3,$4,$5,$6,$7) returning *`,[ctx.workspaceId,payload.contactId,payload.title,payload.description||null,payload.priority,payload.dueAt||null,JSON.stringify({source:'business_action_engine',action:actionId})]))[0];
+    const payload=z.object({contactId:uuid.optional().nullable(),title:z.string().trim().min(2).max(180),description:z.string().trim().max(1000).optional().nullable(),priority:z.enum(['low','normal','high','critical']).default('normal'),dueAt:z.string().datetime().optional().nullable(),metadata:z.record(z.string(),z.unknown()).default({})}).parse(payloadInput||{});
+    if(payload.contactId){
+      const contact=(await query<any>(`select id from crm_contacts where id=$1 and workspace_id=$2`,[payload.contactId,ctx.workspaceId]))[0];
+      if(!contact)throw new ApiError(404,'contact_not_found','Cliente não encontrado.');
+    }
+    const row=(await query<any>(`insert into tasks(workspace_id,contact_id,title,description,priority,due_at,metadata) values($1,$2,$3,$4,$5,$6,$7) returning *`,[ctx.workspaceId,payload.contactId||null,payload.title,payload.description||null,payload.priority,payload.dueAt||null,JSON.stringify({source:'business_action_engine',action:actionId,...payload.metadata})]))[0];
     await auditLog(ctx as any,'business_action.executed','task',row.id,null,{action:actionId,externalEffect:false});
     return{definition,result:row,externalEffect:false,completed:true};
   }
