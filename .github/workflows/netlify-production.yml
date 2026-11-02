@@ -1,0 +1,47 @@
+name: Deploy NexOffices to Netlify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexoffices-netlify-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NETLIFY_SITE_ID: c07d2845-25d4-4d5f-be5d-1eb86415cdd6
+      VITE_API_URL: https://api.nexoffices.com.br
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Verify Netlify credential
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          test -n "${NETLIFY_AUTH_TOKEN:-}" || { echo "NETLIFY_AUTH_TOKEN is missing."; exit 2; }
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build -w @nexoffice/web
+
+      - name: Deploy production to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          npx -y netlify-cli@latest deploy --prod             --dir=apps/web/dist             --site="$NETLIFY_SITE_ID"             --auth="$NETLIFY_AUTH_TOKEN"             --message="NexOffices production ${GITHUB_SHA}"
