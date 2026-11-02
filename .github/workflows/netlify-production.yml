@@ -28,19 +28,29 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Verify Netlify credential
+      - name: Check Netlify credential
+        id: netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
-          test -n "${NETLIFY_AUTH_TOKEN:-}" || { echo "NETLIFY_AUTH_TOKEN is missing."; exit 2; }
+          if [ -n "${NETLIFY_AUTH_TOKEN:-}" ]; then
+            echo "armed=true" >> "$GITHUB_OUTPUT"
+            echo "Netlify deploy is armed."
+          else
+            echo "armed=false" >> "$GITHUB_OUTPUT"
+            echo "NETLIFY_AUTH_TOKEN is not configured for this repository; deploy skipped."
+          fi
 
       - name: Install dependencies
+        if: ${{ steps.netlify.outputs.armed == 'true' }}
         run: npm install
 
       - name: Build frontend
+        if: ${{ steps.netlify.outputs.armed == 'true' }}
         run: npm run build -w @nexoffice/web
 
       - name: Deploy production to Netlify
+        if: ${{ steps.netlify.outputs.armed == 'true' }}
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
