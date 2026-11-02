@@ -71,10 +71,19 @@ type DecisionPlan={
   decision_id:string;
   status:'draft'|'archived';
   objective:string;
-  steps:Array<{position:number;title:string;detail:string;mode:string;requiresHumanAction:boolean;externalEffect:false}>;
-  checkpoints:Array<{code:string;label:string;required:boolean}>;
+  steps:Array<{position:number;title:string;detail:string;mode:string;completed?:boolean;completedAt?:string|null;requiresHumanAction:boolean;externalEffect:false}>;
+  checkpoints:Array<{code:string;label:string;required:boolean;completed?:boolean;completedAt?:string|null}>;
   followup_days:number;
   metadata:{draftOnly?:boolean;humanReviewRequired?:boolean;externalEffects?:boolean;automaticExecution?:boolean};
+};
+
+type ActiveDecisionPlan={
+  decisionId:string;
+  pathId:string;
+  priorityTitle:string;
+  selectedLabel:string;
+  chosenAt:string;
+  plan:DecisionPlan;
 };
 
 type SourceRegistry={
@@ -104,6 +113,8 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
   const [error,setError]=useState('');
   const [decisionStatus,setDecisionStatus]=useState<Record<string,string>>({});
   const [decisionPlans,setDecisionPlans]=useState<Record<string,DecisionPlan>>({});
+  const [activePlans,setActivePlans]=useState<ActiveDecisionPlan[]>([]);
+  const [planStatus,setPlanStatus]=useState<Record<string,string>>({});
   const [deepOpen,setDeepOpen]=useState(false);
   const [briefingReview,setBriefingReview]=useState<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}|null>(null);
   const [reviewHistory,setReviewHistory]=useState<Array<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}>>([]);
@@ -115,13 +126,32 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
     if(!workspaceId)return;
     setLoading(true);setError('');
     try{
-      const [ctx,registry,reviewState,historyState]=await Promise.all([
+      const [ctx,registry,reviewState,historyState,decisionState]=await Promise.all([
         api<ExecutiveContext>('/v1/assistant/executive-context'),
         api<SourceRegistry>('/v1/business-graph/sources'),
         api<{review:{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}|null}>(`/v1/executive-briefing/review?date=${reviewDate}`).catch(()=>({review:null})),
-        api<{reviews:Array<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}>}>(`/v1/executive-briefing/history?before=${reviewDate}&limit=7`).catch(()=>({reviews:[]}))
+        api<{reviews:Array<{review_date:string;briefing_hash:string;reviewed_at:string;metadata?:{snapshot?:any}}>}>(`/v1/executive-briefing/history?before=${reviewDate}&limit=7`).catch(()=>({reviews:[]})),
+        api<{decisions:Array<any>}>('/v1/executive-decisions').catch(()=>({decisions:[]}))
       ]);
-      setContext(ctx);setSources(registry);setBriefingReview(reviewState.review||null);setReviewHistory(historyState.reviews||[]);
+      const plans=(decisionState.decisions||[]).filter((row:any)=>row.plan_id&&row.plan_status==='draft').map((row:any)=>({
+        decisionId:String(row.id),
+        pathId:String(row.selected_path_id),
+        priorityTitle:String(row.priority_title),
+        selectedLabel:String(row.selected_label),
+        chosenAt:String(row.chosen_at),
+        plan:{
+          id:String(row.plan_id),
+          decision_id:String(row.id),
+          status:row.plan_status,
+          objective:String(row.plan_objective||''),
+          steps:Array.isArray(row.plan_steps)?row.plan_steps:[],
+          checkpoints:Array.isArray(row.plan_checkpoints)?row.plan_checkpoints:[],
+          followup_days:Number(row.plan_followup_days||7),
+          metadata:{draftOnly:true,humanReviewRequired:true,externalEffects:false,automaticExecution:false}
+        } as DecisionPlan
+      }));
+      setContext(ctx);setSources(registry);setBriefingReview(reviewState.review||null);setReviewHistory(historyState.reviews||[]);setActivePlans(plans);
+      setDecisionPlans(Object.fromEntries(plans.map((item:ActiveDecisionPlan)=>[item.pathId,item.plan])));
     }catch(e:any){
       setError(e?.message||'Não foi possível montar a visão executiva.');
     }finally{setLoading(false)}
@@ -152,11 +182,45 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
           rationale:rationale.trim()
         })
       });
-      if(result.plan)setDecisionPlans(current=>({...current,[path.id]:result.plan}));
+      if(result.plan){
+        setDecisionPlans(current=>({...current,[path.id]:result.plan}));
+        setActivePlans(current=>[{decisionId:result.decision.id,pathId:path.id,priorityTitle:item.priority.title,selectedLabel:path.label,chosenAt:new Date().toISOString(),plan:result.plan},...current.filter(plan=>plan.decisionId!==result.decision.id)]);
+      }
       setDecisionStatus(current=>({...current,[path.id]:result.next?.message||'Decisão registrada · plano em rascunho preparado'}));
     }catch(e:any){
       setDecisionStatus(current=>({...current,[path.id]:e?.message||'Não foi possível registrar a decisão'}));
     }
+  },[]);
+
+  const updatePlan=useCallback(async(item:ActiveDecisionPlan,patch:{stepPosition?:number;checkpointCode?:string;completed?:boolean;status?:'draft'|'archived'})=>{
+    setPlanStatus(current=>({...current,[item.decisionId]:'Salvando…'}));
+    try{
+      const result=await api<{plan:DecisionPlan}>(`/v1/executive-decisions/${item.decisionId}/plan`,{method:'PATCH',body:JSON.stringify(patch)});
+      setActivePlans(current=>patch.status==='archived'?current.filter(plan=>plan.decisionId!==item.decisionId):current.map(plan=>plan.decisionId===item.decisionId?{...plan,plan:result.plan}:plan));
+      setDecisionPlans(current=>({...current,[item.pathId]:result.plan}));
+      setPlanStatus(current=>({...current,[item.decisionId]:patch.status==='archived'?'Plano arquivado':'Progresso salvo'}));
+    }catch(e:any){setPlanStatus(current=>({...current,[item.decisionId]:e?.message||'Não foi possível atualizar o plano'}))}
+  },[]);
+
+  const createPlanFollowup=useCallback(async(item:ActiveDecisionPlan)=>{
+    setPlanStatus(current=>({...current,[item.decisionId]:'Criando follow-up…'}));
+    try{
+      const due=new Date(Date.now()+item.plan.followup_days*86400000).toISOString();
+      await api('/v1/business-actions/execute',{
+        method:'POST',
+        body:JSON.stringify({
+          action:'task.followup.create',
+          payload:{
+            title:`Follow-up executivo · ${item.priorityTitle}`,
+            description:`Acompanhar a decisão “${item.selectedLabel}”. Plano Maya ${item.plan.id}. Nenhuma ação externa foi autorizada por esta tarefa.`,
+            priority:'high',
+            dueAt:due,
+            metadata:{source:'maya.executive_decision_plan',decisionId:item.decisionId,planId:item.plan.id,externalEffect:false}
+          }
+        })
+      });
+      setPlanStatus(current=>({...current,[item.decisionId]:`Follow-up criado na Agenda para ${new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit'}).format(new Date(due))}`}));
+    }catch(e:any){setPlanStatus(current=>({...current,[item.decisionId]:e?.message||'Não foi possível criar o follow-up'}))}
   },[]);
 
   if(loading&&!context)return <section className="executiveContextPanel"><div className="executiveContextLoading">Maya está cruzando o contexto do negócio…</div></section>;
@@ -343,6 +407,30 @@ export default function ExecutiveContextPanel({workspaceId}:{workspaceId:string}
         <div>{context.executiveReview.openQuestions.map((item,index)=><p key={'board|question|'+index}>{item}</p>)}</div>
       </details>
       <footer><span>Somente leitura</span><span>Hipótese ≠ causalidade</span><span>Decisão humana</span><span>Sem efeito externo</span></footer>
+    </div>}
+
+    {activePlans.length>0&&<div className="executiveActivePlans">
+      <div className="executiveDecisionPatternsHead">
+        <div><p className="eyebrow">MAYA · PLANOS ATIVOS</p><h4>Decisões que já viraram plano de execução</h4><p>Progresso interno e auditável. Criar follow-up exige clique humano; nenhum passo dispara efeito externo automaticamente.</p></div>
+        <span>{activePlans.length} plano(s)</span>
+      </div>
+      <div className="executiveActivePlanGrid">{activePlans.slice(0,6).map(item=>{
+        const completedSteps=item.plan.steps.filter(step=>Boolean(step.completed)).length;
+        const completedChecks=item.plan.checkpoints.filter(check=>Boolean(check.completed)).length;
+        return <article key={item.decisionId}>
+          <header><div><span>{item.selectedLabel}</span><b>{item.priorityTitle}</b></div><em>{completedSteps}/{item.plan.steps.length} passos</em></header>
+          <p>{item.plan.objective}</p>
+          <div className="executiveActivePlanSteps">{item.plan.steps.map(step=><button className={step.completed?'done':''} key={step.position} onClick={()=>void updatePlan(item,{stepPosition:step.position,completed:!step.completed})}>
+            <span>{step.completed?'✓':String(step.position).padStart(2,'0')}</span><div><b>{step.title}</b><small>{step.completed?'Concluído':'Marcar como concluído'}</small></div>
+          </button>)}</div>
+          <div className="executiveActivePlanChecks">{item.plan.checkpoints.map(check=><button className={check.completed?'done':''} key={check.code} onClick={()=>void updatePlan(item,{checkpointCode:check.code,completed:!check.completed})}>{check.completed?'✓':'○'} {check.label}</button>)}</div>
+          <footer>
+            <span>{completedChecks}/{item.plan.checkpoints.length} checkpoints</span>
+            <div><button onClick={()=>void createPlanFollowup(item)}>Criar follow-up interno</button><button onClick={()=>void updatePlan(item,{status:'archived'})}>Arquivar</button></div>
+          </footer>
+          {planStatus[item.decisionId]&&<small className="executiveDecisionStatus">{planStatus[item.decisionId]}</small>}
+        </article>
+      })}</div>
     </div>}
 
     <div className="executivePriorityGrid" id="maya-priorities">
