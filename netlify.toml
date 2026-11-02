@@ -1,3 +1,4 @@
+# NexOffices production frontend
 [build]
   command = "npm install && npm run build -w @nexoffice/web"
   publish = "apps/web/dist"
