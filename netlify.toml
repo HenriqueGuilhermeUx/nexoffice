@@ -1,0 +1,14 @@
+[build]
+  command = "npm install && npm run build -w @nexoffice/web"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[context.production]
+  command = "npm install && npm run build -w @nexoffice/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
