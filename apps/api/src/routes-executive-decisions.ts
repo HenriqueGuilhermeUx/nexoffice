@@ -86,6 +86,7 @@ function buildDecisionPlan(decision:any){
       title:'Confirmar objetivo e critério de sucesso',
       detail:`Traduzir a decisão “${decision.selected_label}” em um resultado observável e definir quem acompanha.`,
       mode:'draft_only',
+      completed:false,
       requiresHumanAction:true,
       externalEffect:false
     },
@@ -102,6 +103,7 @@ function buildDecisionPlan(decision:any){
       title:'Checar riscos e trade-offs antes de agir',
       detail:'Revisar os riscos registrados na decisão, limites operacionais e evidências que ainda podem mudar a escolha.',
       mode:'human_review',
+      completed:false,
       requiresHumanAction:true,
       externalEffect:false
     },
@@ -110,15 +112,16 @@ function buildDecisionPlan(decision:any){
       title:'Acompanhar sinais posteriores',
       detail:`Revisar o contexto após ${followupDays} dia(s) e registrar apenas resultados observados, sem inferir causalidade automaticamente.`,
       mode:'followup',
+      completed:false,
       requiresHumanAction:true,
       externalEffect:false
     }
   ];
   const checkpoints=[
-    {code:'owner_defined',label:'Responsável definido',required:true},
-    {code:'success_criterion_defined',label:'Critério de sucesso definido',required:true},
-    {code:'risk_reviewed',label:'Riscos revisados',required:true},
-    {code:'external_effects_confirmed',label:'Qualquer efeito externo exige ação humana separada',required:true}
+    {code:'owner_defined',label:'Responsável definido',required:true,completed:false},
+    {code:'success_criterion_defined',label:'Critério de sucesso definido',required:true,completed:false},
+    {code:'risk_reviewed',label:'Riscos revisados',required:true,completed:false},
+    {code:'external_effects_confirmed',label:'Qualquer efeito externo exige ação humana separada',required:true,completed:false}
   ];
   return{
     objective:`Executar com governança a decisão “${decision.selected_label}” para a prioridade “${decision.priority_title}”.`,
@@ -258,6 +261,56 @@ export async function registerExecutiveDecisionWorkspaceRoutes(app:FastifyInstan
       plan:rows[0]||null,
       safety:{draftOnly:true,externalEffects:false,automaticExecution:false,commandActionCreated:false}
     };
+  });
+
+  app.patch('/v1/executive-decisions/:id/plan',async req=>{
+    const ctx=await workspaceContext(req,'command.decide');
+    const id=z.string().uuid().parse((req.params as any).id);
+    const input=z.object({
+      stepPosition:z.number().int().min(1).max(20).optional(),
+      checkpointCode:z.string().min(1).max(120).optional(),
+      completed:z.boolean().optional(),
+      status:z.enum(['draft','archived']).optional()
+    }).refine(value=>value.status!==undefined||((value.stepPosition!==undefined||value.checkpointCode!==undefined)&&value.completed!==undefined),{
+      message:'Informe status ou item + completed.'
+    }).parse(req.body||{});
+    const before=(await query<any>(
+      `select p.* from executive_decision_plans p
+       join executive_decisions d on d.id=p.decision_id and d.workspace_id=p.workspace_id
+       where p.workspace_id=$1 and p.decision_id=$2 limit 1`,
+      [ctx.workspaceId,id]
+    ))[0];
+    if(!before)return app.httpErrors.notFound('Plano de decisão não encontrado.');
+    const steps=Array.isArray(before.steps)?before.steps.map((step:any)=>({...step})): [];
+    const checkpoints=Array.isArray(before.checkpoints)?before.checkpoints.map((check:any)=>({...check})): [];
+    if(input.stepPosition!==undefined){
+      const step=steps.find((item:any)=>Number(item.position)===input.stepPosition);
+      if(!step)return app.httpErrors.badRequest('Passo do plano não encontrado.');
+      step.completed=input.completed;
+      step.completedAt=input.completed?new Date().toISOString():null;
+    }
+    if(input.checkpointCode!==undefined){
+      const checkpoint=checkpoints.find((item:any)=>String(item.code)===input.checkpointCode);
+      if(!checkpoint)return app.httpErrors.badRequest('Checkpoint do plano não encontrado.');
+      checkpoint.completed=input.completed;
+      checkpoint.completedAt=input.completed?new Date().toISOString():null;
+    }
+    const rows=await query<any>(
+      `update executive_decision_plans
+       set steps=$3::jsonb,checkpoints=$4::jsonb,status=coalesce($5,status),updated_at=now()
+       where workspace_id=$1 and decision_id=$2
+       returning *`,
+      [ctx.workspaceId,id,JSON.stringify(steps),JSON.stringify(checkpoints),input.status||null]
+    );
+    await auditLog(ctx,'executive.decision_plan_updated','executive_decision_plan',String(rows[0].id),before,rows[0],{
+      decisionId:id,
+      stepPosition:input.stepPosition||null,
+      checkpointCode:input.checkpointCode||null,
+      completed:input.completed??null,
+      status:input.status||null,
+      externalEffects:false
+    });
+    return{plan:rows[0],safety:{externalEffects:false,automaticExecution:false}};
   });
 
   app.get('/v1/executive-briefing/review',async req=>{
