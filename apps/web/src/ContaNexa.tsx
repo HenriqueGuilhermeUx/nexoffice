@@ -186,11 +186,11 @@ export default function ContaNexa({
     </div>
     <section className="pj-wallet-launch" aria-label="Acesso à Wallet Nexa para empresas">
       <div>
-        <small className="eyebrow">WALLET NEXA + NEXOFFICES</small>
-        <h3>Gestão empresarial aqui. Wallet Nexa no portal seguro.</h3>
-        <p>Use CRM, cobranças, operações, documentos e financeiro neste painel. Para acessar os recursos já disponíveis da Nexa Wallet, entre no portal financeiro com a autenticação própria da Nexa. A associação de uma carteira à empresa e a exibição de saldos nesta tela ainda exigem validação PJ.</p>
+        <small className="eyebrow">CONTA NEXA PJ · GESTÃO E FINANÇAS</small>
+        <h3>Sua empresa, suas finanças e suas ferramentas em um só lugar.</h3>
+        <p>Use CRM, cobranças, operações, documentos e financeiro neste painel. Os recursos financeiros Nexa existentes continuam acessíveis por autenticação segura. A associação de carteira e os saldos empresariais serão apresentados aqui somente após a validação PJ.</p>
         <div className="pj-connect-actions">
-          <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Abrir portal Nexa em nova aba com login independente">Abrir Wallet / portal Nexa ↗</a>
+          <a href={NEXA_PJ_PORTAL} target="_blank" rel="noopener noreferrer" aria-label="Abrir portal Nexa em nova aba com login independente">Acessar recursos financeiros Nexa ↗</a>
           <button type="button" onClick={()=>navigateErp('finance')}>Ver financeiro ERP →</button>
           <button type="button" onClick={()=>navigateErp('documents')}>Documentos da empresa →</button>
           <button type="button" onClick={()=>navigateErp('crm')}>Clientes e CRM →</button>
