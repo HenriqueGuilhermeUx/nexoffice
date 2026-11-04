@@ -8,6 +8,9 @@ import {auditLog} from './events.js';
 export async function registerAuthRoutes(app:FastifyInstance){
   app.post('/v1/auth/register',async req=>{
     const input=z.object({name:z.string().min(2),email:z.string().email(),password:z.string().min(8),businessName:z.string().min(2).optional(),slug:z.string().regex(/^[a-z0-9-]+$/).optional(),vertical:z.enum(['general','legal','health','condo','commerce']).default('general'),inviteToken:z.string().optional()}).parse(req.body);
+    // Dedicated Nexa PJ deployments require an approved invitation; never allow public standalone workspaces.
+    if(process.env.NEXA_PJ_APPROVAL_ONLY==='true'&&!input.inviteToken)
+      throw new ApiError(403,'nexa_pj_approval_required','Abra a Nexa PJ pela conta PF aprovada; após análise da empresa, utilize o convite autorizado.');
     const email=input.email.trim().toLowerCase();
     if((await query<any>(`select id from users where lower(email)=lower($1) limit 1`,[email])).length)throw new ApiError(409,'email_exists','Este e-mail já possui conta.');
     const userId=randomUUID(),passwordHash=await hashPassword(input.password);let workspaceId='',workspaceName='';
