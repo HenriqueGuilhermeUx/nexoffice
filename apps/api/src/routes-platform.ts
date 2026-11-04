@@ -15,6 +15,19 @@ type AccessInputType=z.infer<typeof AccessInput>;
 
 function safeEqual(received:string,expected:string){if(!received||!expected)return false;const a=Buffer.from(received),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b)}
 function authorize(req:FastifyRequest){const expected=String(process.env.NEXOFFICE_INTERNAL_KEY||'').trim();if(!expected)throw new ApiError(503,'platform_bridge_not_configured','NEXOFFICE_INTERNAL_KEY não configurada.');const received=String(req.headers['x-nexoffice-key']||'');if(!safeEqual(received,expected))throw new ApiError(401,'unauthorized','Credencial interna inválida.')}
+/** Dedicated Nexa PJ backchannel is limited to provisioning and single-use handoff.
+ * Other federation, status and session endpoints keep their original platform key.
+ */
+function authorizePjProvisionOrHandoff(req:FastifyRequest){
+  const received=String(req.headers['x-nexoffice-key']||'');
+  const generic=String(process.env.NEXOFFICE_INTERNAL_KEY||'').trim();
+  if(generic&&safeEqual(received,generic))return;
+  const dedicated=String(process.env.NEXA_PJ_FEDERATION_KEY||'').trim();
+  const body=req.body as Record<string,unknown>|null;
+  if(dedicated.length>=32&&body?.sourceProduct==='nexa-pj'&&safeEqual(received,dedicated))return;
+  throw new ApiError(401,'unauthorized','Credencial de provisionamento inválida.');
+}
+
 
 async function resolvePlatformAccess(input:AccessInputType){
   const email=input.email.trim().toLowerCase();
@@ -231,7 +244,7 @@ export async function registerPlatformRoutes(app:FastifyInstance){
   app.get('/v1/platform/health',async req=>{authorize(req);return {status:'ok',service:'nexoffice-platform',capabilities:['provision','session-exchange','federated-user','browser-handoff','federated-rbac'],externalEffects:false}});
 
   app.post('/v1/platform/provision',async req=>{
-    authorize(req);
+    authorizePjProvisionOrHandoff(req);
     const input=z.object({sourceProduct:Source,externalWorkspaceRef:z.string().trim().min(1).max(220),businessName:z.string().trim().min(2).max(180),vertical:Vertical.default('general'),ownerEmail:z.string().email(),ownerName:z.string().trim().min(2).max(160).optional(),memberRole:MemberRole.default('owner'),externalUserSubject:z.string().trim().min(1).max(220).optional(),entitlements:z.array(z.string().trim().min(1).max(120)).max(50).default([])}).parse(req.body);
     const email=input.ownerEmail.trim().toLowerCase(),pack=verticalPack(input.vertical),permissions=input.memberRole==='owner'||input.memberRole==='admin'?['*']:[];let created=false,inviteToken:string|null=null,federatedUserCreated=false;
     const result=await transaction(async client=>{
@@ -284,7 +297,7 @@ export async function registerPlatformRoutes(app:FastifyInstance){
   });
 
   app.post('/v1/platform/handoff',async req=>{
-    authorize(req);
+    authorizePjProvisionOrHandoff(req);
     const input=AccessInput.parse(req.body);
     const {origin,userId}=await resolvePlatformAccess(input);
     const code=randomBytes(32).toString('base64url'),codeHash=hashOpaqueToken(code),expiresAt=new Date(Date.now()+120_000).toISOString();
