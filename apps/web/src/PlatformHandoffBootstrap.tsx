@@ -18,7 +18,9 @@ export default function PlatformHandoffBootstrap(){
     const code=params.get('handoff');
     if(!code)return;
     // Generic NexOffice handoff is not authority to open a Nexa PJ session.
-    if(platformName==='Nexa PJ'){
+    // Only the separately deployed ERP-only build may redeem verified Nexa PJ handoff codes.
+    // All other PJ previews remain fail-closed.
+    if(platformName==='Nexa PJ'&&(import.meta as any).env?.VITE_NEXA_PJ_ERP_ONLY_ENABLED!=='true'){
       setActive(true);
       setMessage('Acesso empresarial integrado ainda não habilitado. Utilize a abertura PJ para solicitar autorização.');
       return;
